@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이관우 수학연구소 | LKW math LAB</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;
+    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+  }
+  html{scroll-behavior:smooth;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg);}
+
+  /* NAV */
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 5%;}
+  .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px;}
+  .nav-logo-main{font-size:1rem;font-weight:900;color:var(--primary);}
+  .nav-logo-sub{font-size:0.62rem;color:#999;letter-spacing:1px;}
+  .nav-links{display:flex;gap:1.8rem;list-style:none;}
+  .nav-links a{text-decoration:none;color:var(--text-light);font-size:0.87rem;font-weight:500;transition:color .2s;}
+  .nav-links a:hover{color:var(--primary);}
+
+  /* HERO */
+  .hero{min-height:100vh;display:flex;align-items:center;padding:80px 5% 60px;background:linear-gradient(135deg,#F9EEF1 0%,#FFF 55%,#FDF5F0 100%);}
+  .hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
+  .hero-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.8rem;font-weight:700;padding:6px 14px;border-radius:20px;margin-bottom:20px;border:1px solid #E8C4CE;}
+  .hero h1{font-size:3rem;font-weight:900;line-height:1.25;letter-spacing:-1.5px;margin-bottom:16px;}
+  .hero h1 .point{color:var(--primary);}
+  .hero-sub{font-size:1rem;color:var(--text-light);line-height:2;margin-bottom:12px;}
+  .hero-emphasis{font-size:1rem;font-weight:800;color:var(--primary);margin-bottom:32px;}
+  .hero-btns{display:flex;gap:12px;flex-wrap:wrap;}
+  .btn-primary{background:var(--primary);color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all .2s;box-shadow:0 4px 16px rgba(139,26,53,0.28);}
+  .btn-primary:hover{background:var(--primary-mid);transform:translateY(-2px);}
+  .btn-outline{border:2px solid var(--primary);color:var(--primary);padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all .2s;}
+  .btn-outline:hover{background:var(--primary-light);}
+  .hero-card{background:#fff;border-radius:24px;padding:36px;box-shadow:0 20px 60px rgba(139,26,53,0.09);border:1px solid var(--border);}
+  .hero-card-logo{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#C94060);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:#fff;margin:0 auto 18px;box-shadow:0 8px 24px rgba(139,26,53,0.25);letter-spacing:-1px;}
+  .hero-card h3{text-align:center;font-size:1.2rem;font-weight:900;margin-bottom:4px;}
+  .hero-card p{text-align:center;color:var(--text-light);font-size:0.83rem;margin-bottom:22px;letter-spacing:0.5px;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat-item{background:var(--bg2);border-radius:12px;padding:14px;text-align:center;}
+  .stat-num{font-size:1.5rem;font-weight:900;color:var(--primary);}
+  .stat-label{font-size:0.73rem;color:var(--text-light);margin-top:2px;}
+
+  /* SECTION BASE */
+  section{padding:90px 5%;}
+  .section-inner{max-width:1100px;margin:0 auto;}
+  .section-tag{font-size:0.75rem;font-weight:700;color:var(--primary);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+  .section-divider{width:44px;height:3px;background:var(--primary);border-radius:2px;margin-bottom:18px;}
+  .section-title{font-size:2rem;font-weight:900;letter-spacing:-1px;margin-bottom:14px;line-height:1.3;}
+  .section-desc{font-size:0.95rem;color:var(--text-light);line-height:1.9;max-width:600px;}
+
+  /* WHY — 왜 수학 성적이 오르지 않을까? */
+  .why{background:var(--bg2);}
+  .why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:40px;}
+  .why-card{background:#fff;border-radius:16px;padding:26px 28px;border:1px solid var(--border);box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .why-num{font-size:0.82rem;font-weight:700;color:var(--primary);margin-bottom:8px;}
+  .why-title{font-size:1rem;font-weight:800;margin-bottom:8px;}
+  .why-desc{font-size:0.87rem;color:var(--text-light);line-height:1.7;}
+
+  /* FEATURES — 이관우 수학연구소만의 특징 */
+  .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:40px;}
+  .feat-card{display:flex;gap:18px;align-items:flex-start;background:var(--bg2);border-radius:16px;padding:24px;border:1px solid var(--border);}
+  .feat-icon{font-size:1.6rem;width:50px;height:50px;background:var(--primary-light);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .feat-title{font-weight:800;font-size:0.97rem;margin-bottom:6px;}
+  .feat-desc{font-size:0.85rem;color:var(--text-light);line-height:1.7;}
+
+  /* PROGRAM — 학습 프로그램 */
+  .program{background:var(--bg2);}
+  .program-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:40px;}
+  .prog-card{background:#fff;border-radius:18px;padding:28px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.06);}
+  .prog-icon-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .prog-icon{width:44px;height:44px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+  .prog-title{font-weight:800;font-size:1rem;color:var(--primary);}
+  .prog-desc{font-size:0.87rem;color:var(--text-light);line-height:1.75;}
+
+  /* 4단계 학습 시스템 */
+  .system-table-wrap{margin-top:40px;overflow-x:auto;}
+  .system-intro{font-size:0.95rem;color:var(--text-light);line-height:1.9;margin-bottom:28px;max-width:700px;}
+  .system-table{width:100%;border-collapse:collapse;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(139,26,53,0.08);}
+  .system-table th{background:var(--primary);color:#fff;padding:14px 18px;font-size:0.88rem;font-weight:700;text-align:center;}
+  .system-table td{padding:14px 18px;font-size:0.87rem;text-align:center;border-bottom:1px solid var(--border);background:#fff;}
+  .system-table tr:last-child td{border-bottom:none;}
+  .system-table tr:nth-child(even) td{background:var(--bg2);}
+  .td-filled{background:var(--primary-light)!important;color:var(--primary);font-weight:700;border-radius:8px;}
+  .system-note{font-size:0.8rem;color:var(--text-light);margin-top:12px;}
+
+  /* VIDEO */
+  .video-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:50px;}
+  .video-wrap{border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(139,26,53,0.1);}
+  .video-wrap iframe{width:100%;aspect-ratio:16/9;display:block;border:none;}
+  .video-info{display:flex;flex-direction:column;justify-content:center;gap:16px;}
+  .video-feature{display:flex;gap:16px;align-items:flex-start;background:var(--bg2);padding:20px;border-radius:14px;border:1px solid var(--border);}
+  .vf-icon{font-size:1.4rem;flex-shrink:0;}
+  .vf-title{font-weight:700;margin-bottom:4px;font-size:0.93rem;}
+  .vf-desc{font-size:0.83rem;color:var(--text-light);line-height:1.6;}
+
+  /* REVIEWS */
+  .reviews{background:var(--bg2);}
+  .review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:46px;}
+  .review-card{background:#fff;border-radius:18px;padding:26px;box-shadow:0 4px 16px rgba(139,26,53,0.06);border:1px solid var(--border);}
+  .stars{color:var(--primary);font-size:0.88rem;margin-bottom:10px;letter-spacing:2px;}
+  .review-text{font-size:0.87rem;line-height:1.9;color:var(--text);margin-bottom:14px;}
+  .review-author{display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:12px;}
+  .author-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#C94060);display:flex;align-items:center;justify-content:center;font-size:0.77rem;color:#fff;font-weight:700;flex-shrink:0;}
+  .author-name{font-weight:700;font-size:0.87rem;}
+  .author-type{font-size:0.75rem;color:var(--text-light);}
+
+  /* CONTACT */
+  .contact-wrap{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:50px;align-items:start;}
+  .contact-info h3{font-size:1.4rem;font-weight:800;margin-bottom:14px;line-height:1.5;}
+  .contact-info p{color:var(--text-light);line-height:1.9;margin-bottom:26px;font-size:0.93rem;}
+  .contact-item{display:flex;gap:14px;align-items:center;padding:16px;background:var(--bg2);border-radius:12px;margin-bottom:12px;border:1px solid var(--border);}
+  .contact-icon{font-size:1.1rem;width:40px;height:40px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .contact-label{font-size:0.77rem;color:var(--text-light);}
+  .contact-val{font-weight:700;font-size:0.93rem;}
+  .contact-form{background:var(--bg2);border-radius:20px;padding:34px;border:1px solid var(--border);}
+  .form-row{margin-bottom:15px;}
+  .form-row label{display:block;font-size:0.83rem;font-weight:700;margin-bottom:6px;}
+  .form-row input,.form-row textarea,.form-row select{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;font-family:inherit;background:#fff;color:var(--text);outline:none;transition:border .2s;}
+  .form-row input:focus,.form-row textarea:focus,.form-row select:focus{border-color:var(--primary);}
+  .form-row textarea{resize:vertical;min-height:100px;}
+  .form-submit{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;}
+  .form-submit:hover{background:var(--primary-mid);}
+
+  /* FOOTER */
+  footer{background:#1a0a0f;color:#9A7A82;padding:36px 5%;text-align:center;}
+  .footer-logo{color:#fff;font-size:1rem;font-weight:900;margin-bottom:3px;}
+  .footer-sub{color:#C94060;font-size:0.72rem;letter-spacing:1.5px;margin-bottom:12px;}
+  footer p{font-size:0.81rem;line-height:2;}
+
+  @media(max-width:768px){
+    .hero-inner,.contact-wrap,.video-grid,.features-grid,.program-grid,.why-grid{grid-template-columns:1fr;}
+    .review-grid{grid-template-columns:1fr;}
+    .hero h1{font-size:2.2rem;}
+    .section-title{font-size:1.65rem;}
+    nav .nav-links{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="가로로고.jpg" alt="이관우 수학연구소 로고" style="height:40px;width:auto;object-fit:contain;">
+    </div>
+    <ul class="nav-links">
+      <li><a href="#why">수학이야기</a></li>
+      <li><a href="#features">특징</a></li>
+      <li><a href="#program">학습프로그램</a></li>
+      <li><a href="#video">맛보기강의</a></li>
+      <li><a href="#reviews">후기</a></li>
+      <li><a href="#contact">문의하기</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-badge">📐 LKW math LAB · 대치동</div>
+      <h1>"익숙함의<br><span class="point">위대함"</span></h1>
+      <p class="hero-sub">수학이 어렵다고 느껴지는 것은 생소하기 때문입니다.<br>반복적인 학습은 생소함을 익숙함으로 바꾸어주고<br>익숙함은 곧 자신감과 성적향상으로 이어지게 됩니다.</p>
+      <p class="hero-emphasis">결국, 수학은 경험하고 반복하는 것이 중요합니다.</p>
+      <div class="hero-btns">
+        <a href="#video" class="btn-primary">🎬 맛보기 강의 보기</a>
+        <a href="#contact" class="btn-outline">📩 수업 문의하기</a>
+      </div>
+    </div>
+    <div class="hero-card">
+      <div style="text-align:center;margin-bottom:18px;">
+        <img src="세로로고.jpg" alt="이관우 수학연구소 로고" style="width:130px;height:130px;object-fit:contain;">
+      </div>
+      <h3>이관우 선생님</h3>
+      <p>LKW math LAB · 수학 전문 강사</p>
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-num">1:1</div>
+          <div class="stat-label">개인 맞춤 수업</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">4단계</div>
+          <div class="stat-label">학습 시스템</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">대치동</div>
+          <div class="stat-label">강남구 삼성로</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">수능</div>
+          <div class="stat-label">내신 전문</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="why" id="why">
+  <div class="section-inner">
+    <div class="section-tag">WHY</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">왜 수학 성적이<br>오르지 않을까요?</h2>
+    <p class="section-desc">이관우 수학연구소는 수학 성적이 오르지 않는 이유를 철저하게 분석하여 개인별 솔루션을 제공합니다.</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="why-num">01</div>
+        <div class="why-title">시간 부족</div>
+        <div class="why-desc">불필요한 수식 나열 등으로 시간을 소비하거나 개념학습의 미속으로 풀이가 정리가 되지 않아서</div>
+      </div>
+      <div class="why-card">
+        <div class="why-num">02</div>
+        <div class="why-title">자신감 부족</div>
+        <div class="why-desc">복잡한 수식이나 표현으로 인해 풀 수 있음에도 위축되어 문제를 풀지 못해서</div>
+      </div>
+      <div class="why-card">
+        <div class="why-num">03</div>
+        <div class="why-title">암기식 수학</div>
+        <div class="why-desc">유형별 기계적인 풀이 암기로 인하여 응용 문제에 적용을 제대로 하지 못해서</div>
+      </div>
+      <div class="why-card">
+        <div class="why-num">04</div>
+        <div class="why-title">잘못된 오답정리</div>
+        <div class="why-desc">잘못된 오답정리로 틀린 문제를 계속 틀려서 실력이 늘지 않는 악순환</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-tag">FEATURES</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">"이관우 수학연구소"만의 특징</h2>
+    <p class="section-desc">소수 정예반이 아닌 온전한 1:1 수업으로 '한 타임에 오직 한 명'만 집중케어합니다.</p>
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-icon">👤</div>
+        <div>
+          <div class="feat-title">1:1 개인별 맞춤 과외 수업</div>
+          <div class="feat-desc">소수 정예반이 아닌 온전한 1:1 수업으로 '한 타임에 오직 한 명'만 집중케어합니다.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📋</div>
+        <div>
+          <div class="feat-title">학생 맞춤형 학습방법 코칭</div>
+          <div class="feat-desc">학생에게 맞는 '복습법 혹은 오답정리법' 등 체계적이고 효율적인 학습법을 코칭합니다.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">💬</div>
+        <div>
+          <div class="feat-title">활발한 질의응답 서비스 제공</div>
+          <div class="feat-desc">모르는 문제를 질문하고 학습고민을 상담할 수 있는 '카카오톡 질의응답 서비스 채널'을 운영합니다.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📚</div>
+        <div>
+          <div class="feat-title">자체 교재 및 영상 강의 제공</div>
+          <div class="feat-desc">문제의 핵심을 관통하는 효과적인 학습을 위해 개념별 맞춤 문제가 수록된 '자체교재와 영상 강의'를 제공합니다.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📅</div>
+        <div>
+          <div class="feat-title">체계적인 학생관리 시스템</div>
+          <div class="feat-desc">'매일 문제'를 풀 수 있게 숙제를 날짜별로 배분하고 구글 클래스룸을 통해 학습이 '밀리지 않도록' 관리하며 '주기적인 테스트'를 통해 학습 공백을 메꾸어나갑니다.</div>
+        </div>
+      </div>
+      <div class="feat-card" style="background:var(--primary-light);border-color:#E8C4CE;">
+        <div class="feat-icon" style="background:#fff;">🎯</div>
+        <div>
+          <div class="feat-title" style="color:var(--primary);">성적 향상을 향한 5가지 집중</div>
+          <div class="feat-desc">개인 맞춤 수업 · 학습법 코칭 · 질의응답 · 자체교재 · 학생관리 시스템이 하나로 연결되어 성적 향상을 만들어냅니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRAM -->
+<section class="program" id="program">
+  <div class="section-inner">
+    <div class="section-tag">PROGRAM</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">공부 효율을 극대화시키는<br>학습 프로그램</h2>
+    <p class="section-desc">"이관우 수학연구소"에서는 학생의 수준에 맞는 맞춤형 학습 프로그램을 제공하여 공부 효율을 극대화 시켜줍니다.</p>
+    <div class="program-grid">
+      <div class="prog-card">
+        <div class="prog-icon-row">
+          <div class="prog-icon">✏️</div>
+          <div class="prog-title">백지 복습을 통한 개념 습득</div>
+        </div>
+        <div class="prog-desc">단순히 책을 보며 복습하는 것이 아닌 이해한 개념을 스스로 백지에 쓰며 완벽히 개념을 숙지하는 학습 프로그램</div>
+      </div>
+      <div class="prog-card">
+        <div class="prog-icon-row">
+          <div class="prog-icon">🏫</div>
+          <div class="prog-title">내신 유형 대비 완전 정복</div>
+        </div>
+        <div class="prog-desc">완벽하고 꼼꼼한 개념 정리와 유형별 맞춤 문제 정리를 통해 내신을 대비하는 학습 프로그램</div>
+      </div>
+      <div class="prog-card">
+        <div class="prog-icon-row">
+          <div class="prog-icon">📝</div>
+          <div class="prog-title">수능 대비 기출 풀이 및 실전 모의고사</div>
+        </div>
+        <div class="prog-desc">다양한 풀이를 바탕으로 기출문제를 완벽 습득하고 실제 수능장과 가장 유사하게 실전 훈련을 할 수 있는 학습 프로그램</div>
+      </div>
+      <div class="prog-card">
+        <div class="prog-icon-row">
+          <div class="prog-icon">🔍</div>
+          <div class="prog-title">맞춤형 오답 정리</div>
+        </div>
+        <div class="prog-desc">한 번 틀린 문제는 다시 틀리지 않도록 오답 유형별로 정리하여 피드백하는 프로그램</div>
+      </div>
+    </div>
+
+    <!-- 4단계 학습 시스템 -->
+    <div style="margin-top:70px;">
+      <div class="section-tag">SYSTEM</div>
+      <div class="section-divider"></div>
+      <h2 class="section-title">4단계 학습 시스템</h2>
+      <p class="system-intro">"4단계 학습 시스템"이란, 한 과목을 개념, 유형, 응용, 심화 과정을 거쳐 총 4번 회독하면서 다른 과목을 동시에 학습하는 프로그램으로 수학을 넓은 시야에서 관통할 수 있어 <strong>'개념들의 단권화'</strong>를 만들어내는 학습 방법입니다.</p>
+      <div class="system-table-wrap">
+        <table class="system-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>개념</th>
+              <th>유형</th>
+              <th>응용</th>
+              <th>심화</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1회독</strong></td>
+              <td class="td-filled">수학 (상)</td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><strong>2회독</strong></td>
+              <td>수학 (하)</td>
+              <td class="td-filled">수학 (상)</td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><strong>3회독</strong></td>
+              <td>수학 1</td>
+              <td>수학 (하)</td>
+              <td class="td-filled">수학 (상)</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><strong>4회독</strong></td>
+              <td>수학 2</td>
+              <td>수학 1</td>
+              <td>수학 (하)</td>
+              <td class="td-filled">수학 (상)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="system-note">*학생별 맞춤 솔루션을 제공하기 때문에 과정은 학생별로 상이할 수 있습니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VIDEO -->
+<section id="video">
+  <div class="section-inner">
+    <div class="section-tag">PREVIEW</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">맛보기 강의</h2>
+    <p class="section-desc">직접 강의를 확인해보세요. 이관우 선생님의 수업 방식을 미리 경험할 수 있습니다.</p>
+    <div class="video-grid">
+      <div class="video-wrap">
+        <iframe src="https://www.youtube.com/embed/a7rV8xMRfMs" allowfullscreen title="이관우 수학 맛보기 강의"></iframe>
+      </div>
+      <div class="video-info">
+        <div class="video-feature">
+          <div class="vf-icon">🎯</div>
+          <div>
+            <div class="vf-title">핵심만 짚는 개념 설명</div>
+            <div class="vf-desc">복잡한 개념도 핵심 원리부터 쉽고 명쾌하게 설명합니다.</div>
+          </div>
+        </div>
+        <div class="video-feature">
+          <div class="vf-icon">🔁</div>
+          <div>
+            <div class="vf-title">익숙함이 될 때까지 반복</div>
+            <div class="vf-desc">이해 후 충분한 반복으로 완전한 내 것으로 만듭니다.</div>
+          </div>
+        </div>
+        <div class="video-feature">
+          <div class="vf-icon">💡</div>
+          <div>
+            <div class="vf-title">문제 접근법 시각화</div>
+            <div class="vf-desc">문제를 보는 순간 어떻게 접근해야 할지 보이게 됩니다.</div>
+          </div>
+        </div>
+        <a href="https://youtu.be/a7rV8xMRfMs" target="_blank" class="btn-primary" style="text-align:center;margin-top:4px;">유튜브에서 더 보기 →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section class="reviews" id="reviews">
+  <div class="section-inner">
+    <div class="section-tag">REVIEWS</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">수강생 후기</h2>
+    <p class="section-desc">이관우 선생님과 함께 성장한 학생들의 이야기를 들어보세요.</p>
+    <div class="review-grid">
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <div class="review-text">"1:1 수업이라 제 약점을 정확히 짚어주세요. 다른 곳에서는 못 느꼈던 맞춤 케어를 처음 받아봤습니다."</div>
+        <div class="review-author">
+          <div class="author-avatar">김○</div>
+          <div><div class="author-name">김○○ 학생</div><div class="author-type">수능 수학 1등급</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <div class="review-text">"카카오톡 질의응답 채널 덕분에 모르는 문제를 그날 바로 해결할 수 있어서 공부 흐름이 끊기지 않았어요."</div>
+        <div class="review-author">
+          <div class="author-avatar">박○</div>
+          <div><div class="author-name">박○○ 학생</div><div class="author-type">수능 4→2등급 상승</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <div class="review-text">"아이가 수학을 왜 틀렸는지 스스로 분석하게 됐어요. 오답정리 방법을 제대로 배운 게 가장 큰 변화입니다."</div>
+        <div class="review-author">
+          <div class="author-avatar">학</div>
+          <div><div class="author-name">학부모 이○○님</div><div class="author-type">고2 자녀 학부모</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <div class="review-text">"백지 복습법을 처음엔 힘들었는데 이제는 개념이 머릿속에 완전히 정리되는 느낌이에요. 진짜 효과 있습니다."</div>
+        <div class="review-author">
+          <div class="author-avatar">최○</div>
+          <div><div class="author-name">최○○ 학생</div><div class="author-type">내신 수학 1등급</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <div class="review-text">"4단계 시스템으로 공부하니까 여러 과목이 연결되는 느낌이 들어요. 수학이 큰 그림으로 보이기 시작했습니다."</div>
+        <div class="review-author">
+          <div class="author-avatar">정○</div>
+          <div><div class="author-name">정○○ 학생</div><div class="author-type">3년 장기 수강생</div></div>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="stars">★★★★★</div>
+        <div class="review-text">"구글 클래스룸으로 숙제가 날짜별로 딱 정리되어 있어서 스스로 관리하는 습관이 생겼어요. 덕분에 성적이 꾸준히 올랐습니다."</div>
+        <div class="review-author">
+          <div class="author-avatar">윤○</div>
+          <div><div class="author-name">윤○○ 학생</div><div class="author-type">수능 3→1등급</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="section-inner">
+    <div class="section-tag">CONTACT</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">수업 문의하기</h2>
+    <p class="section-desc">궁금한 점이 있으시면 언제든지 문의해 주세요. 빠르게 답변 드리겠습니다.</p>
+    <div class="contact-wrap">
+      <div class="contact-info">
+        <h3>LKW math LAB<br>함께 시작해봐요 📐</h3>
+        <p>지금 바로 문의주시면 수준 진단 상담을 먼저 진행해드립니다. 학생에게 맞는 솔루션을 함께 찾아드릴게요.</p>
+        <div class="contact-item">
+          <div class="contact-icon">📍</div>
+          <div>
+            <div class="contact-label">위치</div>
+            <div class="contact-val">서울시 강남구 삼성로 57길 35 (대치동) 2층</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">📞</div>
+          <div>
+            <div class="contact-label">대표 번호</div>
+            <div class="contact-val">02) 3411 – 6123</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">🕐</div>
+          <div>
+            <div class="contact-label">상담 가능 시간</div>
+            <div class="contact-val">평일 15:00 ~ 22:00 / 주말 10:00 ~ 22:00</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">💬</div>
+          <div>
+            <div class="contact-label">카카오톡</div>
+            <div class="contact-val">질의응답 서비스 채널 운영 중</div>
+          </div>
+        </div>
+      </div>
+      <div class="contact-form">
+        <div class="form-row">
+          <label>이름</label>
+          <input type="text" placeholder="학생 이름을 입력해주세요">
+        </div>
+        <div class="form-row">
+          <label>학년</label>
+          <select>
+            <option value="">학년 선택</option>
+            <option>중학교 2학년</option>
+            <option>중학교 3학년</option>
+            <option>고등학교 1학년</option>
+            <option>고등학교 2학년</option>
+            <option>고등학교 3학년</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>연락처</label>
+          <input type="tel" placeholder="010-0000-0000">
+        </div>
+        <div class="form-row">
+          <label>문의 내용</label>
+          <textarea placeholder="궁금한 점이나 수강 목표를 자유롭게 적어주세요."></textarea>
+        </div>
+        <button class="form-submit">문의 보내기 →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <img src="가로로고.jpg" alt="이관우 수학연구소 로고" style="height:44px;width:auto;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:8px;">
+  </div>
+  <div class="footer-sub">LKW math LAB</div>
+  <p>"익숙함의 위대함" · 수학 전문 강사 이관우<br>
+  서울시 강남구 삼성로 57길 35 (대치동) 2층 · 02) 3411-6123<br>
+  © 2025 LKW math LAB. All rights reserved.</p>
+</footer>
+
+</body>
+</html>
