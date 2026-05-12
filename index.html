@@ -14,17 +14,20 @@
   html{scroll-behavior:smooth;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg);}
 
+  /* D-DAY 배너 */
+  .dday-bar{position:fixed;top:0;left:0;right:0;z-index:200;background:var(--primary);color:#fff;text-align:center;padding:7px 5%;font-size:0.82rem;font-weight:700;letter-spacing:0.5px;}
+  .dday-bar span{margin:0 6px;opacity:0.75;font-weight:400;}
+  .dday-num{font-size:1rem;font-weight:900;margin:0 4px;}
+
   /* NAV */
-  nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 5%;}
+  nav{position:fixed;top:33px;left:0;right:0;z-index:100;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 5%;}
   .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px;}
-  .nav-logo-main{font-size:1rem;font-weight:900;color:var(--primary);}
-  .nav-logo-sub{font-size:0.62rem;color:#999;letter-spacing:1px;}
-  .nav-links{display:flex;gap:1.8rem;list-style:none;}
-  .nav-links a{text-decoration:none;color:var(--text-light);font-size:0.87rem;font-weight:500;transition:color .2s;}
+  .nav-links{display:flex;gap:1.6rem;list-style:none;}
+  .nav-links a{text-decoration:none;color:var(--text-light);font-size:0.85rem;font-weight:500;transition:color .2s;}
   .nav-links a:hover{color:var(--primary);}
 
   /* HERO */
-  .hero{min-height:100vh;display:flex;align-items:center;padding:80px 5% 60px;background:linear-gradient(135deg,#F9EEF1 0%,#FFF 55%,#FDF5F0 100%);}
+  .hero{min-height:100vh;display:flex;align-items:center;padding:120px 5% 60px;background:linear-gradient(135deg,#F9EEF1 0%,#FFF 55%,#FDF5F0 100%);}
   .hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
   .hero-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.8rem;font-weight:700;padding:6px 14px;border-radius:20px;margin-bottom:20px;border:1px solid #E8C4CE;}
   .hero h1{font-size:3rem;font-weight:900;line-height:1.25;letter-spacing:-1.5px;margin-bottom:16px;}
@@ -32,12 +35,11 @@
   .hero-sub{font-size:1rem;color:var(--text-light);line-height:2;margin-bottom:12px;}
   .hero-emphasis{font-size:1rem;font-weight:800;color:var(--primary);margin-bottom:32px;}
   .hero-btns{display:flex;gap:12px;flex-wrap:wrap;}
-  .btn-primary{background:var(--primary);color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all .2s;box-shadow:0 4px 16px rgba(139,26,53,0.28);}
+  .btn-primary{background:var(--primary);color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all .2s;box-shadow:0 4px 16px rgba(139,26,53,0.28);display:inline-block;}
   .btn-primary:hover{background:var(--primary-mid);transform:translateY(-2px);}
-  .btn-outline{border:2px solid var(--primary);color:var(--primary);padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all .2s;}
+  .btn-outline{border:2px solid var(--primary);color:var(--primary);padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all .2s;display:inline-block;}
   .btn-outline:hover{background:var(--primary-light);}
   .hero-card{background:#fff;border-radius:24px;padding:36px;box-shadow:0 20px 60px rgba(139,26,53,0.09);border:1px solid var(--border);}
-  .hero-card-logo{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#C94060);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:#fff;margin:0 auto 18px;box-shadow:0 8px 24px rgba(139,26,53,0.25);letter-spacing:-1px;}
   .hero-card h3{text-align:center;font-size:1.2rem;font-weight:900;margin-bottom:4px;}
   .hero-card p{text-align:center;color:var(--text-light);font-size:0.83rem;margin-bottom:22px;letter-spacing:0.5px;}
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -53,7 +55,7 @@
   .section-title{font-size:2rem;font-weight:900;letter-spacing:-1px;margin-bottom:14px;line-height:1.3;}
   .section-desc{font-size:0.95rem;color:var(--text-light);line-height:1.9;max-width:600px;}
 
-  /* WHY — 왜 수학 성적이 오르지 않을까? */
+  /* WHY */
   .why{background:var(--bg2);}
   .why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:40px;}
   .why-card{background:#fff;border-radius:16px;padding:26px 28px;border:1px solid var(--border);box-shadow:0 2px 10px rgba(139,26,53,0.05);}
@@ -61,14 +63,14 @@
   .why-title{font-size:1rem;font-weight:800;margin-bottom:8px;}
   .why-desc{font-size:0.87rem;color:var(--text-light);line-height:1.7;}
 
-  /* FEATURES — 이관우 수학연구소만의 특징 */
+  /* FEATURES */
   .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:40px;}
   .feat-card{display:flex;gap:18px;align-items:flex-start;background:var(--bg2);border-radius:16px;padding:24px;border:1px solid var(--border);}
   .feat-icon{font-size:1.6rem;width:50px;height:50px;background:var(--primary-light);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .feat-title{font-weight:800;font-size:0.97rem;margin-bottom:6px;}
   .feat-desc{font-size:0.85rem;color:var(--text-light);line-height:1.7;}
 
-  /* PROGRAM — 학습 프로그램 */
+  /* PROGRAM */
   .program{background:var(--bg2);}
   .program-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:40px;}
   .prog-card{background:#fff;border-radius:18px;padding:28px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.06);}
@@ -76,8 +78,6 @@
   .prog-icon{width:44px;height:44px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
   .prog-title{font-weight:800;font-size:1rem;color:var(--primary);}
   .prog-desc{font-size:0.87rem;color:var(--text-light);line-height:1.75;}
-
-  /* 4단계 학습 시스템 */
   .system-table-wrap{margin-top:40px;overflow-x:auto;}
   .system-intro{font-size:0.95rem;color:var(--text-light);line-height:1.9;margin-bottom:28px;max-width:700px;}
   .system-table{width:100%;border-collapse:collapse;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(139,26,53,0.08);}
@@ -87,6 +87,43 @@
   .system-table tr:nth-child(even) td{background:var(--bg2);}
   .td-filled{background:var(--primary-light)!important;color:var(--primary);font-weight:700;border-radius:8px;}
   .system-note{font-size:0.8rem;color:var(--text-light);margin-top:12px;}
+
+  /* CLIPS — 강의 클립 갤러리 */
+  .clips{background:var(--bg2);}
+  .clips-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px;}
+  .clip-card{border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 4px 16px rgba(139,26,53,0.08);border:1px solid var(--border);transition:transform .2s;}
+  .clip-card:hover{transform:translateY(-4px);}
+  .clip-thumb{position:relative;aspect-ratio:9/16;background:#1a0a0f;overflow:hidden;}
+  .clip-thumb iframe{width:100%;height:100%;border:none;}
+  .clip-label{padding:12px 14px;}
+  .clip-type{font-size:0.72rem;font-weight:700;color:var(--primary);margin-bottom:3px;}
+  .clip-title{font-size:0.82rem;font-weight:700;line-height:1.4;}
+
+  /* NOTICE — 공지사항 */
+  .notice-list{margin-top:36px;display:flex;flex-direction:column;gap:10px;}
+  .notice-item{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 22px;transition:box-shadow .2s;}
+  .notice-item:hover{box-shadow:0 4px 16px rgba(139,26,53,0.08);}
+  .notice-badge{background:var(--primary-light);color:var(--primary);font-size:0.72rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;}
+  .notice-badge.new{background:var(--primary);color:#fff;}
+  .notice-title{flex:1;font-size:0.93rem;font-weight:600;}
+  .notice-date{font-size:0.78rem;color:var(--text-light);white-space:nowrap;}
+  .notice-more{margin-top:16px;text-align:right;}
+
+  /* TIMETABLE — 시간표 */
+  .timetable{background:var(--bg2);}
+  .tt-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px;}
+  .tt-card{background:#fff;border-radius:20px;padding:28px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.06);}
+  .tt-card.highlight{border-color:var(--primary);background:var(--primary-light);}
+  .tt-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+  .tt-badge{background:var(--primary);color:#fff;font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:20px;}
+  .tt-badge.soon{background:#ff8c00;}
+  .tt-name{font-size:1.05rem;font-weight:900;}
+  .tt-loc{font-size:0.82rem;color:var(--text-light);}
+  .tt-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .tt-row:last-child{border-bottom:none;}
+  .tt-day{font-size:0.82rem;font-weight:700;color:var(--primary);width:50px;flex-shrink:0;}
+  .tt-times{font-size:0.83rem;color:var(--text-light);line-height:1.7;}
+  .tt-note{font-size:0.8rem;color:var(--text-light);margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
 
   /* VIDEO */
   .video-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:50px;}
@@ -132,9 +169,18 @@
   .footer-sub{color:#C94060;font-size:0.72rem;letter-spacing:1.5px;margin-bottom:12px;}
   footer p{font-size:0.81rem;line-height:2;}
 
+  /* 카카오 플로팅 버튼 */
+  .kakao-float{position:fixed;bottom:28px;right:24px;z-index:999;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .kakao-float a{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:#FEE500;box-shadow:0 4px 16px rgba(0,0,0,0.18);transition:transform .2s;}
+  .kakao-float a:hover{transform:scale(1.08);}
+  .kakao-float img{width:28px;height:28px;}
+  .kakao-label{font-size:0.68rem;font-weight:700;color:#333;background:#fff;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
+
   @media(max-width:768px){
-    .hero-inner,.contact-wrap,.video-grid,.features-grid,.program-grid,.why-grid{grid-template-columns:1fr;}
-    .review-grid{grid-template-columns:1fr;}
+    .dday-bar{font-size:0.72rem;}
+    nav{top:28px;}
+    .hero-inner,.contact-wrap,.video-grid,.features-grid,.program-grid,.why-grid,.tt-grid{grid-template-columns:1fr;}
+    .review-grid,.clips-grid{grid-template-columns:1fr 1fr;}
     .hero h1{font-size:2.2rem;}
     .section-title{font-size:1.65rem;}
     nav .nav-links{display:none;}
@@ -143,18 +189,25 @@
 </head>
 <body>
 
+<!-- D-DAY 배너 -->
+<div class="dday-bar" id="ddayBar">
+  📅 2026 수능까지<span>|</span>D-<span class="dday-num" id="ddayNum">??</span>일<span>|</span>매일 한 문제씩 더!
+</div>
+
 <!-- NAV -->
 <nav>
   <div class="nav-inner">
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div>
       <img src="가로로고.jpg" alt="이관우 수학연구소 로고" style="height:40px;width:auto;object-fit:contain;">
     </div>
     <ul class="nav-links">
       <li><a href="#why">수학이야기</a></li>
       <li><a href="#features">특징</a></li>
       <li><a href="#program">학습프로그램</a></li>
+      <li><a href="#clips">강의클립</a></li>
+      <li><a href="#notice">공지사항</a></li>
+      <li><a href="#timetable">시간표</a></li>
       <li><a href="#video">맛보기강의</a></li>
-      <li><a href="#reviews">후기</a></li>
       <li><a href="#contact">문의하기</a></li>
     </ul>
   </div>
@@ -189,8 +242,8 @@
           <div class="stat-label">학습 시스템</div>
         </div>
         <div class="stat-item">
-          <div class="stat-num">대치동</div>
-          <div class="stat-label">강남구 삼성로</div>
+          <div class="stat-num">11년</div>
+          <div class="stat-label">강의 경력</div>
         </div>
         <div class="stat-item">
           <div class="stat-num">수능</div>
@@ -212,7 +265,7 @@
       <div class="why-card">
         <div class="why-num">01</div>
         <div class="why-title">시간 부족</div>
-        <div class="why-desc">불필요한 수식 나열 등으로 시간을 소비하거나 개념학습의 미속으로 풀이가 정리가 되지 않아서</div>
+        <div class="why-desc">불필요한 수식 나열 등으로 시간을 소비하거나 개념학습의 미숙으로 풀이가 정리되지 않아서</div>
       </div>
       <div class="why-card">
         <div class="why-num">02</div>
@@ -334,43 +387,13 @@
       <div class="system-table-wrap">
         <table class="system-table">
           <thead>
-            <tr>
-              <th></th>
-              <th>개념</th>
-              <th>유형</th>
-              <th>응용</th>
-              <th>심화</th>
-            </tr>
+            <tr><th></th><th>개념</th><th>유형</th><th>응용</th><th>심화</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td><strong>1회독</strong></td>
-              <td class="td-filled">수학 (상)</td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td><strong>2회독</strong></td>
-              <td>수학 (하)</td>
-              <td class="td-filled">수학 (상)</td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td><strong>3회독</strong></td>
-              <td>수학 1</td>
-              <td>수학 (하)</td>
-              <td class="td-filled">수학 (상)</td>
-              <td></td>
-            </tr>
-            <tr>
-              <td><strong>4회독</strong></td>
-              <td>수학 2</td>
-              <td>수학 1</td>
-              <td>수학 (하)</td>
-              <td class="td-filled">수학 (상)</td>
-            </tr>
+            <tr><td><strong>1회독</strong></td><td class="td-filled">수학 (상)</td><td></td><td></td><td></td></tr>
+            <tr><td><strong>2회독</strong></td><td>수학 (하)</td><td class="td-filled">수학 (상)</td><td></td><td></td></tr>
+            <tr><td><strong>3회독</strong></td><td>수학 1</td><td>수학 (하)</td><td class="td-filled">수학 (상)</td><td></td></tr>
+            <tr><td><strong>4회독</strong></td><td>수학 2</td><td>수학 1</td><td>수학 (하)</td><td class="td-filled">수학 (상)</td></tr>
           </tbody>
         </table>
         <p class="system-note">*학생별 맞춤 솔루션을 제공하기 때문에 과정은 학생별로 상이할 수 있습니다.</p>
@@ -379,7 +402,148 @@
   </div>
 </section>
 
-<!-- VIDEO -->
+<!-- CLIPS — 강의 클립 갤러리 -->
+<section class="clips" id="clips">
+  <div class="section-inner">
+    <div class="section-tag">CLIPS</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">바이럴 강의 클립</h2>
+    <p class="section-desc">관우쌤의 인기 강의 클립을 미리 만나보세요. 직접 수업 스타일을 확인할 수 있습니다.</p>
+    <div class="clips-grid">
+      <!-- 클립 1 -->
+      <div class="clip-card">
+        <div class="clip-thumb">
+          <iframe src="https://www.instagram.com/reel/placeholder1/embed" allowfullscreen></iframe>
+        </div>
+        <div class="clip-label">
+          <div class="clip-type">💡 신기한 풀이</div>
+          <div class="clip-title">소금물 문제, 비이커 하나면 끝!</div>
+        </div>
+      </div>
+      <!-- 클립 2 -->
+      <div class="clip-card">
+        <div class="clip-thumb">
+          <iframe src="https://www.instagram.com/reel/placeholder2/embed" allowfullscreen></iframe>
+        </div>
+        <div class="clip-label">
+          <div class="clip-type">😂 공감 포인트</div>
+          <div class="clip-title">학생들이 가장 많이 틀리는 그 문제</div>
+        </div>
+      </div>
+      <!-- 클립 3 -->
+      <div class="clip-card">
+        <div class="clip-thumb">
+          <iframe src="https://www.instagram.com/reel/placeholder3/embed" allowfullscreen></iframe>
+        </div>
+        <div class="clip-label">
+          <div class="clip-type">💡 신기한 풀이</div>
+          <div class="clip-title">등차수열을 함수로 보면?</div>
+        </div>
+      </div>
+      <!-- 클립 4 -->
+      <div class="clip-card">
+        <div class="clip-thumb">
+          <iframe src="https://www.instagram.com/reel/placeholder4/embed" allowfullscreen></iframe>
+        </div>
+        <div class="clip-label">
+          <div class="clip-type">🎭 관우쌤 스타일</div>
+          <div class="clip-title">삼각함수 유래부터 20분에 끝내기</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:28px;">
+      <a href="https://www.instagram.com/kwa.noo.math" target="_blank" class="btn-outline">📸 인스타그램에서 더 보기</a>
+    </div>
+  </div>
+</section>
+
+<!-- NOTICE — 공지사항 -->
+<section id="notice">
+  <div class="section-inner">
+    <div class="section-tag">NOTICE</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">공지사항</h2>
+    <p class="section-desc">수업 관련 중요 공지를 확인해주세요.</p>
+    <div class="notice-list">
+      <div class="notice-item">
+        <span class="notice-badge new">NEW</span>
+        <span class="notice-title">7월 세정학원(반포) 오픈 안내 — 수강생 모집 중</span>
+        <span class="notice-date">2026.05.12</span>
+      </div>
+      <div class="notice-item">
+        <span class="notice-badge">공지</span>
+        <span class="notice-title">6월 19일 (금) 오전 11:45 학원 설명회 안내</span>
+        <span class="notice-date">2026.05.10</span>
+      </div>
+      <div class="notice-item">
+        <span class="notice-badge">공지</span>
+        <span class="notice-title">5월 모의고사 대비 특강 일정 안내</span>
+        <span class="notice-date">2026.04.28</span>
+      </div>
+      <div class="notice-item">
+        <span class="notice-badge">안내</span>
+        <span class="notice-title">카카오톡 질의응답 채널 운영 시간 변경 (평일 오후 2시~밤 11시)</span>
+        <span class="notice-date">2026.04.15</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TIMETABLE — 시간표 -->
+<section class="timetable" id="timetable">
+  <div class="section-inner">
+    <div class="section-tag">TIMETABLE</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">수업 시간표</h2>
+    <p class="section-desc">현재 정규반과 7월 오픈 예정 세정학원 시간표를 안내해 드립니다.</p>
+    <div class="tt-grid">
+      <!-- 현재 정규반 -->
+      <div class="tt-card">
+        <div class="tt-header">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="tt-badge">운영 중</span>
+            </div>
+            <div class="tt-name">대치동 정규반</div>
+            <div class="tt-loc">📍 서울시 강남구 삼성로 57길 35 (대치동) 2층</div>
+          </div>
+        </div>
+        <div class="tt-row">
+          <div class="tt-day">월·수·금</div>
+          <div class="tt-times">
+            1교시 16:40 ~ 18:20<br>
+            2교시 18:30 ~ 20:10<br>
+            3교시 20:20 ~ 22:00
+          </div>
+        </div>
+        <div class="tt-note">📞 수강 문의: 02) 3411-6123</div>
+      </div>
+
+      <!-- 세정학원 예정 -->
+      <div class="tt-card highlight">
+        <div class="tt-header">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="tt-badge soon">🔜 7월 오픈</span>
+            </div>
+            <div class="tt-name">세정학원 (반포)</div>
+            <div class="tt-loc">📍 서울시 서초구 반포 (위치 확정 후 공지)</div>
+          </div>
+        </div>
+        <div class="tt-row">
+          <div class="tt-day">월~금</div>
+          <div class="tt-times">
+            정규 수업: 09:30 ~ 13:30<br>
+            클리닉: 14:00 ~ 16:00
+          </div>
+        </div>
+        <div class="tt-note">🗓️ 6월 19일 오전 11:45 설명회 예정 — 자세한 내용은 공지사항 확인</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VIDEO — 맛보기 강의 -->
 <section id="video">
   <div class="section-inner">
     <div class="section-tag">PREVIEW</div>
@@ -412,7 +576,7 @@
             <div class="vf-desc">문제를 보는 순간 어떻게 접근해야 할지 보이게 됩니다.</div>
           </div>
         </div>
-        <a href="https://youtu.be/a7rV8xMRfMs" target="_blank" class="btn-primary" style="text-align:center;margin-top:4px;">유튜브에서 더 보기 →</a>
+        <a href="https://www.youtube.com/@kwa.noo.math" target="_blank" class="btn-primary" style="text-align:center;margin-top:4px;">유튜브에서 더 보기 →</a>
       </div>
     </div>
   </div>
@@ -513,8 +677,8 @@
         <div class="contact-item">
           <div class="contact-icon">💬</div>
           <div>
-            <div class="contact-label">카카오톡</div>
-            <div class="contact-val">질의응답 서비스 채널 운영 중</div>
+            <div class="contact-label">카카오채널</div>
+            <div class="contact-val"><a href="http://pf.kakao.com/_lIbJG" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:700;">카카오톡 채널 바로가기 →</a></div>
           </div>
         </div>
       </div>
@@ -559,5 +723,26 @@
   © 2025 LKW math LAB. All rights reserved.</p>
 </footer>
 
+<!-- 카카오 플로팅 버튼 -->
+<div class="kakao-float">
+  <a href="http://pf.kakao.com/_lIbJG" target="_blank" title="카카오채널 문의">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="#3C1E1E">
+      <path d="M12 3C7.03 3 3 6.36 3 10.5c0 2.69 1.7 5.05 4.26 6.4L6.3 20.25c-.07.22.14.42.35.3L11.1 17.9c.3.03.6.05.9.05 4.97 0 9-3.36 9-7.45S16.97 3 12 3z"/>
+    </svg>
+  </a>
+  <span class="kakao-label">문의하기</span>
+</div>
+
+<script>
+  // D-Day 계산 (2026-11-12 수능)
+  (function(){
+    var target = new Date('2026-11-12T00:00:00');
+    var today = new Date();
+    today.setHours(0,0,0,0);
+    var diff = Math.ceil((target - today) / (1000*60*60*24));
+    var el = document.getElementById('ddayNum');
+    if(el) el.textContent = diff > 0 ? diff : '당일';
+  })();
+</script>
 </body>
 </html>
