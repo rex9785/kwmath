@@ -409,47 +409,8 @@
     <div class="section-divider"></div>
     <h2 class="section-title">바이럴 강의 클립</h2>
     <p class="section-desc">관우쌤의 인기 강의 클립을 미리 만나보세요. 직접 수업 스타일을 확인할 수 있습니다.</p>
-    <div class="clips-grid">
-      <!-- 클립 1 -->
-      <div class="clip-card">
-        <div class="clip-thumb">
-          <iframe src="https://www.instagram.com/reel/DPQTeSZD3de/embed" allowfullscreen></iframe>
-        </div>
-        <div class="clip-label">
-          <div class="clip-type">💡 신기한 풀이</div>
-          <div class="clip-title">소금물 문제, 비이커 하나면 끝!</div>
-        </div>
-      </div>
-      <!-- 클립 2 -->
-      <div class="clip-card">
-        <div class="clip-thumb">
-          <iframe src="https://www.instagram.com/reel/DLmLVmovdOM/embed" allowfullscreen></iframe>
-        </div>
-        <div class="clip-label">
-          <div class="clip-type">😂 공감 포인트</div>
-          <div class="clip-title">학생들이 가장 많이 틀리는 그 문제</div>
-        </div>
-      </div>
-      <!-- 클립 3 -->
-      <div class="clip-card">
-        <div class="clip-thumb">
-          <iframe src="https://www.instagram.com/reel/DIMHo4RPbWl/embed" allowfullscreen></iframe>
-        </div>
-        <div class="clip-label">
-          <div class="clip-type">💡 신기한 풀이</div>
-          <div class="clip-title">등차수열을 함수로 보면?</div>
-        </div>
-      </div>
-      <!-- 클립 4 -->
-      <div class="clip-card">
-        <div class="clip-thumb">
-          <iframe src="https://www.instagram.com/reel/DYMR_mevMxD/embed" allowfullscreen></iframe>
-        </div>
-        <div class="clip-label">
-          <div class="clip-type">🎭 관우쌤 스타일</div>
-          <div class="clip-title">삼각함수 유래부터 20분에 끝내기</div>
-        </div>
-      </div>
+    <div class="clips-grid" id="clipsGrid">
+      <div style="text-align:center;color:var(--text-light);padding:20px;font-size:0.9rem;">클립을 불러오는 중...</div>
     </div>
     <div style="text-align:center;margin-top:28px;">
       <a href="https://www.instagram.com/kwa.noo.math" target="_blank" class="btn-outline">📸 인스타그램에서 더 보기</a>
@@ -464,27 +425,8 @@
     <div class="section-divider"></div>
     <h2 class="section-title">공지사항</h2>
     <p class="section-desc">수업 관련 중요 공지를 확인해주세요.</p>
-    <div class="notice-list">
-      <div class="notice-item">
-        <span class="notice-badge new">NEW</span>
-        <span class="notice-title">7월 세정학원(반포) 오픈 안내 — 수강생 모집 중</span>
-        <span class="notice-date">2026.05.12</span>
-      </div>
-      <div class="notice-item">
-        <span class="notice-badge">공지</span>
-        <span class="notice-title">6월 19일 (금) 오전 11:45 학원 설명회 안내</span>
-        <span class="notice-date">2026.05.10</span>
-      </div>
-      <div class="notice-item">
-        <span class="notice-badge">공지</span>
-        <span class="notice-title">5월 모의고사 대비 특강 일정 안내</span>
-        <span class="notice-date">2026.04.28</span>
-      </div>
-      <div class="notice-item">
-        <span class="notice-badge">안내</span>
-        <span class="notice-title">카카오톡 질의응답 채널 운영 시간 변경 (평일 오후 2시~밤 11시)</span>
-        <span class="notice-date">2026.04.15</span>
-      </div>
+    <div class="notice-list" id="noticeList">
+      <div style="text-align:center;color:var(--text-light);padding:20px;font-size:0.9rem;">공지사항을 불러오는 중...</div>
     </div>
   </div>
 </section>
@@ -496,49 +438,8 @@
     <div class="section-divider"></div>
     <h2 class="section-title">수업 시간표</h2>
     <p class="section-desc">현재 정규반과 7월 오픈 예정 세정학원 시간표를 안내해 드립니다.</p>
-    <div class="tt-grid">
-      <!-- 현재 정규반 -->
-      <div class="tt-card">
-        <div class="tt-header">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-              <span class="tt-badge">운영 중</span>
-            </div>
-            <div class="tt-name">대치동 정규반</div>
-            <div class="tt-loc">📍 서울시 강남구 삼성로 57길 35 (대치동) 2층</div>
-          </div>
-        </div>
-        <div class="tt-row">
-          <div class="tt-day">월·수·금</div>
-          <div class="tt-times">
-            1교시 16:40 ~ 18:20<br>
-            2교시 18:30 ~ 20:10<br>
-            3교시 20:20 ~ 22:00
-          </div>
-        </div>
-        <div class="tt-note">📞 수강 문의: 02) 3411-6123</div>
-      </div>
-
-      <!-- 세정학원 예정 -->
-      <div class="tt-card highlight">
-        <div class="tt-header">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-              <span class="tt-badge soon">🔜 7월 오픈</span>
-            </div>
-            <div class="tt-name">세정학원 (반포)</div>
-            <div class="tt-loc">📍 서울시 서초구 반포 (위치 확정 후 공지)</div>
-          </div>
-        </div>
-        <div class="tt-row">
-          <div class="tt-day">월~금</div>
-          <div class="tt-times">
-            정규 수업: 09:30 ~ 13:30<br>
-            클리닉: 14:00 ~ 16:00
-          </div>
-        </div>
-        <div class="tt-note">🗓️ 6월 19일 오전 11:45 설명회 예정 — 자세한 내용은 공지사항 확인</div>
-      </div>
+    <div class="tt-grid" id="ttGrid">
+      <div style="text-align:center;color:var(--text-light);padding:20px;font-size:0.9rem;">시간표를 불러오는 중...</div>
     </div>
   </div>
 </section>
@@ -743,6 +644,116 @@
     var el = document.getElementById('ddayNum');
     if(el) el.textContent = diff > 0 ? diff : '당일';
   })();
+
+  // ── 노션 연동: 공지사항 ──
+  async function loadNotices() {
+    const list = document.getElementById('noticeList');
+    try {
+      const res = await fetch('/.netlify/functions/notices');
+      const notices = await res.json();
+      if (!notices.length) {
+        list.innerHTML = '<p style="color:var(--text-light);padding:12px 0;">등록된 공지사항이 없습니다.</p>';
+        return;
+      }
+      list.innerHTML = notices.map(n => {
+        const isNew = n.badge === 'NEW';
+        const dateStr = n.date ? n.date.replace(/-/g, '.') : '';
+        return `<div class="notice-item">
+          <span class="notice-badge${isNew ? ' new' : ''}">${n.badge}</span>
+          <span class="notice-title">${n.title}</span>
+          <span class="notice-date">${dateStr}</span>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<p style="color:var(--text-light);padding:12px 0;">공지사항을 불러올 수 없습니다.</p>';
+    }
+  }
+
+  // ── 노션 연동: 시간표 ──
+  const ADDRESS_MAP = {
+    '대치동 정규반': '서울시 강남구 삼성로 57길 35 (대치동) 2층',
+    '세정학원': '서울시 서초구 반포 (위치 확정 후 공지)'
+  };
+  const BADGE_MAP = {
+    '대치동 정규반': { text: '운영 중', cls: '' },
+    '세정학원': { text: '🔜 7월 오픈', cls: 'soon' }
+  };
+  const NOTE_MAP = {
+    '대치동 정규반': '📞 수강 문의: 02) 3411-6123',
+    '세정학원': '🗓️ 6월 19일 오전 11:45 설명회 예정 — 자세한 내용은 공지사항 확인'
+  };
+
+  async function loadTimetable() {
+    const grid = document.getElementById('ttGrid');
+    try {
+      const res = await fetch('/.netlify/functions/timetable');
+      const classes = await res.json();
+      if (!classes.length) {
+        grid.innerHTML = '<p style="color:var(--text-light);padding:12px 0;">등록된 시간표가 없습니다.</p>';
+        return;
+      }
+      grid.innerHTML = classes.map(c => {
+        const isSejong = c.school === '세정학원';
+        const badge = BADGE_MAP[c.school] || { text: '운영 중', cls: '' };
+        const addr = ADDRESS_MAP[c.school] || c.school;
+        const note = c.memo || NOTE_MAP[c.school] || '';
+        const dayStr = c.days.join('·');
+        const timeLines = c.time.split(/\n|\\n/).filter(Boolean).join('<br>');
+        return `<div class="tt-card${isSejong ? ' highlight' : ''}">
+          <div class="tt-header">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span class="tt-badge${badge.cls ? ' ' + badge.cls : ''}">${badge.text}</span>
+              </div>
+              <div class="tt-name">${c.name}</div>
+              <div class="tt-loc">📍 ${addr}</div>
+            </div>
+          </div>
+          <div class="tt-row">
+            <div class="tt-day">${dayStr}</div>
+            <div class="tt-times">${timeLines}</div>
+          </div>
+          ${c.target ? `<div class="tt-row"><div class="tt-day">대상</div><div class="tt-times">${c.target}</div></div>` : ''}
+          ${note ? `<div class="tt-note">${note}</div>` : ''}
+        </div>`;
+      }).join('');
+    } catch(e) {
+      grid.innerHTML = '<p style="color:var(--text-light);padding:12px 0;">시간표를 불러올 수 없습니다.</p>';
+    }
+  }
+
+  // ── 노션 연동: 강의 클립 ──
+  async function loadClips() {
+    const grid = document.getElementById('clipsGrid');
+    try {
+      const res = await fetch('/.netlify/functions/clips');
+      const clips = await res.json();
+      if (!clips.length) {
+        grid.innerHTML = '<p style="color:var(--text-light);padding:12px 0;">등록된 클립이 없습니다.</p>';
+        return;
+      }
+      grid.innerHTML = clips.map(c => {
+        const tagStr = c.tags.length ? c.tags.join(' · ') : '강의클립';
+        return `<div class="clip-card">
+          <div class="clip-thumb">
+            <iframe src="https://www.instagram.com/reel/${c.reelId}/embed" allowfullscreen></iframe>
+          </div>
+          <div class="clip-label">
+            <div class="clip-type">💡 ${tagStr}</div>
+            <div class="clip-title">${c.title}</div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      // 클립 로드 실패 시 안내 문구
+      grid.innerHTML = '<p style="color:var(--text-light);padding:12px 0;">클립을 불러올 수 없습니다.</p>';
+    }
+  }
+
+  // 페이지 로드 시 전부 실행
+  loadNotices();
+  loadTimetable();
+  loadClips();
 </script>
 </body>
 </html>
