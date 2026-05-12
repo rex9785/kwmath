@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>자료실 | LKW math LAB</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;
+    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F7;--border:#EDE0E1;
+  }
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+
+  .topbar{background:var(--primary);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
+  .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
+  .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;}
+  .topbar-back:hover{color:#fff;}
+
+  .page-wrap{max-width:800px;margin:0 auto;padding:48px 5% 80px;}
+
+  .page-header{margin-bottom:36px;}
+  .page-header h1{font-size:1.8rem;font-weight:900;margin-bottom:8px;}
+  .page-header p{font-size:0.9rem;color:var(--text-light);line-height:1.7;}
+
+  /* 필터 탭 */
+  .filter-tabs{display:flex;gap:8px;margin-bottom:28px;flex-wrap:wrap;}
+  .filter-tab{padding:8px 18px;border:1.5px solid var(--border);border-radius:20px;background:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text-light);transition:all .2s;}
+  .filter-tab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  /* 파일 카드 */
+  .file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  .file-card{background:#fff;border-radius:16px;border:1.5px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 12px rgba(134,38,51,0.05);transition:box-shadow .2s;}
+  .file-card:hover{box-shadow:0 4px 20px rgba(134,38,51,0.12);}
+  .file-icon{font-size:2rem;}
+  .file-title{font-size:0.95rem;font-weight:700;line-height:1.4;}
+  .file-meta{font-size:0.78rem;color:var(--text-light);display:flex;gap:10px;flex-wrap:wrap;}
+  .file-cat{background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:700;}
+  .file-dl-btn{background:var(--primary);color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;text-align:center;}
+  .file-dl-btn:hover{background:var(--primary-mid);}
+
+  .empty-state{text-align:center;padding:60px 20px;color:var(--text-light);}
+  .empty-state .icon{font-size:3rem;margin-bottom:14px;}
+  .empty-state p{font-size:0.9rem;line-height:1.8;}
+
+  .loading{text-align:center;padding:40px;color:var(--text-light);font-size:0.9rem;}
+
+  /* 카카오 플로팅 */
+  .kakao-float{position:fixed;bottom:28px;right:24px;z-index:999;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .kakao-float a{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#FEE500;box-shadow:0 4px 16px rgba(0,0,0,0.18);transition:transform .2s;}
+  .kakao-float a:hover{transform:scale(1.08);}
+  .kakao-label{font-size:0.65rem;font-weight:700;color:#333;background:#fff;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
+
+  @media(max-width:600px){
+    .file-grid{grid-template-columns:1fr;}
+    .page-header h1{font-size:1.4rem;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="topbar-logo">📐 LKW math LAB</a>
+  <a href="/" class="topbar-back">← 홈페이지로</a>
+</div>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <h1>📁 자료실</h1>
+    <p>관우쌤이 직접 제작한 수업 자료를 자유롭게 다운로드하세요.<br>
+    수강생 전용 자료는 리포트 페이지에서 전화번호 인증 후 확인 가능합니다.</p>
+  </div>
+
+  <!-- 카테고리 필터 -->
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="setFilter('', this)">전체</button>
+    <button class="filter-tab" onclick="setFilter('수업자료', this)">📚 수업자료</button>
+    <button class="filter-tab" onclick="setFilter('교재', this)">📖 교재</button>
+    <button class="filter-tab" onclick="setFilter('기타', this)">📎 기타</button>
+  </div>
+
+  <div id="fileGrid" class="file-grid">
+    <div class="loading">자료를 불러오는 중...</div>
+  </div>
+</div>
+
+<!-- 카카오 플로팅 -->
+<div class="kakao-float">
+  <a href="http://pf.kakao.com/_lIbJG" target="_blank" title="카카오채널 문의">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="#3C1E1E">
+      <path d="M12 3C7.03 3 3 6.36 3 10.5c0 2.69 1.7 5.05 4.26 6.4L6.3 20.25c-.07.22.14.42.35.3L11.1 17.9c.3.03.6.05.9.05 4.97 0 9-3.36 9-7.45S16.97 3 12 3z"/>
+    </svg>
+  </a>
+  <span class="kakao-label">문의</span>
+</div>
+
+<script>
+let currentCategory = '';
+let allFiles = [];
+
+function getFileIcon(fileName) {
+  const ext = (fileName || '').split('.').pop().toLowerCase();
+  const icons = { pdf:'📄', hwp:'📝', hwpx:'📝', docx:'📝', doc:'📝', xlsx:'📊', xls:'📊', pptx:'📊', ppt:'📊', zip:'🗜️', png:'🖼️', jpg:'🖼️', jpeg:'🖼️' };
+  return icons[ext] || '📁';
+}
+
+function setFilter(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderFiles(cat ? allFiles.filter(f => f.category === cat) : allFiles);
+}
+
+function renderFiles(files) {
+  const grid = document.getElementById('fileGrid');
+  if (!files.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📭</div><p>등록된 자료가 없습니다.</p></div>`;
+    return;
+  }
+  grid.innerHTML = files.map(f => `
+    <div class="file-card">
+      <div class="file-icon">${getFileIcon(f.fileName)}</div>
+      <div class="file-title">${f.title || f.fileName}</div>
+      <div class="file-meta">
+        ${f.category ? `<span class="file-cat">${f.category}</span>` : ''}
+        <span>${f.fileSize || ''}</span>
+        <span>${f.uploadDate ? f.uploadDate.replace(/-/g, '.') : ''}</span>
+      </div>
+      <button class="file-dl-btn" onclick="downloadFile('${f.r2Key}')">⬇ 다운로드</button>
+    </div>
+  `).join('');
+}
+
+async function loadFiles() {
+  try {
+    const res = await fetch('/.netlify/functions/materials');
+    allFiles = await res.json();
+    if (!Array.isArray(allFiles)) allFiles = [];
+    renderFiles(allFiles);
+  } catch(e) {
+    document.getElementById('fileGrid').innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">⚠️</div><p>자료를 불러올 수 없습니다.<br>잠시 후 다시 시도해주세요.</p></div>`;
+  }
+}
+
+async function downloadFile(r2Key) {
+  if (!r2Key) return;
+  try {
+    const res = await fetch(`/.netlify/functions/get-download-url?key=${encodeURIComponent(r2Key)}`);
+    const { downloadUrl } = await res.json();
+    if (downloadUrl) window.open(downloadUrl, '_blank');
+    else alert('다운로드 링크를 가져올 수 없습니다.');
+  } catch(e) {
+    alert('오류가 발생했습니다.');
+  }
+}
+
+loadFiles();
+</script>
+</body>
+</html>

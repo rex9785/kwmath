@@ -122,6 +122,7 @@
       <button class="tab-btn" onclick="switchTab('report-write', this)">✏️ 리포트 작성</button>
       <button class="tab-btn" onclick="switchTab('reports', this)">📋 리포트 조회</button>
       <button class="tab-btn" onclick="switchTab('students', this)">👨‍🎓 학생 목록</button>
+      <button class="tab-btn" onclick="switchTab('files', this)">📁 자료실 관리</button>
     </div>
 
     <!-- 공지사항 탭 -->
@@ -223,6 +224,55 @@
         </div>
       </div>
       <div id="studentList"><div class="empty">불러오는 중...</div></div>
+    </div>
+
+    <!-- 자료실 관리 탭 -->
+    <div class="tab-panel" id="tab-files">
+      <p class="panel-title">📁 자료실 파일 관리</p>
+
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="font-size:1rem;margin-bottom:16px;">+ 파일 업로드</h3>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 분류</label>
+            <select id="fileFolder" onchange="togglePhoneInput()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
+              <option value="materials">📚 자료실 (공개)</option>
+              <option value="reports">📋 리포트 PDF (전화번호 인증)</option>
+            </select>
+          </div>
+          <div id="reportPhoneWrap" style="display:none;">
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학부모 전화번호 끝 4자리</label>
+            <input id="reportPhone4" type="text" maxlength="4" placeholder="예: 1234"
+              style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 선택 <span style="color:var(--primary);font-size:0.78rem;">(여러 파일 동시 선택 가능)</span></label>
+            <input id="fileInput" type="file" multiple accept=".pdf,.hwp,.hwpx,.docx,.xlsx,.pptx,.zip,.png,.jpg"
+              style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 표시 이름 <span style="color:var(--text-light);font-weight:400;">(단일 파일일 때만, 비워두면 파일명 사용)</span></label>
+            <input id="fileTitle" type="text" placeholder="예: 2026년 5월 수업자료"
+              style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
+          </div>
+          <div id="uploadProgress" style="display:none;">
+            <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+              <div id="progressBar" style="background:var(--primary);height:100%;width:0%;transition:width .3s;"></div>
+            </div>
+            <p id="progressText" style="font-size:0.82rem;color:var(--text-light);margin-top:6px;text-align:center;">업로드 중...</p>
+          </div>
+          <button onclick="uploadFile()" style="background:var(--primary);color:#fff;border:none;padding:11px;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;">📤 업로드</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <select id="viewFolder" onchange="loadFiles()" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
+          <option value="materials">📚 자료실 파일</option>
+          <option value="reports">📋 리포트 PDF</option>
+        </select>
+        <span id="fileCount" style="font-size:0.82rem;color:var(--text-light);"></span>
+      </div>
+      <div id="fileList"><div class="empty">파일이 없습니다.</div></div>
     </div>
 
   </div><!-- dash-body end -->
@@ -510,6 +560,166 @@
     btn.classList.add('active');
     document.getElementById('tab-' + name).classList.add('active');
     if (name === 'students' && allStudents.length === 0) loadStudents();
+    if (name === 'files') loadFiles();
+  }
+
+  // ── 자료실 ──
+  function togglePhoneInput() {
+    const folder = document.getElementById('fileFolder').value;
+    document.getElementById('reportPhoneWrap').style.display = folder === 'reports' ? 'block' : 'none';
+  }
+
+  function getAdminPw() {
+    let pw = localStorage.getItem('kwmath_admin_pw');
+    if (!pw) {
+      pw = adminToken ? atob(adminToken.split('.')[1] || '') : '';
+      // adminToken에서 pw 못 꺼내면 세션 pw 사용
+    }
+    return pw || sessionStorage.getItem('kwmath_session_pw') || '';
+  }
+
+  async function uploadSingleFile(file, folder, phone4, category, titleOverride) {
+    const sizeStr = file.size > 1024*1024
+      ? (file.size/1024/1024).toFixed(1) + ' MB'
+      : (file.size/1024).toFixed(0) + ' KB';
+    const finalFolder = folder === 'reports' ? `reports/${phone4}` : 'materials';
+    const pw = sessionStorage.getItem('kwmath_session_pw');
+
+    // 1단계: presigned URL 요청
+    const urlRes = await fetch('/.netlify/functions/get-upload-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw, fileName: file.name, fileType: file.type || 'application/octet-stream', folder: finalFolder }),
+    });
+    const { uploadUrl, key } = await urlRes.json();
+    if (!uploadUrl) throw new Error('presigned URL 요청 실패');
+
+    // 2단계: R2 업로드
+    await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+
+    // 3단계: 노션 메타데이터 저장
+    await fetch('/.netlify/functions/materials-write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        password: pw,
+        title: titleOverride || file.name,
+        fileName: file.name,
+        r2Key: key,
+        category: category || '수업자료',
+        fileSize: sizeStr,
+        phone4: folder === 'reports' ? phone4 : '',
+      }),
+    });
+
+    return key;
+  }
+
+  async function uploadFile() {
+    const files = document.getElementById('fileInput').files;
+    const folder = document.getElementById('fileFolder').value;
+    const phone4 = document.getElementById('reportPhone4').value.trim();
+    const category = folder === 'reports' ? '보고서' : (document.getElementById('fileCategorySelect')?.value || '수업자료');
+    const titleOverride = document.getElementById('fileTitle').value.trim();
+
+    if (!files.length) { showToast('파일을 선택해주세요.'); return; }
+    if (folder === 'reports' && (!phone4 || phone4.length !== 4)) {
+      showToast('전화번호 끝 4자리를 입력해주세요.'); return;
+    }
+
+    // 비밀번호 세션 저장
+    if (!sessionStorage.getItem('kwmath_session_pw')) {
+      const pw = prompt('관리자 비밀번호를 입력해주세요:');
+      if (!pw) return;
+      sessionStorage.setItem('kwmath_session_pw', pw);
+    }
+
+    const progress = document.getElementById('uploadProgress');
+    const bar = document.getElementById('progressBar');
+    const text = document.getElementById('progressText');
+    progress.style.display = 'block';
+
+    let successCount = 0;
+    const total = files.length;
+
+    for (let i = 0; i < total; i++) {
+      const file = files[i];
+      bar.style.width = `${Math.round(((i) / total) * 100)}%`;
+      text.textContent = `업로드 중... (${i+1}/${total}) ${file.name}`;
+      try {
+        await uploadSingleFile(file, folder, phone4, category, total === 1 ? titleOverride : '');
+        successCount++;
+      } catch(e) {
+        showToast(`❌ "${file.name}" 실패: ${e.message}`);
+      }
+    }
+
+    bar.style.width = '100%';
+    text.textContent = `완료! (${successCount}/${total}개)`;
+    setTimeout(() => {
+      progress.style.display = 'none';
+      bar.style.width = '0%';
+      document.getElementById('fileInput').value = '';
+      document.getElementById('fileTitle').value = '';
+    }, 2000);
+
+    if (successCount > 0) showToast(`✅ ${successCount}개 파일 업로드 완료!`);
+    loadFiles();
+  }
+
+  async function loadFiles() {
+    const folder = document.getElementById('viewFolder').value;
+    const list = document.getElementById('fileList');
+    const count = document.getElementById('fileCount');
+    list.innerHTML = '<div class="empty">불러오는 중...</div>';
+    try {
+      const res = await fetch(`/.netlify/functions/list-files?folder=${folder}`);
+      const files = await res.json();
+      count.textContent = `총 ${files.length}개`;
+      if (!files.length) { list.innerHTML = '<div class="empty">파일이 없습니다.</div>'; return; }
+
+      list.innerHTML = files.map(f => {
+        const sizeStr = f.size > 1024*1024
+          ? (f.size/1024/1024).toFixed(1) + ' MB'
+          : (f.size/1024).toFixed(0) + ' KB';
+        const dateStr = f.lastModified ? new Date(f.lastModified).toLocaleDateString('ko-KR') : '';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:600;font-size:0.9rem;">${f.name}</div>
+            <div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">${sizeStr} · ${dateStr}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="downloadFile('${f.key}')" style="background:var(--primary-light);color:var(--primary);border:none;padding:7px 14px;border-radius:7px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">다운로드</button>
+            <button onclick="deleteFile('${f.key}')" style="background:#fef2f2;color:#c0392b;border:none;padding:7px 14px;border-radius:7px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">삭제</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="empty">파일 목록을 불러올 수 없습니다.</div>';
+    }
+  }
+
+  async function downloadFile(key) {
+    const res = await fetch(`/.netlify/functions/get-download-url?key=${encodeURIComponent(key)}`);
+    const { downloadUrl } = await res.json();
+    if (downloadUrl) window.open(downloadUrl, '_blank');
+  }
+
+  async function deleteFile(key) {
+    if (!confirm('이 파일을 삭제하시겠습니까?')) return;
+    const pw = localStorage.getItem('kwmath_admin_pw') || prompt('관리자 비밀번호:');
+    const res = await fetch('/.netlify/functions/delete-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw, key }),
+    });
+    const data = await res.json();
+    if (data.success) { showToast('삭제 완료'); loadFiles(); }
+    else showToast('삭제 실패: ' + (data.error || ''));
   }
 
   // ── 토스트 알림 ──

@@ -8,8 +8,8 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
-    --primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;
-    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+    --primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;
+    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F7;--border:#EDE0E1;
   }
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
 
@@ -23,7 +23,7 @@
   .page-wrap{max-width:640px;margin:0 auto;padding:48px 5% 80px;}
 
   /* 입력 카드 */
-  .input-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(139,26,53,0.08);margin-bottom:32px;}
+  .input-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(134,38,51,0.08);margin-bottom:32px;}
   .card-icon{font-size:2rem;margin-bottom:12px;}
   .card-title{font-size:1.3rem;font-weight:900;margin-bottom:6px;}
   .card-desc{font-size:0.87rem;color:var(--text-light);line-height:1.7;margin-bottom:28px;}
@@ -40,7 +40,7 @@
   .result-name{font-size:1.1rem;font-weight:900;margin-bottom:4px;}
   .result-count{font-size:0.83rem;color:var(--text-light);}
 
-  .report-card{background:#fff;border-radius:16px;border:1px solid var(--border);margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .report-card{background:#fff;border-radius:16px;border:1px solid var(--border);margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px rgba(134,38,51,0.05);}
   .report-card-header{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
   .report-card-date{font-size:0.9rem;font-weight:700;}
   .report-card-school{font-size:0.75rem;opacity:0.8;}
@@ -50,6 +50,14 @@
   .report-label{font-size:0.72rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:5px;text-transform:uppercase;}
   .report-val{font-size:0.9rem;line-height:1.7;color:var(--text);}
   .hw-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.8rem;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:6px;}
+
+  /* PDF 섹션 */
+  .pdf-item{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:8px;gap:12px;}
+  .pdf-name{font-size:0.88rem;font-weight:600;color:var(--text);}
+  .pdf-size{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
+  .pdf-dl-btn{background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;}
+  .pdf-dl-btn:hover{background:var(--primary-mid);}
+  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:12px;text-transform:uppercase;}
 
   /* 빈/로딩 상태 */
   .state-box{text-align:center;padding:40px 20px;color:var(--text-light);}
@@ -81,7 +89,7 @@
     <div class="card-title">수업 리포트 열람</div>
     <div class="card-desc">
       학부모님의 전화번호 끝 4자리를 입력하시면<br>
-      자녀의 수업 리포트를 확인하실 수 있습니다.
+      자녀의 수업 리포트와 첨부 자료를 확인하실 수 있습니다.
     </div>
     <div class="input-group">
       <input class="phone-input" id="phone4" type="tel" maxlength="4" placeholder="0000"
@@ -98,6 +106,14 @@
       <div class="result-name" id="resultName"></div>
       <div class="result-count" id="resultCount"></div>
     </div>
+
+    <!-- PDF 첨부 자료 -->
+    <div id="pdfSection" style="display:none;margin-bottom:24px;">
+      <div class="section-label">📎 첨부 PDF 자료</div>
+      <div id="pdfList"></div>
+    </div>
+
+    <!-- 수업 리포트 목록 -->
     <div id="reportList"></div>
   </div>
 
@@ -114,6 +130,8 @@
 </div>
 
 <script>
+let currentPhone4 = '';
+
 async function searchReports() {
   const phone4 = document.getElementById('phone4').value.trim();
   const errMsg = document.getElementById('errMsg');
@@ -128,21 +146,50 @@ async function searchReports() {
     return;
   }
 
+  currentPhone4 = phone4;
   reportList.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><p>리포트를 불러오는 중입니다...</p></div>`;
   resultArea.style.display = 'block';
 
   try {
-    const res = await fetch(`/.netlify/functions/reports?phone4=${phone4}`);
-    const reports = await res.json();
+    // 수업 리포트 + PDF 동시 조회
+    const [reportRes, pdfRes] = await Promise.all([
+      fetch(`/.netlify/functions/reports?phone4=${phone4}`),
+      fetch(`/.netlify/functions/list-files?folder=reports/${phone4}`)
+    ]);
 
+    const reports = await reportRes.json();
+    const pdfs = pdfRes.ok ? await pdfRes.json() : [];
+
+    // PDF 섹션 렌더링
+    const pdfSection = document.getElementById('pdfSection');
+    const pdfList = document.getElementById('pdfList');
+    if (pdfs.length > 0) {
+      pdfSection.style.display = 'block';
+      pdfList.innerHTML = pdfs.map(f => {
+        const sizeStr = f.size > 1024*1024
+          ? (f.size/1024/1024).toFixed(1) + ' MB'
+          : (f.size/1024).toFixed(0) + ' KB';
+        return `<div class="pdf-item">
+          <div>
+            <div class="pdf-name">📄 ${f.name}</div>
+            <div class="pdf-size">${sizeStr}</div>
+          </div>
+          <button class="pdf-dl-btn" onclick="downloadPdf('${f.key}')">다운로드</button>
+        </div>`;
+      }).join('');
+    } else {
+      pdfSection.style.display = 'none';
+    }
+
+    // 리포트 없음
     if (!reports.length) {
       errMsg.textContent = '해당 번호로 등록된 리포트가 없습니다. 번호를 다시 확인해주세요.';
       errMsg.style.display = 'block';
-      resultArea.style.display = 'none';
+      reportList.innerHTML = '';
+      if (!pdfs.length) resultArea.style.display = 'none';
       return;
     }
 
-    // 학생 이름 추출 (첫 번째 리포트 기준)
     const studentName = reports[0].studentName || '학생';
     document.getElementById('resultName').textContent = `${studentName} 학생의 수업 리포트`;
     document.getElementById('resultCount').textContent = `총 ${reports.length}개의 리포트`;
@@ -178,6 +225,20 @@ async function searchReports() {
 
   } catch(e) {
     reportList.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><p>오류가 발생했습니다.<br>잠시 후 다시 시도해주세요.</p></div>`;
+  }
+}
+
+async function downloadPdf(key) {
+  try {
+    const res = await fetch(`/.netlify/functions/get-download-url?key=${encodeURIComponent(key)}&phone4=${currentPhone4}`);
+    const data = await res.json();
+    if (data.downloadUrl) {
+      window.open(data.downloadUrl, '_blank');
+    } else {
+      alert('다운로드 링크를 가져올 수 없습니다.');
+    }
+  } catch(e) {
+    alert('오류가 발생했습니다: ' + e.message);
   }
 }
 </script>
