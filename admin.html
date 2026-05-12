@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관리자 페이지 | LKW math LAB</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;
+    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+  }
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+
+  /* ── 로그인 화면 ── */
+  #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+  .login-card{background:#fff;border-radius:24px;padding:48px 40px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(139,26,53,0.12);border:1px solid var(--border);text-align:center;}
+  .login-logo{font-size:2rem;margin-bottom:8px;}
+  .login-title{font-size:1.3rem;font-weight:900;color:var(--primary);margin-bottom:6px;}
+  .login-sub{font-size:0.83rem;color:var(--text-light);margin-bottom:32px;}
+  .login-input{width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;font-family:inherit;outline:none;transition:border .2s;margin-bottom:14px;}
+  .login-input:focus{border-color:var(--primary);}
+  .login-btn{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;}
+  .login-btn:hover{background:var(--primary-mid);}
+  .login-err{color:#c0392b;font-size:0.83rem;margin-top:8px;display:none;}
+
+  /* ── 관리자 대시보드 ── */
+  #dashboard{display:none;}
+  .topbar{background:var(--primary);color:#fff;padding:0 5%;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .topbar-title{font-size:1rem;font-weight:900;letter-spacing:-0.5px;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .topbar-link{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;transition:color .2s;}
+  .topbar-link:hover{color:#fff;}
+  .logout-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:6px 14px;border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:background .2s;}
+  .logout-btn:hover{background:rgba(255,255,255,0.25);}
+
+  .dash-body{max-width:1000px;margin:0 auto;padding:36px 5%;}
+
+  /* 탭 */
+  .tabs{display:flex;gap:8px;margin-bottom:28px;border-bottom:2px solid var(--border);padding-bottom:0;}
+  .tab-btn{padding:10px 22px;border:none;background:none;font-size:0.9rem;font-weight:700;color:var(--text-light);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;transition:all .2s;}
+  .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
+
+  /* 섹션 */
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  .panel-title{font-size:1.2rem;font-weight:900;margin-bottom:20px;}
+
+  /* 공지사항 */
+  .notice-form{background:#fff;border-radius:16px;padding:24px;border:1px solid var(--border);margin-bottom:24px;}
+  .notice-form h3{font-size:0.95rem;font-weight:800;margin-bottom:16px;color:var(--primary);}
+  .form-row{margin-bottom:12px;}
+  .form-row label{display:block;font-size:0.8rem;font-weight:700;margin-bottom:5px;color:var(--text-light);}
+  .form-row input,.form-row select,.form-row textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;font-family:inherit;outline:none;transition:border .2s;}
+  .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary);}
+  .form-row textarea{resize:vertical;min-height:80px;}
+  .form-row-inline{display:grid;grid-template-columns:2fr 1fr;gap:12px;}
+  .submit-btn{background:var(--primary);color:#fff;border:none;padding:11px 24px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;}
+  .submit-btn:hover{background:var(--primary-mid);}
+
+  .notice-list{display:flex;flex-direction:column;gap:10px;}
+  .notice-item{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+  .notice-badge{background:var(--primary-light);color:var(--primary);font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+  .notice-badge.new{background:var(--primary);color:#fff;}
+  .notice-text{flex:1;}
+  .notice-title-txt{font-size:0.9rem;font-weight:600;}
+  .notice-date{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
+  .del-btn{background:none;border:1.5px solid #e74c3c;color:#e74c3c;padding:5px 12px;border-radius:8px;font-size:0.78rem;cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap;}
+  .del-btn:hover{background:#e74c3c;color:#fff;}
+
+  /* 리포트 */
+  .report-search{display:flex;gap:10px;margin-bottom:20px;}
+  .report-search input{flex:1;padding:11px 16px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;font-family:inherit;outline:none;transition:border .2s;}
+  .report-search input:focus{border-color:var(--primary);}
+  .search-btn{background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .report-list{display:flex;flex-direction:column;gap:12px;}
+  .report-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 22px;}
+  .report-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .report-name{font-weight:800;font-size:0.97rem;}
+  .report-date-badge{font-size:0.75rem;color:var(--text-light);}
+  .report-field{margin-bottom:8px;}
+  .report-label{font-size:0.75rem;font-weight:700;color:var(--primary);margin-bottom:3px;}
+  .report-val{font-size:0.87rem;line-height:1.6;color:var(--text);}
+
+  /* 빈 상태 */
+  .empty{text-align:center;color:var(--text-light);padding:32px;font-size:0.9rem;}
+
+  /* 토스트 */
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:12px 24px;border-radius:12px;font-size:0.87rem;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🔐</div>
+    <div class="login-title">관리자 로그인</div>
+    <div class="login-sub">LKW math LAB 관리자 전용 페이지입니다.</div>
+    <input class="login-input" id="pwInput" type="password" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">로그인</button>
+    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다.</div>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-title">📐 LKW math LAB 관리자</div>
+    <div class="topbar-right">
+      <a href="/" class="topbar-link">← 홈페이지 보기</a>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="dash-body">
+    <!-- 탭 -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('notices', this)">📢 공지사항 관리</button>
+      <button class="tab-btn" onclick="switchTab('reports', this)">📋 수업 리포트</button>
+    </div>
+
+    <!-- 공지사항 탭 -->
+    <div class="tab-panel active" id="tab-notices">
+      <div class="notice-form">
+        <h3>+ 새 공지사항 등록</h3>
+        <div class="form-row-inline">
+          <div class="form-row">
+            <label>제목</label>
+            <input id="newTitle" type="text" placeholder="공지사항 제목">
+          </div>
+          <div class="form-row">
+            <label>구분</label>
+            <select id="newBadge">
+              <option value="공지">공지</option>
+              <option value="NEW">NEW</option>
+              <option value="안내">안내</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>내용 (선택)</label>
+          <textarea id="newContent" placeholder="공지 내용을 입력하세요 (선택사항)"></textarea>
+        </div>
+        <button class="submit-btn" onclick="addNotice()">등록하기 →</button>
+      </div>
+
+      <p class="panel-title">현재 공지사항</p>
+      <div class="notice-list" id="adminNoticeList">
+        <div class="empty">불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 리포트 탭 -->
+    <div class="tab-panel" id="tab-reports">
+      <p class="panel-title">수업 리포트 조회</p>
+      <div class="report-search">
+        <input id="phone4Input" type="text" maxlength="4" placeholder="학부모 전화번호 끝 4자리 입력" onkeydown="if(event.key==='Enter')searchReports()">
+        <button class="search-btn" onclick="searchReports()">조회</button>
+      </div>
+      <div class="report-list" id="reportList">
+        <div class="empty">전화번호 끝 4자리를 입력하면<br>해당 학생의 수업 리포트를 조회할 수 있습니다.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 알림 -->
+<div class="toast" id="toast"></div>
+
+<script>
+  let adminToken = '';
+
+  // ── 로그인 ──
+  async function doLogin() {
+    const pw = document.getElementById('pwInput').value;
+    const err = document.getElementById('loginErr');
+    err.style.display = 'none';
+    try {
+      const res = await fetch('/.netlify/functions/admin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        adminToken = data.token;
+        localStorage.setItem('kwmath_admin_token', adminToken);
+        showDashboard();
+      } else {
+        err.style.display = 'block';
+      }
+    } catch(e) {
+      err.style.display = 'block';
+    }
+  }
+
+  function doLogout() {
+    adminToken = '';
+    localStorage.removeItem('kwmath_admin_token');
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('pwInput').value = '';
+  }
+
+  function showDashboard() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadAdminNotices();
+  }
+
+  // 자동 로그인 복원
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('kwmath_admin_token');
+    if (saved) {
+      adminToken = saved;
+      showDashboard();
+    }
+  });
+
+  // ── 탭 전환 ──
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  // ── 공지사항 로드 ──
+  async function loadAdminNotices() {
+    const list = document.getElementById('adminNoticeList');
+    try {
+      const res = await fetch('/.netlify/functions/notices');
+      const notices = await res.json();
+      if (!notices.length) {
+        list.innerHTML = '<div class="empty">등록된 공지사항이 없습니다.</div>';
+        return;
+      }
+      list.innerHTML = notices.map(n => {
+        const isNew = n.badge === 'NEW';
+        const dateStr = n.date ? n.date.replace(/-/g, '.') : '';
+        return `<div class="notice-item" id="ni-${n.id}">
+          <span class="notice-badge${isNew ? ' new' : ''}">${n.badge}</span>
+          <div class="notice-text">
+            <div class="notice-title-txt">${n.title}</div>
+            <div class="notice-date">${dateStr}</div>
+          </div>
+          <button class="del-btn" onclick="deleteNotice('${n.id}')">삭제</button>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="empty">공지사항을 불러올 수 없습니다.</div>';
+    }
+  }
+
+  // ── 공지사항 등록 ──
+  async function addNotice() {
+    const title = document.getElementById('newTitle').value.trim();
+    const badge = document.getElementById('newBadge').value;
+    const content = document.getElementById('newContent').value.trim();
+    if (!title) { showToast('제목을 입력해주세요.'); return; }
+    try {
+      const res = await fetch('/.netlify/functions/notices-write', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ title, badge, content })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('newTitle').value = '';
+        document.getElementById('newContent').value = '';
+        showToast('공지사항이 등록되었습니다! ✅');
+        await loadAdminNotices();
+      } else {
+        showToast('등록 실패: ' + (data.error || '오류'));
+      }
+    } catch(e) {
+      showToast('오류가 발생했습니다.');
+    }
+  }
+
+  // ── 공지사항 삭제 ──
+  async function deleteNotice(pageId) {
+    if (!confirm('이 공지사항을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch('/.netlify/functions/notices-write', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ pageId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('삭제되었습니다.');
+        const el = document.getElementById('ni-' + pageId);
+        if (el) el.remove();
+      } else {
+        showToast('삭제 실패.');
+      }
+    } catch(e) {
+      showToast('오류가 발생했습니다.');
+    }
+  }
+
+  // ── 리포트 조회 ──
+  async function searchReports() {
+    const phone4 = document.getElementById('phone4Input').value.trim();
+    const list = document.getElementById('reportList');
+    if (!phone4 || phone4.length !== 4) {
+      showToast('전화번호 끝 4자리를 정확히 입력해주세요.');
+      return;
+    }
+    list.innerHTML = '<div class="empty">조회 중...</div>';
+    try {
+      const res = await fetch(`/.netlify/functions/reports?phone4=${phone4}`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      const reports = await res.json();
+      if (!reports.length) {
+        list.innerHTML = '<div class="empty">해당 번호로 등록된 리포트가 없습니다.</div>';
+        return;
+      }
+      list.innerHTML = reports.map(r => `
+        <div class="report-card">
+          <div class="report-header">
+            <div class="report-name">👤 ${r.studentName || '학생'}</div>
+            <div class="report-date-badge">${r.date || ''} · ${r.school || ''}</div>
+          </div>
+          ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${r.content}</div></div>` : ''}
+          ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val">${r.homework}</div></div>` : ''}
+          ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${r.notes}</div></div>` : ''}
+        </div>
+      `).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="empty">조회 중 오류가 발생했습니다.</div>';
+    }
+  }
+
+  // ── 토스트 알림 ──
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+</script>
+</body>
+</html>
