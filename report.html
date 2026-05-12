@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수업 리포트 열람 | LKW math LAB</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;
+    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+  }
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+
+  /* 상단 바 */
+  .topbar{background:var(--primary);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
+  .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
+  .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;transition:color .2s;}
+  .topbar-back:hover{color:#fff;}
+
+  /* 메인 */
+  .page-wrap{max-width:640px;margin:0 auto;padding:48px 5% 80px;}
+
+  /* 입력 카드 */
+  .input-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(139,26,53,0.08);margin-bottom:32px;}
+  .card-icon{font-size:2rem;margin-bottom:12px;}
+  .card-title{font-size:1.3rem;font-weight:900;margin-bottom:6px;}
+  .card-desc{font-size:0.87rem;color:var(--text-light);line-height:1.7;margin-bottom:28px;}
+  .input-group{display:flex;gap:10px;}
+  .phone-input{flex:1;padding:14px 18px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;font-family:inherit;outline:none;transition:border .2s;letter-spacing:4px;text-align:center;font-weight:700;}
+  .phone-input:focus{border-color:var(--primary);}
+  .search-btn{background:var(--primary);color:#fff;border:none;padding:14px 24px;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;white-space:nowrap;}
+  .search-btn:hover{background:var(--primary-mid);}
+  .input-hint{font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;}
+
+  /* 리포트 영역 */
+  #resultArea{display:none;}
+  .result-header{margin-bottom:20px;}
+  .result-name{font-size:1.1rem;font-weight:900;margin-bottom:4px;}
+  .result-count{font-size:0.83rem;color:var(--text-light);}
+
+  .report-card{background:#fff;border-radius:16px;border:1px solid var(--border);margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .report-card-header{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+  .report-card-date{font-size:0.9rem;font-weight:700;}
+  .report-card-school{font-size:0.75rem;opacity:0.8;}
+  .report-card-body{padding:20px;}
+  .report-field{margin-bottom:14px;}
+  .report-field:last-child{margin-bottom:0;}
+  .report-label{font-size:0.72rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:5px;text-transform:uppercase;}
+  .report-val{font-size:0.9rem;line-height:1.7;color:var(--text);}
+  .hw-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.8rem;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:6px;}
+
+  /* 빈/로딩 상태 */
+  .state-box{text-align:center;padding:40px 20px;color:var(--text-light);}
+  .state-box .state-icon{font-size:2.5rem;margin-bottom:12px;}
+  .state-box p{font-size:0.9rem;line-height:1.8;}
+
+  /* 에러 */
+  .err-msg{color:#c0392b;font-size:0.83rem;margin-top:8px;text-align:center;display:none;}
+
+  /* 카카오 버튼 */
+  .kakao-float{position:fixed;bottom:28px;right:24px;z-index:999;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .kakao-float a{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#FEE500;box-shadow:0 4px 16px rgba(0,0,0,0.18);transition:transform .2s;}
+  .kakao-float a:hover{transform:scale(1.08);}
+  .kakao-label{font-size:0.65rem;font-weight:700;color:#333;background:#fff;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="topbar-logo">📐 LKW math LAB</a>
+  <a href="/" class="topbar-back">← 홈페이지로</a>
+</div>
+
+<div class="page-wrap">
+
+  <!-- 입력 카드 -->
+  <div class="input-card">
+    <div class="card-icon">📋</div>
+    <div class="card-title">수업 리포트 열람</div>
+    <div class="card-desc">
+      학부모님의 전화번호 끝 4자리를 입력하시면<br>
+      자녀의 수업 리포트를 확인하실 수 있습니다.
+    </div>
+    <div class="input-group">
+      <input class="phone-input" id="phone4" type="tel" maxlength="4" placeholder="0000"
+        onkeydown="if(event.key==='Enter')searchReports()" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+      <button class="search-btn" onclick="searchReports()">조회하기</button>
+    </div>
+    <div class="input-hint">※ 수업 등록 시 제공한 전화번호 기준입니다.</div>
+    <div class="err-msg" id="errMsg">해당 번호로 등록된 리포트가 없습니다.</div>
+  </div>
+
+  <!-- 결과 영역 -->
+  <div id="resultArea">
+    <div class="result-header">
+      <div class="result-name" id="resultName"></div>
+      <div class="result-count" id="resultCount"></div>
+    </div>
+    <div id="reportList"></div>
+  </div>
+
+</div>
+
+<!-- 카카오 플로팅 -->
+<div class="kakao-float">
+  <a href="http://pf.kakao.com/_lIbJG" target="_blank" title="카카오채널 문의">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="#3C1E1E">
+      <path d="M12 3C7.03 3 3 6.36 3 10.5c0 2.69 1.7 5.05 4.26 6.4L6.3 20.25c-.07.22.14.42.35.3L11.1 17.9c.3.03.6.05.9.05 4.97 0 9-3.36 9-7.45S16.97 3 12 3z"/>
+    </svg>
+  </a>
+  <span class="kakao-label">문의</span>
+</div>
+
+<script>
+async function searchReports() {
+  const phone4 = document.getElementById('phone4').value.trim();
+  const errMsg = document.getElementById('errMsg');
+  const resultArea = document.getElementById('resultArea');
+  const reportList = document.getElementById('reportList');
+  errMsg.style.display = 'none';
+  resultArea.style.display = 'none';
+
+  if (!phone4 || phone4.length !== 4) {
+    errMsg.textContent = '전화번호 끝 4자리를 정확히 입력해주세요.';
+    errMsg.style.display = 'block';
+    return;
+  }
+
+  reportList.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><p>리포트를 불러오는 중입니다...</p></div>`;
+  resultArea.style.display = 'block';
+
+  try {
+    const res = await fetch(`/.netlify/functions/reports?phone4=${phone4}`);
+    const reports = await res.json();
+
+    if (!reports.length) {
+      errMsg.textContent = '해당 번호로 등록된 리포트가 없습니다. 번호를 다시 확인해주세요.';
+      errMsg.style.display = 'block';
+      resultArea.style.display = 'none';
+      return;
+    }
+
+    // 학생 이름 추출 (첫 번째 리포트 기준)
+    const studentName = reports[0].studentName || '학생';
+    document.getElementById('resultName').textContent = `${studentName} 학생의 수업 리포트`;
+    document.getElementById('resultCount').textContent = `총 ${reports.length}개의 리포트`;
+
+    reportList.innerHTML = reports.map(r => {
+      const dateStr = r.date ? r.date.replace(/-/g, '.') : '';
+      return `
+        <div class="report-card">
+          <div class="report-card-header">
+            <div class="report-card-date">📅 ${dateStr} 수업</div>
+            <div class="report-card-school">${r.school || ''}</div>
+          </div>
+          <div class="report-card-body">
+            ${r.content ? `
+              <div class="report-field">
+                <div class="report-label">수업 내용</div>
+                <div class="report-val">${r.content.replace(/\n/g, '<br>')}</div>
+              </div>` : ''}
+            ${r.homework ? `
+              <div class="report-field">
+                <div class="report-label">숙제</div>
+                <div class="hw-badge">📝 숙제</div>
+                <div class="report-val">${r.homework.replace(/\n/g, '<br>')}</div>
+              </div>` : ''}
+            ${r.notes ? `
+              <div class="report-field">
+                <div class="report-label">선생님 한마디</div>
+                <div class="report-val">${r.notes.replace(/\n/g, '<br>')}</div>
+              </div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch(e) {
+    reportList.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><p>오류가 발생했습니다.<br>잠시 후 다시 시도해주세요.</p></div>`;
+  }
+}
+</script>
+</body>
+</html>
