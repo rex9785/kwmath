@@ -121,6 +121,7 @@
       <button class="tab-btn active" onclick="switchTab('notices', this)">📢 공지사항 관리</button>
       <button class="tab-btn" onclick="switchTab('report-write', this)">✏️ 리포트 작성</button>
       <button class="tab-btn" onclick="switchTab('reports', this)">📋 리포트 조회</button>
+      <button class="tab-btn" onclick="switchTab('students', this)">👨‍🎓 학생 목록</button>
     </div>
 
     <!-- 공지사항 탭 -->
@@ -210,6 +211,22 @@
     </div>
   </div>
 </div>
+
+    <!-- 학생 목록 탭 -->
+    <div class="tab-panel" id="tab-students">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <p class="panel-title" style="margin-bottom:0;">등록 학생 목록</p>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="filterStudents()"
+            style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
+          <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
+        </div>
+      </div>
+      <div id="studentList"><div class="empty">불러오는 중...</div></div>
+    </div>
+
+  </div><!-- dash-body end -->
+</div><!-- dashboard end -->
 
 <!-- 토스트 알림 -->
 <div class="toast" id="toast"></div>
@@ -431,6 +448,68 @@
     } catch(e) {
       list.innerHTML = '<div class="empty">조회 중 오류가 발생했습니다.</div>';
     }
+  }
+
+  // ── 학생 목록 ──
+  let allStudents = [];
+
+  async function loadStudents() {
+    const list = document.getElementById('studentList');
+    try {
+      const res = await fetch('/.netlify/functions/students', {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      allStudents = await res.json();
+      renderStudents(allStudents);
+    } catch(e) {
+      list.innerHTML = '<div class="empty">학생 목록을 불러올 수 없습니다.</div>';
+    }
+  }
+
+  function renderStudents(students) {
+    const list = document.getElementById('studentList');
+    const count = document.getElementById('studentCount');
+    count.textContent = `총 ${students.length}명`;
+    if (!students.length) {
+      list.innerHTML = '<div class="empty">등록된 학생이 없습니다.</div>';
+      return;
+    }
+    const gradeColor = {'고3':'#c0392b','고2':'#e67e22','고1':'#f1c40f','중3':'#27ae60','중2':'#3498db'};
+    list.innerHTML = students.map(s => {
+      const color = gradeColor[s.grade] || '#888';
+      const date = s.createdAt ? s.createdAt.slice(0,10).replace(/-/g,'.') : '';
+      const goals = s.goals.join(', ');
+      return `<div class="notice-item" style="align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;min-width:120px;">
+          <span style="background:${color};color:#fff;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;">${s.grade}</span>
+          <span style="font-weight:800;font-size:0.95rem;">${s.name}</span>
+        </div>
+        <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;font-size:0.82rem;color:var(--text-light);">
+          ${s.school ? `<span>🏫 ${s.school}</span>` : ''}
+          ${s.level ? `<span>📊 ${s.level}</span>` : ''}
+          ${goals ? `<span>🎯 ${goals}</span>` : ''}
+          ${s.academy ? `<span>📍 ${s.academy}</span>` : ''}
+          ${s.parentPhone4 ? `<span>📞 끝번호 ${s.parentPhone4}</span>` : ''}
+        </div>
+        <span style="font-size:0.75rem;color:var(--text-light);white-space:nowrap;">${date}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function filterStudents() {
+    const q = document.getElementById('studentSearch').value.trim().toLowerCase();
+    const filtered = q ? allStudents.filter(s => s.name.toLowerCase().includes(q)) : allStudents;
+    renderStudents(filtered);
+  }
+
+  // 학생 탭 클릭 시 로드
+  const origSwitch = window.switchTab;
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'students' && allStudents.length === 0) loadStudents();
   }
 
   // ── 토스트 알림 ──

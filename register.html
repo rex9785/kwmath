@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학생 등록 | LKW math LAB</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+
+  .topbar{background:var(--primary);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
+  .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
+  .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;}
+  .topbar-back:hover{color:#fff;}
+
+  .page-wrap{max-width:600px;margin:0 auto;padding:40px 5% 80px;}
+
+  .form-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(139,26,53,0.08);}
+  .form-header{text-align:center;margin-bottom:32px;}
+  .form-header .icon{font-size:2.2rem;margin-bottom:10px;}
+  .form-header h1{font-size:1.4rem;font-weight:900;color:var(--primary);margin-bottom:6px;}
+  .form-header p{font-size:0.85rem;color:var(--text-light);line-height:1.7;}
+
+  .form-section{margin-bottom:24px;}
+  .form-section-title{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+
+  .form-row{margin-bottom:14px;}
+  .form-row label{display:block;font-size:0.82rem;font-weight:700;margin-bottom:6px;color:var(--text);}
+  .form-row label .req{color:var(--primary);margin-left:2px;}
+  .form-row input,.form-row select,.form-row textarea{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;font-family:inherit;outline:none;transition:border .2s;background:#fff;}
+  .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary);}
+  .form-row textarea{resize:vertical;min-height:70px;}
+  .form-hint{font-size:0.75rem;color:var(--text-light);margin-top:5px;}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  /* 체크박스 그룹 */
+  .check-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .check-item{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;transition:all .2s;font-size:0.87rem;font-weight:500;}
+  .check-item:hover{border-color:var(--primary);color:var(--primary);}
+  .check-item input[type=checkbox]{display:none;}
+  .check-item.checked{background:var(--primary-light);border-color:var(--primary);color:var(--primary);font-weight:700;}
+
+  .submit-btn{width:100%;background:var(--primary);color:#fff;border:none;padding:16px;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;margin-top:8px;}
+  .submit-btn:hover{background:var(--primary-mid);}
+  .submit-btn:disabled{opacity:.6;cursor:not-allowed;}
+
+  /* 완료 화면 */
+  #doneScreen{display:none;text-align:center;padding:60px 20px;}
+  #doneScreen .done-icon{font-size:3.5rem;margin-bottom:16px;}
+  #doneScreen h2{font-size:1.4rem;font-weight:900;color:var(--primary);margin-bottom:10px;}
+  #doneScreen p{font-size:0.9rem;color:var(--text-light);line-height:1.8;}
+
+  .err-msg{color:#c0392b;font-size:0.82rem;margin-top:10px;display:none;text-align:center;}
+
+  @media(max-width:480px){.row2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="topbar-logo">📐 LKW math LAB</a>
+  <a href="/" class="topbar-back">← 홈으로</a>
+</div>
+
+<div class="page-wrap">
+  <div class="form-card">
+
+    <!-- 폼 -->
+    <div id="formArea">
+      <div class="form-header">
+        <div class="icon">📝</div>
+        <h1>학생 등록</h1>
+        <p>아래 정보를 입력해주시면<br>선생님이 맞춤 수업을 준비할 수 있습니다.</p>
+      </div>
+
+      <!-- 기본 정보 -->
+      <div class="form-section">
+        <div class="form-section-title">기본 정보</div>
+        <div class="row2">
+          <div class="form-row">
+            <label>이름 <span class="req">*</span></label>
+            <input id="name" type="text" placeholder="홍길동">
+          </div>
+          <div class="form-row">
+            <label>학년 <span class="req">*</span></label>
+            <select id="grade">
+              <option value="">선택하세요</option>
+              <option value="중2">중학교 2학년</option>
+              <option value="중3">중학교 3학년</option>
+              <option value="고1">고등학교 1학년</option>
+              <option value="고2">고등학교 2학년</option>
+              <option value="고3">고등학교 3학년</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>학교명</label>
+          <input id="school" type="text" placeholder="○○중학교 / ○○고등학교">
+        </div>
+      </div>
+
+      <!-- 연락처 -->
+      <div class="form-section">
+        <div class="form-section-title">연락처</div>
+        <div class="form-row">
+          <label>학부모 연락처 끝 4자리 <span class="req">*</span></label>
+          <input id="parentPhone4" type="tel" maxlength="4" placeholder="0000" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+          <div class="form-hint">수업 리포트 열람에 사용됩니다.</div>
+        </div>
+        <div class="form-row">
+          <label>학생 연락처 (선택)</label>
+          <input id="studentPhone" type="tel" placeholder="010-0000-0000">
+        </div>
+      </div>
+
+      <!-- 수업 정보 -->
+      <div class="form-section">
+        <div class="form-section-title">수업 정보</div>
+        <div class="form-row">
+          <label>수강 목적 <span class="req">*</span> (중복 선택 가능)</label>
+          <div class="check-group" id="goalGroup">
+            <label class="check-item" onclick="toggleCheck(this)">
+              <input type="checkbox" value="수능"> 📌 수능
+            </label>
+            <label class="check-item" onclick="toggleCheck(this)">
+              <input type="checkbox" value="내신"> 📚 내신
+            </label>
+            <label class="check-item" onclick="toggleCheck(this)">
+              <input type="checkbox" value="기초다지기"> 🔧 기초다지기
+            </label>
+            <label class="check-item" onclick="toggleCheck(this)">
+              <input type="checkbox" value="선행"> 🚀 선행
+            </label>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="form-row">
+            <label>현재 수학 수준</label>
+            <select id="level">
+              <option value="잘 모름">잘 모름</option>
+              <option value="1등급">1등급</option>
+              <option value="2등급">2등급</option>
+              <option value="3등급">3등급</option>
+              <option value="4등급">4등급</option>
+              <option value="5등급 이하">5등급 이하</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>수강 학원</label>
+            <select id="academy">
+              <option value="대치동 정규반">대치동 정규반</option>
+              <option value="세정학원">세정학원</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>하고 싶은 말 (선택)</label>
+          <textarea id="notes" placeholder="수업에서 특별히 원하는 것, 어려운 단원, 목표 등 자유롭게 적어주세요."></textarea>
+        </div>
+      </div>
+
+      <div class="err-msg" id="errMsg"></div>
+      <button class="submit-btn" id="submitBtn" onclick="submitForm()">등록 완료 →</button>
+    </div>
+
+    <!-- 완료 화면 -->
+    <div id="doneScreen">
+      <div class="done-icon">🎉</div>
+      <h2>등록이 완료되었습니다!</h2>
+      <p>선생님이 확인 후 곧 연락드리겠습니다.<br><br>수업 리포트는 홈페이지의<br><strong>'수업 리포트 열람'</strong>에서 확인하실 수 있습니다.<br>(학부모 연락처 끝 4자리 입력)</p>
+      <br><br>
+      <a href="/" style="display:inline-block;background:var(--primary);color:#fff;padding:13px 30px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.93rem;">홈페이지로 돌아가기</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function toggleCheck(el) {
+    el.classList.toggle('checked');
+  }
+
+  async function submitForm() {
+    const name = document.getElementById('name').value.trim();
+    const grade = document.getElementById('grade').value;
+    const school = document.getElementById('school').value.trim();
+    const parentPhone4 = document.getElementById('parentPhone4').value.trim();
+    const studentPhone = document.getElementById('studentPhone').value.trim();
+    const level = document.getElementById('level').value;
+    const academy = document.getElementById('academy').value;
+    const notes = document.getElementById('notes').value.trim();
+    const errMsg = document.getElementById('errMsg');
+    errMsg.style.display = 'none';
+
+    const goals = [...document.querySelectorAll('#goalGroup .check-item.checked input')].map(i => i.value);
+
+    if (!name) { showErr('이름을 입력해주세요.'); return; }
+    if (!grade) { showErr('학년을 선택해주세요.'); return; }
+    if (!parentPhone4 || parentPhone4.length !== 4) { showErr('학부모 연락처 끝 4자리를 입력해주세요.'); return; }
+    if (!goals.length) { showErr('수강 목적을 한 개 이상 선택해주세요.'); return; }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '등록 중...';
+
+    try {
+      const res = await fetch('/.netlify/functions/student-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, school, grade, parentPhone4, studentPhone, goals, level, academy, notes })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('formArea').style.display = 'none';
+        document.getElementById('doneScreen').style.display = 'block';
+      } else {
+        showErr('오류가 발생했습니다: ' + (data.error || '다시 시도해주세요.'));
+        btn.disabled = false;
+        btn.textContent = '등록 완료 →';
+      }
+    } catch(e) {
+      showErr('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+      btn.disabled = false;
+      btn.textContent = '등록 완료 →';
+    }
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('errMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+</script>
+</body>
+</html>
