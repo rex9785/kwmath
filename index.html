@@ -190,7 +190,7 @@
   @media(max-width:768px){
     .dday-bar{font-size:0.72rem;}
     nav{top:28px;}
-    .hero-inner,.contact-wrap,.video-grid,.features-grid,.program-grid,.why-grid,.tt-grid{grid-template-columns:1fr;}
+    .hero-inner,.contact-wrap,.video-grid,.features-grid,.program-grid,.why-grid,.tt-grid,#register .section-inner > div{grid-template-columns:1fr;}
     .review-grid,.clips-grid{grid-template-columns:1fr 1fr;}
     .hero h1{font-size:2.2rem;}
     .section-title{font-size:1.65rem;}
@@ -221,6 +221,7 @@
       <li><a href="#video">맛보기강의</a></li>
       <li><a href="#faq">FAQ</a></li>
       <li><a href="#contact">문의하기</a></li>
+      <li><a href="/register" style="color:var(--primary);font-weight:700;">📝 학생등록</a></li>
     </ul>
   </div>
 </nav>
@@ -646,6 +647,39 @@
   서울시 강남구 삼성로 57길 35 (대치동) 2층 · 02) 3411-6123<br>
   © 2025 LKW math LAB. All rights reserved.</p>
 </footer>
+
+<!-- 학생 등록 섹션 -->
+<section id="register" style="background:var(--primary-light);padding:70px 5%;border-top:1px solid var(--border);">
+  <div style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;">
+    <div>
+      <div class="section-tag">REGISTER</div>
+      <div class="section-divider"></div>
+      <h2 class="section-title">수업 시작하기</h2>
+      <p class="section-desc">아래 폼에 기본 정보를 입력해주시면 선생님이 확인 후 연락드립니다. 첫 수업 전 수준 진단 상담을 먼저 진행해드립니다.</p>
+      <div style="margin-top:28px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;font-size:0.9rem;color:var(--text-light);">
+          <span style="width:28px;height:28px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;">1</span>
+          아래 등록 폼 작성 (3분 소요)
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:0.9rem;color:var(--text-light);">
+          <span style="width:28px;height:28px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;">2</span>
+          선생님 확인 후 카카오채널로 연락
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:0.9rem;color:var(--text-light);">
+          <span style="width:28px;height:28px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;">3</span>
+          수준 진단 상담 후 수업 시작
+        </div>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(139,26,53,0.08);text-align:center;">
+      <div style="font-size:3rem;margin-bottom:16px;">📝</div>
+      <h3 style="font-size:1.2rem;font-weight:900;margin-bottom:8px;">학생 등록하기</h3>
+      <p style="font-size:0.85rem;color:var(--text-light);line-height:1.7;margin-bottom:24px;">이름, 학년, 수강 목적 등<br>기본 정보를 입력해주세요.</p>
+      <a href="/register" class="btn-primary" style="display:block;text-align:center;">등록 폼 작성하기 →</a>
+      <p style="font-size:0.75rem;color:var(--text-light);margin-top:14px;">카카오채널로 직접 문의하셔도 됩니다.</p>
+    </div>
+  </div>
+</section>
 
 <!-- 수업 리포트 열람 배너 -->
 <section style="background:var(--primary);padding:32px 5%;">
