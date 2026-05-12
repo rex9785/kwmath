@@ -207,7 +207,7 @@
     btn.textContent = '등록 중...';
 
     try {
-      const res = await fetch('/.netlify/functions/student-register', {
+      const res = await fetch('/api/student-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, school, grade, parentPhone4, studentPhone, goals, level, academy, notes })

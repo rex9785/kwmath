@@ -153,8 +153,8 @@ async function searchReports() {
   try {
     // 수업 리포트 + PDF 동시 조회
     const [reportRes, pdfRes] = await Promise.all([
-      fetch(`/.netlify/functions/reports?phone4=${phone4}`),
-      fetch(`/.netlify/functions/list-files?folder=reports/${phone4}`)
+      fetch(`/api/reports?phone4=${phone4}`),
+      fetch(`/api/list-files?folder=reports/${phone4}`)
     ]);
 
     const reports = await reportRes.json();
@@ -178,69 +178,4 @@ async function searchReports() {
         </div>`;
       }).join('');
     } else {
-      pdfSection.style.display = 'none';
-    }
-
-    // 리포트 없음
-    if (!reports.length) {
-      errMsg.textContent = '해당 번호로 등록된 리포트가 없습니다. 번호를 다시 확인해주세요.';
-      errMsg.style.display = 'block';
-      reportList.innerHTML = '';
-      if (!pdfs.length) resultArea.style.display = 'none';
-      return;
-    }
-
-    const studentName = reports[0].studentName || '학생';
-    document.getElementById('resultName').textContent = `${studentName} 학생의 수업 리포트`;
-    document.getElementById('resultCount').textContent = `총 ${reports.length}개의 리포트`;
-
-    reportList.innerHTML = reports.map(r => {
-      const dateStr = r.date ? r.date.replace(/-/g, '.') : '';
-      return `
-        <div class="report-card">
-          <div class="report-card-header">
-            <div class="report-card-date">📅 ${dateStr} 수업</div>
-            <div class="report-card-school">${r.school || ''}</div>
-          </div>
-          <div class="report-card-body">
-            ${r.content ? `
-              <div class="report-field">
-                <div class="report-label">수업 내용</div>
-                <div class="report-val">${r.content.replace(/\n/g, '<br>')}</div>
-              </div>` : ''}
-            ${r.homework ? `
-              <div class="report-field">
-                <div class="report-label">숙제</div>
-                <div class="hw-badge">📝 숙제</div>
-                <div class="report-val">${r.homework.replace(/\n/g, '<br>')}</div>
-              </div>` : ''}
-            ${r.notes ? `
-              <div class="report-field">
-                <div class="report-label">선생님 한마디</div>
-                <div class="report-val">${r.notes.replace(/\n/g, '<br>')}</div>
-              </div>` : ''}
-          </div>
-        </div>`;
-    }).join('');
-
-  } catch(e) {
-    reportList.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><p>오류가 발생했습니다.<br>잠시 후 다시 시도해주세요.</p></div>`;
-  }
-}
-
-async function downloadPdf(key) {
-  try {
-    const res = await fetch(`/.netlify/functions/get-download-url?key=${encodeURIComponent(key)}&phone4=${currentPhone4}`);
-    const data = await res.json();
-    if (data.downloadUrl) {
-      window.open(data.downloadUrl, '_blank');
-    } else {
-      alert('다운로드 링크를 가져올 수 없습니다.');
-    }
-  } catch(e) {
-    alert('오류가 발생했습니다: ' + e.message);
-  }
-}
-</script>
-</body>
-</html>
+      pdfSection.style.disp

@@ -250,6 +250,14 @@
             <input id="fileInput" type="file" multiple accept=".pdf,.hwp,.hwpx,.docx,.xlsx,.pptx,.zip,.png,.jpg"
               style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;">
           </div>
+          <div id="categoryWrap">
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">카테고리</label>
+            <select id="fileCategorySelect" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
+              <option value="수업자료">📚 수업자료</option>
+              <option value="교재">📖 교재</option>
+              <option value="기타">📎 기타</option>
+            </select>
+          </div>
           <div>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 표시 이름 <span style="color:var(--text-light);font-weight:400;">(단일 파일일 때만, 비워두면 파일명 사용)</span></label>
             <input id="fileTitle" type="text" placeholder="예: 2026년 5월 수업자료"
@@ -290,7 +298,7 @@
     const err = document.getElementById('loginErr');
     err.style.display = 'none';
     try {
-      const res = await fetch('/.netlify/functions/admin-auth', {
+      const res = await fetch('/api/admin-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pw })
@@ -348,7 +356,7 @@
   async function loadAdminNotices() {
     const list = document.getElementById('adminNoticeList');
     try {
-      const res = await fetch('/.netlify/functions/notices');
+      const res = await fetch('/api/notices');
       const notices = await res.json();
       if (!notices.length) {
         list.innerHTML = '<div class="empty">등록된 공지사항이 없습니다.</div>';
@@ -378,7 +386,7 @@
     const content = document.getElementById('newContent').value.trim();
     if (!title) { showToast('제목을 입력해주세요.'); return; }
     try {
-      const res = await fetch('/.netlify/functions/notices-write', {
+      const res = await fetch('/api/notices-write', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -404,7 +412,7 @@
   async function deleteNotice(pageId) {
     if (!confirm('이 공지사항을 삭제하시겠습니까?')) return;
     try {
-      const res = await fetch('/.netlify/functions/notices-write', {
+      const res = await fetch('/api/notices-write', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -440,7 +448,7 @@
     if (!date) { showToast('수업 날짜를 선택해주세요.'); return; }
 
     try {
-      const res = await fetch('/.netlify/functions/reports-write', {
+      const res = await fetch('/api/reports-write', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -476,7 +484,7 @@
     }
     list.innerHTML = '<div class="empty">조회 중...</div>';
     try {
-      const res = await fetch(`/.netlify/functions/reports?phone4=${phone4}`, {
+      const res = await fetch(`/api/reports?phone4=${phone4}`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
       const reports = await res.json();
@@ -487,248 +495,177 @@
       list.innerHTML = reports.map(r => `
         <div class="report-card">
           <div class="report-header">
-            <div class="report-name">👤 ${r.studentName || '학생'}</div>
-            <div class="report-date-badge">${r.date || ''} · ${r.school || ''}</div>
+            <div>
+              <strong>${r.studentName}</strong>
+              <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${r.date}</span>
+              ${r.school ? `<span style="font-size:0.78rem;color:var(--text-light);margin-left:4px;">(${r.school})</span>` : ''}
+            </div>
           </div>
-          ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${r.content}</div></div>` : ''}
-          ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val">${r.homework}</div></div>` : ''}
-          ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${r.notes}</div></div>` : ''}
+          <div style="font-size:0.88rem;line-height:1.7;white-space:pre-wrap;">${r.content || ''}</div>
+          ${r.homework ? `<div style="font-size:0.83rem;color:var(--text-light);margin-top:8px;"><strong>숙제:</strong> ${r.homework}</div>` : ''}
+          ${r.notes ? `<div style="font-size:0.83rem;color:var(--text-light);"><strong>특이사항:</strong> ${r.notes}</div>` : ''}
         </div>
       `).join('');
     } catch(e) {
-      list.innerHTML = '<div class="empty">조회 중 오류가 발생했습니다.</div>';
+      list.innerHTML = '<div class="empty">오류가 발생했습니다.</div>';
     }
   }
 
-  // ── 학생 목록 ──
-  let allStudents = [];
-
-  async function loadStudents() {
-    const list = document.getElementById('studentList');
-    try {
-      const res = await fetch('/.netlify/functions/students', {
-        headers: { 'Authorization': `Bearer ${adminToken}` }
-      });
-      allStudents = await res.json();
-      renderStudents(allStudents);
-    } catch(e) {
-      list.innerHTML = '<div class="empty">학생 목록을 불러올 수 없습니다.</div>';
-    }
-  }
-
-  function renderStudents(students) {
-    const list = document.getElementById('studentList');
-    const count = document.getElementById('studentCount');
-    count.textContent = `총 ${students.length}명`;
-    if (!students.length) {
-      list.innerHTML = '<div class="empty">등록된 학생이 없습니다.</div>';
-      return;
-    }
-    const gradeColor = {'고3':'#c0392b','고2':'#e67e22','고1':'#f1c40f','중3':'#27ae60','중2':'#3498db'};
-    list.innerHTML = students.map(s => {
-      const color = gradeColor[s.grade] || '#888';
-      const date = s.createdAt ? s.createdAt.slice(0,10).replace(/-/g,'.') : '';
-      const goals = s.goals.join(', ');
-      return `<div class="notice-item" style="align-items:flex-start;flex-wrap:wrap;gap:10px;">
-        <div style="display:flex;align-items:center;gap:8px;min-width:120px;">
-          <span style="background:${color};color:#fff;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;">${s.grade}</span>
-          <span style="font-weight:800;font-size:0.95rem;">${s.name}</span>
-        </div>
-        <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;font-size:0.82rem;color:var(--text-light);">
-          ${s.school ? `<span>🏫 ${s.school}</span>` : ''}
-          ${s.level ? `<span>📊 ${s.level}</span>` : ''}
-          ${goals ? `<span>🎯 ${goals}</span>` : ''}
-          ${s.academy ? `<span>📍 ${s.academy}</span>` : ''}
-          ${s.parentPhone4 ? `<span>📞 끝번호 ${s.parentPhone4}</span>` : ''}
-        </div>
-        <span style="font-size:0.75rem;color:var(--text-light);white-space:nowrap;">${date}</span>
-      </div>`;
-    }).join('');
-  }
-
-  function filterStudents() {
-    const q = document.getElementById('studentSearch').value.trim().toLowerCase();
-    const filtered = q ? allStudents.filter(s => s.name.toLowerCase().includes(q)) : allStudents;
-    renderStudents(filtered);
-  }
-
-  // 학생 탭 클릭 시 로드
-  const origSwitch = window.switchTab;
-  function switchTab(name, btn) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + name).classList.add('active');
-    if (name === 'students' && allStudents.length === 0) loadStudents();
-    if (name === 'files') loadFiles();
-  }
-
-  // ── 자료실 ──
+  // ── 자료실: 폴더 선택에 따라 전화번호 입력 토글 ──
   function togglePhoneInput() {
     const folder = document.getElementById('fileFolder').value;
     document.getElementById('reportPhoneWrap').style.display = folder === 'reports' ? 'block' : 'none';
   }
 
-  function getAdminPw() {
-    let pw = localStorage.getItem('kwmath_admin_pw');
-    if (!pw) {
-      pw = adminToken ? atob(adminToken.split('.')[1] || '') : '';
-      // adminToken에서 pw 못 꺼내면 세션 pw 사용
+  // ── 자료실: 단일 파일 업로드 (FormData → Cloudflare Worker → R2) ──
+  async function uploadSingleFile(file, folder, phone4, title, index, total) {
+    const progressText = document.getElementById('progressText');
+    progressText.textContent = `(${index}/${total}) ${file.name} 업로드 중...`;
+
+    // Worker가 직접 R2에 저장 (1단계로 완료)
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', folder);
+    formData.append('password', adminToken);
+
+    const res = await fetch('/api/upload-file', { method: 'POST', body: formData });
+    if (!res.ok) throw new Error('업로드 실패');
+    const { key, fileSize } = await res.json();
+
+    // 자료실 파일은 Notion에 메타데이터 저장
+    if (folder === 'materials') {
+      const category = document.getElementById('fileCategorySelect')?.value || '수업자료';
+      await fetch('/api/materials-write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: adminToken,
+          title: total === 1 && title ? title : file.name,
+          fileName: file.name,
+          r2Key: key,
+          category,
+          fileSize,
+          phone4: phone4 || ''
+        })
+      });
     }
-    return pw || sessionStorage.getItem('kwmath_session_pw') || '';
-  }
-
-  async function uploadSingleFile(file, folder, phone4, category, titleOverride) {
-    const sizeStr = file.size > 1024*1024
-      ? (file.size/1024/1024).toFixed(1) + ' MB'
-      : (file.size/1024).toFixed(0) + ' KB';
-    const finalFolder = folder === 'reports' ? `reports/${phone4}` : 'materials';
-    const pw = sessionStorage.getItem('kwmath_session_pw');
-
-    // 1단계: presigned URL 요청
-    const urlRes = await fetch('/.netlify/functions/get-upload-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pw, fileName: file.name, fileType: file.type || 'application/octet-stream', folder: finalFolder }),
-    });
-    const { uploadUrl, key } = await urlRes.json();
-    if (!uploadUrl) throw new Error('presigned URL 요청 실패');
-
-    // 2단계: R2 업로드
-    await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type || 'application/octet-stream' },
-      body: file,
-    });
-
-    // 3단계: 노션 메타데이터 저장
-    await fetch('/.netlify/functions/materials-write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        password: pw,
-        title: titleOverride || file.name,
-        fileName: file.name,
-        r2Key: key,
-        category: category || '수업자료',
-        fileSize: sizeStr,
-        phone4: folder === 'reports' ? phone4 : '',
-      }),
-    });
 
     return key;
   }
 
+  // ── 자료실: 여러 파일 업로드 루프 ──
   async function uploadFile() {
-    const files = document.getElementById('fileInput').files;
+    const fileInput = document.getElementById('fileInput');
     const folder = document.getElementById('fileFolder').value;
-    const phone4 = document.getElementById('reportPhone4').value.trim();
-    const category = folder === 'reports' ? '보고서' : (document.getElementById('fileCategorySelect')?.value || '수업자료');
-    const titleOverride = document.getElementById('fileTitle').value.trim();
+    const phone4 = document.getElementById('reportPhone4')?.value.trim() || '';
+    const title = document.getElementById('fileTitle')?.value.trim() || '';
 
-    if (!files.length) { showToast('파일을 선택해주세요.'); return; }
+    if (!fileInput.files.length) { showToast('파일을 선택해주세요.'); return; }
     if (folder === 'reports' && (!phone4 || phone4.length !== 4)) {
-      showToast('전화번호 끝 4자리를 입력해주세요.'); return;
+      showToast('리포트 PDF는 전화번호 끝 4자리를 입력해주세요.'); return;
     }
 
-    // 비밀번호 세션 저장
-    if (!sessionStorage.getItem('kwmath_session_pw')) {
-      const pw = prompt('관리자 비밀번호를 입력해주세요:');
-      if (!pw) return;
-      sessionStorage.setItem('kwmath_session_pw', pw);
-    }
-
-    const progress = document.getElementById('uploadProgress');
-    const bar = document.getElementById('progressBar');
-    const text = document.getElementById('progressText');
-    progress.style.display = 'block';
+    const files = Array.from(fileInput.files);
+    const progressWrap = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    progressWrap.style.display = 'block';
 
     let successCount = 0;
-    const total = files.length;
+    const errors = [];
 
-    for (let i = 0; i < total; i++) {
-      const file = files[i];
-      bar.style.width = `${Math.round(((i) / total) * 100)}%`;
-      text.textContent = `업로드 중... (${i+1}/${total}) ${file.name}`;
+    for (let i = 0; i < files.length; i++) {
+      progressBar.style.width = ((i / files.length) * 100) + '%';
       try {
-        await uploadSingleFile(file, folder, phone4, category, total === 1 ? titleOverride : '');
+        await uploadSingleFile(files[i], folder, phone4, title, i + 1, files.length);
         successCount++;
       } catch(e) {
-        showToast(`❌ "${file.name}" 실패: ${e.message}`);
+        errors.push(files[i].name + ': ' + e.message);
+        showToast(`❌ "${files[i].name}" 실패: ${e.message}`);
       }
     }
 
-    bar.style.width = '100%';
-    text.textContent = `완료! (${successCount}/${total}개)`;
-    setTimeout(() => {
-      progress.style.display = 'none';
-      bar.style.width = '0%';
-      document.getElementById('fileInput').value = '';
+    progressBar.style.width = '100%';
+    progressText.textContent = `완료! (${successCount}/${files.length}개)`;
+
+    if (successCount > 0) {
+      showToast(`✅ ${successCount}개 파일 업로드 완료!`);
+      fileInput.value = '';
       document.getElementById('fileTitle').value = '';
-    }, 2000);
-
-    if (successCount > 0) showToast(`✅ ${successCount}개 파일 업로드 완료!`);
-    loadFiles();
-  }
-
-  async function loadFiles() {
-    const folder = document.getElementById('viewFolder').value;
-    const list = document.getElementById('fileList');
-    const count = document.getElementById('fileCount');
-    list.innerHTML = '<div class="empty">불러오는 중...</div>';
-    try {
-      const res = await fetch(`/.netlify/functions/list-files?folder=${folder}`);
-      const files = await res.json();
-      count.textContent = `총 ${files.length}개`;
-      if (!files.length) { list.innerHTML = '<div class="empty">파일이 없습니다.</div>'; return; }
-
-      list.innerHTML = files.map(f => {
-        const sizeStr = f.size > 1024*1024
-          ? (f.size/1024/1024).toFixed(1) + ' MB'
-          : (f.size/1024).toFixed(0) + ' KB';
-        const dateStr = f.lastModified ? new Date(f.lastModified).toLocaleDateString('ko-KR') : '';
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;gap:12px;flex-wrap:wrap;">
-          <div>
-            <div style="font-weight:600;font-size:0.9rem;">${f.name}</div>
-            <div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">${sizeStr} · ${dateStr}</div>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button onclick="downloadFile('${f.key}')" style="background:var(--primary-light);color:var(--primary);border:none;padding:7px 14px;border-radius:7px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">다운로드</button>
-            <button onclick="deleteFile('${f.key}')" style="background:#fef2f2;color:#c0392b;border:none;padding:7px 14px;border-radius:7px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">삭제</button>
-          </div>
-        </div>`;
-      }).join('');
-    } catch(e) {
-      list.innerHTML = '<div class="empty">파일 목록을 불러올 수 없습니다.</div>';
+      setTimeout(() => { progressWrap.style.display = 'none'; progressBar.style.width = '0%'; }, 3000);
+      if (document.getElementById('viewFolder').value === folder) loadFiles();
     }
   }
 
-  async function downloadFile(key) {
-    const res = await fetch(`/.netlify/functions/get-download-url?key=${encodeURIComponent(key)}`);
-    const { downloadUrl } = await res.json();
-    if (downloadUrl) window.open(downloadUrl, '_blank');
+  // ── 자료실: 파일 목록 조회 ──
+  async function loadFiles() {
+    const folder = document.getElementById('viewFolder').value;
+    const list = document.getElementById('fileList');
+    const countEl = document.getElementById('fileCount');
+    list.innerHTML = '<div class="empty">불러오는 중...</div>';
+    try {
+      const res = await fetch(`/api/list-files?folder=${folder}`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      const files = await res.json();
+      if (!Array.isArray(files) || !files.length) {
+        list.innerHTML = '<div class="empty">파일이 없습니다.</div>';
+        countEl.textContent = '';
+        return;
+      }
+      countEl.textContent = `총 ${files.length}개`;
+      list.innerHTML = files.map(f => `
+        <div class="report-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;">${f.displayName}</div>
+            <div style="font-size:0.78rem;color:var(--text-light);">${f.size || ''} ${f.lastModified ? '· '+new Date(f.lastModified).toLocaleDateString('ko-KR') : ''}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="downloadFile('${f.key}')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">⬇ 다운</button>
+            <button onclick="deleteFile('${f.key}')" style="background:#fff;color:#c0392b;border:1.5px solid #c0392b;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="empty">오류가 발생했습니다.</div>';
+    }
   }
 
+  // ── 자료실: 다운로드 ──
+  async function downloadFile(key) {
+    try {
+      const res = await fetch(`/api/download-file?key=${encodeURIComponent(key)}`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      const { downloadUrl } = await res.json();
+      if (downloadUrl) window.open(downloadUrl, '_blank');
+      else showToast('다운로드 링크 생성 실패');
+    } catch(e) {
+      showToast('오류가 발생했습니다.');
+    }
+  }
+
+  // ── 자료실: 삭제 ──
   async function deleteFile(key) {
     if (!confirm('이 파일을 삭제하시겠습니까?')) return;
-    const pw = localStorage.getItem('kwmath_admin_pw') || prompt('관리자 비밀번호:');
-    const res = await fetch('/.netlify/functions/delete-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pw, key }),
-    });
-    const data = await res.json();
-    if (data.success) { showToast('삭제 완료'); loadFiles(); }
-    else showToast('삭제 실패: ' + (data.error || ''));
+    try {
+      const res = await fetch('/api/delete-file', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ key, password: adminToken })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('삭제되었습니다.');
+        loadFiles();
+      } else {
+        showToast('삭제 실패: ' + (data.error || '오류'));
+      }
+    } catch(e) {
+      showToast('오류가 발생했습니다.');
+    }
   }
 
-  // ── 토스트 알림 ──
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2800);
-  }
 </script>
 </body>
 </html>

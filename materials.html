@@ -134,7 +134,7 @@ function renderFiles(files) {
 
 async function loadFiles() {
   try {
-    const res = await fetch('/.netlify/functions/materials');
+    const res = await fetch('/api/materials');
     allFiles = await res.json();
     if (!Array.isArray(allFiles)) allFiles = [];
     renderFiles(allFiles);
@@ -146,7 +146,7 @@ async function loadFiles() {
 async function downloadFile(r2Key) {
   if (!r2Key) return;
   try {
-    const res = await fetch(`/.netlify/functions/get-download-url?key=${encodeURIComponent(r2Key)}`);
+    const res = await fetch(`/api/get-download-url?key=${encodeURIComponent(r2Key)}`);
     const { downloadUrl } = await res.json();
     if (downloadUrl) window.open(downloadUrl, '_blank');
     else alert('다운로드 링크를 가져올 수 없습니다.');
