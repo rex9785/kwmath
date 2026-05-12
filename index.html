@@ -176,6 +176,17 @@
   .kakao-float img{width:28px;height:28px;}
   .kakao-label{font-size:0.68rem;font-weight:700;color:#333;background:#fff;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
 
+  /* FAQ */
+  .faq-item{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:box-shadow .2s;}
+  .faq-item:hover{box-shadow:0 4px 16px rgba(139,26,53,0.07);}
+  .faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;padding:20px 24px;background:none;border:none;font-family:inherit;font-size:0.95rem;font-weight:700;color:var(--text);cursor:pointer;text-align:left;gap:12px;}
+  .faq-q:hover{color:var(--primary);}
+  .faq-arrow{font-size:0.8rem;color:var(--primary);transition:transform .25s;flex-shrink:0;}
+  .faq-a{max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s;}
+  .faq-a-inner{padding:0 24px 20px;font-size:0.88rem;color:var(--text-light);line-height:1.85;border-top:1px solid var(--border);}
+  .faq-item.open .faq-arrow{transform:rotate(180deg);}
+  .faq-item.open .faq-a{max-height:400px;}
+
   @media(max-width:768px){
     .dday-bar{font-size:0.72rem;}
     nav{top:28px;}
@@ -208,6 +219,7 @@
       <li><a href="#notice">공지사항</a></li>
       <li><a href="#timetable">시간표</a></li>
       <li><a href="#video">맛보기강의</a></li>
+      <li><a href="#faq">FAQ</a></li>
       <li><a href="#contact">문의하기</a></li>
     </ul>
   </div>
@@ -543,6 +555,17 @@
   </div>
 </section>
 
+<!-- FAQ -->
+<section id="faq" style="background:var(--bg);">
+  <div class="section-inner">
+    <div class="section-tag">FAQ</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">자주 묻는 질문</h2>
+    <p class="section-desc">궁금하신 점을 먼저 확인해보세요.</p>
+    <div id="faqList" style="margin-top:36px;display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+</section>
+
 <!-- CONTACT -->
 <section id="contact">
   <div class="section-inner">
@@ -761,10 +784,70 @@
     }
   }
 
+  // ── FAQ ──
+  const FAQ_DATA = [
+    {
+      q: "어떤 학생들이 수업을 받을 수 있나요?",
+      a: "중학교 2학년부터 고등학교 3학년까지 수업이 가능합니다. 수능 수학, 내신 수학 모두 다루며 학생의 현재 수준에 맞게 커리큘럼을 구성합니다."
+    },
+    {
+      q: "1:1 수업인가요, 그룹 수업인가요?",
+      a: "완전한 1:1 개인 수업입니다. 한 타임에 오직 한 명의 학생만 수업하기 때문에 학생 개인에게 100% 집중할 수 있습니다."
+    },
+    {
+      q: "수업 진도는 어떻게 정해지나요?",
+      a: "첫 수업 전 수준 진단을 통해 학생의 현재 상태를 파악한 후, 개인 맞춤 커리큘럼을 설계합니다. 진도는 학생의 이해도에 맞게 유동적으로 조정됩니다."
+    },
+    {
+      q: "수능과 내신을 동시에 준비할 수 있나요?",
+      a: "네, 가능합니다. 4단계 학습 시스템을 통해 개념-유형-응용-심화를 병행하기 때문에 내신 준비와 수능 대비를 동시에 효율적으로 진행할 수 있습니다."
+    },
+    {
+      q: "불가피하게 결석하게 되면 어떻게 되나요?",
+      a: "사전에 연락 주시면 일정 조율이 가능합니다. 카카오 채널로 미리 말씀해 주세요."
+    },
+    {
+      q: "수업 중 모르는 내용은 어떻게 질문하나요?",
+      a: "카카오톡 질의응답 채널을 운영 중입니다. 평일 오후 2시~밤 11시 사이에 질문을 남기시면 빠르게 답변드립니다. 수업 시간 외에도 적극적으로 소통할 수 있습니다."
+    },
+    {
+      q: "상담은 어떻게 신청하나요?",
+      a: "홈페이지 하단 문의 폼 또는 카카오 채널로 연락 주시면 됩니다. 학생 학년과 현재 수준, 목표를 간단히 알려주시면 더 빠른 상담이 가능합니다."
+    },
+    {
+      q: "수업 리포트는 어디서 볼 수 있나요?",
+      a: "홈페이지 내 '수업 리포트 열람' 페이지에서 학부모님 전화번호 끝 4자리를 입력하시면 자녀의 수업 내용과 숙제를 확인하실 수 있습니다."
+    }
+  ];
+
+  function renderFAQ() {
+    const list = document.getElementById('faqList');
+    if (!list) return;
+    list.innerHTML = FAQ_DATA.map((item, i) => `
+      <div class="faq-item" id="faq-${i}">
+        <button class="faq-q" onclick="toggleFAQ(${i})">
+          <span>Q. ${item.q}</span>
+          <span class="faq-arrow">▼</span>
+        </button>
+        <div class="faq-a">
+          <div class="faq-a-inner">${item.a}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function toggleFAQ(i) {
+    const item = document.getElementById('faq-' + i);
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
   // 페이지 로드 시 전부 실행
   loadNotices();
   loadTimetable();
   loadClips();
+  renderFAQ();
 </script>
 </body>
 </html>
