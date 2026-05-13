@@ -178,4 +178,62 @@ async function searchReports() {
         </div>`;
       }).join('');
     } else {
-      pdfSection.style.disp
+      pdfSection.style.display = 'none';
+    }
+
+    // 리포트 목록 렌더링
+    if (!Array.isArray(reports) || reports.length === 0) {
+      document.getElementById('resultName').textContent = '';
+      document.getElementById('resultCount').textContent = '';
+      if (pdfs.length === 0) {
+        reportList.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><p>해당 번호로 등록된 리포트가 없습니다.<br>전화번호 끝 4자리를 다시 확인해주세요.</p></div>`;
+      } else {
+        reportList.innerHTML = `<div class="state-box"><div class="state-icon">📎</div><p>첨부 자료만 등록되어 있습니다.<br>위에서 PDF를 확인하세요.</p></div>`;
+      }
+      return;
+    }
+
+    const studentName = reports[0].studentName || '학생';
+    document.getElementById('resultName').textContent = `${studentName} 학부모님`;
+    document.getElementById('resultCount').textContent = `총 ${reports.length}개의 수업 리포트`;
+
+    reportList.innerHTML = reports.map(r => {
+      const dateStr = r.date ? r.date.replace(/-/g, '.') : '';
+      return `
+        <div class="report-card">
+          <div class="report-card-header">
+            <div class="report-card-date">${dateStr} · ${r.title || '수업 리포트'}</div>
+            <div class="report-card-school">${r.school || ''}</div>
+          </div>
+          <div class="report-card-body">
+            ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${r.content.replace(/\n/g,'<br>')}</div></div>` : ''}
+            ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val"><span class="hw-badge">HW</span><br>${r.homework.replace(/\n/g,'<br>')}</div></div>` : ''}
+            ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${r.notes.replace(/\n/g,'<br>')}</div></div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch (e) {
+    reportList.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><p>리포트를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>`;
+  }
+}
+
+async function downloadPdf(key) {
+  try {
+    const res = await fetch(`/api/download-file?key=${encodeURIComponent(key)}`);
+    if (!res.ok) { alert('다운로드 실패'); return; }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = key.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch(e) {
+    alert('다운로드 중 오류가 발생했습니다.');
+  }
+}
+</script>
+</body>
+</html>
