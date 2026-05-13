@@ -3,10 +3,11 @@ const DB = '34f134c4b2324685a62357c27c0aa919';
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
   const body = await request.json();
-  const { password, title, fileName, r2Key, category, fileSize, phone4 } = body;
+  const { password, title, fileName, r2Key, category, fileSize, phone4, className } = body;
   if (password !== env.ADMIN_PASSWORD) return Response.json({ error: '인증 실패' }, { status: 401 });
 
-  const isPublic = !phone4;
+  // className 있으면 반 자료 (비공개), phone4 있으면 수강생 전용, 둘 다 없으면 공개
+  const isPublic = !phone4 && !className;
   const today = new Date().toISOString().split('T')[0];
   const properties = {
     '제목': { title: [{ text: { content: title || fileName || '파일' } }] },
@@ -18,6 +19,7 @@ export async function onRequest({ request, env }) {
     '공개': { checkbox: isPublic },
   };
   if (phone4) properties['전화번호끝4자리'] = { rich_text: [{ text: { content: phone4 } }] };
+  if (className) properties['반'] = { select: { name: className } };
 
   const res = await fetch('https://api.notion.com/v1/pages', {
     method: 'POST',

@@ -237,8 +237,14 @@
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 분류</label>
             <select id="fileFolder" onchange="togglePhoneInput()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
               <option value="materials">📚 자료실 (공개)</option>
+              <option value="class">🔒 반별 자료실 (키 인증)</option>
               <option value="reports">📋 리포트 PDF (전화번호 인증)</option>
             </select>
+          </div>
+          <div id="classSelectWrap" style="display:none;">
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">반 이름</label>
+            <input id="classNameInput" type="text" placeholder="예: A반, 고1수학반" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
+            <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">Notion 학생 DB의 '반' 선택 항목과 정확히 일치해야 합니다</p>
           </div>
           <div id="reportPhoneWrap" style="display:none;">
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학부모 전화번호 끝 4자리</label>
@@ -515,6 +521,8 @@
   function togglePhoneInput() {
     const folder = document.getElementById('fileFolder').value;
     document.getElementById('reportPhoneWrap').style.display = folder === 'reports' ? 'block' : 'none';
+    document.getElementById('classSelectWrap').style.display = folder === 'class' ? 'block' : 'none';
+    document.getElementById('categoryWrap').style.display = folder === 'reports' ? 'none' : 'block';
   }
 
   // ── 자료실: 단일 파일 업로드 (FormData → Cloudflare Worker → R2) ──
@@ -532,9 +540,10 @@
     if (!res.ok) throw new Error('업로드 실패');
     const { key, fileSize } = await res.json();
 
-    // 자료실 파일은 Notion에 메타데이터 저장
-    if (folder === 'materials') {
+    // 자료실·반별 자료 Notion 메타데이터 저장
+    if (folder === 'materials' || folder === 'class') {
       const category = document.getElementById('fileCategorySelect')?.value || '수업자료';
+      const className = folder === 'class' ? (document.getElementById('classNameInput')?.value.trim() || '') : '';
       await fetch('/api/materials-write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -545,7 +554,8 @@
           r2Key: key,
           category,
           fileSize,
-          phone4: phone4 || ''
+          phone4: phone4 || '',
+          className,
         })
       });
     }
@@ -556,7 +566,9 @@
   // ── 자료실: 여러 파일 업로드 루프 ──
   async function uploadFile() {
     const fileInput = document.getElementById('fileInput');
-    const folder = document.getElementById('fileFolder').value;
+    const folderSel = document.getElementById('fileFolder').value;
+    // 반별 자료도 R2는 materials 폴더 사용 (Notion에서 반 필드로 구분)
+    const folder = folderSel === 'class' ? 'materials' : folderSel;
     const phone4 = document.getElementById('reportPhone4')?.value.trim() || '';
     const title = document.getElementById('fileTitle')?.value.trim() || '';
 
@@ -662,10 +674,4 @@
         showToast('삭제 실패: ' + (data.error || '오류'));
       }
     } catch(e) {
-      showToast('오류가 발생했습니다.');
-    }
-  }
-
-</script>
-</body>
-</html>
+      showToast('�

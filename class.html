@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>반별 자료실 | LKW math LAB</title>
+  <style>
+    :root {
+      --primary: #8b1a35;
+      --primary-mid: #a52040;
+      --primary-light: #f9eef1;
+      --border: #e8d5da;
+      --text: #1a1a2e;
+      --text-light: #6b7280;
+      --bg: #fafafa;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* 헤더 */
+    header { background: var(--primary); color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header .logo { font-size: 1.1rem; font-weight: 900; letter-spacing: -0.5px; }
+    header a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.85rem; }
+
+    /* 로그인 화면 */
+    #loginScreen { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 52px); padding: 24px; }
+    .login-card { background: #fff; border-radius: 20px; padding: 44px 36px; max-width: 400px; width: 100%; box-shadow: 0 12px 40px rgba(139,26,53,0.10); border: 1px solid var(--border); text-align: center; }
+    .login-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .login-title { font-size: 1.3rem; font-weight: 900; color: var(--primary); margin-bottom: 6px; }
+    .login-sub { font-size: 0.85rem; color: var(--text-light); margin-bottom: 32px; line-height: 1.6; }
+    .login-input { width: 100%; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 1rem; font-family: inherit; outline: none; transition: border .2s; margin-bottom: 12px; }
+    .login-input:focus { border-color: var(--primary); }
+    .login-btn { width: 100%; background: var(--primary); color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .2s; }
+    .login-btn:hover { background: var(--primary-mid); }
+    .login-err { color: #c0392b; font-size: 0.85rem; margin-top: 10px; display: none; }
+    .login-change-key { margin-top: 16px; font-size: 0.82rem; color: var(--text-light); cursor: pointer; text-decoration: underline; }
+
+    /* 대시보드 */
+    #dashboard { display: none; }
+    .dash-top { background: var(--primary); color: #fff; padding: 24px; }
+    .dash-greeting { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    .dash-class { font-size: 0.88rem; opacity: 0.85; }
+    .dash-logout { float: right; background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 0.83rem; font-family: inherit; margin-top: -24px; }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 28px 20px; }
+    .section-title { font-size: 1rem; font-weight: 800; color: var(--primary); margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+
+    /* 파일 목록 */
+    .file-list { display: flex; flex-direction: column; gap: 10px; }
+    .file-item { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: box-shadow .2s; }
+    .file-item:hover { box-shadow: 0 4px 16px rgba(139,26,53,0.08); }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { font-size: 0.78rem; color: var(--text-light); }
+    .file-dl-btn { background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.83rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
+    .file-dl-btn:hover { background: var(--primary-mid); }
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--text-light); }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* 키 변경 섹션 */
+    .key-change-box { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-top: 32px; }
+    .key-change-title { font-weight: 800; font-size: 0.95rem; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; color: var(--text); }
+    .key-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .key-row input { flex: 1; min-width: 140px; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.9rem; font-family: inherit; outline: none; }
+    .key-row input:focus { border-color: var(--primary); }
+    .key-change-btn { background: var(--primary); color: #fff; border: none; padding: 11px 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .key-msg { font-size: 0.82rem; margin-top: 10px; display: none; }
+    .key-msg.ok { color: #16a34a; }
+    .key-msg.err { color: #c0392b; }
+
+    /* 키 변경 모달 (로그인 전) */
+    #keyModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+    #keyModal.open { display: flex; }
+    .modal-card { background: #fff; border-radius: 20px; padding: 36px 28px; max-width: 380px; width: 100%; }
+    .modal-title { font-weight: 900; font-size: 1.05rem; margin-bottom: 18px; }
+    .modal-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.9rem; font-family: inherit; outline: none; margin-bottom: 10px; }
+    .modal-input:focus { border-color: var(--primary); }
+    .modal-btns { display: flex; gap: 10px; margin-top: 6px; }
+    .modal-btn { flex: 1; padding: 12px; border-radius: 10px; font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: inherit; border: none; }
+    .modal-btn.primary { background: var(--primary); color: #fff; }
+    .modal-btn.cancel { background: #f3f4f6; color: var(--text); }
+    .modal-msg { font-size: 0.82rem; margin-top: 8px; display: none; }
+    .modal-msg.ok { color: #16a34a; }
+    .modal-msg.err { color: #c0392b; }
+
+    @media (max-width: 500px) {
+      .login-card { padding: 32px 20px; }
+      .key-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔒 LKW math LAB — 반별 자료실</div>
+  <a href="index.html">← 홈</a>
+</header>
+
+<!-- 로그인 화면 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-icon">🗝️</div>
+    <div class="login-title">반별 자료실 입장</div>
+    <div class="login-sub">선생님께 받은 개인 키를 입력하세요.<br>키가 없으면 선생님께 문의해주세요.</div>
+    <input class="login-input" id="keyInput" type="text" placeholder="개인 키 입력" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">입장하기</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-change-key" onclick="openKeyModal()">🔄 키를 처음 설정하거나 변경하고 싶어요</div>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div id="dashboard">
+  <div class="dash-top">
+    <button class="dash-logout" onclick="doLogout()">로그아웃</button>
+    <div class="dash-greeting" id="dashGreeting">안녕하세요!</div>
+    <div class="dash-class" id="dashClass"></div>
+  </div>
+  <div class="container">
+    <div class="section-title">📂 수업 자료</div>
+    <div class="file-list" id="fileList">
+      <div class="empty-state"><div class="empty-icon">📭</div><div>자료를 불러오는 중...</div></div>
+    </div>
+
+    <!-- 키 변경 (로그인 후) -->
+    <div class="key-change-box">
+      <div class="key-change-title">🔑 내 키 변경</div>
+      <div class="key-row">
+        <input id="curKey" type="text" placeholder="현재 키">
+        <input id="newKey1" type="text" placeholder="새 키 (4자 이상)">
+        <input id="newKey2" type="text" placeholder="새 키 확인">
+        <button class="key-change-btn" onclick="changeKey()">변경</button>
+      </div>
+      <div class="key-msg" id="keyMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 키 변경 모달 (로그인 전) -->
+<div id="keyModal">
+  <div class="modal-card">
+    <div class="modal-title">🔑 키 변경</div>
+    <input class="modal-input" id="mCurKey" type="text" placeholder="현재 키">
+    <input class="modal-input" id="mNewKey1" type="text" placeholder="새 키 (4자 이상)">
+    <input class="modal-input" id="mNewKey2" type="text" placeholder="새 키 확인">
+    <div class="modal-msg" id="modalMsg"></div>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="closeKeyModal()">취소</button>
+      <button class="modal-btn primary" onclick="changeKeyModal()">변경하기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let myKey = '';
+  let myName = '';
+  let myClass = '';
+
+  // ── 로그인 ──
+  async function doLogin() {
+    const key = document.getElementById('keyInput').value.trim();
+    const err = document.getElementById('loginErr');
+    err.style.display = 'none';
+    if (!key) { err.textContent = '키를 입력해주세요'; err.style.display = 'block'; return; }
+    try {
+      const res = await fetch('/api/class-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      const data = await res.json();
+      if (!data.ok) { err.textContent = data.error || '인증 실패'; err.style.display = 'block'; return; }
+      myKey = key;
+      myName = data.name;
+      myClass = data.className;
+      sessionStorage.setItem('class_key', key);
+      showDashboard();
+    } catch(e) {
+      err.textContent = '서버 오류. 잠시 후 다시 시도해주세요.';
+      err.style.display = 'block';
+    }
+  }
+
+  function doLogout() {
+    myKey = ''; myName = ''; myClass = '';
+    sessionStorage.removeItem('class_key');
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('keyInput').value = '';
+  }
+
+  async function showDashboard() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('dashGreeting').textContent = `안녕하세요, ${myName}님! 👋`;
+    document.getElementById('dashClass').textContent = `📚 ${myClass} 자료실`;
+    await loadFiles();
+  }
+
+  // ── 파일 목록 ──
+  async function loadFiles() {
+    const list = document.getElementById('fileList');
+    list.innerHTML = '<div class="empty-state"><div>자료를 불러오는 중...</div></div>';
+    try {
+      const res = await fetch(`/api/class-materials?key=${encodeURIComponent(myKey)}`);
+      const data = await res.json();
+      if (!data.ok) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>${data.error}</div></div>`; return; }
+      if (!data.files.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div>아직 업로드된 자료가 없습니다.</div></div>'; return; }
+      list.innerHTML = data.files.map(f => `
+        <div class="file-item">
+          <div class="file-info">
+            <div class="file-name">${f.title || f.fileName}</div>
+            <div class="file-meta">${f.category ? f.category + ' · ' : ''}${f.fileSize || ''} · ${f.uploadDate || ''}</div>
+          </div>
+          <button class="file-dl-btn" onclick="downloadFile('${f.r2Key}', '${f.fileName}')">⬇️ 다운로드</button>
+        </div>`).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>불러오기 실패. 잠시 후 다시 시도해주세요.</div></div>';
+    }
+  }
+
+  // ── 다운로드 ──
+  async function downloadFile(key, fileName) {
+    const res = await fetch(`/api/download-file?key=${encodeURIComponent(key)}`);
+    if (!res.ok) { alert('다운로드 실패'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── 키 변경 (로그인 후) ──
+  async function changeKey() {
+    const cur = document.getElementById('curKey').value.trim();
+    const n1 = document.getElementById('newKey1').value.trim();
+    const n2 = document.getElementById('newKey2').value.trim();
+    const msg = document.getElementById('keyMsg');
+    msg.className = 'key-msg';
+    if (!cur || !n1 || !n2) { msg.textContent = '모든 항목을 입력해주세요'; msg.className = 'key-msg err'; msg.style.display = 'block'; return; }
+    if (n1 !== n2) { msg.textContent = '새 키가 일치하지 않습니다'; msg.className = 'key-msg err'; msg.style.display = 'block'; return; }
+    if (n1.length < 4) { msg.textContent = '새 키는 4자 이상이어야 합니다'; msg.className = 'key-msg err'; msg.style.display = 'block'; return; }
+    try {
+      const res = await fetch('/api/update-student-key', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentKey: cur, newKey: n1 }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        myKey = n1;
+        sessionStorage.setItem('class_key', n1);
+        msg.textContent = '✅ 키가 변경되었습니다! 새 키: ' + n1;
+        msg.className = 'key-msg ok'; msg.style.display = 'block';
+        document.getElementById('curKey').value = '';
+        document.getElementById('newKey1').value = '';
+        document.getElementById('newKey2').value = '';
+      } else {
+        msg.textContent = data.error || '변경 실패';
+        msg.className = 'key-msg err'; msg.style.display = 'block';
+      }
+    } catch(e) { msg.textContent = '서버 오류'; msg.className = 'key-msg err'; msg.style.display = 'block'; }
+  }
+
+  // ── 키 변경 모달 (로그인 전) ──
+  function openKeyModal() { document.getElementById('keyModal').classList.add('open'); }
+  function closeKeyModal() { document.getElementById('keyModal').classList.remove('open'); document.getElementById('modalMsg').style.display = 'none'; }
+
+  async function changeKeyModal() {
+    const cur = document.getElementById('mCurKey').value.trim();
+    const n1 = document.getElementById('mNewKey1').value.trim();
+    const n2 = document.getElementById('mNewKey2').value.trim();
+    const msg = document.getElementById('modalMsg');
+    msg.className = 'modal-msg';
+    if (!cur || !n1 || !n2) { msg.textContent = '모든 항목을 입력해주세요'; msg.className = 'modal-msg err'; msg.style.display = 'block'; return; }
+    if (n1 !== n2) { msg.textContent = '새 키가 일치하지 않습니다'; msg.className = 'modal-msg err'; msg.style.display = 'block'; return; }
+    if (n1.length < 4) { msg.textContent = '새 키는 4자 이상이어야 합니다'; msg.className = 'modal-msg err'; msg.style.display = 'block'; return; }
+    try {
+      const res = await fetch('/api/update-student-key', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentKey: cur, newKey: n1 }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        msg.textContent = '✅ 키가 변경되었습니다! 이제 새 키로 입장하세요.';
+        msg.className = 'modal-msg ok'; msg.style.display = 'block';
+        setTimeout(() => { closeKeyModal(); document.getElementById('keyInput').value = n1; }, 2000);
+      } else { msg.textContent = data.error || '변경 실패'; msg.className = 'modal-msg err'; msg.style.display = 'block'; }
+    } catch(e) { msg.textContent = '서버 오류'; msg.className = 'modal-msg err'; msg.style.display = 'block'; }
+  }
+
+  // ── 세션 복원 ──
+  window.addEventListener('DOMContentLoaded', async () => {
+    const saved = sessionStorage.getItem('class_key');
+    if (saved) {
+      try {
+        const res = await fetch('/api/class-auth', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: saved }),
+        });
+        const data = await res.json();
+        if (data.ok) { myKey = saved; myName = data.name; myClass = data.className; showDashboard(); }
+        else sessionStorage.removeItem('class_key');
+      } catch(e) { sessionStorage.removeItem('class_key'); }
+    }
+  });
+</script>
+</body>
+</html>
