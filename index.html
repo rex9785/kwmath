@@ -21,10 +21,14 @@
 
   /* NAV */
   nav{position:fixed;top:33px;left:0;right:0;z-index:100;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 5%;}
-  .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:80px;}
-  .nav-links{display:flex;gap:1.6rem;list-style:none;}
-  .nav-links a{text-decoration:none;color:var(--text-light);font-size:0.85rem;font-weight:500;transition:color .2s;}
+  .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:62px;}
+  .nav-logo{display:flex;align-items:center;}
+  .nav-logo img{height:38px;width:auto;object-fit:contain;display:block;}
+  .nav-links{display:flex;gap:1.8rem;list-style:none;align-items:center;}
+  .nav-links a{text-decoration:none;color:var(--text-light);font-size:0.88rem;font-weight:600;transition:color .2s;letter-spacing:-0.2px;}
   .nav-links a:hover{color:var(--primary);}
+  .nav-cta{background:var(--primary);color:#fff!important;padding:8px 16px;border-radius:8px;font-weight:700!important;font-size:0.83rem!important;transition:all .2s;box-shadow:0 2px 8px rgba(134,38,51,0.22);}
+  .nav-cta:hover{background:var(--primary-mid);color:#fff!important;transform:translateY(-1px);}
 
   /* HERO */
   .hero{min-height:100vh;display:flex;align-items:center;padding:120px 5% 60px;background:linear-gradient(135deg,#F9ECED 0%,#FFF 55%,#FDF5F0 100%);}
@@ -187,6 +191,50 @@
   .faq-item.open .faq-arrow{transform:rotate(180deg);}
   .faq-item.open .faq-a{max-height:400px;}
 
+  /* 성적향상 파노라마 */
+  .panorama{padding:80px 0 90px;background:linear-gradient(180deg,#FFF 0%,#FAF7F7 100%);overflow:hidden;}
+  .panorama-head{max-width:1100px;margin:0 auto 40px;padding:0 5%;}
+  .panorama-viewport{overflow:hidden;width:100%;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%,#000 94%,transparent 100%);
+            mask-image:linear-gradient(90deg,transparent 0,#000 6%,#000 94%,transparent 100%);}
+  .panorama-track{display:flex;gap:22px;width:max-content;padding:8px 22px;animation:panorama-scroll 42s linear infinite;}
+  .panorama-track:hover{animation-play-state:paused;}
+  @keyframes panorama-scroll{from{transform:translateX(0);}to{transform:translateX(calc(-50% - 11px));}}
+  .panorama-card{flex:0 0 auto;width:420px;background:#fff;border-radius:22px;padding:30px 32px 28px;box-shadow:0 8px 28px rgba(134,38,51,0.08);border:1px solid var(--border);}
+  .pano-badge{display:inline-block;font-size:0.72rem;font-weight:800;padding:5px 12px;border-radius:14px;margin-bottom:12px;letter-spacing:0.5px;}
+  .pano-badge.b-blue{background:#E8F3FF;color:#1B95FF;}
+  .pano-badge.b-green{background:#E5F8EE;color:#16A04B;}
+  .pano-badge.b-orange{background:#FFEFE5;color:#FF7A2A;}
+  .pano-badge.b-purple{background:#F1ECFE;color:#7B4CE3;}
+  .pano-pin{font-size:0.78rem;color:var(--text-light);margin-bottom:4px;font-weight:500;}
+  .pano-title{font-size:1.05rem;font-weight:800;margin-bottom:22px;color:var(--text);line-height:1.4;}
+  .pano-row{display:flex;align-items:center;justify-content:space-between;gap:18px;}
+  .pano-num-wrap{display:flex;align-items:baseline;}
+  .pano-num{font-size:4.4rem;font-weight:900;line-height:1;letter-spacing:-3px;}
+  .pano-num.c-blue{color:#1B95FF;}
+  .pano-num.c-green{color:#16C95E;}
+  .pano-num.c-orange{color:#FF7A2A;}
+  .pano-num.c-purple{color:#8B5CF6;}
+  .pano-suffix{font-size:1.4rem;font-weight:800;margin-left:3px;}
+  .pano-mini-chart{display:flex;align-items:flex-end;gap:14px;padding-bottom:4px;}
+  .pano-bar{display:flex;flex-direction:column;align-items:center;}
+  .pano-bar-num{font-size:0.78rem;font-weight:700;color:#bbb;margin-bottom:4px;}
+  .pano-bar-num.now{color:var(--primary);font-size:0.92rem;}
+  .pano-bar-stem{width:30px;background:#E2E2E2;border-radius:5px 5px 0 0;}
+  .pano-bar-stem.now-blue{background:#1B95FF;}
+  .pano-bar-stem.now-green{background:#16C95E;}
+  .pano-bar-stem.now-orange{background:#FF7A2A;}
+  .pano-bar-stem.now-purple{background:#8B5CF6;}
+  .pano-bar-label{font-size:0.7rem;color:#aaa;margin-top:5px;}
+  .pano-bar-label.now{color:var(--text);font-weight:700;}
+  .pano-foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--border);font-size:0.83rem;color:var(--text-light);line-height:1.65;}
+  .pano-foot strong{color:var(--primary);}
+  .pano-radar{display:flex;justify-content:center;align-items:center;}
+  .pano-radar svg{display:block;}
+
+  /* HERO 사진 */
+  .hero-photo{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:18px;background:var(--bg2);}
+
   @media(max-width:768px){
     .dday-bar{font-size:0.72rem;}
     nav{top:28px;}
@@ -208,21 +256,16 @@
 <!-- NAV -->
 <nav>
   <div class="nav-inner">
-    <div>
-      <img src="가로로고.jpg" alt="이관우 수학연구소 로고" style="height:64px;width:auto;object-fit:contain;">
-    </div>
+    <a href="#home" class="nav-logo">
+      <img src="가로로고.jpg" alt="이관우 수학연구소 로고">
+    </a>
     <ul class="nav-links">
-      <li><a href="#why">수학이야기</a></li>
-      <li><a href="#features">특징</a></li>
-      <li><a href="#program">학습프로그램</a></li>
-      <li><a href="#clips">강의클립</a></li>
-      <li><a href="#notice">공지사항</a></li>
+      <li><a href="#program">수업소개</a></li>
       <li><a href="#timetable">시간표</a></li>
+      <li><a href="#notice">공지사항</a></li>
       <li><a href="#video">맛보기강의</a></li>
-      <li><a href="#faq">FAQ</a></li>
-      <li><a href="#contact">문의하기</a></li>
-      <li><a href="/materials">📁 자료실</a></li>
-      <li><a href="/register" style="color:var(--primary);font-weight:700;">📝 학생등록</a></li>
+      <li><a href="/materials">자료실</a></li>
+      <li><a href="/register" class="nav-cta">학생등록</a></li>
     </ul>
   </div>
 </nav>
@@ -242,7 +285,7 @@
     </div>
     <div class="hero-card">
       <div style="text-align:center;margin-bottom:18px;">
-        <img src="세로로고.jpg" alt="이관우 수학연구소 로고" style="width:200px;height:200px;object-fit:contain;">
+        <img src="teacher.jpg" onerror="this.onerror=null;this.src='세로로고.jpg';this.style.objectFit='contain';this.style.aspectRatio='1/1';" alt="이관우 선생님" class="hero-photo" style="max-width:260px;margin:0 auto;">
       </div>
       <h3>이관우 선생님</h3>
       <p>LKW math LAB · 수학 전문 강사</p>
@@ -266,6 +309,169 @@
       </div>
     </div>
   </div>
+</section>
+
+<!-- 성적향상 파노라마 -->
+<section class="panorama" aria-label="성적향상 그래프">
+  <div class="panorama-head">
+    <div class="section-tag">RESULTS</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">데이터로 증명되는<br>성적 향상 그래프</h2>
+    <p class="section-desc">매쓰플랫 학습 데이터 기반으로 등급·정답률·학습량·취약유형까지 매월 추적합니다. 학부모님께도 동일한 월간 리포트가 자동 발송됩니다.</p>
+  </div>
+  <div class="panorama-viewport">
+    <div class="panorama-track" id="panoTrack">
+      <!-- ===== 1 등급 ===== -->
+      <div class="panorama-card">
+        <span class="pano-badge b-blue">등급</span>
+        <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
+        <div class="pano-title">5등급 → 2등급<br>3개월 만에 3단계 점프</div>
+        <div class="pano-row">
+          <div class="pano-num-wrap"><span class="pano-num c-blue">2</span><span class="pano-suffix c-blue" style="color:#1B95FF;">등급</span></div>
+          <div class="pano-mini-chart">
+            <div class="pano-bar"><div class="pano-bar-num">5</div><div class="pano-bar-stem" style="height:30px;"></div><div class="pano-bar-label">10월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">4</div><div class="pano-bar-stem" style="height:55px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">3</div><div class="pano-bar-stem" style="height:80px;"></div><div class="pano-bar-label">2월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">2</div><div class="pano-bar-stem now-blue" style="height:105px;"></div><div class="pano-bar-label now">현재</div></div>
+          </div>
+        </div>
+        <div class="pano-foot">정답률 산정 기준 등급. <strong>4개월 누적</strong> 학습으로 평균 정답률 60%→82% 달성.</div>
+      </div>
+      <!-- ===== 2 정답률 ===== -->
+      <div class="panorama-card">
+        <span class="pano-badge b-green">정답률</span>
+        <div class="pano-pin">고2 ○○○ 학생 · 그릿에듀</div>
+        <div class="pano-title">평균 정답률 53% → 87%<br>꾸준한 우상향 그래프</div>
+        <div class="pano-row">
+          <div class="pano-num-wrap"><span class="pano-num c-green">87</span><span class="pano-suffix" style="color:#16C95E;">%</span></div>
+          <div class="pano-mini-chart">
+            <div class="pano-bar"><div class="pano-bar-num">53</div><div class="pano-bar-stem" style="height:50px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">66</div><div class="pano-bar-stem" style="height:70px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">78</div><div class="pano-bar-stem" style="height:90px;"></div><div class="pano-bar-label">1월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">87</div><div class="pano-bar-stem now-green" style="height:110px;"></div><div class="pano-bar-label now">2월</div></div>
+          </div>
+        </div>
+        <div class="pano-foot">중·중하 난이도 → <strong>상·최상 난이도</strong>에서도 70% 이상 유지. 진짜 실력으로 자리잡았습니다.</div>
+      </div>
+      <!-- ===== 3 학습량 ===== -->
+      <div class="panorama-card">
+        <span class="pano-badge b-orange">학습량</span>
+        <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
+        <div class="pano-title">월 89문항 → 279문항<br>학습 습관이 잡혔습니다</div>
+        <div class="pano-row">
+          <div class="pano-num-wrap"><span class="pano-num c-orange">279</span><span class="pano-suffix" style="color:#FF7A2A;">문항</span></div>
+          <div class="pano-mini-chart">
+            <div class="pano-bar"><div class="pano-bar-num">89</div><div class="pano-bar-stem" style="height:36px;"></div><div class="pano-bar-label">10월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">155</div><div class="pano-bar-stem" style="height:62px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">250</div><div class="pano-bar-stem" style="height:96px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">279</div><div class="pano-bar-stem now-orange" style="height:110px;"></div><div class="pano-bar-label now">1월</div></div>
+          </div>
+        </div>
+        <div class="pano-foot">주간지(하루 10문제 × 7일)와 <strong>오답 클리닉</strong>이 만들어낸 학습량. 안 하면 클리닉으로 강제 보충합니다.</div>
+      </div>
+      <!-- ===== 4 행동영역 ===== -->
+      <div class="panorama-card">
+        <span class="pano-badge b-purple">종합 행동영역</span>
+        <div class="pano-pin">고2 ○○○ 학생 · 4개 영역 동반 상승</div>
+        <div class="pano-title">계산력·이해력·추론력·문제해결력<br>네 축이 모두 올라갑니다</div>
+        <div class="pano-row" style="justify-content:flex-start;gap:24px;">
+          <div class="pano-radar">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <polygon points="60,12 108,60 60,108 12,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
+              <polygon points="60,28 92,60 60,92 28,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
+              <polygon points="60,44 76,60 60,76 44,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
+              <polygon points="60,24 96,60 60,96 24,60" fill="#8B5CF6" fill-opacity="0.18" stroke="#8B5CF6" stroke-width="2"/>
+              <circle cx="60" cy="24" r="3" fill="#8B5CF6"/>
+              <circle cx="96" cy="60" r="3" fill="#8B5CF6"/>
+              <circle cx="60" cy="96" r="3" fill="#8B5CF6"/>
+              <circle cx="24" cy="60" r="3" fill="#8B5CF6"/>
+            </svg>
+          </div>
+          <div style="font-size:0.85rem;line-height:1.95;color:var(--text);">
+            <div>계산력 <strong style="color:#8B5CF6;">+18%p</strong></div>
+            <div>이해력 <strong style="color:#8B5CF6;">+22%p</strong></div>
+            <div>추론력 <strong style="color:#8B5CF6;">+15%p</strong></div>
+            <div>문제해결력 <strong style="color:#8B5CF6;">+19%p</strong></div>
+          </div>
+        </div>
+        <div class="pano-foot"><strong>"왜"</strong>를 가르치는 풀이법이 추론·문제해결 영역까지 끌어올립니다. 단순 암기로는 못 오르는 축입니다.</div>
+      </div>
+
+      <!-- === 동일 카드 4개 반복 (무한 슬라이드용) === -->
+      <div class="panorama-card">
+        <span class="pano-badge b-blue">등급</span>
+        <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
+        <div class="pano-title">5등급 → 2등급<br>3개월 만에 3단계 점프</div>
+        <div class="pano-row">
+          <div class="pano-num-wrap"><span class="pano-num c-blue">2</span><span class="pano-suffix" style="color:#1B95FF;">등급</span></div>
+          <div class="pano-mini-chart">
+            <div class="pano-bar"><div class="pano-bar-num">5</div><div class="pano-bar-stem" style="height:30px;"></div><div class="pano-bar-label">10월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">4</div><div class="pano-bar-stem" style="height:55px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">3</div><div class="pano-bar-stem" style="height:80px;"></div><div class="pano-bar-label">2월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">2</div><div class="pano-bar-stem now-blue" style="height:105px;"></div><div class="pano-bar-label now">현재</div></div>
+          </div>
+        </div>
+        <div class="pano-foot">정답률 산정 기준 등급. <strong>4개월 누적</strong> 학습으로 평균 정답률 60%→82% 달성.</div>
+      </div>
+      <div class="panorama-card">
+        <span class="pano-badge b-green">정답률</span>
+        <div class="pano-pin">고2 ○○○ 학생 · 그릿에듀</div>
+        <div class="pano-title">평균 정답률 53% → 87%<br>꾸준한 우상향 그래프</div>
+        <div class="pano-row">
+          <div class="pano-num-wrap"><span class="pano-num c-green">87</span><span class="pano-suffix" style="color:#16C95E;">%</span></div>
+          <div class="pano-mini-chart">
+            <div class="pano-bar"><div class="pano-bar-num">53</div><div class="pano-bar-stem" style="height:50px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">66</div><div class="pano-bar-stem" style="height:70px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">78</div><div class="pano-bar-stem" style="height:90px;"></div><div class="pano-bar-label">1월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">87</div><div class="pano-bar-stem now-green" style="height:110px;"></div><div class="pano-bar-label now">2월</div></div>
+          </div>
+        </div>
+        <div class="pano-foot">중·중하 난이도 → <strong>상·최상 난이도</strong>에서도 70% 이상 유지. 진짜 실력으로 자리잡았습니다.</div>
+      </div>
+      <div class="panorama-card">
+        <span class="pano-badge b-orange">학습량</span>
+        <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
+        <div class="pano-title">월 89문항 → 279문항<br>학습 습관이 잡혔습니다</div>
+        <div class="pano-row">
+          <div class="pano-num-wrap"><span class="pano-num c-orange">279</span><span class="pano-suffix" style="color:#FF7A2A;">문항</span></div>
+          <div class="pano-mini-chart">
+            <div class="pano-bar"><div class="pano-bar-num">89</div><div class="pano-bar-stem" style="height:36px;"></div><div class="pano-bar-label">10월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">155</div><div class="pano-bar-stem" style="height:62px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">250</div><div class="pano-bar-stem" style="height:96px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">279</div><div class="pano-bar-stem now-orange" style="height:110px;"></div><div class="pano-bar-label now">1월</div></div>
+          </div>
+        </div>
+        <div class="pano-foot">주간지(하루 10문제 × 7일)와 <strong>오답 클리닉</strong>이 만들어낸 학습량. 안 하면 클리닉으로 강제 보충합니다.</div>
+      </div>
+      <div class="panorama-card">
+        <span class="pano-badge b-purple">종합 행동영역</span>
+        <div class="pano-pin">고2 ○○○ 학생 · 4개 영역 동반 상승</div>
+        <div class="pano-title">계산력·이해력·추론력·문제해결력<br>네 축이 모두 올라갑니다</div>
+        <div class="pano-row" style="justify-content:flex-start;gap:24px;">
+          <div class="pano-radar">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <polygon points="60,12 108,60 60,108 12,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
+              <polygon points="60,28 92,60 60,92 28,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
+              <polygon points="60,44 76,60 60,76 44,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
+              <polygon points="60,24 96,60 60,96 24,60" fill="#8B5CF6" fill-opacity="0.18" stroke="#8B5CF6" stroke-width="2"/>
+              <circle cx="60" cy="24" r="3" fill="#8B5CF6"/>
+              <circle cx="96" cy="60" r="3" fill="#8B5CF6"/>
+              <circle cx="60" cy="96" r="3" fill="#8B5CF6"/>
+              <circle cx="24" cy="60" r="3" fill="#8B5CF6"/>
+            </svg>
+          </div>
+          <div style="font-size:0.85rem;line-height:1.95;color:var(--text);">
+            <div>계산력 <strong style="color:#8B5CF6;">+18%p</strong></div>
+            <div>이해력 <strong style="color:#8B5CF6;">+22%p</strong></div>
+            <div>추론력 <strong style="color:#8B5CF6;">+15%p</strong></div>
+            <div>문제해결력 <strong style="color:#8B5CF6;">+19%p</strong></div>
+          </div>
+        </div>
+        <div class="pano-foot"><strong>"왜"</strong>를 가르치는 풀이법이 추론·문제해결 영역까지 끌어올립니다. 단순 암기로는 못 오르는 축입니다.</div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center;margin:30px auto 0;font-size:0.78rem;color:var(--text-light);max-width:1100px;padding:0 5%;">* 카드는 매쓰플랫 학습 리포트 기반 예시이며, 실제 수강생 사례를 가공한 표본입니다.</p>
 </section>
 
 <!-- WHY -->
@@ -604,7 +810,188 @@
           <div class="contact-icon">💬</div>
           <div>
             <div class="contact-label">카카오채널</div>
-            <div class="contact-val"><a href="http://pf.kakao.com/_lIbJG" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:700;">카카오톡 채널 바로가기 →</a></div>
+            <div class="contact-val"><a href="http://pf.kakao.com/_lIbJG" target="_blank" style="color:var(--primary);text-decoration:none;">이관우 수학연구소 → 친구 추가</a></div>
+          </div>
+        </div>
+      </div>
+
+      <form class="contact-form" id="contactForm">
+        <div class="form-row">
+          <label for="cName">학생/학부모 성함</label>
+          <input type="text" id="cName" required placeholder="홍길동">
+        </div>
+        <div class="form-row">
+          <label for="cPhone">연락처</label>
+          <input type="tel" id="cPhone" required placeholder="010-0000-0000">
+        </div>
+        <div class="form-row">
+          <label for="cGrade">학년 / 학교</label>
+          <input type="text" id="cGrade" placeholder="고2 / ○○고등학교">
+        </div>
+        <div class="form-row">
+          <label for="cMsg">문의 내용</label>
+          <textarea id="cMsg" placeholder="현재 수학 성적이나 고민, 원하시는 수업 방식을 자유롭게 적어주세요."></textarea>
+        </div>
+        <button type="submit" class="form-submit">문의 보내기</button>
+        <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;">* 문의는 카카오톡 채널로 자동 연결됩니다.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- 카카오 플로팅 버튼 -->
+<div class="kakao-float">
+  <a href="http://pf.kakao.com/_lIbJG" target="_blank" aria-label="카카오톡 문의">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C6.477 3 2 6.477 2 10.8c0 2.74 1.79 5.14 4.5 6.55-.18.66-.66 2.4-.76 2.78-.12.47.17.46.36.34.15-.1 2.36-1.6 3.32-2.25.85.12 1.73.18 2.58.18 5.523 0 10-3.477 10-7.6S17.523 3 12 3z" fill="#1A1A1A"/></svg>
+  </a>
+  <span class="kakao-label">카톡문의</span>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">이관우 수학연구소</div>
+  <div class="footer-sub">LKW MATH LAB</div>
+  <p>"공식 말고 이유를 가르치는 선생님"<br>
+  서울시 강남구 삼성로 57길 35 (대치동) 2층 · 02-3411-6123<br>
+  © 2026 LKW math LAB. All rights reserved.</p>
+  <p style="margin-top:10px;font-size:0.75rem;">
+    <a href="/admin" style="color:#5A4045;text-decoration:none;margin:0 8px;">관리자</a>·
+    <a href="/report" style="color:#5A4045;text-decoration:none;margin:0 8px;">학부모 리포트</a>·
+    <a href="/class" style="color:#5A4045;text-decoration:none;margin:0 8px;">반별 자료실</a>·
+    <a href="https://www.instagram.com/kwa.noo.math" target="_blank" style="color:#5A4045;text-decoration:none;margin:0 8px;">인스타그램</a>
+  </p>
+</footer>
+
+<script>
+/* ===== D-DAY (2027 수능: 2026-11-19 목 기준) ===== */
+(function(){
+  const target = new Date('2026-11-19T00:00:00+09:00');
+  const now = new Date();
+  const diff = Math.ceil((target - now) / (1000*60*60*24));
+  const el = document.getElementById('ddayNum');
+  if (el) el.textContent = diff > 0 ? diff : 'D';
+})();
+
+/* ===== FAQ 데이터 + 토글 ===== */
+const FAQ_DATA = [
+  { q: '수업료가 어떻게 되나요?', a: '학생별 맞춤 커리큘럼이라 수업 시간·횟수에 따라 다릅니다. 카카오톡 채널이나 문의 폼을 통해 상담 받아보세요.' },
+  { q: '1:1 수업과 소수정예 그룹수업의 차이가 뭔가요?', a: '저희는 "한 타임에 한 명"만 받는 진짜 1:1입니다. 학생의 약점·습관·풀이 속도까지 모두 케어합니다. 그룹수업은 평균에 맞춰지지만, 1:1은 학생 한 명에게 100% 맞춥니다.' },
+  { q: '4단계 학습 시스템이란 무엇인가요?', a: '같은 과목을 개념·유형·응용·심화 4단계로 회독하며, 동시에 다른 과목도 단계별로 학습하는 방식입니다. 수학 전체를 큰 시야에서 관통하게 됩니다.' },
+  { q: '학부모는 어떻게 학습 상황을 확인하나요?', a: '매월 매쓰플랫 학습 리포트(등급·정답률·취약유형)를 카카오 채널 알림으로 발송해드리고, kwmath.co.kr/report에서 전화번호 끝 4자리 인증 후 열람하실 수 있습니다.' },
+  { q: '수업 외 시간에 질문할 수 있나요?', a: '카카오톡 질의응답 채널을 운영합니다. 모르는 문제 사진을 보내주시면 풀이와 함께 답변드립니다.' },
+  { q: '입반 테스트를 봐야 하나요?', a: '수준 진단을 위해 짧은 테스트를 진행합니다. 점수로 거르는 게 아니라, 학생에게 가장 적합한 시작점을 잡기 위한 목적입니다.' }
+];
+(function(){
+  const list = document.getElementById('faqList');
+  if (!list) return;
+  list.innerHTML = FAQ_DATA.map((f,i)=>`
+    <div class="faq-item">
+      <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>${f.q}</span><span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">${f.a}</div></div>
+    </div>
+  `).join('');
+})();
+
+/* ===== 공지사항 fetch ===== */
+(async function(){
+  const list = document.getElementById('noticeList');
+  if (!list) return;
+  try {
+    const res = await fetch('/api/notices');
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      list.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">등록된 공지가 없습니다.</div>';
+      return;
+    }
+    list.innerHTML = data.slice(0,6).map((n,i)=>`
+      <div class="notice-item">
+        <span class="notice-badge ${i===0?'new':''}">${n.badge || '공지'}</span>
+        <div class="notice-title">${n.title}</div>
+        <div class="notice-date">${n.date}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">공지를 불러오지 못했습니다.</div>';
+  }
+})();
+
+/* ===== 시간표 fetch ===== */
+(async function(){
+  const grid = document.getElementById('ttGrid');
+  if (!grid) return;
+  try {
+    const res = await fetch('/api/timetable');
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      grid.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">등록된 시간표가 없습니다.</div>';
+      return;
+    }
+    grid.innerHTML = data.map(c=>{
+      const isSoon = (c.memo||'').includes('7월') || (c.school||'').includes('세정');
+      return `
+      <div class="tt-card ${isSoon?'highlight':''}">
+        <div class="tt-header">
+          <span class="tt-badge ${isSoon?'soon':''}">${isSoon?'7월 오픈':'운영중'}</span>
+          <div>
+            <div class="tt-name">${c.name}</div>
+            <div class="tt-loc">${c.school}${c.target?' · '+c.target:''}</div>
+          </div>
+        </div>
+        <div class="tt-row">
+          <div class="tt-day">${(c.days||[]).join('·')||'-'}</div>
+          <div class="tt-times">${c.time||''}</div>
+        </div>
+        ${c.memo?`<div class="tt-note">${c.memo}</div>`:''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">시간표를 불러오지 못했습니다.</div>';
+  }
+})();
+
+/* ===== 강의 클립 fetch ===== */
+(async function(){
+  const grid = document.getElementById('clipsGrid');
+  if (!grid) return;
+  try {
+    const res = await fetch('/api/clips');
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      grid.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">등록된 클립이 없습니다.</div>';
+      return;
+    }
+    grid.innerHTML = data.slice(0,4).map(c=>`
+      <div class="clip-card">
+        <div class="clip-thumb">
+          <iframe src="https://www.instagram.com/reel/${c.reelId}/embed" allowtransparency="true" allowfullscreen="true" frameborder="0"></iframe>
+        </div>
+        <div class="clip-label">
+          <div class="clip-type">${(c.tags||[])[0]||'CLIP'}</div>
+          <div class="clip-title">${c.title}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">클립을 불러오지 못했습니다.</div>';
+  }
+})();
+
+/* ===== 문의폼 → 카카오 채널로 이동 ===== */
+(function(){
+  const f = document.getElementById('contactForm');
+  if (!f) return;
+  f.addEventListener('submit', e => {
+    e.preventDefault();
+    alert('카카오 채널로 이동합니다. 채팅창에 위 내용을 붙여넣어 보내주세요.');
+    window.open('http://pf.kakao.com/_lIbJG', '_blank');
+  });
+})();
+</script>
+
+</body>
+</html>arget="_blank" style="color:var(--primary);text-decoration:none;font-weight:700;">카카오톡 채널 바로가기 →</a></div>
           </div>
         </div>
       </div>
