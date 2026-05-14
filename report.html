@@ -154,7 +154,7 @@ async function searchReports() {
     // 수업 리포트 + PDF 동시 조회
     const [reportRes, pdfRes] = await Promise.all([
       fetch(`/api/reports?phone4=${phone4}`),
-      fetch(`/api/list-files?folder=reports/${phone4}`)
+      fetch(`/api/list-files?folder=reports/${phone4}&phone4=${phone4}`)
     ]);
 
     const reports = await reportRes.json();
@@ -166,12 +166,12 @@ async function searchReports() {
     if (pdfs.length > 0) {
       pdfSection.style.display = 'block';
       pdfList.innerHTML = pdfs.map(f => {
-        const sizeStr = f.size > 1024*1024
+        const sizeStr = f.sizeLabel || (f.size > 1024*1024
           ? (f.size/1024/1024).toFixed(1) + ' MB'
-          : (f.size/1024).toFixed(0) + ' KB';
+          : (f.size/1024).toFixed(0) + ' KB');
         return `<div class="pdf-item">
           <div>
-            <div class="pdf-name">📄 ${f.name}</div>
+            <div class="pdf-name">📄 ${f.displayName || f.name || f.key.split('/').pop()}</div>
             <div class="pdf-size">${sizeStr}</div>
           </div>
           <button class="pdf-dl-btn" onclick="downloadPdf('${f.key}')">다운로드</button>
@@ -220,8 +220,11 @@ async function searchReports() {
 
 async function downloadPdf(key) {
   try {
-    const res = await fetch(`/api/download-file?key=${encodeURIComponent(key)}`);
-    if (!res.ok) { alert('다운로드 실패'); return; }
+    // reports/ 폴더는 phone4 인증 필요 — currentPhone4를 같이 전달
+    const params = new URLSearchParams({ key });
+    if (currentPhone4) params.append('phone4', currentPhone4);
+    const res = await fetch(`/api/download-file?${params}`);
+    if (!res.ok) { alert('다운로드 실패 (인증 오류일 수 있습니다)'); return; }
     const blob = await res.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

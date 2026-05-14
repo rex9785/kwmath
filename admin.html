@@ -356,6 +356,8 @@
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'students') loadStudents();
+    if (name === 'files') loadFiles();
   }
 
   // ── 공지사항 로드 ──
@@ -630,7 +632,7 @@
         <div class="report-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <div>
             <div style="font-weight:700;font-size:0.9rem;">${f.displayName}</div>
-            <div style="font-size:0.78rem;color:var(--text-light);">${f.size || ''} ${f.lastModified ? '· '+new Date(f.lastModified).toLocaleDateString('ko-KR') : ''}</div>
+            <div style="font-size:0.78rem;color:var(--text-light);">${f.sizeLabel || f.size || ''} ${f.lastModified ? '· '+new Date(f.lastModified).toLocaleDateString('ko-KR') : ''}</div>
           </div>
           <div style="display:flex;gap:8px;">
             <button onclick="downloadFile('${f.key}')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">⬇ 다운</button>
@@ -676,6 +678,66 @@
     } catch(e) {
       showToast('삭제 중 오류가 발생했습니다.');
     }
+  }
+
+  // ── 학생 목록 ──
+  let allStudents = [];
+  async function loadStudents() {
+    const list = document.getElementById('studentList');
+    const countEl = document.getElementById('studentCount');
+    list.innerHTML = '<div class="empty">불러오는 중...</div>';
+    try {
+      const res = await fetch('/api/students', {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      allStudents = await res.json();
+      if (!Array.isArray(allStudents)) allStudents = [];
+      countEl.textContent = `총 ${allStudents.length}명`;
+      renderStudents(allStudents);
+    } catch(e) {
+      list.innerHTML = '<div class="empty">학생 목록을 불러올 수 없습니다.</div>';
+    }
+  }
+
+  function filterStudents() {
+    const q = (document.getElementById('studentSearch').value || '').toLowerCase();
+    const filtered = allStudents.filter(s => (s.name || '').toLowerCase().includes(q));
+    renderStudents(filtered);
+  }
+
+  function renderStudents(students) {
+    const list = document.getElementById('studentList');
+    if (!students.length) {
+      list.innerHTML = '<div class="empty">해당 학생이 없습니다.</div>';
+      return;
+    }
+    list.innerHTML = students.map(s => `
+      <div class="report-card">
+        <div class="report-header">
+          <div>
+            <strong>${s.name || '—'}</strong>
+            <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${s.academy || ''}</span>
+          </div>
+        </div>
+        <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
+          ${s.grade ? '<span>학년: <b>' + s.grade + '</b></span>&nbsp;&nbsp;' : ''}
+          ${s.goals && s.goals.length ? '<span>목적: ' + s.goals.join(', ') + '</span>&nbsp;&nbsp;' : ''}
+          ${s.parentPhone4 ? '<span>학부모 끝자리: <b>' + s.parentPhone4 + '</b></span>&nbsp;&nbsp;' : ''}
+          ${s.studentPhone ? '<span>학생연락처: ' + s.studentPhone + '</span>&nbsp;&nbsp;' : ''}
+          ${s.level ? '<span>현재등급: ' + s.level + '</span>&nbsp;&nbsp;' : ''}
+          ${s.notes ? '<br><span style="color:#888;">특이사항: ' + s.notes + '</span>' : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── 토스트 알림 ──
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
   }
 </script>
 </body>
