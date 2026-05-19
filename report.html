@@ -88,16 +88,16 @@
     <div class="card-icon">📋</div>
     <div class="card-title">수업 리포트 열람</div>
     <div class="card-desc">
-      학부모님의 전화번호 끝 4자리를 입력하시면<br>
+      학생 등록 시 발급받은 <strong>개인 열람 코드</strong>를 입력하시면<br>
       자녀의 수업 리포트와 첨부 자료를 확인하실 수 있습니다.
     </div>
     <div class="input-group">
-      <input class="phone-input" id="phone4" type="tel" maxlength="4" placeholder="0000"
-        onkeydown="if(event.key==='Enter')searchReports()" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+      <input class="phone-input" id="accessKey" type="text" maxlength="8" placeholder="KWXXXXXX"
+        onkeydown="if(event.key==='Enter')searchReports()" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
       <button class="search-btn" onclick="searchReports()">조회하기</button>
     </div>
-    <div class="input-hint">※ 수업 등록 시 제공한 전화번호 기준입니다.</div>
-    <div class="err-msg" id="errMsg">해당 번호로 등록된 리포트가 없습니다.</div>
+    <div class="input-hint">※ 학생 등록 완료 시 화면에 표시된 코드입니다. 분실 시 선생님께 문의하세요.</div>
+    <div class="err-msg" id="errMsg">등록되지 않은 코드입니다.</div>
   </div>
 
   <!-- 결과 영역 -->
@@ -130,31 +130,31 @@
 </div>
 
 <script>
-let currentPhone4 = '';
+let currentKey = '';
 
 async function searchReports() {
-  const phone4 = document.getElementById('phone4').value.trim();
+  const accessKey = document.getElementById('accessKey').value.trim().toUpperCase();
   const errMsg = document.getElementById('errMsg');
   const resultArea = document.getElementById('resultArea');
   const reportList = document.getElementById('reportList');
   errMsg.style.display = 'none';
   resultArea.style.display = 'none';
 
-  if (!phone4 || phone4.length !== 4) {
-    errMsg.textContent = '전화번호 끝 4자리를 정확히 입력해주세요.';
+  if (!accessKey || accessKey.length < 6) {
+    errMsg.textContent = '개인 열람 코드를 정확히 입력해주세요.';
     errMsg.style.display = 'block';
     return;
   }
 
-  currentPhone4 = phone4;
+  currentKey = accessKey;
   reportList.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><p>리포트를 불러오는 중입니다...</p></div>`;
   resultArea.style.display = 'block';
 
   try {
     // 수업 리포트 + PDF 동시 조회
     const [reportRes, pdfRes] = await Promise.all([
-      fetch(`/api/reports?phone4=${phone4}`),
-      fetch(`/api/list-files?folder=reports/${phone4}&phone4=${phone4}`)
+      fetch(`/api/reports?key=${accessKey}`),
+      fetch(`/api/list-files?folder=reports/${accessKey}&key=${accessKey}`)
     ]);
 
     const reports = await reportRes.json();
@@ -186,7 +186,7 @@ async function searchReports() {
       document.getElementById('resultName').textContent = '';
       document.getElementById('resultCount').textContent = '';
       if (pdfs.length === 0) {
-        reportList.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><p>해당 번호로 등록된 리포트가 없습니다.<br>전화번호 끝 4자리를 다시 확인해주세요.</p></div>`;
+        reportList.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><p>등록된 리포트가 없습니다.<br>코드를 다시 확인하거나 선생님께 문의해주세요.</p></div>`;
       } else {
         reportList.innerHTML = `<div class="state-box"><div class="state-icon">📎</div><p>첨부 자료만 등록되어 있습니다.<br>위에서 PDF를 확인하세요.</p></div>`;
       }
@@ -220,9 +220,8 @@ async function searchReports() {
 
 async function downloadPdf(key) {
   try {
-    // reports/ 폴더는 phone4 인증 필요 — currentPhone4를 같이 전달
     const params = new URLSearchParams({ key });
-    if (currentPhone4) params.append('phone4', currentPhone4);
+    if (currentKey) params.append('accessKey', currentKey);
     const res = await fetch(`/api/download-file?${params}`);
     if (!res.ok) { alert('다운로드 실패 (인증 오류일 수 있습니다)'); return; }
     const blob = await res.blob();
