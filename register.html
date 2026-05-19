@@ -150,11 +150,18 @@
           </div>
           <div class="form-row">
             <label>수강 학원</label>
-            <select id="academy">
+            <select id="academy" onchange="updateClassOptions()">
+              <option value="">선택하세요</option>
               <option value="대치동 정규반">대치동 정규반</option>
               <option value="세정학원">세정학원</option>
             </select>
           </div>
+        </div>
+        <div class="form-row" id="classRow" style="display:none;">
+          <label>수강 반 <span class="req">*</span></label>
+          <select id="classSelect">
+            <option value="">선택하세요</option>
+          </select>
         </div>
         <div class="form-row">
           <label>하고 싶은 말 (선택)</label>
@@ -181,6 +188,23 @@
 </div>
 
 <script>
+  const CLASS_OPTIONS = {
+    '대치동 정규반': ['썸머 공통수학2반', '썸머 미적반', '썸머 확통반'],
+    '세정학원':      ['썸머 기초특강반', '썸머 공통수학 2반'],
+  };
+
+  function updateClassOptions() {
+    const academy = document.getElementById('academy').value;
+    const classRow = document.getElementById('classRow');
+    const classSelect = document.getElementById('classSelect');
+    const options = CLASS_OPTIONS[academy] || [];
+
+    classSelect.innerHTML = '<option value="">선택하세요</option>'
+      + options.map(o => `<option value="${o}">${o}</option>`).join('');
+
+    classRow.style.display = options.length ? 'block' : 'none';
+  }
+
   function toggleCheck(e, el) {
     e.preventDefault();
     el.classList.toggle('checked');
@@ -196,6 +220,7 @@
     const studentPhone = document.getElementById('studentPhone').value.trim();
     const level = document.getElementById('level').value;
     const academy = document.getElementById('academy').value;
+    const className = document.getElementById('classSelect').value;
     const notes = document.getElementById('notes').value.trim();
     const errMsg = document.getElementById('errMsg');
     errMsg.style.display = 'none';
@@ -206,6 +231,8 @@
     if (!grade) { showErr('학년을 선택해주세요.'); return; }
     if (!parentPhone4 || parentPhone4.length !== 4) { showErr('학부모 연락처 끝 4자리를 입력해주세요.'); return; }
     if (!goals.length) { showErr('수강 목적을 한 개 이상 선택해주세요.'); return; }
+    if (!academy) { showErr('수강 학원을 선택해주세요.'); return; }
+    if (!className) { showErr('수강 반을 선택해주세요.'); return; }
 
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
@@ -215,7 +242,7 @@
       const res = await fetch('/api/student-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, school, grade, parentPhone4, studentPhone, goals, level, academy, notes })
+        body: JSON.stringify({ name, school, grade, parentPhone4, studentPhone, goals, level, academy, className, notes })
       });
       const data = await res.json();
       if (data.ok) {
