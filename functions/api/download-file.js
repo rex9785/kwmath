@@ -2,14 +2,18 @@
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const key = url.searchParams.get('key');
-  const phone4 = url.searchParams.get('phone4');
 
   if (!key) return Response.json({ error: 'key 파라미터 필요' }, { status: 400 });
 
-  // reports/ 폴더는 phone4 인증 필요
+  // reports/ 폴더는 admin 토큰 OR 이름+phone4 인증 필요
   if (key.startsWith('reports/')) {
-    const keyPhone4 = key.split('/')[1];
-    if (!phone4 || phone4 !== keyPhone4)
+    const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
+    const isAdmin = token === env.ADMIN_PASSWORD;
+    const name = url.searchParams.get('name') || '';
+    const phone4 = url.searchParams.get('phone4') || '';
+    const folderName = key.split('/')[1]; // 학생 이름
+    const isStudentAuth = name && phone4.length === 4 && folderName === name;
+    if (!isAdmin && !isStudentAuth)
       return Response.json({ error: '접근 권한 없음' }, { status: 403 });
   }
 

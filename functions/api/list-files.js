@@ -8,12 +8,11 @@ export async function onRequest({ request, env }) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   const isAdmin = token === env.ADMIN_PASSWORD;
 
-  // reports/{phone4}/ 폴더는 phone4 인증도 허용
+  // reports/{학생이름}/ 폴더는 phone4 존재 여부만 확인 (실제 인증은 report.html에서 Notion으로 검증)
   const isReportsFolder = folder.startsWith('reports/');
-  const folderPhone4 = isReportsFolder ? folder.split('/')[1] : null;
-  const isPhone4Auth = isReportsFolder && phone4 && phone4 === folderPhone4;
+  const isStudentFolderAuth = isReportsFolder && phone4 && phone4.length === 4;
 
-  if (!isAdmin && !isPhone4Auth) {
+  if (!isAdmin && !isStudentFolderAuth) {
     return Response.json({ error: '인증이 필요합니다.' }, { status: 401 });
   }
 

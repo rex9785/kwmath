@@ -203,7 +203,8 @@
     <div class="tab-panel" id="tab-reports">
       <p class="panel-title">수업 리포트 조회</p>
       <div class="report-search">
-        <input id="phone4Input" type="text" maxlength="4" placeholder="학부모 전화번호 끝 4자리 입력" onkeydown="if(event.key==='Enter')searchReports()">
+        <input id="rSearchName" type="text" placeholder="학생 이름 입력" onkeydown="if(event.key==='Enter')searchReports()">
+        <input id="phone4Input" type="text" maxlength="4" placeholder="전화번호 끝 4자리 (선택)" onkeydown="if(event.key==='Enter')searchReports()">
         <button class="search-btn" onclick="searchReports()">조회</button>
       </div>
       <div class="report-list" id="reportList">
@@ -484,15 +485,16 @@
 
   // ── 리포트 조회 ──
   async function searchReports() {
+    const name = document.getElementById('rSearchName')?.value.trim() || '';
     const phone4 = document.getElementById('phone4Input').value.trim();
     const list = document.getElementById('reportList');
-    if (!phone4 || phone4.length !== 4) {
-      showToast('전화번호 끝 4자리를 정확히 입력해주세요.');
+    if (!name) {
+      showToast('학생 이름을 입력해주세요.');
       return;
     }
     list.innerHTML = '<div class="empty">조회 중...</div>';
     try {
-      const res = await fetch(`/api/reports?phone4=${phone4}`, {
+      const res = await fetch(`/api/reports?name=${encodeURIComponent(name)}&phone4=${phone4}`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
       const reports = await res.json();
@@ -651,9 +653,15 @@
       const res = await fetch(`/api/download-file?key=${encodeURIComponent(key)}`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
-      const { downloadUrl } = await res.json();
-      if (downloadUrl) window.open(downloadUrl, '_blank');
-      else showToast('다운로드 링크 생성 실패');
+      if (!res.ok) { showToast('다운로드 실패'); return; }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = key.split('/').pop().replace(/^\d+_/, '');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
     } catch(e) {
       showToast('오류가 발생했습니다.');
     }
