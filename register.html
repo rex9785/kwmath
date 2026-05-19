@@ -122,16 +122,16 @@
         <div class="form-row">
           <label>수강 목적 <span class="req">*</span> (중복 선택 가능)</label>
           <div class="check-group" id="goalGroup">
-            <label class="check-item" onclick="toggleCheck(this)">
+            <label class="check-item" onclick="toggleCheck(event, this)">
               <input type="checkbox" value="수능"> 📌 수능
             </label>
-            <label class="check-item" onclick="toggleCheck(this)">
+            <label class="check-item" onclick="toggleCheck(event, this)">
               <input type="checkbox" value="내신"> 📚 내신
             </label>
-            <label class="check-item" onclick="toggleCheck(this)">
+            <label class="check-item" onclick="toggleCheck(event, this)">
               <input type="checkbox" value="기초다지기"> 🔧 기초다지기
             </label>
-            <label class="check-item" onclick="toggleCheck(this)">
+            <label class="check-item" onclick="toggleCheck(event, this)">
               <input type="checkbox" value="선행"> 🚀 선행
             </label>
           </div>
@@ -179,8 +179,11 @@
 </div>
 
 <script>
-  function toggleCheck(el) {
+  function toggleCheck(e, el) {
+    e.preventDefault();
     el.classList.toggle('checked');
+    const cb = el.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = !cb.checked;
   }
 
   async function submitForm() {
