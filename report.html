@@ -88,16 +88,22 @@
     <div class="card-icon">📋</div>
     <div class="card-title">수업 리포트 열람</div>
     <div class="card-desc">
-      학생 등록 시 발급받은 <strong>개인 열람 코드</strong>를 입력하시면<br>
-      자녀의 수업 리포트와 첨부 자료를 확인하실 수 있습니다.
+      자녀의 이름과 학부모님 전화번호 끝 4자리를 입력하시면<br>
+      수업 리포트와 첨부 자료를 확인하실 수 있습니다.
     </div>
-    <div class="input-group">
-      <input class="phone-input" id="accessKey" type="text" maxlength="8" placeholder="KWXXXXXX"
-        onkeydown="if(event.key==='Enter')searchReports()" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
-      <button class="search-btn" onclick="searchReports()">조회하기</button>
+    <div class="input-group" style="flex-direction:column;gap:8px;">
+      <input class="phone-input" id="studentName" type="text" placeholder="자녀 이름 (예: 홍길동)"
+        style="letter-spacing:0;text-align:left;font-size:0.95rem;"
+        onkeydown="if(event.key==='Enter')searchReports()">
+      <div style="display:flex;gap:10px;">
+        <input class="phone-input" id="phone4" type="tel" maxlength="4" placeholder="전화번호 끝 4자리"
+          style="flex:1;" onkeydown="if(event.key==='Enter')searchReports()"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+        <button class="search-btn" onclick="searchReports()">조회하기</button>
+      </div>
     </div>
-    <div class="input-hint">※ 학생 등록 완료 시 화면에 표시된 코드입니다. 분실 시 선생님께 문의하세요.</div>
-    <div class="err-msg" id="errMsg">등록되지 않은 코드입니다.</div>
+    <div class="input-hint">※ 학부모님 전화번호 끝 4자리를 입력해주세요.</div>
+    <div class="err-msg" id="errMsg">이름 또는 전화번호가 일치하지 않습니다.</div>
   </div>
 
   <!-- 결과 영역 -->
@@ -130,31 +136,38 @@
 </div>
 
 <script>
-let currentKey = '';
+let currentName = '';
+let currentPhone4 = '';
 
 async function searchReports() {
-  const accessKey = document.getElementById('accessKey').value.trim().toUpperCase();
-  const errMsg = document.getElementById('errMsg');
-  const resultArea = document.getElementById('resultArea');
-  const reportList = document.getElementById('reportList');
+  const studentName = document.getElementById('studentName').value.trim();
+  const phone4      = document.getElementById('phone4').value.trim();
+  const errMsg      = document.getElementById('errMsg');
+  const resultArea  = document.getElementById('resultArea');
+  const reportList  = document.getElementById('reportList');
   errMsg.style.display = 'none';
   resultArea.style.display = 'none';
 
-  if (!accessKey || accessKey.length < 6) {
-    errMsg.textContent = '개인 열람 코드를 정확히 입력해주세요.';
+  if (!studentName) {
+    errMsg.textContent = '자녀 이름을 입력해주세요.';
+    errMsg.style.display = 'block';
+    return;
+  }
+  if (!phone4 || phone4.length !== 4) {
+    errMsg.textContent = '전화번호 끝 4자리를 입력해주세요.';
     errMsg.style.display = 'block';
     return;
   }
 
-  currentKey = accessKey;
+  currentName   = studentName;
+  currentPhone4 = phone4;
   reportList.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><p>리포트를 불러오는 중입니다...</p></div>`;
   resultArea.style.display = 'block';
 
   try {
-    // 수업 리포트 + PDF 동시 조회
     const [reportRes, pdfRes] = await Promise.all([
-      fetch(`/api/reports?key=${accessKey}`),
-      fetch(`/api/list-files?folder=reports/${accessKey}&key=${accessKey}`)
+      fetch(`/api/reports?name=${encodeURIComponent(studentName)}&phone4=${phone4}`),
+      fetch(`/api/list-files?folder=reports/${encodeURIComponent(studentName)}&phone4=${phone4}`)
     ]);
 
     const reports = await reportRes.json();
