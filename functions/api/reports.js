@@ -10,18 +10,15 @@ export async function onRequest({ request, env }) {
   const isAdmin = env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
 
   if (!isAdmin) {
-    // 일반 학부모 인증: 이름 + phone4 필수
     if (!name || !phone4 || phone4.length !== 4)
       return Response.json({ error: '이름과 전화번호 끝 4자리를 입력해주세요.' }, { status: 400 });
   } else {
-    // admin: name이 없으면 phone4만으로 조회할 이름이 없으므로 name 필요
     if (!name)
       return Response.json({ error: '학생 이름을 입력해주세요.' }, { status: 400 });
   }
 
   try {
     if (!isAdmin) {
-      // 1. 이름 + phone4로 학생 확인 (학부모 전용)
       const sRes = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
@@ -35,7 +32,6 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: '이름 또는 전화번호가 일치하지 않습니다.' }, { status: 401 });
     }
 
-    // 2. 학생 이름으로 공개 리포트 조회
     const res = await fetch(`https://api.notion.com/v1/databases/${REPORTS_DB}/query`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
@@ -43,4 +39,36 @@ export async function onRequest({ request, env }) {
         { property: '공개',     checkbox:  { equals: true } },
         { property: '학생 이름', rich_text: { equals: name } },
       ]}, sorts: [{ property: '수업 날짜', direction: 'descending' }] }),
- 
+    });
+    const data = await res.json();
+
+    if (data.object === 'error') {
+      return Response.json({ error: data.message || 'Notion 조회 실패' }, { status: 500 });
+    }
+
+    const reports = (data.results || []).map(page => {
+      const p = page.properties || {};
+      const richText = (field) =>
+        (p[field]?.rich_text || []).map(t => t.plain_text || '').join('');
+      const titleText = (field) =>
+        (p[field]?.title || []).map(t => t.plain_text || '').join('');
+      const selectName = (field) => p[field]?.select?.name || '';
+
+      return {
+        id:          page.id,
+        title:       titleText('리포트 제목'),
+        studentName: richText('학생 이름'),
+        date:        p['수업 날짜']?.date?.start || '',
+        school:      selectName('학원'),
+        content:     richText('수업 내용'),
+        homework:    richText('숙제'),
+        notes:       richText('특이사항'),
+      };
+    });
+
+    return Response.json(reports);
+
+  } catch (err) {
+    return Response.json({ error: '서버 오류: ' + err.message }, { status: 500 });
+  }
+}
