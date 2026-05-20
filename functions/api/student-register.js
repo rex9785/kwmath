@@ -36,4 +36,6 @@ export async function onRequest({ request, env }) {
     body: JSON.stringify({ parent: { database_id: DB }, properties }),
   });
   const data = await res.json();
-  if (data.object === 'error') return Response.json({ error: data.messa
+  if (data.object === 'error') return Response.json({ error: data.message || '학생 등록 실패' }, { status: 500 });
+  return Response.json({ ok: true, personalKey, id: data.id });
+}
