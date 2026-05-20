@@ -733,20 +733,4 @@
           ${s.parentPhone4 ? '<span>학부모 끝자리: <b>' + s.parentPhone4 + '</b></span>&nbsp;&nbsp;' : ''}
           ${s.studentPhone ? '<span>학생연락처: ' + s.studentPhone + '</span>&nbsp;&nbsp;' : ''}
           ${s.level ? '<span>현재등급: ' + s.level + '</span>&nbsp;&nbsp;' : ''}
-          ${s.notes ? '<br><span style="color:#888;">특이사항: ' + s.notes + '</span>' : ''}
-        </div>
-      </div>
-    `).join('');
-  }
-
-  // ── 토스트 알림 ──
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
-  }
-</script>
-</body>
-</html>
+          ${s.notes ? '<br><span style="

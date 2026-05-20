@@ -43,20 +43,4 @@ export async function onRequest({ request, env }) {
         { property: '공개',     checkbox:  { equals: true } },
         { property: '학생 이름', rich_text: { equals: name } },
       ]}, sorts: [{ property: '수업 날짜', direction: 'descending' }] }),
-    });
-    const data = await res.json();
-    const reports = (data.results || []).map(p => ({
-      id: p.id,
-      title:       p.properties['리포트 제목']?.title?.[0]?.plain_text || '',
-      studentName: name,
-      date:        p.properties['수업 날짜']?.date?.start || '',
-      school:      p.properties['학원']?.select?.name || '',
-      content:     p.properties['수업 내용']?.rich_text?.[0]?.plain_text || '',
-      homework:    p.properties['숙제']?.rich_text?.[0]?.plain_text || '',
-      notes:       p.properties['특이사항']?.rich_text?.[0]?.plain_text || '',
-    }));
-    return Response.json(reports);
-  } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
-  }
-}
+ 

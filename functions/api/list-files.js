@@ -30,5 +30,4 @@ export async function onRequest({ request, env }) {
     }))
     .filter(f => f.displayName);
 
-  return Response.json(files);
-}
+  return Response.json(

@@ -36,6 +36,4 @@ export async function onRequest({ request, env }) {
     body: JSON.stringify({ parent: { database_id: DB }, properties }),
   });
   const data = await res.json();
-  if (data.object === 'error') return Response.json({ error: data.message }, { status: 500 });
-  return Response.json({ ok: true, key: personalKey });
-}
+  if (data.object === 'error') return Response.json({ error: data.messa

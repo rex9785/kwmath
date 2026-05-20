@@ -20,12 +20,4 @@ export async function onRequest({ request, env }) {
   const object = await env.BUCKET.get(key);
   if (!object) return Response.json({ error: '파일을 찾을 수 없습니다' }, { status: 404 });
 
-  const fileName = key.split('/').pop().replace(/^\d+_/, '');
-  return new Response(object.body, {
-    headers: {
-      'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-      'Cache-Control': 'private, max-age=3600',
-    },
-  });
-}
+  const fileName = key.split('/').pop().repl

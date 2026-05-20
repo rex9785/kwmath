@@ -244,28 +244,4 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, school, grade, parentPhone4, studentPhone, goals, level, academy, className, notes })
       });
-      const data = await res.json();
-      if (data.ok) {
-        document.getElementById('formArea').style.display = 'none';
-        document.getElementById('doneScreen').style.display = 'block';
-        document.getElementById('doneKey').textContent = data.key || '';
-      } else {
-        showErr('오류가 발생했습니다: ' + (data.error || '다시 시도해주세요.'));
-        btn.disabled = false;
-        btn.textContent = '등록 완료 →';
-      }
-    } catch(e) {
-      showErr('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
-      btn.disabled = false;
-      btn.textContent = '등록 완료 →';
-    }
-  }
-
-  function showErr(msg) {
-    const el = document.getElementById('errMsg');
-    el.textContent = msg;
-    el.style.display = 'block';
-  }
-</script>
-</body>
-</html>
+      const da
