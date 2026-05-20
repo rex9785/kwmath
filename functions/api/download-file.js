@@ -20,4 +20,18 @@ export async function onRequest({ request, env }) {
   const object = await env.BUCKET.get(key);
   if (!object) return Response.json({ error: '파일을 찾을 수 없습니다' }, { status: 404 });
 
-  const fileName = key.split('/').pop().repl
+  const fileName = key.split('/').pop().replace(/[\r\n"]/g, '');
+  const contentType = object.httpMetadata?.contentType
+    || (fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+
+  // RFC 5987: 한글 파일명을 위해 filename* 인코딩 사용
+  const encodedName = encodeURIComponent(fileName);
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,
+      'Cache-Control': 'private, max-age=0',
+    },
+  });
+}

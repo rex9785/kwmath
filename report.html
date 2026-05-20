@@ -233,4 +233,31 @@ async function searchReports() {
 
 async function downloadPdf(key) {
   try {
-    const params = new URLSearchParams({ ke
+    const params = new URLSearchParams({
+      key: key,
+      name: currentName,
+      phone4: currentPhone4
+    });
+    const res = await fetch(`/api/download-file?${params}`);
+    if (!res.ok) {
+      let msg = '다운로드 실패 (' + res.status + ')';
+      try { const err = await res.json(); if (err.error) msg = err.error; } catch (_) {}
+      alert(msg);
+      return;
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = key.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    alert('다운로드 중 오류: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
