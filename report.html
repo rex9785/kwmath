@@ -206,8 +206,8 @@ async function searchReports() {
       return;
     }
 
-    const studentName = reports[0].studentName || '학생';
-    document.getElementById('resultName').textContent = `${studentName} 학부모님`;
+    const displayName = reports[0].studentName || '학생';
+    document.getElementById('resultName').textContent = `${displayName} 학부모님`;
     document.getElementById('resultCount').textContent = `총 ${reports.length}개의 수업 리포트`;
 
     reportList.innerHTML = reports.map(r => {
