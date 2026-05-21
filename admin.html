@@ -733,4 +733,26 @@
           ${s.parentPhone4 ? '<span>학부모 끝자리: <b>' + s.parentPhone4 + '</b></span>&nbsp;&nbsp;' : ''}
           ${s.studentPhone ? '<span>학생연락처: ' + s.studentPhone + '</span>&nbsp;&nbsp;' : ''}
           ${s.level ? '<span>현재등급: ' + s.level + '</span>&nbsp;&nbsp;' : ''}
-          ${s.notes ? '<br><span style="
+          ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + s.notes + '</span>' : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 토스트 메시지 표시
+  function showToast(msg) {
+    let toast = document.getElementById('admin-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'admin-toast';
+      toast.style.cssText = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;padding:12px 22px;border-radius:10px;font-size:0.9rem;font-weight:600;z-index:9999;opacity:0;transition:opacity .25s;max-width:90%;text-align:center;';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ toast.style.opacity = "0"; }, 3000);
+  }
+</script>
+</body>
+</html>

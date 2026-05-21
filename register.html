@@ -244,4 +244,34 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, school, grade, parentPhone4, studentPhone, goals, level, academy, className, notes })
       });
-      const da
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        document.getElementById('formArea').style.display = 'none';
+        document.getElementById('doneScreen').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        showErr(data.error || '등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } catch (e) {
+      showErr('서버 통신 오류: ' + (e.message || '알 수 없는 오류'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '등록 완료 →';
+    }
+  }
+
+  function showErr(msg) {
+    const errMsg = document.getElementById('errMsg');
+    errMsg.textContent = msg;
+    errMsg.style.display = 'block';
+    errMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // 학원 선택 시 반 목록 자동 변경
+  document.addEventListener('DOMContentLoaded', () => {
+    const academyEl = document.getElementById('academy');
+    if (academyEl) academyEl.addEventListener('change', updateClassOptions);
+  });
+</script>
+</body>
+</html>
