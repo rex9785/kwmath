@@ -113,10 +113,16 @@
       <div class="result-count" id="resultCount"></div>
     </div>
 
-    <!-- PDF 첨부 자료 -->
+    <!-- PDF 첨부 자료 (개인) -->
     <div id="pdfSection" style="display:none;margin-bottom:24px;">
       <div class="section-label">📎 첨부 PDF 자료</div>
       <div id="pdfList"></div>
+    </div>
+
+    <!-- 반 공통 자료 (그날 수업 자료) -->
+    <div id="classFilesSection" style="display:none;margin-bottom:24px;">
+      <div class="section-label">📁 오늘 수업 자료 (반 공통)</div>
+      <div id="classFileList"></div>
     </div>
 
     <!-- 수업 리포트 목록 -->
@@ -170,8 +176,54 @@ async function searchReports() {
       fetch(`/api/list-files?folder=reports/${encodeURIComponent(studentName)}&phone4=${phone4}`)
     ]);
 
-    const reports = await reportRes.json();
+    const reportData = await reportRes.json();
+    // 응답 구조: { student: {name,school,class_name}, reports: [...] } 또는 (이전 호환) 배열
+    const reports = Array.isArray(reportData) ? reportData : (reportData.reports || []);
+    const studentInfo = Array.isArray(reportData) ? null : reportData.student;
     const pdfs = pdfRes.ok ? await pdfRes.json() : [];
+
+    // 반 공통 자료 조회 (학생의 학원/반이 있을 때만)
+    let classFiles = [];
+    if (studentInfo && studentInfo.school && studentInfo.class_name && reports.length > 0) {
+      try {
+        const folder = `class/${studentInfo.school}_${studentInfo.class_name}`;
+        const cfRes = await fetch(`/api/list-files?folder=${encodeURIComponent(folder)}&phone4=${phone4}`);
+        if (cfRes.ok) {
+          const allClassFiles = await cfRes.json();
+          // 가장 최근 리포트의 날짜와 일치하는 MMDD prefix 파일만 필터
+          const latestDate = reports[0].date || '';
+          const mmdd = latestDate ? latestDate.slice(5).replace('-', '') : '';
+          if (mmdd) {
+            classFiles = (allClassFiles || []).filter(f => {
+              const fname = (f.displayName || f.name || '').replace(/^\d+_/, '');
+              return fname.startsWith(mmdd + '_') || fname.startsWith(mmdd + '-');
+            });
+          }
+        }
+      } catch (_) { /* 무시 — 반 자료는 선택사항 */ }
+    }
+
+    // 반 공통 자료 섹션 렌더링
+    const classFilesSection = document.getElementById('classFilesSection');
+    const classFileList = document.getElementById('classFileList');
+    if (classFiles.length > 0) {
+      classFilesSection.style.display = 'block';
+      classFileList.innerHTML = classFiles.map(f => {
+        const sizeStr = f.sizeLabel || (f.size > 1024*1024
+          ? (f.size/1024/1024).toFixed(1) + ' MB'
+          : (f.size/1024).toFixed(0) + ' KB');
+        const displayName = (f.displayName || f.name || f.key.split('/').pop()).replace(/^\d{4}[_-]/, '');
+        return `<div class="pdf-item">
+          <div>
+            <div class="pdf-name">📁 ${displayName}</div>
+            <div class="pdf-size">${sizeStr}</div>
+          </div>
+          <button class="pdf-dl-btn" onclick="downloadPdf('${f.key}')">다운로드</button>
+        </div>`;
+      }).join('');
+    } else {
+      classFilesSection.style.display = 'none';
+    }
 
     // PDF 섹션 렌더링
     const pdfSection = document.getElementById('pdfSection');

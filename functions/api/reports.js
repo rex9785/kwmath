@@ -17,6 +17,7 @@ export async function onRequest({ request, env }) {
       return Response.json({ error: '학생 이름을 입력해주세요.' }, { status: 400 });
   }
 
+  let studentInfo = null;
   try {
     if (!isAdmin) {
       const sRes = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
@@ -30,6 +31,13 @@ export async function onRequest({ request, env }) {
       const sData = await sRes.json();
       if (!sData.results?.length)
         return Response.json({ error: '이름 또는 전화번호가 일치하지 않습니다.' }, { status: 401 });
+      // 학생 학원/반 정보 추출 — 학부모 페이지에서 반 공통 자료 조회용
+      const sp = sData.results[0].properties || {};
+      studentInfo = {
+        name,
+        school:     sp['학원']?.select?.name || '',
+        class_name: sp['반']?.select?.name || '',
+      };
     }
 
     const res = await fetch(`https://api.notion.com/v1/databases/${REPORTS_DB}/query`, {
@@ -66,7 +74,7 @@ export async function onRequest({ request, env }) {
       };
     });
 
-    return Response.json(reports);
+    return Response.json({ student: studentInfo, reports });
 
   } catch (err) {
     return Response.json({ error: '서버 오류: ' + err.message }, { status: 500 });

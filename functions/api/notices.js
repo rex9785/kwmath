@@ -8,12 +8,13 @@ export async function onRequest({ env }) {
       body: JSON.stringify({ filter: { property: '공개', checkbox: { equals: true } }, sorts: [{ property: '날짜', direction: 'descending' }], page_size: 10 }),
     });
     const data = await res.json();
+    const joinText = (rt) => (rt || []).map(t => t.plain_text).join('');
     const notices = (data.results || []).map(p => ({
       id: p.id,
-      title: p.properties['제목']?.title?.[0]?.plain_text || '',
+      title: (p.properties['제목']?.title || []).map(t => t.plain_text).join(''),
       date: p.properties['날짜']?.date?.start || '',
       badge: p.properties['뱃지']?.select?.name || '공지',
-      content: p.properties['내용']?.rich_text?.[0]?.plain_text || '',
+      content: joinText(p.properties['내용']?.rich_text),
     }));
     return Response.json(notices);
   } catch (e) {
