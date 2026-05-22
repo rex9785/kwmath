@@ -946,7 +946,7 @@ const FAQ_DATA = [
       const isNew = badgeText === 'NEW';
       const badgeCls = isEnd ? 'end' : (isNew ? 'new' : '');
       return `
-      <div class="notice-item ${hasContent?'clickable':''}" ${hasContent?'onclick="this.classList.toggle(\'open\')"':''}>
+      <div class="notice-item ${hasContent?'clickable':''}">
         <span class="notice-badge ${badgeCls}">${escapeHtml(n.badge || '공지')}</span>
         <div class="notice-title">${escapeHtml(n.title)}</div>
         <div class="notice-date">${escapeHtml(n.date)}</div>
@@ -954,6 +954,11 @@ const FAQ_DATA = [
         ${hasContent?`<div class="notice-content">${renderContent(n.content)}</div>`:''}
       </div>`;
     }).join('');
+    // 이벤트 위임 — 카드 어디를 클릭해도 토글
+    list.addEventListener('click', (e) => {
+      const item = e.target.closest('.notice-item.clickable');
+      if (item) item.classList.toggle('open');
+    });
   } catch(e) {
     list.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">공지를 불러오지 못했습니다.</div>';
   }

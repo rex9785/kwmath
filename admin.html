@@ -35,11 +35,12 @@
   .logout-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:6px 14px;border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:background .2s;}
   .logout-btn:hover{background:rgba(255,255,255,0.25);}
 
-  .dash-body{max-width:1000px;margin:0 auto;padding:36px 5%;}
+  .dash-body{max-width:960px;margin:0 auto;padding:32px 24px;}
+  @media (max-width: 640px) { .dash-body{padding:24px 16px;} }
 
   /* 탭 */
-  .tabs{display:flex;gap:8px;margin-bottom:28px;border-bottom:2px solid var(--border);padding-bottom:0;}
-  .tab-btn{padding:10px 22px;border:none;background:none;font-size:0.9rem;font-weight:700;color:var(--text-light);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;transition:all .2s;}
+  .tabs{display:flex;gap:4px;margin-bottom:28px;border-bottom:2px solid var(--border);padding-bottom:0;flex-wrap:wrap;}
+  .tab-btn{padding:10px 16px;border:none;background:none;font-size:0.88rem;font-weight:700;color:var(--text-light);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;transition:all .2s;white-space:nowrap;}
   .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
 
   /* 섹션 */
@@ -238,8 +239,9 @@
           <div>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 분류</label>
             <select id="fileFolder" onchange="togglePhoneInput()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
-              <option value="materials">📚 자료실 (공개)</option>
-              <option value="class">🔒 반별 자료실 (키 인증)</option>
+              <option value="materials">📚 공개 자료실 (홈페이지 전체)</option>
+              <option value="class-shared">📂 반 공통 자료 (학부모 리포트 페이지에 자동 표시)</option>
+              <option value="class">🔒 반별 자료실 (개인키 인증, 구버전)</option>
               <option value="reports">📋 리포트 PDF (전화번호 인증)</option>
             </select>
           </div>
@@ -247,6 +249,21 @@
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">반 이름</label>
             <input id="classNameInput" type="text" placeholder="예: A반, 고1수학반" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
             <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">Notion 학생 DB의 '반' 선택 항목과 정확히 일치해야 합니다</p>
+          </div>
+          <div id="classSharedWrap" style="display:none;">
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학원</label>
+            <select id="csAcademy" onchange="updateCsClassOptions()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
+              <option value="">선택하세요</option>
+              <option value="대치동 정규반">대치동 정규반</option>
+              <option value="세정학원">세정학원</option>
+            </select>
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">반</label>
+            <select id="csClass" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
+              <option value="">학원을 먼저 선택하세요</option>
+            </select>
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">수업 날짜</label>
+            <input id="csDate" type="date" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
+            <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">파일은 <code>class/{학원}_{반}/{MMDD}/</code> 폴더에 자동 저장됩니다</p>
           </div>
           <div id="reportPhoneWrap" style="display:none;">
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학부모 전화번호 끝 4자리</label>
@@ -532,12 +549,18 @@
     }
   }
 
-  // ── 자료실: 폴더 선택에 따라 전화번호 입력 토글 ──
+  // ── 자료실: 폴더 선택에 따라 입력 wrapper 토글 ──
   function togglePhoneInput() {
     const folder = document.getElementById('fileFolder').value;
     document.getElementById('reportPhoneWrap').style.display = folder === 'reports' ? 'block' : 'none';
     document.getElementById('classSelectWrap').style.display = folder === 'class' ? 'block' : 'none';
-    document.getElementById('categoryWrap').style.display = folder === 'reports' ? 'none' : 'block';
+    document.getElementById('classSharedWrap').style.display = folder === 'class-shared' ? 'block' : 'none';
+    document.getElementById('categoryWrap').style.display = (folder === 'reports' || folder === 'class-shared') ? 'none' : 'block';
+    // 반 공통 자료 선택 시 날짜 기본값 오늘
+    if (folder === 'class-shared') {
+      const dEl = document.getElementById('csDate');
+      if (dEl && !dEl.value) dEl.value = new Date().toISOString().slice(0, 10);
+    }
   }
 
   // ── 자료실: 단일 파일 업로드 (FormData → Cloudflare Worker → R2) ──
@@ -582,13 +605,27 @@
   async function uploadFile() {
     const fileInput = document.getElementById('fileInput');
     const folderSel = document.getElementById('fileFolder').value;
-    // 반별 자료도 R2는 materials 폴더 사용 (Notion에서 반 필드로 구분)
-    const folder = folderSel === 'class' ? 'materials' : folderSel;
     const phone4 = document.getElementById('reportPhone4')?.value.trim() || '';
     const title = document.getElementById('fileTitle')?.value.trim() || '';
 
+    // 폴더 결정
+    let folder;
+    if (folderSel === 'class-shared') {
+      const acad = document.getElementById('csAcademy').value;
+      const cls  = document.getElementById('csClass').value;
+      const date = document.getElementById('csDate').value;
+      if (!acad || !cls) { showToast('학원과 반을 선택해주세요.'); return; }
+      if (!date)         { showToast('수업 날짜를 선택해주세요.'); return; }
+      const mmdd = date.slice(5).replace('-', '');
+      folder = 'class/' + acad + '_' + cls + '/' + mmdd;
+    } else if (folderSel === 'class') {
+      folder = 'materials';  // 구버전: 반별 자료도 R2는 materials, Notion에서 반 구분
+    } else {
+      folder = folderSel;
+    }
+
     if (!fileInput.files.length) { showToast('파일을 선택해주세요.'); return; }
-    if (folder === 'reports' && (!phone4 || phone4.length !== 4)) {
+    if (folderSel === 'reports' && (!phone4 || phone4.length !== 4)) {
       showToast('리포트 PDF는 전화번호 끝 4자리를 입력해주세요.'); return;
     }
 
@@ -802,7 +839,6 @@
           <span style="font-size:0.82rem;color:var(--text-light);min-width:110px;">${v.school || ""}</span>
           <select onchange="changeVideoClass(\x27${v.code}\x27, this.value)" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;">${opts}</select>
           ${lockBadge}
-          <code style="background:#F1EFE8;padding:3px 8px;border-radius:6px;font-size:0.78rem;">${v.code}</code>
           <span style="font-size:0.75rem;color:var(--text-light);">접근 ${v.access_count || 0}회</span>
           <div style="margin-left:auto;display:flex;gap:6px;">
             <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)">📋 복사</button>
@@ -819,7 +855,7 @@
       const res = await fetch("/api/video-update", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
-        body: JSON.stringify({ code, require_code: lock }),
+        body: JSON.stringify({ code: code, require_code: lock }),
       });
       const data = await res.json();
       if (res.ok && data.ok) { showToast(lock ? "🔒 잠금 적용됨" : "🔓 잠금 해제됨"); loadVideos(); }
@@ -833,15 +869,28 @@
       const res = await fetch("/api/video-update", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
-        body: JSON.stringify({ code, class_name: newClass }),
+        body: JSON.stringify({ code: code, class_name: newClass }),
       });
       const data = await res.json();
       if (res.ok && data.ok) { showToast("반 변경 완료: " + newClass); }
       else { showToast("실패: " + (data.error || res.status)); }
     } catch (e) { showToast("오류: " + e.message); }
   }
+
   function copyCode(code) {
     navigator.clipboard.writeText(code).then(function(){ showToast("코드 복사됨: " + code); });
+  }
+
+  // 반 공통 자료 학원→반 옵션 매핑
+  const CS_CLASS_OPTIONS = {
+    "대치동 정규반": ["썸머 공통수학2반", "썸머 미적반", "썸머 확통반"],
+    "세정학원":      ["썸머 기초특강반", "썸머 공통수학 2반"],
+  };
+  function updateCsClassOptions() {
+    const acad = document.getElementById("csAcademy").value;
+    const sel  = document.getElementById("csClass");
+    const opts = CS_CLASS_OPTIONS[acad] || [];
+    sel.innerHTML = "<option value=\"\">선택하세요</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
   }
 </script>
 </body>
