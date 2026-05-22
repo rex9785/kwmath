@@ -54,9 +54,12 @@ export async function onRequest({ request, env }) {
         const schoolMatch = data.school === school;
         const classMatch  = !className || data.class_name === className;
         if (schoolMatch && classMatch && data.active) {
+          const locked = data.require_code === true;
           videos.push({
             code:        data.code,
-            youtube_url: data.youtube_url,
+            // 잠긴 영상은 URL 숨김. 학생이 코드 입력 후 video-access API로 받음.
+            youtube_url: locked ? null : data.youtube_url,
+            locked:      locked,
             title:       data.title,
             date:        data.date,
             school:      data.school,

@@ -154,24 +154,36 @@ async function searchVideos() {
       return;
     }
 
-    videoList.innerHTML = data.videos.map((v, i) => `
+    videoList.innerHTML = data.videos.map((v, i) => {
+      const dateStr = v.date ? v.date.replace(/-/g, '.') : '';
+      const latestBadge = i === 0 ? ' <span style="background:rgba(255,255,255,0.25);font-size:0.7rem;padding:2px 8px;border-radius:10px;margin-left:6px;">최신</span>' : '';
+      const playButton = v.locked
+        ? `<button class="watch-btn" style="background:#888;cursor:pointer;border:none;font-family:inherit;width:100%;" onclick="unlockVideo('${v.code}', '${name}')">
+             <div class="play-circle">🔒</div>
+             수업코드 입력 후 시청 →
+           </button>`
+        : `<a href="${v.youtube_url}" target="_blank" class="watch-btn" onclick="logView('${v.code}', '${name}')">
+             <div class="play-circle">
+               <svg width="14" height="14" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+             </div>
+             수업 영상 시청하기 →
+           </a>`;
+      const note = v.locked
+        ? '<div class="access-note">🔒 이 영상은 선생님이 알려준 수업코드가 필요합니다.</div>'
+        : '<div class="access-note">영상 시청 기록이 선생님께 전달됩니다.</div>';
+      return `
       <div class="video-card">
         <div class="video-card-header">
-          <div class="video-card-date">${v.date ? v.date.replace(/-/g, '.') : ''} 수업${i === 0 ? ' <span style="background:rgba(255,255,255,0.25);font-size:0.7rem;padding:2px 8px;border-radius:10px;margin-left:6px;">최신</span>' : ''}</div>
+          <div class="video-card-date">${dateStr} 수업${latestBadge}</div>
           <div class="video-card-class">${v.school || ''} ${v.class_name || ''}</div>
         </div>
         <div class="video-card-body">
           <div class="video-title">${v.title || '수업 영상'}</div>
-          <a href="${v.youtube_url}" target="_blank" class="watch-btn" onclick="logView('${v.code}', '${name}')">
-            <div class="play-circle">
-              <svg width="14" height="14" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-            수업 영상 시청하기 →
-          </a>
-          <div class="access-note">영상 시청 기록이 선생님께 전달됩니다.</div>
+          ${playButton}
+          ${note}
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
   } catch(e) {
     videoList.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><p>불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p></div>`;
@@ -188,6 +200,35 @@ async function logView(code, name) {
       body: JSON.stringify({ code, name })
     });
   } catch { /* 무시 */ }
+}
+
+// 잠긴 영상 — 코드 입력 후 열람
+async function unlockVideo(expectedCode, studentName) {
+  const input = prompt('선생님께 받은 수업코드를 입력해주세요\n(예: S2-0520-A7)');
+  if (!input) return;
+  const code = input.trim().toUpperCase();
+  if (code !== (expectedCode || '').toUpperCase()) {
+    alert('수업코드가 일치하지 않습니다. 다시 확인해주세요.');
+    return;
+  }
+  try {
+    const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
+    const data = await res.json();
+    if (!res.ok || !data.youtube_url) {
+      alert('영상을 불러오지 못했습니다: ' + (data.error || res.status));
+      return;
+    }
+    // 접근 로그
+    fetch('/api/video-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, name: studentName })
+    }).catch(() => {});
+    // 새 창에서 열기
+    window.open(data.youtube_url, '_blank');
+  } catch (e) {
+    alert('오류: ' + e.message);
+  }
 }
 
 function showErr(msg) {

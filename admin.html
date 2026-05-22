@@ -123,6 +123,7 @@
       <button class="tab-btn" onclick="switchTab('reports', this)">📋 리포트 조회</button>
       <button class="tab-btn" onclick="switchTab('students', this)">👨‍🎓 학생 목록</button>
       <button class="tab-btn" onclick="switchTab('files', this)">📁 자료실 관리</button>
+      <button class="tab-btn" onclick="switchTab('videos', this)">📺 영상 관리</button>
     </div>
 
     <!-- 공지사항 탭 -->
@@ -290,6 +291,15 @@
       <div id="fileList"><div class="empty">파일이 없습니다.</div></div>
     </div>
 
+    <!-- 📺 영상 관리 탭 -->
+    <div class="tab-panel" id="tab-videos">
+      <div class="panel-title">📺 영상 관리 <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:10px;" onclick="loadVideos()">🔄 새로고침</button></div>
+      <div style="font-size:0.83rem;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
+        업로드된 모든 수업 영상을 관리합니다. <strong>잠그기</strong>를 누르면 학생/학부모는 수업코드를 입력해야 영상을 볼 수 있습니다.
+      </div>
+      <div id="videoList"><div class="empty">불러오는 중...</div></div>
+    </div>
+
   </div><!-- dash-body end -->
 </div><!-- dashboard end -->
 
@@ -359,6 +369,7 @@
     document.getElementById('tab-' + name).classList.add('active');
     if (name === 'students') loadStudents();
     if (name === 'files') loadFiles();
+    if (name === 'videos') loadVideos();
   }
 
   // ── 공지사항 로드 ──
@@ -752,6 +763,85 @@
     toast.style.opacity = '1';
     clearTimeout(toast._t);
     toast._t = setTimeout(function(){ toast.style.opacity = "0"; }, 3000);
+  }
+
+  // ─── 영상 관리 ─────────────────────────────
+  const CLASS_OPTIONS_BY_ACADEMY = {
+    "대치동 정규반": ["썸머 공통수학2반", "썸머 미적반", "썸머 확통반"],
+    "세정학원":      ["썸머 기초특강반", "썸머 공통수학 2반"],
+  };
+
+  async function loadVideos() {
+    const list = document.getElementById("videoList");
+    list.innerHTML = "<div class=\"empty\">불러오는 중...</div>";
+    try {
+      const res = await fetch("/api/video-list", { headers: { Authorization: "Bearer " + adminToken } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { list.innerHTML = "<div class=\"empty\">불러오기 실패: " + (data.error || res.status) + "</div>"; return; }
+      renderVideos(data.videos || []);
+    } catch (e) {
+      list.innerHTML = "<div class=\"empty\">오류: " + e.message + "</div>";
+    }
+  }
+
+  function renderVideos(videos) {
+    const list = document.getElementById("videoList");
+    if (!videos.length) { list.innerHTML = "<div class=\"empty\">등록된 영상이 없습니다.</div>"; return; }
+    list.innerHTML = videos.map(v => {
+      const classOpts = (CLASS_OPTIONS_BY_ACADEMY[v.school] || []);
+      const opts = classOpts.map(c => `<option value="${c}" ${c===v.class_name?"selected":""}>${c}</option>`).join("");
+      const lockBtn = v.require_code
+        ? `<button class="del-btn" style="border-color:#2ecc71;color:#2ecc71;" onclick="toggleVideoLock(\x27${v.code}\x27, false)">🔓 해제</button>`
+        : `<button class="del-btn" onclick="toggleVideoLock(\x27${v.code}\x27, true)">🔒 잠그기</button>`;
+      const lockBadge = v.require_code
+        ? `<span style="background:#FAEEDA;color:#854F0B;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔒 잠김</span>`
+        : `<span style="background:#E1F5EE;color:#085041;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔓 공개</span>`;
+      return `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <strong style="font-size:0.93rem;min-width:90px;">${v.date || "—"}</strong>
+          <span style="font-size:0.82rem;color:var(--text-light);min-width:110px;">${v.school || ""}</span>
+          <select onchange="changeVideoClass(\x27${v.code}\x27, this.value)" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;">${opts}</select>
+          ${lockBadge}
+          <code style="background:#F1EFE8;padding:3px 8px;border-radius:6px;font-size:0.78rem;">${v.code}</code>
+          <span style="font-size:0.75rem;color:var(--text-light);">접근 ${v.access_count || 0}회</span>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)">📋 복사</button>
+            ${lockBtn}
+            <a href="${v.youtube_url}" target="_blank" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);text-decoration:none;">▶ 보기</a>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  async function toggleVideoLock(code, lock) {
+    try {
+      const res = await fetch("/api/video-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
+        body: JSON.stringify({ code, require_code: lock }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) { showToast(lock ? "🔒 잠금 적용됨" : "🔓 잠금 해제됨"); loadVideos(); }
+      else { showToast("실패: " + (data.error || res.status)); }
+    } catch (e) { showToast("오류: " + e.message); }
+  }
+
+  async function changeVideoClass(code, newClass) {
+    if (!newClass) return;
+    try {
+      const res = await fetch("/api/video-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
+        body: JSON.stringify({ code, class_name: newClass }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) { showToast("반 변경 완료: " + newClass); }
+      else { showToast("실패: " + (data.error || res.status)); }
+    } catch (e) { showToast("오류: " + e.message); }
+  }
+  function copyCode(code) {
+    navigator.clipboard.writeText(code).then(function(){ showToast("코드 복사됨: " + code); });
   }
 </script>
 </body>
