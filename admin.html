@@ -774,6 +774,7 @@
             <strong>${s.name || '—'}</strong>
             <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${s.academy || ''}</span>
           </div>
+          <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
         </div>
         <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
           ${s.grade ? '<span>학년: <b>' + s.grade + '</b></span>&nbsp;&nbsp;' : ''}
@@ -889,8 +890,27 @@
   function updateCsClassOptions() {
     const acad = document.getElementById("csAcademy").value;
     const sel  = document.getElementById("csClass");
-    const opts = CS_CLASS_OPTIONS[acad] || [];
     sel.innerHTML = "<option value=\"\">선택하세요</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
+  }
+
+  // 학생 퇴원처리 — Notion 학생/리포트 archive + R2 reports 파일 삭제
+  async function deleteStudent(name) {
+    if (!name) return;
+    if (!confirm("⚠️ \"" + name + "\" 학생을 퇴원처리하시겠습니까?\n\n다음 항목이 정리됩니다:\n• Notion 학생 정보 (휴지통으로)\n• Notion 수업 리포트 전부 (휴지통으로)\n• R2 첨부 PDF 전부 (영구 삭제)\n\n복구 가능: Notion 항목 30일 내. R2 파일은 복구 불가.")) return;
+    try {
+      const res = await fetch("/api/delete-student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
+        body: JSON.stringify({ name: name }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast("✅ " + name + " 퇴원처리 완료 (학생 " + data.students_archived + " / 리포트 " + data.reports_archived + " / 파일 " + data.files_deleted + ")");
+        loadStudents();
+      } else {
+        showToast("❌ 실패: " + (data.error || res.status));
+      }
+    } catch (e) { showToast("❌ 오류: " + e.message); }
   }
 </script>
 </body>
