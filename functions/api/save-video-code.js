@@ -17,6 +17,7 @@ export async function onRequest({ request, env }) {
   const date        = (body.date        || '').trim();
   const school      = (body.school      || '').trim();
   const className   = (body.class_name  || '').trim();
+  const requireCode = body.require_code === true;
 
   if (!code)       return Response.json({ error: 'code 필요' }, { status: 400 });
   if (!youtubeUrl) return Response.json({ error: 'youtube_url 필요' }, { status: 400 });
@@ -29,6 +30,7 @@ export async function onRequest({ request, env }) {
     school,
     class_name: className,
     active: true,
+    require_code: requireCode,
     created_at: new Date().toISOString(),
     access_log: [],
     access_count: 0,
