@@ -8,14 +8,15 @@ export async function onRequest({ env }) {
       body: JSON.stringify({ filter: { property: '공개', checkbox: { equals: true } } }),
     });
     const data = await res.json();
+    const joinText = (rt) => (rt || []).map(t => t.plain_text).join('');
     const classes = (data.results || []).map(p => ({
       id: p.id,
-      name: p.properties['반 이름']?.title?.[0]?.plain_text || '',
+      name: (p.properties['반 이름']?.title || []).map(t => t.plain_text).join(''),
       school: p.properties['학원']?.select?.name || '',
       days: (p.properties['요일']?.multi_select || []).map(d => d.name),
-      time: p.properties['시간']?.rich_text?.[0]?.plain_text || '',
-      target: p.properties['대상']?.rich_text?.[0]?.plain_text || '',
-      memo: p.properties['메모']?.rich_text?.[0]?.plain_text || '',
+      time: joinText(p.properties['시간']?.rich_text),
+      target: joinText(p.properties['대상']?.rich_text),
+      memo: joinText(p.properties['메모']?.rich_text),
     }));
     return Response.json(classes);
   } catch (e) {

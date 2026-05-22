@@ -91,6 +91,16 @@
   .system-table tr:nth-child(even) td{background:var(--bg2);}
   .td-filled{background:var(--primary-light)!important;color:var(--primary);font-weight:700;border-radius:8px;}
   .system-note{font-size:0.8rem;color:var(--text-light);margin-top:12px;}
+  /* 4단계 학습 사이클 */
+  .system-cycle{margin-top:36px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .cycle-card{background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:26px 18px 22px;text-align:center;box-shadow:0 4px 16px rgba(134,38,51,0.06);transition:transform 0.2s,box-shadow 0.2s,border-color 0.2s;position:relative;}
+  .cycle-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(134,38,51,0.12);border-color:var(--primary-mid);}
+  .cycle-badge{width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:0.95rem;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;letter-spacing:0;}
+  .cycle-icon{font-size:1.8rem;margin-bottom:8px;line-height:1;}
+  .cycle-name{font-weight:800;font-size:1.05rem;color:var(--primary);margin-bottom:8px;}
+  .cycle-desc{font-size:0.82rem;color:var(--text-light);line-height:1.7;}
+  .cycle-loop{margin-top:22px;text-align:center;font-size:0.9rem;color:var(--primary);font-weight:700;background:var(--primary-light);padding:14px 18px;border-radius:12px;letter-spacing:0.2px;}
+  @media (max-width: 700px){.system-cycle{grid-template-columns:repeat(2,1fr);}}
 
   /* CLIPS — 강의 클립 갤러리 */
   .clips{background:var(--bg2);}
@@ -123,10 +133,11 @@
   .tt-badge.soon{background:#ff8c00;}
   .tt-name{font-size:1.05rem;font-weight:900;}
   .tt-loc{font-size:0.82rem;color:var(--text-light);}
-  .tt-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .tt-row{display:flex;align-items:flex-start;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);}
   .tt-row:last-child{border-bottom:none;}
-  .tt-day{font-size:0.82rem;font-weight:700;color:var(--primary);width:50px;flex-shrink:0;}
-  .tt-times{font-size:0.83rem;color:var(--text-light);line-height:1.7;}
+  .tt-day{font-size:0.82rem;font-weight:700;color:var(--primary);width:54px;flex-shrink:0;line-height:1.55;}
+  .tt-times{font-size:0.83rem;color:var(--text);line-height:1.65;flex:1;}
+  .tt-times .tt-sub{display:block;font-size:0.74rem;color:var(--text-light);margin-top:2px;}
   .tt-note{font-size:0.8rem;color:var(--text-light);margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
 
   /* VIDEO */
@@ -288,11 +299,11 @@
         <img src="teacher.jpg" onerror="this.onerror=null;this.src='세로로고.jpg';this.style.objectFit='contain';this.style.aspectRatio='1/1';" alt="이관우 선생님" class="hero-photo" style="max-width:260px;margin:0 auto;">
       </div>
       <h3>이관우 선생님</h3>
-      <p>LKW math LAB · 수학 전문 강사</p>
+      <p>LKW math LAB · 고려대 수학교육 석사</p>
       <div class="stat-grid">
         <div class="stat-item">
-          <div class="stat-num">고려대</div>
-          <div class="stat-label">수학교육 석사</div>
+          <div class="stat-num">학습 진단</div>
+          <div class="stat-label">개별 맞춤</div>
         </div>
         <div class="stat-item">
           <div class="stat-num">4단계</div>
@@ -317,7 +328,7 @@
     <div class="section-tag">RESULTS</div>
     <div class="section-divider"></div>
     <h2 class="section-title">데이터로 증명되는<br>성적 향상 그래프</h2>
-    <p class="section-desc">매쓰플랫 학습 데이터 기반으로 등급·정답률·학습량·취약유형까지 매월 추적합니다. 학부모님께도 동일한 월간 리포트가 자동 발송됩니다.</p>
+    <p class="section-desc">학생별 학습 데이터 기반으로 등급·정답률·학습량·취약유형까지 매월 추적합니다. 학부모님께도 동일한 월간 리포트가 상시 열람 가능합니다.</p>
   </div>
   <div class="panorama-viewport">
     <div class="panorama-track" id="panoTrack">
@@ -325,46 +336,46 @@
       <div class="panorama-card">
         <span class="pano-badge b-blue">등급</span>
         <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
-        <div class="pano-title">5등급 → 2등급<br>3개월 만에 3단계 점프</div>
+        <div class="pano-title">5등급 → 3등급<br>4개월 만에 2단계 향상</div>
         <div class="pano-row">
-          <div class="pano-num-wrap"><span class="pano-num c-blue">2</span><span class="pano-suffix c-blue" style="color:#1B95FF;">등급</span></div>
+          <div class="pano-num-wrap"><span class="pano-num c-blue">3</span><span class="pano-suffix c-blue" style="color:#1B95FF;">등급</span></div>
           <div class="pano-mini-chart">
             <div class="pano-bar"><div class="pano-bar-num">5</div><div class="pano-bar-stem" style="height:30px;"></div><div class="pano-bar-label">10월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">4</div><div class="pano-bar-stem" style="height:55px;"></div><div class="pano-bar-label">12월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">3</div><div class="pano-bar-stem" style="height:80px;"></div><div class="pano-bar-label">2월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num now">2</div><div class="pano-bar-stem now-blue" style="height:105px;"></div><div class="pano-bar-label now">현재</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">4</div><div class="pano-bar-stem" style="height:58px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">4</div><div class="pano-bar-stem" style="height:66px;"></div><div class="pano-bar-label">2월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">3</div><div class="pano-bar-stem now-blue" style="height:95px;"></div><div class="pano-bar-label now">현재</div></div>
           </div>
         </div>
-        <div class="pano-foot">정답률 산정 기준 등급. <strong>4개월 누적</strong> 학습으로 평균 정답률 60%→82% 달성.</div>
+        <div class="pano-foot">정답률 산정 기준 등급. <strong>4개월 누적</strong> 학습으로 평균 정답률 52%→71% 달성.</div>
       </div>
       <!-- ===== 2 정답률 ===== -->
       <div class="panorama-card">
         <span class="pano-badge b-green">정답률</span>
         <div class="pano-pin">고2 ○○○ 학생 · 그릿에듀</div>
-        <div class="pano-title">평균 정답률 53% → 87%<br>꾸준한 우상향 그래프</div>
+        <div class="pano-title">평균 정답률 53% → 76%<br>꾸준한 우상향 그래프</div>
         <div class="pano-row">
-          <div class="pano-num-wrap"><span class="pano-num c-green">87</span><span class="pano-suffix" style="color:#16C95E;">%</span></div>
+          <div class="pano-num-wrap"><span class="pano-num c-green">76</span><span class="pano-suffix" style="color:#16C95E;">%</span></div>
           <div class="pano-mini-chart">
-            <div class="pano-bar"><div class="pano-bar-num">53</div><div class="pano-bar-stem" style="height:50px;"></div><div class="pano-bar-label">11월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">66</div><div class="pano-bar-stem" style="height:70px;"></div><div class="pano-bar-label">12월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">78</div><div class="pano-bar-stem" style="height:90px;"></div><div class="pano-bar-label">1월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num now">87</div><div class="pano-bar-stem now-green" style="height:110px;"></div><div class="pano-bar-label now">2월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">53</div><div class="pano-bar-stem" style="height:55px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">61</div><div class="pano-bar-stem" style="height:72px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">69</div><div class="pano-bar-stem" style="height:88px;"></div><div class="pano-bar-label">1월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">76</div><div class="pano-bar-stem now-green" style="height:102px;"></div><div class="pano-bar-label now">2월</div></div>
           </div>
         </div>
-        <div class="pano-foot">중·중하 난이도 → <strong>상·최상 난이도</strong>에서도 70% 이상 유지. 진짜 실력으로 자리잡았습니다.</div>
+        <div class="pano-foot">중·중하 난이도 → <strong>중상 난이도</strong>에서도 65% 이상 유지. 진짜 실력으로 자리잡았습니다.</div>
       </div>
       <!-- ===== 3 학습량 ===== -->
       <div class="panorama-card">
         <span class="pano-badge b-orange">학습량</span>
         <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
-        <div class="pano-title">월 89문항 → 279문항<br>학습 습관이 잡혔습니다</div>
+        <div class="pano-title">월 90문항 → 210문항<br>학습 습관이 잡혔습니다</div>
         <div class="pano-row">
-          <div class="pano-num-wrap"><span class="pano-num c-orange">279</span><span class="pano-suffix" style="color:#FF7A2A;">문항</span></div>
+          <div class="pano-num-wrap"><span class="pano-num c-orange">210</span><span class="pano-suffix" style="color:#FF7A2A;">문항</span></div>
           <div class="pano-mini-chart">
-            <div class="pano-bar"><div class="pano-bar-num">89</div><div class="pano-bar-stem" style="height:36px;"></div><div class="pano-bar-label">10월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">155</div><div class="pano-bar-stem" style="height:62px;"></div><div class="pano-bar-label">11월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">250</div><div class="pano-bar-stem" style="height:96px;"></div><div class="pano-bar-label">12월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num now">279</div><div class="pano-bar-stem now-orange" style="height:110px;"></div><div class="pano-bar-label now">1월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">90</div><div class="pano-bar-stem" style="height:50px;"></div><div class="pano-bar-label">10월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">130</div><div class="pano-bar-stem" style="height:72px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">180</div><div class="pano-bar-stem" style="height:92px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">210</div><div class="pano-bar-stem now-orange" style="height:106px;"></div><div class="pano-bar-label now">1월</div></div>
           </div>
         </div>
         <div class="pano-foot">주간지(하루 10문제 × 7일)와 <strong>오답 클리닉</strong>이 만들어낸 학습량. 안 하면 클리닉으로 강제 보충합니다.</div>
@@ -380,18 +391,18 @@
               <polygon points="60,12 108,60 60,108 12,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
               <polygon points="60,28 92,60 60,92 28,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
               <polygon points="60,44 76,60 60,76 44,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
-              <polygon points="60,24 96,60 60,96 24,60" fill="#8B5CF6" fill-opacity="0.18" stroke="#8B5CF6" stroke-width="2"/>
-              <circle cx="60" cy="24" r="3" fill="#8B5CF6"/>
-              <circle cx="96" cy="60" r="3" fill="#8B5CF6"/>
-              <circle cx="60" cy="96" r="3" fill="#8B5CF6"/>
-              <circle cx="24" cy="60" r="3" fill="#8B5CF6"/>
+              <polygon points="60,32 82,60 60,84 40,60" fill="#8B5CF6" fill-opacity="0.18" stroke="#8B5CF6" stroke-width="2"/>
+              <circle cx="60" cy="32" r="3" fill="#8B5CF6"/>
+              <circle cx="82" cy="60" r="3" fill="#8B5CF6"/>
+              <circle cx="60" cy="84" r="3" fill="#8B5CF6"/>
+              <circle cx="40" cy="60" r="3" fill="#8B5CF6"/>
             </svg>
           </div>
           <div style="font-size:0.85rem;line-height:1.95;color:var(--text);">
-            <div>계산력 <strong style="color:#8B5CF6;">+18%p</strong></div>
-            <div>이해력 <strong style="color:#8B5CF6;">+22%p</strong></div>
-            <div>추론력 <strong style="color:#8B5CF6;">+15%p</strong></div>
-            <div>문제해결력 <strong style="color:#8B5CF6;">+19%p</strong></div>
+            <div>계산력 <strong style="color:#8B5CF6;">+10%p</strong></div>
+            <div>이해력 <strong style="color:#8B5CF6;">+14%p</strong></div>
+            <div>추론력 <strong style="color:#8B5CF6;">+9%p</strong></div>
+            <div>문제해결력 <strong style="color:#8B5CF6;">+12%p</strong></div>
           </div>
         </div>
         <div class="pano-foot"><strong>"왜"</strong>를 가르치는 풀이법이 추론·문제해결 영역까지 끌어올립니다. 단순 암기로는 못 오르는 축입니다.</div>
@@ -401,9 +412,9 @@
       <div class="panorama-card">
         <span class="pano-badge b-blue">등급</span>
         <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
-        <div class="pano-title">5등급 → 2등급<br>3개월 만에 3단계 점프</div>
+        <div class="pano-title">5등급 → 3등급<br>4개월 만에 2단계 향상</div>
         <div class="pano-row">
-          <div class="pano-num-wrap"><span class="pano-num c-blue">2</span><span class="pano-suffix" style="color:#1B95FF;">등급</span></div>
+          <div class="pano-num-wrap"><span class="pano-num c-blue">3</span><span class="pano-suffix" style="color:#1B95FF;">등급</span></div>
           <div class="pano-mini-chart">
             <div class="pano-bar"><div class="pano-bar-num">5</div><div class="pano-bar-stem" style="height:30px;"></div><div class="pano-bar-label">10월</div></div>
             <div class="pano-bar"><div class="pano-bar-num">4</div><div class="pano-bar-stem" style="height:55px;"></div><div class="pano-bar-label">12월</div></div>
@@ -411,34 +422,34 @@
             <div class="pano-bar"><div class="pano-bar-num now">2</div><div class="pano-bar-stem now-blue" style="height:105px;"></div><div class="pano-bar-label now">현재</div></div>
           </div>
         </div>
-        <div class="pano-foot">정답률 산정 기준 등급. <strong>4개월 누적</strong> 학습으로 평균 정답률 60%→82% 달성.</div>
+        <div class="pano-foot">정답률 산정 기준 등급. <strong>4개월 누적</strong> 학습으로 평균 정답률 52%→71% 달성.</div>
       </div>
       <div class="panorama-card">
         <span class="pano-badge b-green">정답률</span>
         <div class="pano-pin">고2 ○○○ 학생 · 그릿에듀</div>
-        <div class="pano-title">평균 정답률 53% → 87%<br>꾸준한 우상향 그래프</div>
+        <div class="pano-title">평균 정답률 53% → 76%<br>꾸준한 우상향 그래프</div>
         <div class="pano-row">
-          <div class="pano-num-wrap"><span class="pano-num c-green">87</span><span class="pano-suffix" style="color:#16C95E;">%</span></div>
+          <div class="pano-num-wrap"><span class="pano-num c-green">76</span><span class="pano-suffix" style="color:#16C95E;">%</span></div>
           <div class="pano-mini-chart">
-            <div class="pano-bar"><div class="pano-bar-num">53</div><div class="pano-bar-stem" style="height:50px;"></div><div class="pano-bar-label">11월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">66</div><div class="pano-bar-stem" style="height:70px;"></div><div class="pano-bar-label">12월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">78</div><div class="pano-bar-stem" style="height:90px;"></div><div class="pano-bar-label">1월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num now">87</div><div class="pano-bar-stem now-green" style="height:110px;"></div><div class="pano-bar-label now">2월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">53</div><div class="pano-bar-stem" style="height:55px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">61</div><div class="pano-bar-stem" style="height:72px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">69</div><div class="pano-bar-stem" style="height:88px;"></div><div class="pano-bar-label">1월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">76</div><div class="pano-bar-stem now-green" style="height:102px;"></div><div class="pano-bar-label now">2월</div></div>
           </div>
         </div>
-        <div class="pano-foot">중·중하 난이도 → <strong>상·최상 난이도</strong>에서도 70% 이상 유지. 진짜 실력으로 자리잡았습니다.</div>
+        <div class="pano-foot">중·중하 난이도 → <strong>중상 난이도</strong>에서도 65% 이상 유지. 진짜 실력으로 자리잡았습니다.</div>
       </div>
       <div class="panorama-card">
         <span class="pano-badge b-orange">학습량</span>
         <div class="pano-pin">고3 ○○○ 학생 · 그릿에듀</div>
-        <div class="pano-title">월 89문항 → 279문항<br>학습 습관이 잡혔습니다</div>
+        <div class="pano-title">월 90문항 → 210문항<br>학습 습관이 잡혔습니다</div>
         <div class="pano-row">
-          <div class="pano-num-wrap"><span class="pano-num c-orange">279</span><span class="pano-suffix" style="color:#FF7A2A;">문항</span></div>
+          <div class="pano-num-wrap"><span class="pano-num c-orange">210</span><span class="pano-suffix" style="color:#FF7A2A;">문항</span></div>
           <div class="pano-mini-chart">
-            <div class="pano-bar"><div class="pano-bar-num">89</div><div class="pano-bar-stem" style="height:36px;"></div><div class="pano-bar-label">10월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">155</div><div class="pano-bar-stem" style="height:62px;"></div><div class="pano-bar-label">11월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num">250</div><div class="pano-bar-stem" style="height:96px;"></div><div class="pano-bar-label">12월</div></div>
-            <div class="pano-bar"><div class="pano-bar-num now">279</div><div class="pano-bar-stem now-orange" style="height:110px;"></div><div class="pano-bar-label now">1월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">90</div><div class="pano-bar-stem" style="height:50px;"></div><div class="pano-bar-label">10월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">130</div><div class="pano-bar-stem" style="height:72px;"></div><div class="pano-bar-label">11월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num">180</div><div class="pano-bar-stem" style="height:92px;"></div><div class="pano-bar-label">12월</div></div>
+            <div class="pano-bar"><div class="pano-bar-num now">210</div><div class="pano-bar-stem now-orange" style="height:106px;"></div><div class="pano-bar-label now">1월</div></div>
           </div>
         </div>
         <div class="pano-foot">주간지(하루 10문제 × 7일)와 <strong>오답 클리닉</strong>이 만들어낸 학습량. 안 하면 클리닉으로 강제 보충합니다.</div>
@@ -453,25 +464,25 @@
               <polygon points="60,12 108,60 60,108 12,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
               <polygon points="60,28 92,60 60,92 28,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
               <polygon points="60,44 76,60 60,76 44,60" fill="none" stroke="#E2E2E2" stroke-width="1.2"/>
-              <polygon points="60,24 96,60 60,96 24,60" fill="#8B5CF6" fill-opacity="0.18" stroke="#8B5CF6" stroke-width="2"/>
-              <circle cx="60" cy="24" r="3" fill="#8B5CF6"/>
-              <circle cx="96" cy="60" r="3" fill="#8B5CF6"/>
-              <circle cx="60" cy="96" r="3" fill="#8B5CF6"/>
-              <circle cx="24" cy="60" r="3" fill="#8B5CF6"/>
+              <polygon points="60,32 82,60 60,84 40,60" fill="#8B5CF6" fill-opacity="0.18" stroke="#8B5CF6" stroke-width="2"/>
+              <circle cx="60" cy="32" r="3" fill="#8B5CF6"/>
+              <circle cx="82" cy="60" r="3" fill="#8B5CF6"/>
+              <circle cx="60" cy="84" r="3" fill="#8B5CF6"/>
+              <circle cx="40" cy="60" r="3" fill="#8B5CF6"/>
             </svg>
           </div>
           <div style="font-size:0.85rem;line-height:1.95;color:var(--text);">
-            <div>계산력 <strong style="color:#8B5CF6;">+18%p</strong></div>
-            <div>이해력 <strong style="color:#8B5CF6;">+22%p</strong></div>
-            <div>추론력 <strong style="color:#8B5CF6;">+15%p</strong></div>
-            <div>문제해결력 <strong style="color:#8B5CF6;">+19%p</strong></div>
+            <div>계산력 <strong style="color:#8B5CF6;">+10%p</strong></div>
+            <div>이해력 <strong style="color:#8B5CF6;">+14%p</strong></div>
+            <div>추론력 <strong style="color:#8B5CF6;">+9%p</strong></div>
+            <div>문제해결력 <strong style="color:#8B5CF6;">+12%p</strong></div>
           </div>
         </div>
         <div class="pano-foot"><strong>"왜"</strong>를 가르치는 풀이법이 추론·문제해결 영역까지 끌어올립니다. 단순 암기로는 못 오르는 축입니다.</div>
       </div>
     </div>
   </div>
-  <p style="text-align:center;margin:30px auto 0;font-size:0.78rem;color:var(--text-light);max-width:1100px;padding:0 5%;">* 카드는 매쓰플랫 학습 리포트 기반 예시이며, 실제 수강생 사례를 가공한 표본입니다.</p>
+  <p style="text-align:center;margin:30px auto 0;font-size:0.78rem;color:var(--text-light);max-width:1100px;padding:0 5%;">* 실제 수강생 사례를 가공한 표본입니다.</p>
 </section>
 
 <!-- WHY -->
@@ -512,13 +523,13 @@
     <div class="section-tag">FEATURES</div>
     <div class="section-divider"></div>
     <h2 class="section-title">"이관우 수학연구소"만의 특징</h2>
-    <p class="section-desc">소수 정예반이 아닌 온전한 1:1 수업으로 '한 타임에 오직 한 명'만 집중케어합니다.</p>
+    <p class="section-desc">학생의 수준과 약점을 정확히 진단하고 '왜 이렇게 되는지'부터 다지는 수업을 합니다.</p>
     <div class="features-grid">
       <div class="feat-card">
-        <div class="feat-icon">👤</div>
+        <div class="feat-icon">💡</div>
         <div>
-          <div class="feat-title">1:1 개인별 맞춤 과외 수업</div>
-          <div class="feat-desc">소수 정예반이 아닌 온전한 1:1 수업으로 '한 타임에 오직 한 명'만 집중케어합니다.</div>
+          <div class="feat-title">원리 중심 개념 강의</div>
+          <div class="feat-desc">단순 암기가 아닌 개념이 만들어진 이유와 정당성을 먼저 가르쳐, 응용·심화 문제까지 스스로 해결하게 합니다.</div>
         </div>
       </div>
       <div class="feat-card">
@@ -546,14 +557,14 @@
         <div class="feat-icon">📅</div>
         <div>
           <div class="feat-title">체계적인 학생관리 시스템</div>
-          <div class="feat-desc">'매일 문제'를 풀 수 있게 숙제를 날짜별로 배분하고 구글 클래스룸을 통해 학습이 '밀리지 않도록' 관리하며 '주기적인 테스트'를 통해 학습 공백을 메꾸어나갑니다.</div>
+          <div class="feat-desc">숙제를 날짜별로 배분하고 주간 테스트와 학습 진단 리포트로 학습이 '밀리지 않도록' 관리하며, 학습 공백을 그 주 안에 메꾸어 다음 단원으로 자연스럽게 연결합니다.</div>
         </div>
       </div>
       <div class="feat-card" style="background:var(--primary-light);border-color:#E8C4C7;">
         <div class="feat-icon" style="background:#fff;">🎯</div>
         <div>
           <div class="feat-title" style="color:var(--primary);">성적 향상을 향한 5가지 집중</div>
-          <div class="feat-desc">개인 맞춤 수업 · 학습법 코칭 · 질의응답 · 자체교재 · 학생관리 시스템이 하나로 연결되어 성적 향상을 만들어냅니다.</div>
+          <div class="feat-desc">원리 중심 수업 · 학습법 코칭 · 질의응답 · 자체교재 · 학생관리 시스템이 하나로 연결되어 성적 향상을 만들어냅니다.</div>
         </div>
       </div>
     </div>
@@ -603,21 +614,35 @@
       <div class="section-tag">SYSTEM</div>
       <div class="section-divider"></div>
       <h2 class="section-title">4단계 학습 시스템</h2>
-      <p class="system-intro">"4단계 학습 시스템"이란, 한 과목을 개념, 유형, 응용, 심화 과정을 거쳐 총 4번 회독하면서 다른 과목을 동시에 학습하는 프로그램으로 수학을 넓은 시야에서 관통할 수 있어 <strong>'개념들의 단권화'</strong>를 만들어내는 학습 방법입니다.</p>
-      <div class="system-table-wrap">
-        <table class="system-table">
-          <thead>
-            <tr><th></th><th>개념</th><th>유형</th><th>응용</th><th>심화</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><strong>1회독</strong></td><td class="td-filled">수학 (상)</td><td></td><td></td><td></td></tr>
-            <tr><td><strong>2회독</strong></td><td>수학 (하)</td><td class="td-filled">수학 (상)</td><td></td><td></td></tr>
-            <tr><td><strong>3회독</strong></td><td>수학 1</td><td>수학 (하)</td><td class="td-filled">수학 (상)</td><td></td></tr>
-            <tr><td><strong>4회독</strong></td><td>수학 2</td><td>수학 1</td><td>수학 (하)</td><td class="td-filled">수학 (상)</td></tr>
-          </tbody>
-        </table>
-        <p class="system-note">*학생별 맞춤 솔루션을 제공하기 때문에 과정은 학생별로 상이할 수 있습니다.</p>
+      <p class="system-intro">한 주의 학습을 <strong>'학습 → 소화 → 점검 → 피드백'</strong> 4단계 사이클로 운영합니다. 매주 같은 흐름을 반복하여 개념을 학생의 것으로 정착시키고, 학습 공백 없이 다음 단원으로 넘어갈 수 있도록 설계되었습니다.</p>
+      <div class="system-cycle">
+        <div class="cycle-card">
+          <div class="cycle-badge">1</div>
+          <div class="cycle-icon">📖</div>
+          <div class="cycle-name">학습</div>
+          <div class="cycle-desc">수업과 백지 복습으로 개념의 원리와 인과성을 정착시킵니다.</div>
+        </div>
+        <div class="cycle-card">
+          <div class="cycle-badge">2</div>
+          <div class="cycle-icon">✏️</div>
+          <div class="cycle-name">소화</div>
+          <div class="cycle-desc">주간지(하루 10문제)와 워크북으로 배운 개념을 문제에 적용합니다.</div>
+        </div>
+        <div class="cycle-card">
+          <div class="cycle-badge">3</div>
+          <div class="cycle-icon">📝</div>
+          <div class="cycle-name">점검</div>
+          <div class="cycle-desc">주간 테스트와 오답 정리로 학습 공백과 약점을 정확히 짚어냅니다.</div>
+        </div>
+        <div class="cycle-card">
+          <div class="cycle-badge">4</div>
+          <div class="cycle-icon">💬</div>
+          <div class="cycle-name">피드백</div>
+          <div class="cycle-desc">클리닉·카톡 Q&A와 주간 학습 진단 리포트로 다음 사이클을 설계합니다.</div>
+        </div>
       </div>
+      <div class="cycle-loop">↻ 매주 같은 사이클로 반복하여 개념의 단권화를 만들어냅니다</div>
+      <p class="system-note">*학생별 학습 진단에 따라 단계별 비중과 분량은 맞춤 조정됩니다.</p>
     </div>
   </div>
 </section>
@@ -713,7 +738,7 @@
     <div class="review-grid">
       <div class="review-card">
         <div class="stars">★★★★★</div>
-        <div class="review-text">"1:1 수업이라 제 약점을 정확히 짚어주세요. 다른 곳에서는 못 느꼈던 맞춤 케어를 처음 받아봤습니다."</div>
+        <div class="review-text">"왜 그렇게 풀리는지부터 알려주시니까 처음 보는 문제도 어디서부터 손대야 할지 보이기 시작했어요. 공식만 외울 때랑 완전히 달랐습니다."</div>
         <div class="review-author">
           <div class="author-avatar">김○</div>
           <div><div class="author-name">김○○ 학생</div><div class="author-type">수능 수학 1등급</div></div>
@@ -745,7 +770,7 @@
       </div>
       <div class="review-card">
         <div class="stars">★★★★★</div>
-        <div class="review-text">"4단계 시스템으로 공부하니까 여러 과목이 연결되는 느낌이 들어요. 수학이 큰 그림으로 보이기 시작했습니다."</div>
+        <div class="review-text">"학습-소화-점검-피드백 사이클이 매주 정해져 있어서 뭘 해야 할지 헷갈리지 않고, 약점이 그 주 안에 잡혀서 진도가 밀리지 않아요."</div>
         <div class="review-author">
           <div class="author-avatar">정○</div>
           <div><div class="author-name">정○○ 학생</div><div class="author-type">3년 장기 수강생</div></div>
@@ -753,7 +778,7 @@
       </div>
       <div class="review-card">
         <div class="stars">★★★★★</div>
-        <div class="review-text">"구글 클래스룸으로 숙제가 날짜별로 딱 정리되어 있어서 스스로 관리하는 습관이 생겼어요. 덕분에 성적이 꾸준히 올랐습니다."</div>
+        <div class="review-text">"매주 학습 진단 리포트가 올라와서 아이가 뭘 잘하고 어디서 막혔는지 정확히 보여요. 학부모 입장에서 가장 큰 안심이었습니다."</div>
         <div class="review-author">
           <div class="author-avatar">윤○</div>
           <div><div class="author-name">윤○○ 학생</div><div class="author-type">수능 3→1등급</div></div>
@@ -876,9 +901,9 @@
 /* ===== FAQ 데이터 + 토글 ===== */
 const FAQ_DATA = [
   { q: '수업료가 어떻게 되나요?', a: '학생별 맞춤 커리큘럼이라 수업 시간·횟수에 따라 다릅니다. 카카오톡 채널이나 문의 폼을 통해 상담 받아보세요.' },
-  { q: '1:1 수업과 소수정예 그룹수업의 차이가 뭔가요?', a: '저희는 "한 타임에 한 명"만 받는 진짜 1:1입니다. 학생의 약점·습관·풀이 속도까지 모두 케어합니다. 그룹수업은 평균에 맞춰지지만, 1:1은 학생 한 명에게 100% 맞춥니다.' },
-  { q: '4단계 학습 시스템이란 무엇인가요?', a: '같은 과목을 개념·유형·응용·심화 4단계로 회독하며, 동시에 다른 과목도 단계별로 학습하는 방식입니다. 수학 전체를 큰 시야에서 관통하게 됩니다.' },
-  { q: '학부모는 어떻게 학습 상황을 확인하나요?', a: '매월 매쓰플랫 학습 리포트(등급·정답률·취약유형)를 카카오 채널 알림으로 발송해드리고, kwmath.co.kr/report에서 전화번호 끝 4자리 인증 후 열람하실 수 있습니다.' },
+  { q: '성적이 잘 오르지 않는 학생도 가능한가요?', a: '성적이 오르지 않는 가장 큰 이유는 인과성 없이 공식만 외워서 응용 문제에서 막히는 경우가 많기 때문입니다. 풀이의 원리와 정당성부터 다시 다지면 처음 보는 문제에서도 풀이 방향이 보이게 되고, 학생별 학습 진단을 통해 부족한 부분을 정확히 짚어 보완해드립니다.' },
+  { q: '4단계 학습 시스템이란 무엇인가요?', a: '한 주의 학습을 학습 → 소화 → 점검 → 피드백 4단계 사이클로 운영하는 방식입니다. 매주 같은 흐름을 반복하여 개념을 학생의 것으로 정착시키고, 매주 학습 공백을 메워가며 다음 단원으로 넘어가게 됩니다.' },
+  { q: '학부모는 어떻게 학습 상황을 확인하나요?', a: '매월 학생별 학습 리포트(등급·정답률·취약유형)를 카카오 채널 알림으로 안내드리고, kwmath.co.kr/report에서 전화번호 끝 4자리 인증 후 상시 열람하실 수 있습니다.' },
   { q: '수업 외 시간에 질문할 수 있나요?', a: '카카오톡 질의응답 채널을 운영합니다. 모르는 문제 사진을 보내주시면 풀이와 함께 답변드립니다.' },
   { q: '입반 테스트를 봐야 하나요?', a: '수준 진단을 위해 짧은 테스트를 진행합니다. 점수로 거르는 게 아니라, 학생에게 가장 적합한 시작점을 잡기 위한 목적입니다.' }
 ];
@@ -931,19 +956,43 @@ const FAQ_DATA = [
     }
     grid.innerHTML = data.map(c=>{
       const isSoon = (c.memo||'').includes('7월') || (c.school||'').includes('세정');
+      // 학원 라벨 — '기타'는 표시하지 않음
+      const schoolLabel = (c.school && c.school !== '기타') ? c.school : '';
+      const locParts = [schoolLabel, c.target].filter(Boolean).join(' · ');
+      // 시간 필드는 슬롯 단위로 멀티라인 가능. 형식: "요일|시간|부제(선택)"
+      // 한 슬롯만 있으면 기존 한 줄 구조, 여러 슬롯이면 각각 row.
+      const timeStr = (c.time||'').trim();
+      let rowsHtml;
+      // 줄바꿈 구분자: 실제 \n, Notion의 <br>, 또는 \r\n 모두 인식
+      const lineBreakRe = /\s*(?:<br\s*\/?>|\r?\n)\s*/i;
+      if (lineBreakRe.test(timeStr)) {
+        const slots = timeStr.split(lineBreakRe).map(s=>s.trim()).filter(Boolean);
+        rowsHtml = slots.map(slot => {
+          const parts = slot.split('|').map(p=>p.trim());
+          const day = parts[0] || '';
+          const time = parts[1] || '';
+          const sub = parts[2] || '';
+          return `<div class="tt-row">
+            <div class="tt-day">${day}</div>
+            <div class="tt-times">${time}${sub?`<span class="tt-sub">${sub}</span>`:''}</div>
+          </div>`;
+        }).join('');
+      } else {
+        rowsHtml = `<div class="tt-row">
+          <div class="tt-day">${(c.days||[]).join('·')||'-'}</div>
+          <div class="tt-times">${timeStr}</div>
+        </div>`;
+      }
       return `
       <div class="tt-card ${isSoon?'highlight':''}">
         <div class="tt-header">
           <span class="tt-badge ${isSoon?'soon':''}">${isSoon?'7월 오픈':'운영중'}</span>
           <div>
             <div class="tt-name">${c.name}</div>
-            <div class="tt-loc">${c.school}${c.target?' · '+c.target:''}</div>
+            ${locParts?`<div class="tt-loc">${locParts}</div>`:''}
           </div>
         </div>
-        <div class="tt-row">
-          <div class="tt-day">${(c.days||[]).join('·')||'-'}</div>
-          <div class="tt-times">${c.time||''}</div>
-        </div>
+        ${rowsHtml}
         ${c.memo?`<div class="tt-note">${c.memo}</div>`:''}
       </div>`;
     }).join('');
