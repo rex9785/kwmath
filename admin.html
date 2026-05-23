@@ -48,6 +48,20 @@
   .tab-panel.active{display:block;}
   .panel-title{font-size:1.2rem;font-weight:900;margin-bottom:20px;}
 
+  /* 공통 카드 (자료실 업로드, 영상 카드 등에서 재사용) — 공지사항 폼과 동일한 여백 */
+  .card{background:#fff;border-radius:16px;padding:24px;border:1px solid var(--border);margin-bottom:20px;}
+  .card h3{font-size:0.95rem;font-weight:800;margin-bottom:16px;color:var(--primary);}
+
+  /* 공지 수정 인라인 폼 */
+  .notice-edit{background:#fff;border:1.5px solid var(--primary);border-radius:12px;padding:18px 20px;}
+  .notice-edit input,.notice-edit select,.notice-edit textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;outline:none;margin-bottom:10px;}
+  .notice-edit textarea{resize:vertical;min-height:70px;}
+  .notice-edit-row{display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+  .edit-btn{background:none;border:1.5px solid var(--primary);color:var(--primary);padding:5px 12px;border-radius:8px;font-size:0.78rem;cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap;}
+  .edit-btn:hover{background:var(--primary);color:#fff;}
+  .save-btn{background:var(--primary);color:#fff;border:none;padding:7px 16px;border-radius:8px;font-size:0.83rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .cancel-btn{background:#fff;color:var(--text-light);border:1.5px solid var(--border);padding:7px 14px;border-radius:8px;font-size:0.83rem;cursor:pointer;font-family:inherit;}
+
   /* 공지사항 */
   .notice-form{background:#fff;border-radius:16px;padding:24px;border:1px solid var(--border);margin-bottom:24px;}
   .notice-form h3{font-size:0.95rem;font-weight:800;margin-bottom:16px;color:var(--primary);}
@@ -76,7 +90,9 @@
   .report-search input:focus{border-color:var(--primary);}
   .search-btn{background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .report-list{display:flex;flex-direction:column;gap:12px;}
-  .report-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 22px;}
+  .report-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px 24px;}
+  /* 영상 목록 카드도 공지폼과 같은 여백 */
+  .video-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 24px;margin-bottom:10px;}
   .report-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   .report-name{font-weight:800;font-size:0.97rem;}
   .report-date-badge{font-size:0.75rem;color:var(--text-light);}
@@ -390,29 +406,96 @@
   }
 
   // ── 공지사항 로드 ──
+  let adminNoticesCache = [];
+  function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function escapeAttr(s){ return escapeHtml(s); }
+
   async function loadAdminNotices() {
     const list = document.getElementById('adminNoticeList');
     try {
       const res = await fetch('/api/notices');
       const notices = await res.json();
-      if (!notices.length) {
+      adminNoticesCache = Array.isArray(notices) ? notices : [];
+      if (!adminNoticesCache.length) {
         list.innerHTML = '<div class="empty">등록된 공지사항이 없습니다.</div>';
         return;
       }
-      list.innerHTML = notices.map(n => {
-        const isNew = n.badge === 'NEW';
-        const dateStr = n.date ? n.date.replace(/-/g, '.') : '';
-        return `<div class="notice-item" id="ni-${n.id}">
-          <span class="notice-badge${isNew ? ' new' : ''}">${n.badge}</span>
-          <div class="notice-text">
-            <div class="notice-title-txt">${n.title}</div>
-            <div class="notice-date">${dateStr}</div>
-          </div>
-          <button class="del-btn" onclick="deleteNotice('${n.id}')">삭제</button>
-        </div>`;
-      }).join('');
+      list.innerHTML = adminNoticesCache.map(renderNoticeItem).join('');
     } catch(e) {
       list.innerHTML = '<div class="empty">공지사항을 불러올 수 없습니다.</div>';
+    }
+  }
+
+  function renderNoticeItem(n) {
+    const isNew = n.badge === 'NEW';
+    const dateStr = n.date ? n.date.replace(/-/g, '.') : '';
+    const preview = n.content ? `<div class="notice-date" style="margin-top:4px;color:var(--text-light);font-size:0.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;">${escapeHtml((n.content||'').slice(0,60))}${(n.content||'').length>60?'…':''}</div>` : '';
+    return `<div class="notice-item" id="ni-${n.id}">
+      <span class="notice-badge${isNew ? ' new' : ''}">${escapeHtml(n.badge)}</span>
+      <div class="notice-text">
+        <div class="notice-title-txt">${escapeHtml(n.title)}</div>
+        <div class="notice-date">${dateStr}</div>
+        ${preview}
+      </div>
+      <button class="edit-btn" onclick="startEditNotice('${n.id}')">✏️ 수정</button>
+      <button class="del-btn" onclick="deleteNotice('${n.id}')">삭제</button>
+    </div>`;
+  }
+
+  function startEditNotice(pageId) {
+    const n = adminNoticesCache.find(x => x.id === pageId);
+    if (!n) { showToast('공지를 찾을 수 없습니다.'); return; }
+    const el = document.getElementById('ni-' + pageId);
+    if (!el) return;
+    el.outerHTML = `<div class="notice-edit" id="ni-${pageId}">
+      <div class="notice-edit-row">
+        <input id="ne-title-${pageId}" type="text" value="${escapeAttr(n.title)}" placeholder="제목">
+        <select id="ne-badge-${pageId}">
+          <option value="공지" ${n.badge==='공지'?'selected':''}>공지</option>
+          <option value="NEW" ${n.badge==='NEW'?'selected':''}>NEW</option>
+          <option value="안내" ${n.badge==='안내'?'selected':''}>안내</option>
+        </select>
+      </div>
+      <textarea id="ne-content-${pageId}" placeholder="내용 (선택)">${escapeHtml(n.content||'')}</textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="cancel-btn" onclick="cancelEditNotice('${pageId}')">취소</button>
+        <button class="save-btn" onclick="saveEditNotice('${pageId}')">💾 저장</button>
+      </div>
+    </div>`;
+    document.getElementById('ne-title-' + pageId).focus();
+  }
+
+  function cancelEditNotice(pageId) {
+    const n = adminNoticesCache.find(x => x.id === pageId);
+    const el = document.getElementById('ni-' + pageId);
+    if (!n || !el) { loadAdminNotices(); return; }
+    el.outerHTML = renderNoticeItem(n);
+  }
+
+  async function saveEditNotice(pageId) {
+    const title   = document.getElementById('ne-title-'   + pageId).value.trim();
+    const badge   = document.getElementById('ne-badge-'   + pageId).value;
+    const content = document.getElementById('ne-content-' + pageId).value;
+    if (!title) { showToast('제목을 입력해주세요.'); return; }
+    try {
+      const res = await fetch('/api/notices-write', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ pageId, title, badge, content })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ 공지사항이 수정되었습니다.');
+        // 캐시 갱신 후 카드 다시 그리기
+        const idx = adminNoticesCache.findIndex(x => x.id === pageId);
+        if (idx >= 0) adminNoticesCache[idx] = { ...adminNoticesCache[idx], title, badge, content };
+        const el = document.getElementById('ni-' + pageId);
+        if (el && adminNoticesCache[idx]) el.outerHTML = renderNoticeItem(adminNoticesCache[idx]);
+      } else {
+        showToast('수정 실패: ' + (data.error || '오류'));
+      }
+    } catch(e) {
+      showToast('오류가 발생했습니다.');
     }
   }
 
@@ -834,7 +917,7 @@
       const lockBadge = v.require_code
         ? `<span style="background:#FAEEDA;color:#854F0B;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔒 잠김</span>`
         : `<span style="background:#E1F5EE;color:#085041;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔓 공개</span>`;
-      return `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+      return `<div class="video-card">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <strong style="font-size:0.93rem;min-width:90px;">${v.date || "—"}</strong>
           <span style="font-size:0.82rem;color:var(--text-light);min-width:110px;">${v.school || ""}</span>
@@ -842,7 +925,7 @@
           ${lockBadge}
           <span style="font-size:0.75rem;color:var(--text-light);">접근 ${v.access_count || 0}회</span>
           <div style="margin-left:auto;display:flex;gap:6px;">
-            <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)">📋 복사</button>
+            <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)">📋 코드 복사</button>
             ${lockBtn}
             <a href="${v.youtube_url}" target="_blank" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);text-decoration:none;">▶ 보기</a>
           </div>
@@ -890,6 +973,7 @@
   function updateCsClassOptions() {
     const acad = document.getElementById("csAcademy").value;
     const sel  = document.getElementById("csClass");
+    const opts = CS_CLASS_OPTIONS[acad] || [];
     sel.innerHTML = "<option value=\"\">선택하세요</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
   }
 

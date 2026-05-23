@@ -27,6 +27,25 @@ export async function onRequest({ request, env }) {
     return Response.json({ ok: true, id: data.id });
   }
 
+  if (request.method === 'PATCH') {
+    const { pageId, title, badge, content } = await request.json();
+    if (!pageId) return Response.json({ error: 'pageId 필요' }, { status: 400 });
+    const properties = {};
+    if (typeof title   === 'string') properties['제목'] = { title:     [{ text: { content: title } }] };
+    if (typeof badge   === 'string') properties['뱃지'] = { select:    { name: badge } };
+    if (typeof content === 'string') properties['내용'] = { rich_text: [{ text: { content } }] };
+    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return Response.json({ error: err.message || 'Notion 수정 실패' }, { status: res.status });
+    }
+    return Response.json({ ok: true });
+  }
+
   if (request.method === 'DELETE') {
     const { pageId } = await request.json();
     if (!pageId) return Response.json({ error: 'pageId 필요' }, { status: 400 });
