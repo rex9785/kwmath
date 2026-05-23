@@ -21,6 +21,7 @@ export async function onRequest({ request, env }) {
       goals: (p.properties['수강 목적']?.multi_select || []).map(g => g.name),
       level: p.properties['현재 수학 등급']?.select?.name || '',
       academy: p.properties['학원']?.select?.name || '',
+      className: p.properties['반']?.select?.name || '',
       notes: p.properties['특이사항']?.rich_text?.[0]?.plain_text || '',
       createdAt: p.created_time || '',
     }));

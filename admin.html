@@ -106,6 +106,22 @@
   /* 토스트 */
   .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:12px 24px;border-radius:12px;font-size:0.87rem;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
   .toast.show{opacity:1;}
+
+  /* 출석부 인쇄 — 화면에서는 숨기고 인쇄 시에만 보임 */
+  #attendanceSheet{display:none;}
+  @media print {
+    body * { visibility: hidden; }
+    #attendanceSheet, #attendanceSheet * { visibility: visible; }
+    #attendanceSheet { display:block; position:absolute; left:0; top:0; width:100%; padding:14mm 10mm; background:#fff; color:#000; font-family:'Noto Sans KR',sans-serif; }
+    #attendanceSheet h1 { font-size:18pt; font-weight:900; text-align:center; margin-bottom:6pt; letter-spacing:-0.3pt; }
+    #attendanceSheet .att-meta { display:flex; justify-content:space-between; font-size:10pt; margin-bottom:10pt; color:#222; }
+    #attendanceSheet table { width:100%; border-collapse:collapse; font-size:9.5pt; }
+    #attendanceSheet th, #attendanceSheet td { border:1px solid #555; padding:5pt 4pt; text-align:center; vertical-align:middle; }
+    #attendanceSheet th { background:#EDE0E3; font-weight:700; }
+    #attendanceSheet td.tl { text-align:left; padding-left:6pt; }
+    #attendanceSheet .att-footer { margin-top:14pt; font-size:9pt; color:#444; }
+    @page { size: A4 landscape; margin: 10mm; }
+  }
 </style>
 </head>
 <body>
@@ -192,10 +208,11 @@
     <!-- 학생 목록 탭 -->
     <div class="tab-panel" id="tab-students">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-        <p class="panel-title" style="margin-bottom:0;">등록 학생 목록</p>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="filterStudents()"
+        <p class="panel-title" style="margin-bottom:0;">👨‍🎓 등록 학생 목록</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="renderStudentsView()"
             style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
+          <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;">📋 반별로 보기</button>
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
       </div>
@@ -295,6 +312,9 @@
 
 <!-- 토스트 알림 -->
 <div class="toast" id="toast"></div>
+
+<!-- 출석부 PDF 렌더 영역 (화면에선 숨김 / 인쇄 시 표시) -->
+<div id="attendanceSheet"></div>
 
 <script>
   let adminToken = '';
@@ -891,37 +911,155 @@
     }
   }
 
-  function filterStudents() {
-    const q = (document.getElementById('studentSearch').value || '').toLowerCase();
-    const filtered = allStudents.filter(s => (s.name || '').toLowerCase().includes(q));
-    renderStudents(filtered);
+  // 학생 보기 모드 — 'flat'(단순 리스트) / 'group'(반별 그룹)
+  let studentViewMode = 'flat';
+  const openStudentGroups = new Set();
+
+  function toggleStudentView() {
+    studentViewMode = studentViewMode === 'group' ? 'flat' : 'group';
+    const btn = document.getElementById('studentViewToggle');
+    if (btn) btn.textContent = studentViewMode === 'group' ? '📃 단순 목록 보기' : '📋 반별로 보기';
+    renderStudentsView();
+  }
+
+  function renderStudentsView() {
+    const q = (document.getElementById('studentSearch')?.value || '').toLowerCase();
+    const filtered = !q ? allStudents : allStudents.filter(s =>
+      (s.name||'').toLowerCase().includes(q)
+      || (s.school||'').toLowerCase().includes(q)
+      || (s.academy||'').toLowerCase().includes(q)
+      || (s.className||'').toLowerCase().includes(q)
+    );
+    if (studentViewMode === 'group') renderStudentGroups(filtered);
+    else renderStudents(filtered);
   }
 
   function renderStudents(students) {
     const list = document.getElementById('studentList');
-    if (!students.length) {
-      list.innerHTML = '<div class="empty">해당 학생이 없습니다.</div>';
-      return;
-    }
-    list.innerHTML = students.map(s => `
-      <div class="report-card">
-        <div class="report-header">
+    if (!students.length) { list.innerHTML = '<div class="empty">해당 학생이 없습니다.</div>'; return; }
+    list.innerHTML = students.map(renderStudentCard).join('');
+  }
+
+  function renderStudentCard(s) {
+    return `<div class="report-card">
+      <div class="report-header">
+        <div>
+          <strong>${escapeHtml(s.name || '—')}</strong>
+          <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
+        </div>
+        <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
+      </div>
+      <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
+        ${s.school ? '<span>학교: <b>' + escapeHtml(s.school) + '</b></span>&nbsp;&nbsp;' : ''}
+        ${s.grade ? '<span>학년: <b>' + escapeHtml(s.grade) + '</b></span>&nbsp;&nbsp;' : ''}
+        ${s.goals && s.goals.length ? '<span>목적: ' + escapeHtml(s.goals.join(', ')) + '</span>&nbsp;&nbsp;' : ''}
+        ${s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>&nbsp;&nbsp;' : ''}
+        ${s.studentPhone ? '<span>학생연락처: ' + escapeHtml(s.studentPhone) + '</span>&nbsp;&nbsp;' : ''}
+        ${s.level ? '<span>현재등급: ' + escapeHtml(s.level) + '</span>&nbsp;&nbsp;' : ''}
+        ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + escapeHtml(s.notes) + '</span>' : ''}
+      </div>
+    </div>`;
+  }
+
+  function renderStudentGroups(students) {
+    const list = document.getElementById('studentList');
+    if (!students.length) { list.innerHTML = '<div class="empty">해당 학생이 없습니다.</div>'; return; }
+
+    const groups = {};
+    students.forEach(s => {
+      const acad = s.academy || '(학원 미지정)';
+      const cls  = s.className || '(반 미지정)';
+      const key  = acad + ' / ' + cls;
+      if (!groups[key]) groups[key] = { academy: acad, className: cls, students: [] };
+      groups[key].students.push(s);
+    });
+    Object.values(groups).forEach(g => g.students.sort((a,b) => (a.name||'').localeCompare(b.name||'')));
+    const keys = Object.keys(groups).sort();
+
+    list.innerHTML = keys.map(key => {
+      const g = groups[key];
+      const isOpen = openStudentGroups.has(key);
+      const items = isOpen ? g.students.map(s => `
+        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <div>
-            <strong>${s.name || '—'}</strong>
-            <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${s.academy || ''}</span>
+            <strong style="font-size:0.92rem;">${escapeHtml(s.name||'—')}</strong>
+            <span style="font-size:0.8rem;color:var(--text-light);margin-left:8px;">
+              ${s.school?escapeHtml(s.school):''}${s.grade?' · '+escapeHtml(s.grade):''}${s.parentPhone4?' · 학부모끝'+escapeHtml(s.parentPhone4):''}
+            </span>
           </div>
           <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
         </div>
-        <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
-          ${s.grade ? '<span>학년: <b>' + s.grade + '</b></span>&nbsp;&nbsp;' : ''}
-          ${s.goals && s.goals.length ? '<span>목적: ' + s.goals.join(', ') + '</span>&nbsp;&nbsp;' : ''}
-          ${s.parentPhone4 ? '<span>학부모 끝자리: <b>' + s.parentPhone4 + '</b></span>&nbsp;&nbsp;' : ''}
-          ${s.studentPhone ? '<span>학생연락처: ' + s.studentPhone + '</span>&nbsp;&nbsp;' : ''}
-          ${s.level ? '<span>현재등급: ' + s.level + '</span>&nbsp;&nbsp;' : ''}
-          ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + s.notes + '</span>' : ''}
+      `).join('') : '';
+      return `<div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:14px 22px;display:flex;align-items:center;justify-content:space-between;background:${isOpen?'var(--primary-light)':'#fff'};gap:10px;flex-wrap:wrap;">
+          <div onclick="toggleStudentGroup('${escapeAttr(key)}')" style="cursor:pointer;flex:1;font-weight:800;font-size:0.95rem;">
+            <span style="color:var(--primary);">${escapeHtml(g.academy)}</span>
+            <span style="color:var(--text-light);margin:0 6px;">/</span>
+            <span>${escapeHtml(g.className)}</span>
+            <span style="font-size:0.78rem;color:var(--text-light);font-weight:600;margin-left:8px;">${g.students.length}명</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="edit-btn" onclick="event.stopPropagation();printAttendance('${escapeAttr(g.academy)}','${escapeAttr(g.className)}')">📄 출석부 PDF</button>
+            <span onclick="toggleStudentGroup('${escapeAttr(key)}')" style="cursor:pointer;font-size:0.85rem;color:var(--text-light);transition:transform .25s;display:inline-block;${isOpen?'transform:rotate(180deg);':''}">▾</span>
+          </div>
         </div>
+        ${isOpen ? `<div style="border-top:1px solid var(--border);padding:12px 22px 16px;display:flex;flex-direction:column;gap:8px;">${items}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function toggleStudentGroup(key) {
+    if (openStudentGroups.has(key)) openStudentGroups.delete(key);
+    else openStudentGroups.add(key);
+    renderStudentsView();
+  }
+
+  // ── 출석부 PDF (브라우저 인쇄 → PDF로 저장) ──
+  function printAttendance(academy, className) {
+    const studentsInClass = allStudents
+      .filter(s => (s.academy||'') === academy && (s.className||'') === className)
+      .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    if (!studentsInClass.length) { showToast('이 반에 학생이 없습니다.'); return; }
+
+    const raw = prompt(`"${academy} / ${className}" 출석부 회차 수를 입력하세요\n(예: 8, 10, 15)`, '10');
+    if (raw == null) return;
+    const sessions = Math.min(30, Math.max(1, parseInt(raw, 10) || 0));
+    if (!sessions) { showToast('1~30 사이 숫자를 입력하세요.'); return; }
+
+    const today = new Date();
+    const dateStr = today.getFullYear() + '. ' + (today.getMonth()+1) + '. ' + today.getDate();
+    let thHtml = '<th style="width:32pt;">번호</th><th style="width:70pt;">이름</th><th style="width:90pt;">학교</th><th style="width:42pt;">학년</th>';
+    for (let i = 1; i <= sessions; i++) thHtml += `<th>${i}회</th>`;
+    thHtml += '<th style="width:80pt;">비고</th>';
+
+    const rowsHtml = studentsInClass.map((s, idx) => {
+      let cells = '';
+      for (let i = 0; i < sessions; i++) cells += '<td></td>';
+      return `<tr>
+        <td>${idx+1}</td>
+        <td class="tl">${escapeHtml(s.name||'')}</td>
+        <td class="tl">${escapeHtml(s.school||'')}</td>
+        <td>${escapeHtml(s.grade||'')}</td>
+        ${cells}
+        <td></td>
+      </tr>`;
+    }).join('');
+
+    const sheet = document.getElementById('attendanceSheet');
+    sheet.innerHTML = `
+      <h1>📐 LKW math LAB · 출석부</h1>
+      <div class="att-meta">
+        <div><strong>학원:</strong> ${escapeHtml(academy)} &nbsp;·&nbsp; <strong>반:</strong> ${escapeHtml(className)} &nbsp;·&nbsp; <strong>학생 수:</strong> ${studentsInClass.length}명</div>
+        <div><strong>출력일:</strong> ${dateStr}</div>
       </div>
-    `).join('');
+      <table>
+        <thead><tr>${thHtml}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="att-footer">※ 출석 표기 예: ○(출석) / △(지각) / ✕(결석) / 공란(미수업). 회차별 날짜는 직접 기재해주세요.</div>
+    `;
+
+    setTimeout(() => { window.print(); }, 50);
   }
 
   // 토스트 메시지 표시
