@@ -136,7 +136,6 @@
     <!-- 탭 -->
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('notices', this)">📢 공지사항 관리</button>
-      <button class="tab-btn" onclick="switchTab('report-write', this)">✏️ 리포트 작성</button>
       <button class="tab-btn" onclick="switchTab('reports', this)">📋 리포트 조회</button>
       <button class="tab-btn" onclick="switchTab('students', this)">👨‍🎓 학생 목록</button>
       <button class="tab-btn" onclick="switchTab('files', this)">📁 자료실 관리</button>
@@ -174,60 +173,20 @@
       </div>
     </div>
 
-    <!-- 리포트 작성 탭 -->
-    <div class="tab-panel" id="tab-report-write">
-      <div class="notice-form">
-        <h3>✏️ 수업 리포트 작성</h3>
-        <div class="form-row-inline">
-          <div class="form-row">
-            <label>학생 이름 *</label>
-            <input id="rStudentName" type="text" placeholder="예: 홍길동">
-          </div>
-          <div class="form-row">
-            <label>학부모 전화번호 끝 4자리 *</label>
-            <input id="rPhone4" type="text" maxlength="4" placeholder="예: 1234">
-          </div>
-        </div>
-        <div class="form-row-inline">
-          <div class="form-row">
-            <label>수업 날짜 *</label>
-            <input id="rDate" type="date">
-          </div>
-          <div class="form-row">
-            <label>학원</label>
-            <select id="rSchool">
-              <option value="대치동 정규반">대치동 정규반</option>
-              <option value="세정학원">세정학원</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <label>수업 내용</label>
-          <textarea id="rContent" placeholder="오늘 수업한 내용을 입력하세요 (예: 수열 단원 개념 정리, 기출 풀이)"></textarea>
-        </div>
-        <div class="form-row">
-          <label>숙제</label>
-          <textarea id="rHomework" placeholder="숙제 내용을 입력하세요" style="min-height:60px;"></textarea>
-        </div>
-        <div class="form-row">
-          <label>특이사항 (선택)</label>
-          <textarea id="rNotes" placeholder="집중도, 이해도, 특이사항 등" style="min-height:60px;"></textarea>
-        </div>
-        <button class="submit-btn" onclick="addReport()">리포트 저장 →</button>
-      </div>
-    </div>
-
     <!-- 리포트 조회 탭 -->
     <div class="tab-panel" id="tab-reports">
-      <p class="panel-title">수업 리포트 조회</p>
-      <div class="report-search">
-        <input id="rSearchName" type="text" placeholder="학생 이름 입력" onkeydown="if(event.key==='Enter')searchReports()">
-        <input id="phone4Input" type="text" maxlength="4" placeholder="전화번호 끝 4자리 (선택)" onkeydown="if(event.key==='Enter')searchReports()">
-        <button class="search-btn" onclick="searchReports()">조회</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <p class="panel-title" style="margin-bottom:0;">📋 반별 수업 리포트</p>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="reportSearchInput" type="text" placeholder="학생 이름/내용 검색..." oninput="filterReportGroups()"
+            style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:200px;">
+          <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="loadAllReports()">🔄 새로고침</button>
+        </div>
       </div>
-      <div class="report-list" id="reportList">
-        <div class="empty">전화번호 끝 4자리를 입력하면<br>해당 학생의 수업 리포트를 조회할 수 있습니다.</div>
+      <div style="font-size:0.82rem;color:var(--text-light);margin-bottom:14px;line-height:1.6;">
+        반을 클릭하면 그 반의 리포트가 날짜순으로 펼쳐집니다. 각 리포트에서 ✏️ 수정 / 🗑 삭제 가능 (삭제는 Notion 휴지통, 30일 내 복구 가능).
       </div>
+      <div id="reportGroupList"><div class="empty">불러오는 중...</div></div>
     </div>
 
     <!-- 학생 목록 탭 -->
@@ -378,18 +337,10 @@
     loadAdminNotices();
   }
 
-  // 자동 로그인 복원 + 오늘 날짜 세팅
+  // 자동 로그인 복원
   window.addEventListener('DOMContentLoaded', () => {
-    // 리포트 날짜 기본값 = 오늘
-    const today = new Date().toISOString().split('T')[0];
-    const dateInput = document.getElementById('rDate');
-    if (dateInput) dateInput.value = today;
-
     const saved = localStorage.getItem('kwmath_admin_token');
-    if (saved) {
-      adminToken = saved;
-      showDashboard();
-    }
+    if (saved) { adminToken = saved; showDashboard(); }
   });
 
   // ── 탭 전환 ──
@@ -398,6 +349,7 @@
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'reports') loadAllReports();
     if (name === 'students') loadStudents();
     if (name === 'files') loadFiles();
     if (name === 'videos') loadVideos();
@@ -551,83 +503,186 @@
     }
   }
 
-  // ── 리포트 작성 ──
-  async function addReport() {
-    const studentName = document.getElementById('rStudentName').value.trim();
-    const phone4 = document.getElementById('rPhone4').value.trim();
-    const date = document.getElementById('rDate').value;
-    const school = document.getElementById('rSchool').value;
-    const content = document.getElementById('rContent').value.trim();
-    const homework = document.getElementById('rHomework').value.trim();
-    const notes = document.getElementById('rNotes').value.trim();
+  // ── 리포트: 반별 그룹 + 아코디언 + 수정/삭제 ─────────────
+  let allReportsAdmin = [];           // [{ id, studentName, school, class_name, date, content, homework, notes, ... }]
+  const openReportGroups = new Set(); // 펼쳐진 반 그룹 key 저장 (재렌더 시 유지)
+  const openReportItems  = new Set(); // 펼쳐진 개별 리포트 id
 
-    if (!studentName) { showToast('학생 이름을 입력해주세요.'); return; }
-    if (!phone4 || phone4.length !== 4) { showToast('전화번호 끝 4자리를 입력해주세요.'); return; }
-    if (!date) { showToast('수업 날짜를 선택해주세요.'); return; }
-
+  async function loadAllReports() {
+    const list = document.getElementById('reportGroupList');
+    list.innerHTML = '<div class="empty">불러오는 중...</div>';
     try {
-      const res = await fetch('/api/reports-write', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify({ studentName, phone4, date, school, content, homework, notes })
-      });
+      const res = await fetch('/api/reports', { headers: { 'Authorization': `Bearer ${adminToken}` } });
       const data = await res.json();
-      if (data.ok) {
-        // 폼 초기화
-        document.getElementById('rStudentName').value = '';
-        document.getElementById('rPhone4').value = '';
-        document.getElementById('rDate').value = '';
-        document.getElementById('rContent').value = '';
-        document.getElementById('rHomework').value = '';
-        document.getElementById('rNotes').value = '';
-        showToast('✅ 리포트가 저장되었습니다! 학부모가 바로 열람할 수 있습니다.');
-      } else {
-        showToast('저장 실패: ' + (data.error || '오류'));
-      }
+      if (!res.ok) { list.innerHTML = '<div class="empty">조회 실패: ' + (data.error || res.status) + '</div>'; return; }
+      allReportsAdmin = Array.isArray(data.reports) ? data.reports : [];
+      renderReportGroups();
     } catch(e) {
-      showToast('오류가 발생했습니다.');
+      list.innerHTML = '<div class="empty">오류: ' + e.message + '</div>';
     }
   }
 
-  // ── 리포트 조회 ──
-  async function searchReports() {
-    const name = document.getElementById('rSearchName')?.value.trim() || '';
-    const phone4 = document.getElementById('phone4Input').value.trim();
-    const list = document.getElementById('reportList');
-    if (!name) {
-      showToast('학생 이름을 입력해주세요.');
+  function filterReportGroups() { renderReportGroups(); }
+
+  function renderReportGroups() {
+    const list = document.getElementById('reportGroupList');
+    const q = (document.getElementById('reportSearchInput')?.value || '').toLowerCase();
+
+    // 검색 필터
+    const filtered = !q ? allReportsAdmin : allReportsAdmin.filter(r =>
+      ((r.studentName||'').toLowerCase().includes(q))
+      || ((r.content||'').toLowerCase().includes(q))
+      || ((r.homework||'').toLowerCase().includes(q))
+      || ((r.notes||'').toLowerCase().includes(q))
+    );
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty">' + (q ? '검색 결과가 없습니다.' : '등록된 리포트가 없습니다.') + '</div>';
       return;
     }
-    list.innerHTML = '<div class="empty">조회 중...</div>';
-    try {
-      const res = await fetch(`/api/reports?name=${encodeURIComponent(name)}&phone4=${phone4}`, {
-        headers: { 'Authorization': `Bearer ${adminToken}` }
-      });
-      const reports = await res.json();
-      if (!reports.length) {
-        list.innerHTML = '<div class="empty">해당 번호로 등록된 리포트가 없습니다.</div>';
-        return;
-      }
-      list.innerHTML = reports.map(r => `
-        <div class="report-card">
-          <div class="report-header">
-            <div>
-              <strong>${r.studentName}</strong>
-              <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${r.date}</span>
-              ${r.school ? `<span style="font-size:0.78rem;color:var(--text-light);margin-left:4px;">(${r.school})</span>` : ''}
-            </div>
+
+    // 학원_반으로 그룹화 (반 정보 없으면 "(반 미지정)" 그룹)
+    const groups = {};
+    filtered.forEach(r => {
+      const school = r.school || '(학원 미지정)';
+      const cls    = r.class_name || '(반 미지정)';
+      const key    = school + ' / ' + cls;
+      if (!groups[key]) groups[key] = { school, class_name: cls, reports: [] };
+      groups[key].reports.push(r);
+    });
+    // 각 그룹 안 리포트는 날짜 내림차순
+    Object.values(groups).forEach(g => g.reports.sort((a,b) => (b.date||'').localeCompare(a.date||'')));
+    // 그룹 자체는 학원→반 정렬
+    const groupKeys = Object.keys(groups).sort();
+
+    list.innerHTML = groupKeys.map(key => {
+      const g = groups[key];
+      const isOpen = openReportGroups.has(key);
+      const itemsHtml = isOpen ? g.reports.map(r => renderReportRow(r)).join('') : '';
+      return `<div class="card" style="padding:0;overflow:hidden;">
+        <div onclick="toggleReportGroup('${escapeAttr(key)}')" style="cursor:pointer;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;background:${isOpen?'var(--primary-light)':'#fff'};transition:background .15s;">
+          <div style="font-weight:800;font-size:0.95rem;">
+            <span style="color:var(--primary);">${escapeHtml(g.school)}</span>
+            <span style="color:var(--text-light);margin:0 6px;">/</span>
+            <span>${escapeHtml(g.class_name)}</span>
+            <span style="font-size:0.78rem;color:var(--text-light);font-weight:600;margin-left:8px;">${g.reports.length}건</span>
           </div>
-          <div style="font-size:0.88rem;line-height:1.7;white-space:pre-wrap;">${r.content || ''}</div>
-          ${r.homework ? `<div style="font-size:0.83rem;color:var(--text-light);margin-top:8px;"><strong>숙제:</strong> ${r.homework}</div>` : ''}
-          ${r.notes ? `<div style="font-size:0.83rem;color:var(--text-light);"><strong>특이사항:</strong> ${r.notes}</div>` : ''}
+          <span style="font-size:0.85rem;color:var(--text-light);transition:transform .25s;display:inline-block;${isOpen?'transform:rotate(180deg);':''}">▾</span>
         </div>
-      `).join('');
-    } catch(e) {
-      list.innerHTML = '<div class="empty">오류가 발생했습니다.</div>';
-    }
+        ${isOpen ? `<div style="border-top:1px solid var(--border);padding:14px 22px 18px;display:flex;flex-direction:column;gap:10px;">${itemsHtml}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function toggleReportGroup(key) {
+    if (openReportGroups.has(key)) openReportGroups.delete(key);
+    else openReportGroups.add(key);
+    renderReportGroups();
+  }
+
+  function renderReportRow(r) {
+    const isOpen = openReportItems.has(r.id);
+    const dateStr = r.date ? r.date.replace(/-/g, '.') : '';
+    return `<div class="report-card" id="rr-${r.id}" style="margin:0;padding:0;border-radius:10px;overflow:hidden;">
+      <div onclick="toggleReportItem('${r.id}')" style="cursor:pointer;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <strong style="font-size:0.9rem;">${escapeHtml(r.studentName || '—')}</strong>
+          <span style="font-size:0.82rem;color:var(--text-light);">${escapeHtml(dateStr)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="edit-btn" onclick="event.stopPropagation();startEditReport('${r.id}')">✏️ 수정</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteReport('${r.id}')">🗑 삭제</button>
+          <span style="font-size:0.85rem;color:var(--text-light);margin-left:4px;display:inline-block;transition:transform .25s;${isOpen?'transform:rotate(180deg);':''}">▾</span>
+        </div>
+      </div>
+      ${isOpen ? `<div style="border-top:1px solid var(--border);padding:14px 18px;background:var(--bg2);font-size:0.87rem;line-height:1.7;">
+        ${r.content  ? `<div style="margin-bottom:8px;"><strong style="color:var(--primary);">수업 내용:</strong><br>${escapeHtml(r.content).replace(/\n/g,'<br>')}</div>` : ''}
+        ${r.homework ? `<div style="margin-bottom:8px;"><strong style="color:var(--primary);">숙제:</strong><br>${escapeHtml(r.homework).replace(/\n/g,'<br>')}</div>` : ''}
+        ${r.notes    ? `<div><strong style="color:var(--primary);">특이사항:</strong><br>${escapeHtml(r.notes).replace(/\n/g,'<br>')}</div>` : ''}
+        ${!(r.content||r.homework||r.notes) ? '<span style="color:var(--text-light);">(내용 없음)</span>' : ''}
+      </div>` : ''}
+    </div>`;
+  }
+
+  function toggleReportItem(id) {
+    if (openReportItems.has(id)) openReportItems.delete(id);
+    else openReportItems.add(id);
+    // 한 row만 다시 그리면 효율적이지만, 그룹 단위 재렌더로 간단히 처리
+    renderReportGroups();
+  }
+
+  function startEditReport(id) {
+    const r = allReportsAdmin.find(x => x.id === id);
+    if (!r) return;
+    const el = document.getElementById('rr-' + id);
+    if (!el) return;
+    el.outerHTML = `<div class="notice-edit" id="rr-${id}" style="background:#fff;">
+      <div class="notice-edit-row">
+        <input type="text" id="re-date-${id}" value="${escapeAttr(r.date||'')}" placeholder="YYYY-MM-DD">
+        <select id="re-school-${id}">
+          <option value="대치동 정규반" ${r.school==='대치동 정규반'?'selected':''}>대치동 정규반</option>
+          <option value="세정학원" ${r.school==='세정학원'?'selected':''}>세정학원</option>
+        </select>
+      </div>
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">수업 내용</label>
+      <textarea id="re-content-${id}" placeholder="수업 내용">${escapeHtml(r.content||'')}</textarea>
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">숙제</label>
+      <textarea id="re-homework-${id}" placeholder="숙제" style="min-height:50px;">${escapeHtml(r.homework||'')}</textarea>
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">특이사항</label>
+      <textarea id="re-notes-${id}" placeholder="특이사항" style="min-height:50px;">${escapeHtml(r.notes||'')}</textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+        <button class="cancel-btn" onclick="cancelEditReport('${id}')">취소</button>
+        <button class="save-btn" onclick="saveEditReport('${id}')">💾 저장</button>
+      </div>
+    </div>`;
+  }
+
+  function cancelEditReport(id) { renderReportGroups(); }
+
+  async function saveEditReport(id) {
+    const date     = document.getElementById('re-date-'     + id).value.trim();
+    const school   = document.getElementById('re-school-'   + id).value;
+    const content  = document.getElementById('re-content-'  + id).value;
+    const homework = document.getElementById('re-homework-' + id).value;
+    const notes    = document.getElementById('re-notes-'    + id).value;
+    try {
+      const res = await fetch('/api/reports-write', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ pageId: id, date, school, content, homework, notes })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ 리포트가 수정되었습니다.');
+        const idx = allReportsAdmin.findIndex(x => x.id === id);
+        if (idx >= 0) allReportsAdmin[idx] = { ...allReportsAdmin[idx], date, school, content, homework, notes };
+        renderReportGroups();
+      } else {
+        showToast('수정 실패: ' + (data.error || '오류'));
+      }
+    } catch(e) { showToast('오류: ' + e.message); }
+  }
+
+  async function deleteReport(id) {
+    const r = allReportsAdmin.find(x => x.id === id);
+    const label = r ? `${r.studentName} (${r.date})` : '이 리포트';
+    if (!confirm(`⚠️ "${label}" 리포트를 삭제하시겠습니까?\n\n• Notion 휴지통으로 이동 (30일 내 복구 가능)\n• 학부모는 즉시 더 이상 볼 수 없습니다`)) return;
+    try {
+      const res = await fetch('/api/reports-write', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ pageId: id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('🗑 삭제되었습니다.');
+        allReportsAdmin = allReportsAdmin.filter(x => x.id !== id);
+        openReportItems.delete(id);
+        renderReportGroups();
+      } else {
+        showToast('삭제 실패: ' + (data.error || '오류'));
+      }
+    } catch(e) { showToast('오류: ' + e.message); }
   }
 
   // ── 자료실: 폴더 선택에 따라 입력 wrapper 토글 ──
@@ -963,7 +1018,6 @@
     navigator.clipboard.writeText(code).then(function(){ showToast("코드 복사됨: " + code); });
   }
 
-  // 반 공통 자료 학원→반 옵션 매핑
   const CS_CLASS_OPTIONS = {
     "대치동 정규반": ["썸머 공통수학2반", "썸머 미적반", "썸머 확통반"],
     "세정학원":      ["썸머 기초특강반", "썸머 공통수학 2반"],
@@ -975,7 +1029,6 @@
     sel.innerHTML = "<option value=\"\">선택하세요</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
   }
 
-  // 학생 퇴원처리 — Notion 학생/리포트 archive + R2 reports 파일 삭제
   async function deleteStudent(name) {
     if (!name) return;
     if (!confirm("⚠️ \"" + name + "\" 학생을 퇴원처리하시겠습니까?\n\n다음 항목이 정리됩니다:\n• Notion 학생 정보 (휴지통으로)\n• Notion 수업 리포트 전부 (휴지통으로)\n• R2 첨부 PDF 전부 (영구 삭제)\n\n복구 가능: Notion 항목 30일 내. R2 파일은 복구 불가.")) return;
