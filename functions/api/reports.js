@@ -56,7 +56,8 @@ export async function onRequest({ request, env }) {
     const data = await res.json();
     if (data.object === 'error') return Response.json({ error: data.message || 'Notion 조회 실패' }, { status: 500 });
 
-    let reports = (data.results || []).map(page => {
+    // 안전망: archived/in_trash 페이지 명시적으로 제외 (가끔 query에 섞여오는 경우 대비)
+    let reports = (data.results || []).filter(p => !p.archived && !p.in_trash).map(page => {
       const p = page.properties || {};
       return {
         id:          page.id,

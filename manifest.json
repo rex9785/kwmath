@@ -1,0 +1,53 @@
+{
+  "name": "이관우 수학연구소",
+  "short_name": "LKW math LAB",
+  "description": "관우T 수업 리포트·영상·공지를 한 곳에서. 학부모·학생 전용 앱",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#862633",
+  "lang": "ko-KR",
+  "categories": ["education"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "수업 리포트",
+      "short_name": "리포트",
+      "url": "/app?tab=report",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "수업 영상",
+      "short_name": "영상",
+      "url": "/app?tab=video",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "숙제·출석",
+      "short_name": "숙제",
+      "url": "/app?tab=hw",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

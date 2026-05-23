@@ -11,20 +11,41 @@ export async function onRequest({ request, env }) {
       body: JSON.stringify({ sorts: [{ timestamp: 'created_time', direction: 'descending' }], page_size: 100 }),
     });
     const data = await res.json();
-    const students = (data.results || []).map(p => ({
-      id: p.id,
-      name: p.properties['이름']?.title?.[0]?.plain_text || '',
-      school: p.properties['학교']?.rich_text?.[0]?.plain_text || '',
-      grade: p.properties['학년']?.select?.name || '',
-      parentPhone4: p.properties['학부모 연락처 끝4자리']?.rich_text?.[0]?.plain_text || '',
-      studentPhone: p.properties['학생 연락처']?.rich_text?.[0]?.plain_text || '',
-      goals: (p.properties['수강 목적']?.multi_select || []).map(g => g.name),
-      level: p.properties['현재 수학 등급']?.select?.name || '',
-      academy: p.properties['학원']?.select?.name || '',
-      className: p.properties['반']?.select?.name || '',
-      notes: p.properties['특이사항']?.rich_text?.[0]?.plain_text || '',
-      createdAt: p.created_time || '',
-    }));
+    const rich = (p, k) => p[k]?.rich_text?.[0]?.plain_text || '';
+    const sel  = (p, k) => p[k]?.select?.name || '';
+    const multi= (p, k) => (p[k]?.multi_select || []).map(o => o.name);
+    const num  = (p, k) => (typeof p[k]?.number === 'number') ? p[k].number : null;
+
+    const students = (data.results || []).filter(p => !p.archived && !p.in_trash).map(p => {
+      const props = p.properties || {};
+      return {
+        id: p.id,
+        name: props['이름']?.title?.[0]?.plain_text || '',
+        school: rich(props, '학교'),
+        grade: sel(props, '학년'),
+        parentPhone4:   rich(props, '학부모 연락처 끝4자리'),
+        studentPhone:   rich(props, '학생 연락처'),
+        parentPhone:    rich(props, '학부모 휴대폰'),
+        parentRelation: sel(props, '학부모 관계'),
+        parentName:     rich(props, '학부모 성함'),
+        goals: multi(props, '수강 목적'),
+        level: sel(props, '현재 수학 등급'),
+        academy: sel(props, '학원'),
+        className: sel(props, '반'),
+        // 학업 정보 (추가)
+        mathMockGrade:    sel(props, '모의고사 수학 등급'),
+        mathMockScore:    num(props, '모의고사 수학 원점수'),
+        korMockGrade:     sel(props, '모의고사 국어 등급'),
+        engMockGrade:     sel(props, '모의고사 영어 등급'),
+        schoolMathGrade:  sel(props, '내신 수학 등급'),
+        advanceProgress:  sel(props, '선행 진도'),
+        weakness:    rich(props, '취약 단원'),
+        dreamUniv:   rich(props, '희망 대학/계열'),
+        availableDays: multi(props, '등원 가능 요일'),
+        notes: rich(props, '특이사항'),
+        createdAt: p.created_time || '',
+      };
+    });
     return Response.json(students);
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });

@@ -9,23 +9,18 @@
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
-
   .topbar{background:var(--primary);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
   .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
   .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;}
   .topbar-back:hover{color:#fff;}
-
-  .page-wrap{max-width:600px;margin:0 auto;padding:40px 5% 80px;}
-
+  .page-wrap{max-width:640px;margin:0 auto;padding:40px 5% 80px;}
   .form-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(139,26,53,0.08);}
   .form-header{text-align:center;margin-bottom:32px;}
   .form-header .icon{font-size:2.2rem;margin-bottom:10px;}
   .form-header h1{font-size:1.4rem;font-weight:900;color:var(--primary);margin-bottom:6px;}
   .form-header p{font-size:0.85rem;color:var(--text-light);line-height:1.7;}
-
   .form-section{margin-bottom:24px;}
   .form-section-title{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
-
   .form-row{margin-bottom:14px;}
   .form-row label{display:block;font-size:0.82rem;font-weight:700;margin-bottom:6px;color:var(--text);}
   .form-row label .req{color:var(--primary);margin-left:2px;}
@@ -33,28 +28,29 @@
   .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary);}
   .form-row textarea{resize:vertical;min-height:70px;}
   .form-hint{font-size:0.75rem;color:var(--text-light);margin-top:5px;}
-
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-
-  /* 체크박스 그룹 */
   .check-group{display:flex;flex-wrap:wrap;gap:8px;}
   .check-item{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;transition:all .2s;font-size:0.87rem;font-weight:500;}
   .check-item:hover{border-color:var(--primary);color:var(--primary);}
   .check-item input[type=checkbox]{display:none;}
   .check-item.checked{background:var(--primary-light);border-color:var(--primary);color:var(--primary);font-weight:700;}
-
+  .accordion{margin-top:6px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg2);}
+  .accordion-head{padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:0.88rem;font-weight:700;color:var(--text);user-select:none;transition:background .15s;}
+  .accordion-head:hover{background:var(--primary-light);}
+  .accordion.open .accordion-head{background:var(--primary-light);color:var(--primary);}
+  .accordion-head .arrow{font-size:0.8rem;transition:transform .25s;}
+  .accordion.open .accordion-head .arrow{transform:rotate(180deg);}
+  .accordion-body{display:none;padding:18px;background:#fff;border-top:1px solid var(--border);}
+  .accordion.open .accordion-body{display:block;}
+  .accordion-hint{font-size:0.78rem;color:var(--text-light);padding:0 18px 14px;background:var(--bg2);line-height:1.6;}
   .submit-btn{width:100%;background:var(--primary);color:#fff;border:none;padding:16px;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;margin-top:8px;}
   .submit-btn:hover{background:var(--primary-mid);}
   .submit-btn:disabled{opacity:.6;cursor:not-allowed;}
-
-  /* 완료 화면 */
   #doneScreen{display:none;text-align:center;padding:60px 20px;}
   #doneScreen .done-icon{font-size:3.5rem;margin-bottom:16px;}
   #doneScreen h2{font-size:1.4rem;font-weight:900;color:var(--primary);margin-bottom:10px;}
   #doneScreen p{font-size:0.9rem;color:var(--text-light);line-height:1.8;}
-
   .err-msg{color:#c0392b;font-size:0.82rem;margin-top:10px;display:none;text-align:center;}
-
   @media(max-width:480px){.row2{grid-template-columns:1fr;}}
 </style>
 </head>
@@ -67,8 +63,6 @@
 
 <div class="page-wrap">
   <div class="form-card">
-
-    <!-- 폼 -->
     <div id="formArea">
       <div class="form-header">
         <div class="icon">📝</div>
@@ -76,64 +70,52 @@
         <p>아래 정보를 입력해주시면<br>선생님이 맞춤 수업을 준비할 수 있습니다.</p>
       </div>
 
-      <!-- 기본 정보 -->
       <div class="form-section">
         <div class="form-section-title">기본 정보</div>
         <div class="row2">
-          <div class="form-row">
-            <label>이름 <span class="req">*</span></label>
-            <input id="name" type="text" placeholder="홍길동">
-          </div>
-          <div class="form-row">
-            <label>학년 <span class="req">*</span></label>
+          <div class="form-row"><label>이름 <span class="req">*</span></label><input id="name" type="text" placeholder="홍길동"></div>
+          <div class="form-row"><label>학년 <span class="req">*</span></label>
             <select id="grade">
               <option value="">선택하세요</option>
-              <option value="중2">중학교 2학년</option>
-              <option value="중3">중학교 3학년</option>
-              <option value="고1">고등학교 1학년</option>
-              <option value="고2">고등학교 2학년</option>
-              <option value="고3">고등학교 3학년</option>
+              <option value="중2">중학교 2학년</option><option value="중3">중학교 3학년</option>
+              <option value="고1">고등학교 1학년</option><option value="고2">고등학교 2학년</option><option value="고3">고등학교 3학년</option>
             </select>
           </div>
         </div>
-        <div class="form-row">
-          <label>학교명</label>
-          <input id="school" type="text" placeholder="○○중학교 / ○○고등학교">
-        </div>
+        <div class="form-row"><label>학교명</label><input id="school" type="text" placeholder="○○중학교 / ○○고등학교"></div>
       </div>
 
-      <!-- 연락처 -->
       <div class="form-section">
         <div class="form-section-title">연락처</div>
         <div class="form-row">
-          <label>학부모 연락처 끝 4자리 <span class="req">*</span></label>
-          <input id="parentPhone4" type="tel" maxlength="4" placeholder="0000" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
-          <div class="form-hint">수업 리포트 열람에 사용됩니다.</div>
+          <label>학생 휴대폰 <span class="req">*</span></label>
+          <input id="studentPhone" type="tel" placeholder="010-0000-0000" oninput="formatPhone(this)">
         </div>
         <div class="form-row">
-          <label>학생 연락처 (선택)</label>
-          <input id="studentPhone" type="tel" placeholder="010-0000-0000">
+          <label>학부모 휴대폰 <span class="req">*</span></label>
+          <input id="parentPhone" type="tel" placeholder="010-0000-0000" oninput="formatPhone(this)">
+          <div class="form-hint">끝 4자리는 자동으로 추출되어 수업 리포트 열람에 사용됩니다.</div>
+        </div>
+        <div class="row2">
+          <div class="form-row">
+            <label>학부모 관계 <span class="req">*</span></label>
+            <select id="parentRelation">
+              <option value="">선택하세요</option><option value="어머니">어머니</option><option value="아버지">아버지</option><option value="기타">기타</option>
+            </select>
+          </div>
+          <div class="form-row"><label>학부모 성함 (선택)</label><input id="parentName" type="text" placeholder="홍길동"></div>
         </div>
       </div>
 
-      <!-- 수업 정보 -->
       <div class="form-section">
         <div class="form-section-title">수업 정보</div>
         <div class="form-row">
           <label>수강 목적 <span class="req">*</span> (중복 선택 가능)</label>
           <div class="check-group" id="goalGroup">
-            <label class="check-item" onclick="toggleCheck(event, this)">
-              <input type="checkbox" value="수능"> 📌 수능
-            </label>
-            <label class="check-item" onclick="toggleCheck(event, this)">
-              <input type="checkbox" value="내신"> 📚 내신
-            </label>
-            <label class="check-item" onclick="toggleCheck(event, this)">
-              <input type="checkbox" value="기초다지기"> 🔧 기초다지기
-            </label>
-            <label class="check-item" onclick="toggleCheck(event, this)">
-              <input type="checkbox" value="선행"> 🚀 선행
-            </label>
+            <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="수능"> 📌 수능</label>
+            <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="내신"> 📚 내신</label>
+            <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="기초다지기"> 🔧 기초다지기</label>
+            <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="선행"> 🚀 선행</label>
           </div>
         </div>
         <div class="row2">
@@ -141,15 +123,12 @@
             <label>현재 수학 수준</label>
             <select id="level">
               <option value="잘 모름">잘 모름</option>
-              <option value="1등급">1등급</option>
-              <option value="2등급">2등급</option>
-              <option value="3등급">3등급</option>
-              <option value="4등급">4등급</option>
-              <option value="5등급 이하">5등급 이하</option>
+              <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
+              <option value="4등급">4등급</option><option value="5등급 이하">5등급 이하</option>
             </select>
           </div>
           <div class="form-row">
-            <label>수강 학원</label>
+            <label>수강 학원 <span class="req">*</span></label>
             <select id="academy" onchange="updateClassOptions()">
               <option value="">선택하세요</option>
               <option value="대치동 정규반">대치동 정규반</option>
@@ -159,13 +138,111 @@
         </div>
         <div class="form-row" id="classRow" style="display:none;">
           <label>수강 반 <span class="req">*</span></label>
-          <select id="classSelect">
-            <option value="">선택하세요</option>
-          </select>
+          <select id="classSelect"><option value="">선택하세요</option></select>
         </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">추가 정보 (선택)</div>
+        <div class="accordion" id="extraAcc">
+          <div class="accordion-head" onclick="toggleAcc('extraAcc')">
+            <span>📊 모의고사 · 내신 · 선행 진도 · 희망 진로 등 입력하기</span>
+            <span class="arrow">▾</span>
+          </div>
+          <div class="accordion-hint">아래 항목은 모두 선택사항이지만, 입력해주시면 선생님이 더 정확한 맞춤 수업을 준비할 수 있어요.</div>
+          <div class="accordion-body">
+            <div class="form-row"><label>📐 모의고사 수학</label></div>
+            <div class="row2">
+              <div class="form-row">
+                <label style="font-weight:500;font-size:0.78rem;color:var(--text-light);">등급</label>
+                <select id="mathMockGrade">
+                  <option value="">선택</option>
+                  <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
+                  <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
+                  <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
+                  <option value="미응시">미응시</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label style="font-weight:500;font-size:0.78rem;color:var(--text-light);">원점수 (0~100)</label>
+                <input id="mathMockScore" type="number" min="0" max="100" placeholder="예: 78">
+              </div>
+            </div>
+            <div class="row2">
+              <div class="form-row">
+                <label>📖 모의고사 국어 등급</label>
+                <select id="korMockGrade">
+                  <option value="">선택</option>
+                  <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
+                  <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
+                  <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
+                  <option value="미응시">미응시</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>🌐 모의고사 영어 등급</label>
+                <select id="engMockGrade">
+                  <option value="">선택</option>
+                  <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
+                  <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
+                  <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
+                  <option value="미응시">미응시</option>
+                </select>
+              </div>
+            </div>
+            <div class="row2">
+              <div class="form-row">
+                <label>🏫 내신 수학 등급</label>
+                <select id="schoolMathGrade">
+                  <option value="">선택</option>
+                  <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
+                  <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
+                  <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
+                  <option value="미응시">미응시</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>🚀 선행 진도 (현재 어디까지)</label>
+                <select id="advanceProgress">
+                  <option value="">선택</option>
+                  <option value="중3 과정">중3 과정</option>
+                  <option value="공통수학1">공통수학1</option><option value="공통수학2">공통수학2</option>
+                  <option value="대수">대수</option>
+                  <option value="미적분1">미적분1</option><option value="미적분2">미적분2</option>
+                  <option value="확률과통계">확률과통계</option><option value="기하">기하</option>
+                  <option value="심화/실전">심화/실전</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>🎯 취약 단원 / 어려워하는 부분</label>
+              <textarea id="weakness" placeholder="예: 함수의 극한, 도형의 방정식, 삼각함수 그래프 등"></textarea>
+            </div>
+            <div class="form-row">
+              <label>🎓 희망 대학 / 계열</label>
+              <input id="dreamUniv" type="text" placeholder="예: 의대, 공대, 자연계열 / SKY, 인서울 등">
+            </div>
+            <div class="form-row">
+              <label>📅 등원 가능 요일 (중복 선택)</label>
+              <div class="check-group" id="dayGroup">
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="월"> 월</label>
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="화"> 화</label>
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="수"> 수</label>
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="목"> 목</label>
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="금"> 금</label>
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="토"> 토</label>
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="일"> 일</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">하고 싶은 말</div>
         <div class="form-row">
-          <label>하고 싶은 말 (선택)</label>
-          <textarea id="notes" placeholder="수업에서 특별히 원하는 것, 어려운 단원, 목표 등 자유롭게 적어주세요."></textarea>
+          <label>특이사항 / 요청사항 (선택)</label>
+          <textarea id="notes" placeholder="수업에서 특별히 원하는 것, 목표, 알아두면 좋을 점 등 자유롭게 적어주세요."></textarea>
         </div>
       </div>
 
@@ -173,7 +250,6 @@
       <button class="submit-btn" id="submitBtn" onclick="submitForm()">등록 완료 →</button>
     </div>
 
-    <!-- 완료 화면 -->
     <div id="doneScreen">
       <div class="done-icon">🎉</div>
       <h2>등록이 완료되었습니다!</h2>
@@ -183,7 +259,6 @@
       <br><br>
       <a href="/" style="display:inline-block;background:var(--primary);color:#fff;padding:13px 30px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.93rem;">홈페이지로 돌아가기</a>
     </div>
-
   </div>
 </div>
 
@@ -198,10 +273,7 @@
     const classRow = document.getElementById('classRow');
     const classSelect = document.getElementById('classSelect');
     const options = CLASS_OPTIONS[academy] || [];
-
-    classSelect.innerHTML = '<option value="">선택하세요</option>'
-      + options.map(o => `<option value="${o}">${o}</option>`).join('');
-
+    classSelect.innerHTML = '<option value="">선택하세요</option>' + options.map(o => '<option value="'+o+'">'+o+'</option>').join('');
     classRow.style.display = options.length ? 'block' : 'none';
   }
 
@@ -212,27 +284,61 @@
     if (cb) cb.checked = !cb.checked;
   }
 
-  async function submitForm() {
-    const name = document.getElementById('name').value.trim();
-    const grade = document.getElementById('grade').value;
-    const school = document.getElementById('school').value.trim();
-    const parentPhone4 = document.getElementById('parentPhone4').value.trim();
-    const studentPhone = document.getElementById('studentPhone').value.trim();
-    const level = document.getElementById('level').value;
-    const academy = document.getElementById('academy').value;
-    const className = document.getElementById('classSelect').value;
-    const notes = document.getElementById('notes').value.trim();
-    const errMsg = document.getElementById('errMsg');
-    errMsg.style.display = 'none';
+  function toggleAcc(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
 
-    const goals = [...document.querySelectorAll('#goalGroup .check-item.checked input')].map(i => i.value);
+  function formatPhone(el) {
+    let v = el.value.replace(/[^0-9]/g, '').slice(0, 11);
+    if (v.length >= 7)      v = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
+    else if (v.length >= 4) v = v.slice(0,3) + '-' + v.slice(3);
+    el.value = v;
+  }
+
+  function getCheckedValues(groupId) {
+    return [].slice.call(document.querySelectorAll('#' + groupId + ' .check-item.checked input')).map(function(i){ return i.value; });
+  }
+
+  async function submitForm() {
+    const name           = document.getElementById('name').value.trim();
+    const grade          = document.getElementById('grade').value;
+    const school         = document.getElementById('school').value.trim();
+    const studentPhone   = document.getElementById('studentPhone').value.trim();
+    const parentPhone    = document.getElementById('parentPhone').value.trim();
+    const parentRelation = document.getElementById('parentRelation').value;
+    const parentName     = document.getElementById('parentName').value.trim();
+    const level          = document.getElementById('level').value;
+    const academy        = document.getElementById('academy').value;
+    const className      = document.getElementById('classSelect').value;
+    const goals          = getCheckedValues('goalGroup');
+    const mathMockGrade  = document.getElementById('mathMockGrade').value;
+    const mathMockScoreV = document.getElementById('mathMockScore').value;
+    const mathMockScore  = mathMockScoreV ? Number(mathMockScoreV) : null;
+    const korMockGrade   = document.getElementById('korMockGrade').value;
+    const engMockGrade   = document.getElementById('engMockGrade').value;
+    const schoolMathGrade= document.getElementById('schoolMathGrade').value;
+    const advanceProgress= document.getElementById('advanceProgress').value;
+    const weakness       = document.getElementById('weakness').value.trim();
+    const dreamUniv      = document.getElementById('dreamUniv').value.trim();
+    const availableDays  = getCheckedValues('dayGroup');
+    const notes          = document.getElementById('notes').value.trim();
+
+    document.getElementById('errMsg').style.display = 'none';
+
+    const studentDigits = studentPhone.replace(/[^0-9]/g, '');
+    const parentDigits  = parentPhone.replace(/[^0-9]/g, '');
 
     if (!name) { showErr('이름을 입력해주세요.'); return; }
     if (!grade) { showErr('학년을 선택해주세요.'); return; }
-    if (!parentPhone4 || parentPhone4.length !== 4) { showErr('학부모 연락처 끝 4자리를 입력해주세요.'); return; }
+    if (studentDigits.length < 10) { showErr('학생 휴대폰 번호를 정확히 입력해주세요.'); return; }
+    if (parentDigits.length < 10)  { showErr('학부모 휴대폰 번호를 정확히 입력해주세요.'); return; }
+    if (!parentRelation) { showErr('학부모 관계를 선택해주세요.'); return; }
     if (!goals.length) { showErr('수강 목적을 한 개 이상 선택해주세요.'); return; }
     if (!academy) { showErr('수강 학원을 선택해주세요.'); return; }
     if (!className) { showErr('수강 반을 선택해주세요.'); return; }
+
+    const parentPhone4 = parentDigits.slice(-4);
 
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
@@ -242,7 +348,17 @@
       const res = await fetch('/api/student-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, school, grade, parentPhone4, studentPhone, goals, level, academy, className, notes })
+        body: JSON.stringify({
+          name: name, school: school, grade: grade,
+          parentPhone4: parentPhone4, studentPhone: studentPhone, parentPhone: parentPhone,
+          parentRelation: parentRelation, parentName: parentName,
+          goals: goals, level: level, academy: academy, className: className,
+          mathMockGrade: mathMockGrade, mathMockScore: mathMockScore,
+          korMockGrade: korMockGrade, engMockGrade: engMockGrade,
+          schoolMathGrade: schoolMathGrade, advanceProgress: advanceProgress,
+          weakness: weakness, dreamUniv: dreamUniv, availableDays: availableDays,
+          notes: notes
+        })
       });
       const data = await res.json();
       if (res.ok && data.ok) {
@@ -266,12 +382,6 @@
     errMsg.style.display = 'block';
     errMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
-
-  // 학원 선택 시 반 목록 자동 변경
-  document.addEventListener('DOMContentLoaded', () => {
-    const academyEl = document.getElementById('academy');
-    if (academyEl) academyEl.addEventListener('change', updateClassOptions);
-  });
 </script>
 </body>
 </html>

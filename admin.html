@@ -941,6 +941,11 @@
   }
 
   function renderStudentCard(s) {
+    const mathInfo = [];
+    if (s.mathMockGrade)    mathInfo.push('모의수학 ' + escapeHtml(s.mathMockGrade) + (s.mathMockScore!=null ? ' ('+s.mathMockScore+'점)' : ''));
+    if (s.schoolMathGrade)  mathInfo.push('내신 ' + escapeHtml(s.schoolMathGrade));
+    if (s.korMockGrade)     mathInfo.push('국어 ' + escapeHtml(s.korMockGrade));
+    if (s.engMockGrade)     mathInfo.push('영어 ' + escapeHtml(s.engMockGrade));
     return `<div class="report-card">
       <div class="report-header">
         <div>
@@ -953,9 +958,13 @@
         ${s.school ? '<span>학교: <b>' + escapeHtml(s.school) + '</b></span>&nbsp;&nbsp;' : ''}
         ${s.grade ? '<span>학년: <b>' + escapeHtml(s.grade) + '</b></span>&nbsp;&nbsp;' : ''}
         ${s.goals && s.goals.length ? '<span>목적: ' + escapeHtml(s.goals.join(', ')) + '</span>&nbsp;&nbsp;' : ''}
-        ${s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>&nbsp;&nbsp;' : ''}
-        ${s.studentPhone ? '<span>학생연락처: ' + escapeHtml(s.studentPhone) + '</span>&nbsp;&nbsp;' : ''}
-        ${s.level ? '<span>현재등급: ' + escapeHtml(s.level) + '</span>&nbsp;&nbsp;' : ''}
+        ${s.advanceProgress ? '<span>선행: <b>' + escapeHtml(s.advanceProgress) + '</b></span>&nbsp;&nbsp;' : ''}
+        ${s.studentPhone ? '<br><span>📱 학생: ' + escapeHtml(s.studentPhone) + '</span>&nbsp;&nbsp;' : ''}
+        ${s.parentPhone ? '<span>👪 학부모(' + escapeHtml(s.parentRelation || '') + '): <b>' + escapeHtml(s.parentPhone) + '</b></span>' : (s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>' : '')}
+        ${mathInfo.length ? '<br><span style="color:var(--primary);font-weight:600;">📊 ' + mathInfo.join(' · ') + '</span>' : ''}
+        ${s.weakness ? '<br><span>🎯 취약: ' + escapeHtml(s.weakness) + '</span>' : ''}
+        ${s.dreamUniv ? '&nbsp;&nbsp;<span>🎓 ' + escapeHtml(s.dreamUniv) + '</span>' : ''}
+        ${s.availableDays && s.availableDays.length ? '<br><span>📅 등원 가능: ' + escapeHtml(s.availableDays.join(', ')) + '</span>' : ''}
         ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + escapeHtml(s.notes) + '</span>' : ''}
       </div>
     </div>`;
@@ -981,11 +990,19 @@
       const isOpen = openStudentGroups.has(key);
       const items = isOpen ? g.students.map(s => `
         <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div>
-            <strong style="font-size:0.92rem;">${escapeHtml(s.name||'—')}</strong>
-            <span style="font-size:0.8rem;color:var(--text-light);margin-left:8px;">
-              ${s.school?escapeHtml(s.school):''}${s.grade?' · '+escapeHtml(s.grade):''}${s.parentPhone4?' · 학부모끝'+escapeHtml(s.parentPhone4):''}
-            </span>
+          <div style="flex:1;min-width:200px;">
+            <div>
+              <strong style="font-size:0.92rem;">${escapeHtml(s.name||'—')}</strong>
+              <span style="font-size:0.8rem;color:var(--text-light);margin-left:8px;">
+                ${s.school?escapeHtml(s.school):''}${s.grade?' · '+escapeHtml(s.grade):''}
+              </span>
+            </div>
+            <div style="font-size:0.78rem;color:var(--text-light);margin-top:3px;line-height:1.6;">
+              ${s.parentPhone ? '👪 ' + escapeHtml(s.parentRelation||'') + ' ' + escapeHtml(s.parentPhone) : (s.parentPhone4 ? '학부모끝 '+escapeHtml(s.parentPhone4) : '')}
+              ${s.studentPhone ? '&nbsp;·&nbsp;📱 ' + escapeHtml(s.studentPhone) : ''}
+              ${s.mathMockGrade ? '&nbsp;·&nbsp;<span style="color:var(--primary);font-weight:600;">모의수학 ' + escapeHtml(s.mathMockGrade) + (s.mathMockScore!=null?' ('+s.mathMockScore+'점)':'') + '</span>' : ''}
+              ${s.advanceProgress ? '&nbsp;·&nbsp;선행 ' + escapeHtml(s.advanceProgress) : ''}
+            </div>
           </div>
           <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
         </div>

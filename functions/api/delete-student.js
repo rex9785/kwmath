@@ -33,12 +33,19 @@ export async function onRequest({ request, env }) {
     });
     const sData = await sRes.json();
     for (const page of (sData.results || [])) {
+      // 이미 archived면 그대로 두고 카운트만 — 노션이 거절해도 효과는 동일
+      if (page.archived || page.in_trash) { result.students_archived++; continue; }
       const ar = await fetch(`https://api.notion.com/v1/pages/${page.id}`, {
         method: 'PATCH', headers,
         body: JSON.stringify({ archived: true }),
       });
       if (ar.ok) result.students_archived++;
-      else result.errors.push(`student page ${page.id}: ${ar.status}`);
+      else {
+        const errBody = await ar.json().catch(() => ({}));
+        const msg = (errBody.message || '').toLowerCase();
+        if (msg.includes('archived') || msg.includes('trash')) result.students_archived++;
+        else result.errors.push(`student page ${page.id}: ${ar.status}`);
+      }
     }
 
     // 2. Notion 리포트 DB에서 해당 학생 이름 리포트 검색 → archive
@@ -48,12 +55,18 @@ export async function onRequest({ request, env }) {
     });
     const rData = await rRes.json();
     for (const page of (rData.results || [])) {
+      if (page.archived || page.in_trash) { result.reports_archived++; continue; }
       const ar = await fetch(`https://api.notion.com/v1/pages/${page.id}`, {
         method: 'PATCH', headers,
         body: JSON.stringify({ archived: true }),
       });
       if (ar.ok) result.reports_archived++;
-      else result.errors.push(`report page ${page.id}: ${ar.status}`);
+      else {
+        const errBody = await ar.json().catch(() => ({}));
+        const msg = (errBody.message || '').toLowerCase();
+        if (msg.includes('archived') || msg.includes('trash')) result.reports_archived++;
+        else result.errors.push(`report page ${page.id}: ${ar.status}`);
+      }
     }
 
     // 3. R2 reports/{이름}/ 폴더의 모든 파일 삭제

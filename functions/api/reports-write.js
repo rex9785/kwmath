@@ -49,6 +49,10 @@ export async function onRequest({ request, env }) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      const msg = (err.message || '').toLowerCase();
+      if (msg.includes('archived') || msg.includes('in_trash') || msg.includes('trash')) {
+        return Response.json({ error: '이 리포트는 이미 휴지통에 있어 수정할 수 없습니다. 새로고침 후 다시 확인해주세요.' }, { status: 400 });
+      }
       return Response.json({ error: err.message || 'Notion 수정 실패' }, { status: res.status });
     }
     return Response.json({ ok: true });
@@ -64,6 +68,11 @@ export async function onRequest({ request, env }) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      const msg = (err.message || '').toLowerCase();
+      // 이미 archived/in_trash 상태면 효과 동일 → 성공으로 처리
+      if (msg.includes('archived') || msg.includes('in_trash') || msg.includes('trash')) {
+        return Response.json({ ok: true, alreadyArchived: true });
+      }
       return Response.json({ error: err.message || 'Notion 삭제 실패' }, { status: res.status });
     }
     return Response.json({ ok: true });
