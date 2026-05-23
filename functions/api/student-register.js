@@ -13,7 +13,7 @@ export async function onRequest({ request, env }) {
   const body = await request.json();
   const {
     name, school, grade,
-    parentPhone4, parentPhone, parentRelation, parentName,
+    parentPhone4, parentPhone, parentRelation,
     studentPhone,
     goals, level, academy, className,
     mathMockGrade, mathMockScore, korMockGrade, engMockGrade,
@@ -23,6 +23,16 @@ export async function onRequest({ request, env }) {
 
   // 필수 검증 — 학생/학부모 휴대폰은 폼에서 검사하지만 서버에서도 한 번 더
   if (!name || !grade) return Response.json({ error: '이름과 학년은 필수입니다.' }, { status: 400 });
+  // 추가 정보 필수 — 모름 옵션이 있으므로 빈 값은 거절
+  const requiredExtras = { mathMockGrade, korMockGrade, engMockGrade, schoolMathGrade, advanceProgress, weakness, dreamUniv };
+  for (const [k, v] of Object.entries(requiredExtras)) {
+    if (!v || (typeof v === 'string' && !v.trim())) {
+      return Response.json({ error: '추가 정보가 누락되었습니다: ' + k + ' (모르면 "모름" 선택)' }, { status: 400 });
+    }
+  }
+  if (!Array.isArray(availableDays) || !availableDays.length) {
+    return Response.json({ error: '등원 가능 요일을 선택해주세요. (모르면 "협의")' }, { status: 400 });
+  }
 
   // parentPhone4를 클라이언트에서 받지만, 안 보내면 parentPhone에서 자동 추출
   let phone4 = (parentPhone4 || '').replace(/[^0-9]/g, '').slice(-4);
@@ -44,7 +54,6 @@ export async function onRequest({ request, env }) {
     '학부모 연락처 끝4자리': { rich_text: [{ text: { content: phone4 } }] },
     '학생 연락처': { rich_text: [{ text: { content: studentPhone || '' } }] },
     '학부모 휴대폰': { rich_text: [{ text: { content: parentPhone || '' } }] },
-    '학부모 성함':   { rich_text: [{ text: { content: parentName  || '' } }] },
     '수강 목적': { multi_select: goalsArray.map(g => ({ name: g })) },
     '현재 수학 등급': { select: { name: level || '잘 모름' } },
     '학원': { select: { name: academy || '대치동 정규반' } },

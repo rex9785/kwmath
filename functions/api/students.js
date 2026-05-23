@@ -27,7 +27,6 @@ export async function onRequest({ request, env }) {
         studentPhone:   rich(props, '학생 연락처'),
         parentPhone:    rich(props, '학부모 휴대폰'),
         parentRelation: sel(props, '학부모 관계'),
-        parentName:     rich(props, '학부모 성함'),
         goals: multi(props, '수강 목적'),
         level: sel(props, '현재 수학 등급'),
         academy: sel(props, '학원'),

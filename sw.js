@@ -1,15 +1,19 @@
 /**
- * kwmath PWA Service Worker
- * 캐시 전략: app-shell은 stale-while-revalidate, API는 network-first
- * 푸시: 2단계에서 활성화 (현재는 빈 핸들러)
+ * kwmath PWA Service Worker — portal 전용
+ * 캐시 전략: app-shell stale-while-revalidate, API network-first
+ * 푸쉬: Web Push 활성화 (data 페이로드 받으면 알림 표시 + 클릭 시 해당 url 이동)
+ *
+ * 버전 올릴 때: VERSION 문자열 숫자 +1 → 옛 캐시 자동 정리
  */
 
-const VERSION = 'kwmath-v1';
+const VERSION = 'kwmath-v2';
 const APP_SHELL = [
-  '/app',
+  '/portal',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
+  '/icons/favicon-32.png',
   '/가로로고.jpg',
   '/세로로고.jpg'
 ];
@@ -39,7 +43,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // API 호출은 network-first (캐시 안전성 위해)
+  // API 호출은 network-first
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request).catch(() => caches.match(request))
@@ -64,9 +68,10 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// 푸시 알림 수신 - 2단계에서 본격 사용
+// 푸쉬 수신
+// 서버에서 보내는 페이로드 예시: { title, body, url, tag, image }
 self.addEventListener('push', (event) => {
-  let data = { title: '이관우 수학연구소', body: '새 소식이 있습니다', url: '/app' };
+  let data = { title: '이관우 수학연구소', body: '새 소식이 있습니다', url: '/portal' };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch (e) {}
@@ -76,21 +81,23 @@ self.addEventListener('push', (event) => {
       body: data.body,
       icon: '/icons/icon-192.png',
       badge: '/icons/favicon-32.png',
+      image: data.image,
       tag: data.tag || 'kwmath',
-      data: { url: data.url || '/app' },
-      requireInteraction: false
+      data: { url: data.url || '/portal' },
+      requireInteraction: false,
+      vibrate: [120, 60, 120]
     })
   );
 });
 
-// 알림 클릭 - 해당 페이지로 이동
+// 알림 클릭 - 이미 열린 portal 탭 있으면 focus, 없으면 새로 열기
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/app';
+  const url = (event.notification.data && event.notification.data.url) || '/portal';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        if (client.url.includes('/app') && 'focus' in client) {
+        if (client.url.includes('/portal') && 'focus' in client) {
           client.navigate(url);
           return client.focus();
         }

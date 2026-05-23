@@ -2,7 +2,7 @@
   "name": "이관우 수학연구소",
   "short_name": "LKW math LAB",
   "description": "관우T 수업 리포트·영상·공지를 한 곳에서. 학부모·학생 전용 앱",
-  "start_url": "/app",
+  "start_url": "/portal",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -34,19 +34,19 @@
     {
       "name": "수업 리포트",
       "short_name": "리포트",
-      "url": "/app?tab=report",
+      "url": "/portal?tab=report",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "수업 영상",
       "short_name": "영상",
-      "url": "/app?tab=video",
+      "url": "/portal?tab=video",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "숙제·출석",
-      "short_name": "숙제",
-      "url": "/app?tab=hw",
+      "name": "공지사항",
+      "short_name": "공지",
+      "url": "/portal?tab=notice",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]

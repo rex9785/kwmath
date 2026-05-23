@@ -96,14 +96,11 @@
           <input id="parentPhone" type="tel" placeholder="010-0000-0000" oninput="formatPhone(this)">
           <div class="form-hint">끝 4자리는 자동으로 추출되어 수업 리포트 열람에 사용됩니다.</div>
         </div>
-        <div class="row2">
-          <div class="form-row">
-            <label>학부모 관계 <span class="req">*</span></label>
-            <select id="parentRelation">
-              <option value="">선택하세요</option><option value="어머니">어머니</option><option value="아버지">아버지</option><option value="기타">기타</option>
-            </select>
-          </div>
-          <div class="form-row"><label>학부모 성함 (선택)</label><input id="parentName" type="text" placeholder="홍길동"></div>
+        <div class="form-row">
+          <label>학부모 관계 <span class="req">*</span></label>
+          <select id="parentRelation">
+            <option value="">선택하세요</option><option value="어머니">어머니</option><option value="아버지">아버지</option><option value="기타">기타</option>
+          </select>
         </div>
       </div>
 
@@ -143,15 +140,10 @@
       </div>
 
       <div class="form-section">
-        <div class="form-section-title">추가 정보 (선택)</div>
-        <div class="accordion" id="extraAcc">
-          <div class="accordion-head" onclick="toggleAcc('extraAcc')">
-            <span>📊 모의고사 · 내신 · 선행 진도 · 희망 진로 등 입력하기</span>
-            <span class="arrow">▾</span>
-          </div>
-          <div class="accordion-hint">아래 항목은 모두 선택사항이지만, 입력해주시면 선생님이 더 정확한 맞춤 수업을 준비할 수 있어요.</div>
-          <div class="accordion-body">
-            <div class="form-row"><label>📐 모의고사 수학</label></div>
+        <div class="form-section-title">추가 정보 <span class="req" style="color:var(--primary);">*</span> (모르면 '모름' 선택)</div>
+        <div style="font-size:0.78rem;color:var(--text-light);margin-bottom:14px;line-height:1.6;">📊 모의고사·내신·선행 진도·희망 진로 — 정확히 모르겠으면 '모름'을 선택해주세요. 선생님이 맞춤 수업 준비에 활용합니다.</div>
+        <div>
+            <div class="form-row"><label>📐 모의고사 수학 <span class="req">*</span></label></div>
             <div class="row2">
               <div class="form-row">
                 <label style="font-weight:500;font-size:0.78rem;color:var(--text-light);">등급</label>
@@ -160,7 +152,7 @@
                   <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
                   <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
                   <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
-                  <option value="미응시">미응시</option>
+                  <option value="미응시">미응시</option><option value="모름">모름</option>
                 </select>
               </div>
               <div class="form-row">
@@ -170,39 +162,39 @@
             </div>
             <div class="row2">
               <div class="form-row">
-                <label>📖 모의고사 국어 등급</label>
+                <label>📖 모의고사 국어 등급 <span class="req">*</span></label>
                 <select id="korMockGrade">
                   <option value="">선택</option>
                   <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
                   <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
                   <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
-                  <option value="미응시">미응시</option>
+                  <option value="미응시">미응시</option><option value="모름">모름</option>
                 </select>
               </div>
               <div class="form-row">
-                <label>🌐 모의고사 영어 등급</label>
+                <label>🌐 모의고사 영어 등급 <span class="req">*</span></label>
                 <select id="engMockGrade">
                   <option value="">선택</option>
                   <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
                   <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
                   <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
-                  <option value="미응시">미응시</option>
+                  <option value="미응시">미응시</option><option value="모름">모름</option>
                 </select>
               </div>
             </div>
             <div class="row2">
               <div class="form-row">
-                <label>🏫 내신 수학 등급</label>
+                <label>🏫 내신 수학 등급 <span class="req">*</span></label>
                 <select id="schoolMathGrade">
                   <option value="">선택</option>
                   <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
                   <option value="4등급">4등급</option><option value="5등급">5등급</option><option value="6등급">6등급</option>
                   <option value="7등급">7등급</option><option value="8등급">8등급</option><option value="9등급">9등급</option>
-                  <option value="미응시">미응시</option>
+                  <option value="미응시">미응시</option><option value="모름">모름</option>
                 </select>
               </div>
               <div class="form-row">
-                <label>🚀 선행 진도 (현재 어디까지)</label>
+                <label>🚀 선행 진도 (현재 어디까지) <span class="req">*</span></label>
                 <select id="advanceProgress">
                   <option value="">선택</option>
                   <option value="중3 과정">중3 과정</option>
@@ -210,20 +202,20 @@
                   <option value="대수">대수</option>
                   <option value="미적분1">미적분1</option><option value="미적분2">미적분2</option>
                   <option value="확률과통계">확률과통계</option><option value="기하">기하</option>
-                  <option value="심화/실전">심화/실전</option>
+                  <option value="심화/실전">심화/실전</option><option value="모름">모름</option>
                 </select>
               </div>
             </div>
             <div class="form-row">
-              <label>🎯 취약 단원 / 어려워하는 부분</label>
+              <label>🎯 취약 단원 / 어려워하는 부분 <span class="req">*</span> (모르면 '모름' 입력)</label>
               <textarea id="weakness" placeholder="예: 함수의 극한, 도형의 방정식, 삼각함수 그래프 등"></textarea>
             </div>
             <div class="form-row">
-              <label>🎓 희망 대학 / 계열</label>
+              <label>🎓 희망 대학 / 계열 <span class="req">*</span> (모르면 '미정' 입력)</label>
               <input id="dreamUniv" type="text" placeholder="예: 의대, 공대, 자연계열 / SKY, 인서울 등">
             </div>
             <div class="form-row">
-              <label>📅 등원 가능 요일 (중복 선택)</label>
+              <label>📅 등원 가능 요일 <span class="req">*</span> (중복 선택 / 모르면 '협의')</label>
               <div class="check-group" id="dayGroup">
                 <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="월"> 월</label>
                 <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="화"> 화</label>
@@ -232,9 +224,9 @@
                 <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="금"> 금</label>
                 <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="토"> 토</label>
                 <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="일"> 일</label>
+                <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="협의"> 협의</label>
               </div>
             </div>
-          </div>
         </div>
       </div>
 
@@ -307,7 +299,6 @@
     const studentPhone   = document.getElementById('studentPhone').value.trim();
     const parentPhone    = document.getElementById('parentPhone').value.trim();
     const parentRelation = document.getElementById('parentRelation').value;
-    const parentName     = document.getElementById('parentName').value.trim();
     const level          = document.getElementById('level').value;
     const academy        = document.getElementById('academy').value;
     const className      = document.getElementById('classSelect').value;
@@ -337,6 +328,14 @@
     if (!goals.length) { showErr('수강 목적을 한 개 이상 선택해주세요.'); return; }
     if (!academy) { showErr('수강 학원을 선택해주세요.'); return; }
     if (!className) { showErr('수강 반을 선택해주세요.'); return; }
+    if (!mathMockGrade)   { showErr('모의고사 수학 등급을 선택해주세요. (모르면 "모름")'); return; }
+    if (!korMockGrade)    { showErr('모의고사 국어 등급을 선택해주세요. (모르면 "모름")'); return; }
+    if (!engMockGrade)    { showErr('모의고사 영어 등급을 선택해주세요. (모르면 "모름")'); return; }
+    if (!schoolMathGrade) { showErr('내신 수학 등급을 선택해주세요. (모르면 "모름")'); return; }
+    if (!advanceProgress) { showErr('선행 진도를 선택해주세요. (모르면 "모름")'); return; }
+    if (!weakness)        { showErr('취약 단원을 입력해주세요. (모르면 "모름")'); return; }
+    if (!dreamUniv)       { showErr('희망 대학/계열을 입력해주세요. (모르면 "미정")'); return; }
+    if (!availableDays.length) { showErr('등원 가능 요일을 선택해주세요. (모르면 "협의")'); return; }
 
     const parentPhone4 = parentDigits.slice(-4);
 
@@ -351,7 +350,7 @@
         body: JSON.stringify({
           name: name, school: school, grade: grade,
           parentPhone4: parentPhone4, studentPhone: studentPhone, parentPhone: parentPhone,
-          parentRelation: parentRelation, parentName: parentName,
+          parentRelation: parentRelation,
           goals: goals, level: level, academy: academy, className: className,
           mathMockGrade: mathMockGrade, mathMockScore: mathMockScore,
           korMockGrade: korMockGrade, engMockGrade: engMockGrade,
@@ -364,6 +363,28 @@
       if (res.ok && data.ok) {
         document.getElementById('formArea').style.display = 'none';
         document.getElementById('doneScreen').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        showErr(data.error || '등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } catch (e) {
+      showErr('서버 통신 오류: ' + (e.message || '알 수 없는 오류'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '등록 완료 →';
+    }
+  }
+
+  function showErr(msg) {
+    const errMsg = document.getElementById('errMsg');
+    errMsg.textContent = msg;
+    errMsg.style.display = 'block';
+    errMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+</script>
+</body>
+</html>
+                                                                                                                                               document.getElementById('doneScreen').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         showErr(data.error || '등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
