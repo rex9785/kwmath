@@ -73,9 +73,44 @@
   .benefit-item .b-icon{font-size:1.2rem;}
   .benefit-item .b-text{color:var(--text);font-weight:600;}
   .benefit-item .b-text small{display:block;color:var(--text-light);font-weight:400;font-size:0.78rem;margin-top:2px;}
+
+  /* 카톡/네이버 인앱 브라우저 안내 풀스크린 */
+  .inapp-overlay{position:fixed;inset:0;background:rgba(20,8,12,0.94);z-index:9999;display:none;align-items:center;justify-content:center;padding:24px;}
+  .inapp-overlay.show{display:flex;}
+  .inapp-card{background:#fff;border-radius:18px;padding:28px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+  .inapp-card h2{font-size:1.15rem;color:var(--primary);margin-bottom:8px;font-weight:900;}
+  .inapp-card .desc{font-size:0.88rem;color:var(--text);line-height:1.7;margin-bottom:18px;}
+  .inapp-step{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:0.84rem;line-height:1.6;text-align:left;}
+  .inapp-step b{color:var(--primary);}
+  .inapp-step .icon-inline{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#fff;border-radius:5px;border:1px solid var(--border);margin:0 3px;vertical-align:middle;font-size:0.95rem;}
+  .inapp-btn{background:var(--primary);color:#fff;border:none;padding:13px;border-radius:11px;width:100%;font-size:0.95rem;font-weight:800;cursor:pointer;font-family:inherit;margin-top:6px;}
+  .inapp-btn:hover{background:var(--primary-mid);}
+  .inapp-url{background:#fff;border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;margin-top:10px;font-size:0.82rem;font-family:monospace;color:var(--text-light);word-break:break-all;}
 </style>
 </head>
 <body>
+
+<!-- 카톡/네이버 인앱 브라우저 안내 -->
+<div class="inapp-overlay" id="inappOverlay">
+  <div class="inapp-card">
+    <h2>📱 사파리/크롬으로 열어주세요</h2>
+    <div class="desc">
+      지금 <b id="inappName">카카오톡</b> 안에서 열려있어서<br>
+      <b>앱 설치 기능을 사용할 수 없어요.</b>
+    </div>
+    <div class="inapp-step" id="iosStep" style="display:none;">
+      <b>아이폰:</b> 화면 우측 하단 <span class="icon-inline">↗</span> 또는 <span class="icon-inline">⋯</span> → <b>"Safari로 열기"</b>
+    </div>
+    <div class="inapp-step" id="androidStep" style="display:none;">
+      <b>안드로이드:</b> 화면 우측 상단 <span class="icon-inline">⋮</span> → <b>"다른 브라우저로 열기"</b> → <b>Chrome 선택</b>
+    </div>
+    <button class="inapp-btn" onclick="copyUrlToClipboard()">📋 주소 복사하기</button>
+    <div class="inapp-url" id="inappUrl"></div>
+    <div style="font-size:0.76rem;color:var(--text-light);margin-top:10px;line-height:1.6;">
+      복사 후 사파리/크롬에 붙여넣어도 됩니다
+    </div>
+  </div>
+</div>
 
 <div class="topbar">
   <span class="topbar-logo">K</span>
@@ -124,34 +159,6 @@
     <div class="note" style="margin-top:14px;">
       <b>⚠️ Safari에서만 가능</b><br>
       카톡·네이버 앱에서 이 페이지를 보고 계신다면 사파리로 다시 열어주세요.<br>
-      (우측 상단 점 3개 → "사파리로 열기")
-    </div>
-  </div>
-
-  <!-- Android 가이드 -->
-  <div class="card" id="androidGuide" style="display:none;">
-    <h2>🤖 안드로이드 설치 방법</h2>
-
-    <button class="install-cta" id="installCta">⚡ 한 번에 설치하기</button>
-
-    <div id="androidSteps">
-      <div class="step"><div class="step-num">1</div><div class="step-text">위 <b>"한 번에 설치하기"</b> 버튼이 보이면 한 번만 눌러주세요</div></div>
-      <div class="step"><div class="step-num">2</div><div class="step-text">버튼이 안 보이면:<br>오른쪽 위 <b>점 3개 메뉴 ⋮</b> → <b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b></div></div>
-      <div class="step"><div class="step-num">3</div><div class="step-text"><b>"설치"</b> 누르면 끝!</div></div>
-    </div>
-
-    <div class="note" style="margin-top:14px;">
-      <b>⚠️ Chrome에서만 가능</b><br>
-      카톡·네이버 앱이라면 점 3개 → "다른 브라우저로 열기" → Chrome 선택
-    </div>
-  </div>
-
-  <!-- 데스크탑 가이드 -->
-  <div class="card" id="desktopGuide" style="display:none;">
-    <h2>💻 데스크탑 설치</h2>
-    <div class="step"><div class="step-num">1</div><div class="step-text">Chrome·Edge에서 주소창 우측 <b>컴퓨터 아이콘 🖥️</b> 클릭</div></div>
-    <div class="step"><div class="step-num">2</div><div class="step-text"><b>"설치"</b> 누르면 데스크탑에 어플처럼 설치돼요</div></div>
-    <div class="note" style="margin-top:14px;">
       💡 <b>휴대폰으로 설치하시는 게 더 좋아요</b> — 위쪽 QR 코드를 휴대폰 카메라로 비추거나, <a href="https://kwmath.co.kr/install" style="color:var(--primary);font-weight:700;">kwmath.co.kr/install</a> 직접 입력
     </div>
   </div>
@@ -161,24 +168,25 @@
 
 <script>
   // ──── OS 자동 감지 + 토글 ────
-  const ua = navigator.userAgent;
-  const isIOS = /iPhone|iPad|iPod/i.test(ua) && !window.MSStream;
-  const isAndroid = /Android/i.test(ua);
-  let activeOs = isIOS ? 'ios' : (isAndroid ? 'android' : 'desktop');
+  var ua = navigator.userAgent;
+  var isIOS = /iPhone|iPad|iPod/i.test(ua) && !window.MSStream;
+  var isAndroid = /Android/i.test(ua);
 
   function showOs(os) {
-    activeOs = os;
-    document.querySelectorAll('.os-tab').forEach(t => {
-      t.classList.toggle('on', t.dataset.os === os);
-    });
+    var tabs = document.querySelectorAll('.os-tab');
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].dataset.os === os) tabs[i].classList.add('on');
+      else tabs[i].classList.remove('on');
+    }
     document.getElementById('iosGuide').style.display     = (os === 'ios')     ? 'block' : 'none';
     document.getElementById('androidGuide').style.display = (os === 'android') ? 'block' : 'none';
     document.getElementById('desktopGuide').style.display = (os === 'desktop') ? 'block' : 'none';
   }
-  document.querySelectorAll('.os-tab').forEach(t => {
-    t.addEventListener('click', () => showOs(t.dataset.os));
+  var initialOs = isIOS ? 'ios' : (isAndroid ? 'android' : 'desktop');
+  document.querySelectorAll('.os-tab').forEach(function(t) {
+    t.addEventListener('click', function() { showOs(t.dataset.os); });
   });
-  showOs(activeOs);
+  showOs(initialOs);
 
   // ──── 이미 설치된 경우 감지 ────
   function isInstalled() {
@@ -189,35 +197,70 @@
     document.getElementById('installedBox').classList.add('show');
   }
 
-  // ──── Service Worker 등록 (PWA 활성화) ────
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(console.error);
-  }
+  // ──── Service Worker 등록 ────
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
 
   // ──── Android 한 클릭 설치 (beforeinstallprompt 후킹) ────
-  let deferredPrompt = null;
-  window.addEventListener('beforeinstallprompt', (e) => {
+  var deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
     deferredPrompt = e;
     document.getElementById('installCta').classList.add('show');
   });
-  document.getElementById('installCta').addEventListener('click', async () => {
+  document.getElementById('installCta').addEventListener('click', async function() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
+    var choice = await deferredPrompt.userChoice;
     if (choice.outcome === 'accepted') {
-      // 설치 완료
-      setTimeout(() => {
+      setTimeout(function() {
         document.getElementById('installCta').classList.remove('show');
         document.getElementById('installedBox').classList.add('show');
-      }, 1000);
+      }, 800);
     }
     deferredPrompt = null;
   });
-  window.addEventListener('appinstalled', () => {
+  window.addEventListener('appinstalled', function() {
     document.getElementById('installCta').classList.remove('show');
     document.getElementById('installedBox').classList.add('show');
   });
+
+  // ──── 카톡/네이버/페북 등 인앱 브라우저 감지 ────
+  // 인앱 브라우저는 PWA 설치 기능 자체를 막아놨음 → 외부 브라우저로 열도록 안내
+  var inappRegex = /KAKAOTALK|NAVER|FBAN|FBAV|FB_IAB|Instagram|Line\//i;
+  if (inappRegex.test(ua)) {
+    var name = 'KAKAOTALK';
+    if (/KAKAOTALK/i.test(ua))         name = '카카오톡';
+    else if (/NAVER/i.test(ua))         name = '네이버 앱';
+    else if (/FBAN|FBAV|FB_IAB/i.test(ua)) name = '페이스북';
+    else if (/Instagram/i.test(ua))     name = '인스타그램';
+    else if (/Line\//i.test(ua))        name = '라인';
+    document.getElementById('inappName').textContent = name;
+    document.getElementById('inappUrl').textContent = location.href;
+    document.getElementById(isIOS ? 'iosStep' : 'androidStep').style.display = 'block';
+    document.getElementById('inappOverlay').classList.add('show');
+  }
+
+  function copyUrlToClipboard() {
+    var url = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function() {
+        alert('주소가 복사됐어요!\n사파리/크롬 주소창에 붙여넣어 주세요.');
+      }, function() {
+        fallbackCopy(url);
+      });
+    } else {
+      fallbackCopy(url);
+    }
+  }
+  function fallbackCopy(text) {
+    var t = document.createElement('textarea');
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    try { document.execCommand('copy'); alert('주소가 복사됐어요!\n사파리/크롬 주소창에 붙여넣어 주세요.'); }
+    catch (e) { alert('복사 실패. 주소창의 주소를 직접 복사해주세요.'); }
+    document.body.removeChild(t);
+  }
 </script>
 </body>
 </html>
