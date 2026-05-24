@@ -540,7 +540,6 @@
       navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));
     }
     const savedToken = localStorage.getItem(TOKEN_KEY);
-    const savedToken = localStorage.getItem(TOKEN_KEY);
     const savedPhone = localStorage.getItem(PHONE_KEY);
     if (!savedToken) { showLoginScreen(); return; }
     try {

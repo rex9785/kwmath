@@ -23,6 +23,11 @@ export async function onRequest({ request, env }) {
   if (!academy)
     return Response.json({ error: '수강 정보(학원/반)가 등록되어 있지 않습니다. 선생님께 문의해주세요.' }, { status: 404 });
 
+  // 표기 차이(공백·괄호 등) 흡수: 영문/숫자/한글만 남기고 비교
+  const norm = (s) => (s || '').toString().replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
+  const targetSchool = norm(academy);
+  const targetClass  = norm(className);
+
   try {
     // R2에서 해당 반의 영상 코드 목록 조회
     const listed = await env.BUCKET.list({ prefix: 'video-codes/' });
@@ -33,8 +38,8 @@ export async function onRequest({ request, env }) {
         const item = await env.BUCKET.get(obj.key);
         if (!item) continue;
         const data = await item.json();
-        const schoolMatch = data.school === academy;
-        const classMatch  = !className || data.class_name === className;
+        const schoolMatch = norm(data.school) === targetSchool;
+        const classMatch  = !targetClass || norm(data.class_name) === targetClass;
         if (schoolMatch && classMatch && data.active) {
           const locked = data.require_code === true;
           videos.push({

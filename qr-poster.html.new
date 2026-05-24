@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR 포스터 생성기 — 관우T 전용</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;padding:24px 16px;word-break:keep-all;}
+  .container{max-width:760px;margin:0 auto;background:#fff;border-radius:20px;padding:32px 28px;box-shadow:0 8px 30px rgba(139,26,53,0.10);border:1px solid var(--border);}
+  h1{font-size:1.4rem;color:var(--primary);margin-bottom:6px;}
+  .sub{color:var(--text-light);font-size:0.88rem;margin-bottom:28px;line-height:1.6;}
+  label{display:block;font-weight:700;font-size:0.85rem;margin:14px 0 6px;}
+  input[type=text],select{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:0.95rem;font-family:inherit;outline:none;}
+  input[type=text]:focus,select:focus{border-color:var(--primary);}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .preset{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;}
+  .preset button{background:var(--primary-light);color:var(--primary);border:1px solid #E8C4C7;padding:7px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .preset button:hover{background:#F4D8DC;}
+  .preset button.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .qr-wrap{margin-top:24px;text-align:center;padding:24px;background:var(--bg2);border-radius:14px;border:1px dashed var(--border);}
+  #qrCanvas{max-width:100%;height:auto;background:#fff;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.06);}
+  .qr-caption{margin-top:14px;font-size:0.84rem;color:var(--text-light);}
+  .btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;justify-content:center;}
+  .btn{background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.92rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+  .btn:hover{background:var(--primary-mid);}
+  .btn.alt{background:#fff;color:var(--primary);border:1.5px solid var(--primary);}
+  .info{background:var(--primary-light);border-left:3px solid var(--primary);padding:14px 16px;border-radius:8px;margin-top:18px;font-size:0.84rem;line-height:1.7;color:var(--text);}
+  .info b{color:var(--primary);}
+  .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:12px 22px;border-radius:12px;opacity:0;transition:opacity .25s;z-index:9999;font-size:0.88rem;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📱 QR 포스터 생성기</h1>
+  <div class="sub">학원 포스터·카톡 안내·등록 서류용 QR 코드. 만든 즉시 PNG로 다운로드 가능.</div>
+
+  <label>QR이 가리킬 URL</label>
+  <input type="text" id="qrUrl" value="https://kwmath.co.kr/install">
+  <div class="preset">
+    <button data-url="https://kwmath.co.kr/install" class="on">설치 안내 (추천)</button>
+    <button data-url="https://kwmath.co.kr/portal">포털 직접</button>
+    <button data-url="https://kwmath.co.kr/register">학생 등록</button>
+    <button data-url="https://kwmath.co.kr/">메인 홈피</button>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>사이즈 (px)</label>
+      <select id="qrSize">
+        <option value="256">256 — 카톡·작은 안내</option>
+        <option value="512" selected>512 — 일반 포스터</option>
+        <option value="1024">1024 — A4 인쇄</option>
+        <option value="2048">2048 — 대형 포스터</option>
+      </select>
+    </div>
+    <div>
+      <label>에러 정정 수준</label>
+      <select id="qrLevel">
+        <option value="L">L (낮음, 단순)</option>
+        <option value="M">M (보통)</option>
+        <option value="H" selected>H (높음, 로고 가려도 OK)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>가운데 로고</label>
+      <select id="qrLogo">
+        <option value="k-box" selected>K 박스 (브랜드 통일)</option>
+        <option value="logo">학원 로고 (세로로고.jpg)</option>
+        <option value="none">없음</option>
+      </select>
+    </div>
+    <div>
+      <label>로고 크기 (QR 대비 %)</label>
+      <select id="qrLogoScale">
+        <option value="0.14">14% (작게)</option>
+        <option value="0.18" selected>18% (권장)</option>
+        <option value="0.22">22% (크게)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="qr-wrap">
+    <canvas id="qrCanvas"></canvas>
+    <div class="qr-caption" id="qrCaption">↑ 우클릭 또는 길게 눌러서 저장하셔도 됩니다</div>
+    <div class="btn-row">
+      <button class="btn" onclick="downloadPng()">📥 PNG 다운로드</button>
+      <button class="btn alt" onclick="copyImage()">📋 이미지 복사 (카톡 붙여넣기용)</button>
+    </div>
+  </div>
+
+  <div class="info">
+    <b>운영 팁</b><br>
+    • 포스터 인쇄: 512~1024 사이즈, 최소 가로 4cm 이상으로 인쇄 권장<br>
+    • 카톡 공유: 256 사이즈로 충분, "이미지 복사" 누른 후 카톡 채팅창에 붙여넣기<br>
+    • 학생 등록 시 종이에: QR + 아래 한 줄 추가 — <i>"카메라 앱으로 QR을 비추세요"</i><br>
+    • iOS·안드로이드 기본 카메라 앱이 자동 인식 → 한 번 탭 → 설치 안내 페이지 열림
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script>
+  let qr;
+  const canvas = document.getElementById('qrCanvas');
+  // 학원 로고 이미지 미리 로드 (CORS 회피 위해 같은 origin이어야 함 → /세로로고.jpg)
+  let logoImg = null;
+  const _img = new Image();
+  _img.crossOrigin = 'anonymous';
+  _img.onload = () => { logoImg = _img; render(); };
+  _img.onerror = () => { logoImg = null; };
+  _img.src = '/세로로고.jpg';
+
+  function render() {
+    const url = document.getElementById('qrUrl').value.trim() || 'https://kwmath.co.kr/install';
+    const size = parseInt(document.getElementById('qrSize').value, 10);
+    const level = document.getElementById('qrLevel').value;
+    const logoMode = document.getElementById('qrLogo').value;
+    const logoScale = parseFloat(document.getElementById('qrLogoScale').value);
+
+    qr = new QRious({
+      element: canvas,
+      value: url,
+      size: size,
+      level: level,
+      background: '#ffffff',
+      foreground: '#8B1A35',
+      padding: Math.round(size * 0.06)
+    });
+
