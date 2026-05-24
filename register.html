@@ -283,8 +283,9 @@
 
   function formatPhone(el) {
     let v = el.value.replace(/[^0-9]/g, '').slice(0, 11);
-    if (v.length >= 7)      v = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
-    else if (v.length >= 4) v = v.slice(0,3) + '-' + v.slice(3);
+    // 8자리 이상일 때만 두 번째 하이픈 추가 (7자리에서 백스페이스로 지울 수 있게)
+    if (v.length > 7)       v = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
+    else if (v.length > 3)  v = v.slice(0,3) + '-' + v.slice(3);
     el.value = v;
   }
 
