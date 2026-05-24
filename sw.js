@@ -6,7 +6,7 @@
  * 버전 올릴 때: VERSION 문자열 숫자 +1 → 옛 캐시 자동 정리
  */
 
-const VERSION = 'kwmath-v4';
+const VERSION = 'kwmath-v5';
 const APP_SHELL = [
   '/portal',
   '/manifest.json',
@@ -42,6 +42,18 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+
+  // portal 페이지와 그 직접 리소스(API/manifest/icons/sw)만 sw가 개입
+  // 그 외(메인 index, report, video, materials 등)는 sw 미개입 → 항상 서버 직접
+  const swManaged =
+       url.pathname === '/portal'
+    || url.pathname.startsWith('/portal/')
+    || url.pathname === '/portal.html'
+    || url.pathname.startsWith('/api/')
+    || url.pathname === '/manifest.json'
+    || url.pathname === '/sw.js'
+    || url.pathname.startsWith('/icons/');
+  if (!swManaged) return; // 기본 브라우저 동작 (캐시 안 함)
 
   // API 호출은 network-first
   if (url.pathname.startsWith('/api/')) {
@@ -107,7 +119,6 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// 알림 클릭 - 이미 열린 portal 탭 있으면 focus, 없으면 새로 열기
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || '/portal';
