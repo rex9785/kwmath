@@ -6,7 +6,7 @@
  * 버전 올릴 때: VERSION 문자열 숫자 +1 → 옛 캐시 자동 정리
  */
 
-const VERSION = 'kwmath-v2';
+const VERSION = 'kwmath-v3';
 const APP_SHELL = [
   '/portal',
   '/manifest.json',
@@ -51,7 +51,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 그 외 정적 자원은 stale-while-revalidate
+  // HTML 페이지(portal, report, video 등)도 network-first — 항상 최신 코드 보장
+  //   같은 도메인의 navigate 요청 또는 .html 확장자, 또는 portal/report/video/materials 경로
+  const isHtmlPage = request.mode === 'navigate'
+    || url.pathname.endsWith('.html')
+    || ['/portal','/report','/video','/materials','/register','/admin','/'].includes(url.pathname);
+  if (isHtmlPage) {
+    event.respondWith(
+      fetch(request).then((res) => {
+        if (res && res.status === 200 && res.type === 'basic') {
+          const clone = res.clone();
+          caches.open(VERSION).then((cache) => cache.put(request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // 그 외 정적 자원(이미지·아이콘·manifest 등)은 stale-while-revalidate
   event.respondWith(
     caches.match(request).then((cached) => {
       const fresh = fetch(request)
@@ -81,7 +99,6 @@ self.addEventListener('push', (event) => {
       body: data.body,
       icon: '/icons/icon-192.png',
       badge: '/icons/favicon-32.png',
-      image: data.image,
       tag: data.tag || 'kwmath',
       data: { url: data.url || '/portal' },
       requireInteraction: false,
