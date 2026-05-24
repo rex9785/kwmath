@@ -6,7 +6,7 @@
 <title>이관우 수학연구소 어플 설치</title>
 
 <!-- PWA (install 페이지에서도 등록되면 그 자체가 설치 신호) -->
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="/manifest.json?v=2">
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -282,7 +282,6 @@
     var t = document.createElement('textarea');
     t.value = text;
     document.body.appendChild(t);
-    t.select();
     try { document.execCommand('copy'); alert('주소가 복사됐어요!\n사파리/크롬 주소창에 붙여넣어 주세요.'); }
     catch (e) { alert('복사 실패. 주소창의 주소를 직접 복사해주세요.'); }
     document.body.removeChild(t);
