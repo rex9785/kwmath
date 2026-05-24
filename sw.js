@@ -6,7 +6,7 @@
  * 버전 올릴 때: VERSION 문자열 숫자 +1 → 옛 캐시 자동 정리
  */
 
-const VERSION = 'kwmath-v3';
+const VERSION = 'kwmath-v4';
 const APP_SHELL = [
   '/portal',
   '/manifest.json',
