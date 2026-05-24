@@ -1,0 +1,33 @@
+name: Cloudflare Pages Deploy Trigger
+
+# main 브랜치에 push될 때마다 Cloudflare Deploy Hook을 직접 호출
+# → Cloudflare 자동 webhook이 누락돼도 무조건 빌드 트리거
+on:
+  push:
+    branches:
+      - main
+  # 수동 실행도 가능 (Actions 탭에서 "Run workflow" 버튼)
+  workflow_dispatch:
+
+jobs:
+  trigger-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare Pages deploy
+        run: |
+          if [ -z "${{ secrets.CF_DEPLOY_HOOK }}" ]; then
+            echo "❌ Secret CF_DEPLOY_HOOK이 설정되지 않았습니다."
+            echo "   GitHub → Settings → Secrets and variables → Actions에서 추가하세요."
+            exit 1
+          fi
+          echo "🚀 Cloudflare Pages 빌드 트리거 중..."
+          response=$(curl -s -o /tmp/response.txt -w "%{http_code}" -X POST "${{ secrets.CF_DEPLOY_HOOK }}")
+          echo "응답 코드: $response"
+          cat /tmp/response.txt
+          if [ "$response" != "200" ] && [ "$response" != "201" ]; then
+            echo ""
+            echo "❌ 배포 트리거 실패 (HTTP $response)"
+            exit 1
+          fi
+          echo ""
+          echo "✅ Cloudflare가 빌드를 시작했습니다. Pages → Deployments에서 진행 상황 확인하세요."
