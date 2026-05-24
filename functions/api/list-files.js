@@ -30,6 +30,13 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: '다른 학생의 자료에 접근할 수 없습니다.' }, { status: 403 });
       }
     }
+    // test-results/{이름}/ — 학생 본인 테스트 결과 PDF만 OK (매쓰플랫 보고서 등)
+    else if (folder.startsWith('test-results/')) {
+      const folderName = folder.slice('test-results/'.length).split('/')[0];
+      if (folderName !== student.name) {
+        return Response.json({ error: '다른 학생의 테스트 결과에 접근할 수 없습니다.' }, { status: 403 });
+      }
+    }
     // class/{학원}_{반}/ — 학생의 학원/반과 일치해야 OK
     else if (folder.startsWith('class/')) {
       const classKey = folder.slice('class/'.length).split('/')[0];

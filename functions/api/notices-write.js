@@ -24,6 +24,29 @@ export async function onRequest({ request, env }) {
       }}),
     });
     const data = await res.json();
+
+    // 푸쉬 broadcast (R2 push-subs/ 전체 사용자에게 발송, 비치명적)
+    try {
+      const listed = await env.BUCKET.list({ prefix: 'push-subs/', limit: 1000 });
+      const userIds = (listed.objects || [])
+        .map(obj => decodeURIComponent(obj.key.replace('push-subs/', '').replace('.json', '')))
+        .filter(Boolean);
+      if (userIds.length) {
+        await fetch(new URL('/api/push-send', request.url), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: env.ADMIN_PASSWORD,
+            userIds,
+            title: '📢 ' + (badge || '공지') + ' — ' + title,
+            body: (content || '').slice(0, 100) || '새 공지사항이 등록됐어요',
+            url: '/portal',
+            tag: 'notice-' + Date.now()
+          }),
+        });
+      }
+    } catch (e) { /* 무시 */ }
+
     return Response.json({ ok: true, id: data.id });
   }
 

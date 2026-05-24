@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>테스트 결과 | LKW math LAB</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.68rem;letter-spacing:-0.5px;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.26);}
+
+  .page{max-width:640px;margin:0 auto;padding:24px 18px 80px;}
+
+  .student-bar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .student-bar .info{font-size:0.92rem;font-weight:700;color:var(--text);}
+  .student-bar .info .meta{display:block;font-size:0.75rem;font-weight:500;color:var(--text-light);margin-top:2px;}
+  .student-bar select{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;outline:none;}
+
+  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:10px;text-transform:uppercase;}
+
+  .intro-card{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .intro-card h2{font-size:0.96rem;font-weight:800;color:var(--primary);margin-bottom:4px;}
+  .intro-card p{font-size:0.83rem;color:var(--text);line-height:1.6;}
+
+  .pdf-item{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:8px;gap:12px;}
+  .pdf-info{flex:1;min-width:0;}
+  .pdf-name{font-size:0.88rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;}
+  .pdf-meta{font-size:0.74rem;color:var(--text-light);margin-top:3px;}
+  .pdf-dl-btn{background:var(--primary);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;text-decoration:none;}
+  .pdf-dl-btn:hover{background:var(--primary-mid);}
+
+  .empty-state{background:#fff;border:1px dashed var(--border);border-radius:14px;padding:36px 18px;text-align:center;color:var(--text-light);font-size:0.88rem;line-height:1.7;}
+  .empty-state .icon{font-size:2rem;margin-bottom:10px;display:block;}
+  .empty-state b{color:var(--primary);}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.86rem;opacity:0;transition:opacity .25s;z-index:9999;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark">K</span>
+    <span>📊 테스트 결과</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+
+  <div id="loading" class="empty-state">불러오는 중...</div>
+
+  <div id="content" style="display:none;">
+    <div class="student-bar" id="studentBar">
+      <div class="info" id="studentInfo"></div>
+      <select id="childSelect" style="display:none;" onchange="onChildChange()"></select>
+    </div>
+
+    <div class="intro-card">
+      <h2>📊 학습 진단 결과</h2>
+      <p>매주·매월 진행한 테스트 결과(매쓰플랫 보고서, 모의고사·내신 등급)가 여기에 누적됩니다. 시간이 지나면서 성적이 어떻게 변하는지 한눈에 볼 수 있어요.</p>
+    </div>
+
+    <div class="section-label">📁 결과 보고서</div>
+    <div id="pdfList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const TOKEN_KEY = 'kwmath_portal_token';
+  const PHONE_KEY = 'kwmath_portal_phone';
+  let token = '';
+  try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+  if (!token) { location.replace('/portal?next=/test-results'); }
+
+  let students = [];
+  let selected = null;
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  async function loadMe() {
+    try {
+      const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+        location.replace('/portal?next=/test-results');
+        return;
+      }
+      students = Array.isArray(data.students) ? data.students : [];
+      if (!students.length) {
+        document.getElementById('loading').innerHTML = '<span class="icon">😕</span>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.';
+        return;
+      }
+      // 자녀 선택 (sessionStorage 우선)
+      let initIdx = 0;
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('kwmath_selected_student') || 'null');
+        if (saved && saved.name) {
+          const found = students.findIndex(s => s.name === saved.name);
+          if (found >= 0) initIdx = found;
+        }
+      } catch(e){}
+      renderStudentBar(initIdx);
+      selected = students[initIdx];
+      loadPdfs();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    } catch (e) {
+      document.getElementById('loading').innerHTML = '오류: ' + e.message;
+    }
+  }
+
+  function renderStudentBar(idx) {
+    const s = students[idx];
+    const role = s.role === 'student' ? '학생' : '학부모';
+    document.getElementById('studentInfo').innerHTML =
+      s.name + ' 학생' + (s.school ? ' <span class="meta">' + s.school + (s.grade ? ' · ' + s.grade : '') + (s.className ? ' / ' + s.className : '') + '</span>' : '');
+    const sel = document.getElementById('childSelect');
+    if (students.length > 1) {
+      sel.innerHTML = students.map((st, i) => '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + st.name + (st.className ? ' (' + st.className + ')' : '') + '</option>').join('');
+      sel.style.display = 'inline-block';
+    }
+  }
+
+  function onChildChange() {
+    const idx = parseInt(document.getElementById('childSelect').value, 10) || 0;
+    selected = students[idx];
+    sessionStorage.setItem('kwmath_selected_student', JSON.stringify(selected));
+    renderStudentBar(idx);
+    loadPdfs();
+  }
+
+  async function loadPdfs() {
+    const list = document.getElementById('pdfList');
+    list.innerHTML = '<div class="empty-state">불러오는 중...</div>';
+    try {
+      const folder = 'test-results/' + encodeURIComponent(selected.name);
+      const res = await fetch('/api/list-files?folder=' + folder + '&name=' + encodeURIComponent(selected.name), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + (data.error || '불러오기 실패') + '</div>';
+        return;
+      }
+      if (!Array.isArray(data) || data.length === 0) {
+        list.innerHTML = '<div class="empty-state"><span class="icon">📭</span>아직 등록된 <b>테스트 결과</b>가 없어요.<br><small>매쓰플랫 주간 보고서·모의고사 결과가 올라오면 여기에 자동 표시됩니다.</small></div>';
+        return;
+      }
+      // 날짜 최신순 정렬
+      data.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+      list.innerHTML = data.map(f => {
+        const date = f.lastModified ? new Date(f.lastModified).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }) : '';
+        const dlUrl = '/api/download-file?key=' + encodeURIComponent(f.key) + '&name=' + encodeURIComponent(selected.name);
+        return '<div class="pdf-item"><div class="pdf-info"><div class="pdf-name">' + f.displayName + '</div><div class="pdf-meta">' + date + ' · ' + f.sizeLabel + '</div></div><a class="pdf-dl-btn" href="' + dlUrl + '" target="_blank">📥 보기</a></div>';
+      }).join('');
+    } catch (e) {
+      list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + e.message + '</div>';
+    }
+  }
+
+  loadMe();
+
+  // SW 등록
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
+</script>
+</body>
+</html>

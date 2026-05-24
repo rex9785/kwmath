@@ -1,4 +1,27 @@
 const DB = '82ef896dcf844c5b9c36f7e0ff0a97f2';
+const STUDENTS_DB = '559465b73e2f4b76b7df441fd0058bfb';
+
+// 학생 이름으로 학부모 휴대폰 가져오기 (푸쉬 발송용)
+async function findParentPhone(env, studentName) {
+  if (!studentName) return null;
+  try {
+    const res = await fetch('https://api.notion.com/v1/databases/' + STUDENTS_DB + '/query', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + env.NOTION_TOKEN, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filter: { property: '이름', title: { equals: studentName } },
+        page_size: 1
+      }),
+    });
+    const data = await res.json();
+    if (!data.results || !data.results.length) return null;
+    const props = data.results[0].properties || {};
+    const phone = ((props['학부모 휴대폰']?.rich_text || [])[0]?.plain_text || '').trim();
+    return phone || null;
+  } catch (e) {
+    return null;
+  }
+}
 
 export async function onRequest({ request, env }) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
@@ -29,6 +52,26 @@ export async function onRequest({ request, env }) {
     });
     const data = await res.json();
     if (data.object === 'error') return Response.json({ error: data.message }, { status: 500 });
+
+    // 푸쉬 알림 발송 (비치명적 — 실패해도 리포트 생성은 성공으로 처리)
+    try {
+      const parentPhone = await findParentPhone(env, studentName);
+      if (parentPhone) {
+        await fetch(new URL('/api/push-send', request.url), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: env.ADMIN_PASSWORD,
+            userId: parentPhone,
+            title: '📋 새 수업 리포트가 올라왔어요',
+            body: studentName + ' 학생 — ' + date + ' 수업 내용을 확인해보세요',
+            url: '/portal?tab=report',
+            tag: 'report-' + studentName + '-' + date
+          }),
+        });
+      }
+    } catch (e) { /* 무시 */ }
+
     return Response.json({ ok: true, id: data.id });
   }
 

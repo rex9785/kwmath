@@ -133,7 +133,12 @@
       <a href="/report" class="feat-btn" data-feat="report">
         <span class="feat-icon">📋</span>
         <span class="feat-title">수업 리포트</span>
-        <span class="feat-desc">매주 학습 진단</span>
+        <span class="feat-desc">오늘 배운 내용·숙제</span>
+      </a>
+      <a href="/test-results" class="feat-btn" data-feat="test-results">
+        <span class="feat-icon">📊</span>
+        <span class="feat-title">테스트 결과</span>
+        <span class="feat-desc">점수·등급 진단 보고서</span>
       </a>
       <a href="/video" class="feat-btn" data-feat="video">
         <span class="feat-icon">🎥</span>
@@ -594,6 +599,16 @@
     });
   });
   window.addEventListener('appinstalled', () => {
+    const btn = $('installNowBtn');
+    const hint = $('installHint');
+    const fab = $('installFab');
+    if (btn) btn.style.display = 'none';
+    if (hint) hint.style.display = 'none';
+    if (fab) fab.classList.remove('show');
+  });
+</script>
+</body>
+</html>
     const btn = $('installNowBtn');
     const hint = $('installHint');
     const fab = $('installFab');
