@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>이관우 수학연구소 어플 설치</title>
+
+<!-- PWA (install 페이지에서도 등록되면 그 자체가 설치 신호) -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:8px;position:sticky;top:0;z-index:50;}
+  .topbar-logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.85rem;}
+  .topbar-title{font-size:1rem;font-weight:900;}
+
+  .page{max-width:480px;margin:0 auto;padding:28px 20px 80px;}
+  .hero{text-align:center;margin-bottom:28px;}
+  .hero-logo{display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;background:var(--primary);color:#fff;border-radius:20px;font-weight:900;font-size:2.2rem;margin-bottom:14px;box-shadow:0 8px 24px rgba(139,26,53,0.25);}
+  .hero h1{font-size:1.4rem;font-weight:900;margin-bottom:6px;}
+  .hero .pitch{color:var(--text-light);font-size:0.92rem;line-height:1.6;margin-top:4px;}
+
+  /* OS 토글 */
+  .os-tabs{display:flex;gap:6px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:18px;}
+  .os-tab{flex:1;background:none;border:none;padding:9px 8px;border-radius:9px;font-size:0.84rem;font-weight:700;color:var(--text-light);cursor:pointer;font-family:inherit;}
+  .os-tab.on{background:var(--primary);color:#fff;}
+
+  /* 카드 */
+  .card{background:#fff;border-radius:16px;padding:22px 20px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.05);margin-bottom:14px;}
+  .card h2{font-size:1rem;font-weight:900;color:var(--primary);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+
+  /* 스텝 */
+  .step{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);}
+  .step:last-child{border-bottom:none;}
+  .step-num{flex-shrink:0;width:30px;height:30px;background:var(--primary-light);color:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.92rem;}
+  .step-text{flex:1;font-size:0.9rem;line-height:1.55;color:var(--text);padding-top:4px;}
+  .step-text b{color:var(--primary);}
+  .step-text .icon-inline{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--bg2);border-radius:5px;border:1px solid var(--border);margin:0 3px;vertical-align:middle;font-size:1rem;}
+
+  /* Android 한 클릭 설치 버튼 */
+  .install-cta{display:none;background:var(--primary);color:#fff;border:none;width:100%;padding:18px;border-radius:14px;font-size:1.05rem;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:14px;box-shadow:0 6px 20px rgba(139,26,53,0.28);}
+  .install-cta:hover{background:var(--primary-mid);}
+  .install-cta.show{display:block;}
+
+  /* 안내 박스 */
+  .note{background:var(--primary-light);border-left:3px solid var(--primary);padding:12px 14px;border-radius:8px;font-size:0.83rem;line-height:1.6;color:var(--text);}
+  .note b{color:var(--primary);}
+
+  /* 완료 화면 (이미 설치된 경우) */
+  .installed{background:#E8F5E8;border:1px solid #98D898;color:#2A6B2A;padding:18px;border-radius:14px;text-align:center;margin-bottom:14px;display:none;}
+  .installed.show{display:block;}
+
+  /* 포털 이동 버튼 */
+  .go-portal{display:block;background:#fff;color:var(--primary);border:2px solid var(--primary);text-align:center;padding:14px;border-radius:12px;text-decoration:none;font-weight:800;font-size:0.95rem;margin-top:12px;}
+  .go-portal:hover{background:var(--primary-light);}
+
+  /* iOS 공유 버튼 화살표 애니메이션 */
+  .ios-arrow{display:flex;align-items:center;justify-content:center;gap:8px;background:#000;color:#fff;padding:18px;border-radius:14px;margin-top:12px;font-size:0.88rem;}
+  .arrow-share-icon{font-size:1.4rem;display:inline-block;animation:bounce 1.4s infinite;}
+  @keyframes bounce{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
+
+  /* benefit 리스트 */
+  .benefits{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:18px;}
+  .benefit-item{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:0.88rem;}
+  .benefit-item .b-icon{font-size:1.2rem;}
+  .benefit-item .b-text{color:var(--text);font-weight:600;}
+  .benefit-item .b-text small{display:block;color:var(--text-light);font-weight:400;font-size:0.78rem;margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo">K</span>
+  <span class="topbar-title">이관우 수학연구소</span>
+</div>
+
+<div class="page">
+  <div class="hero">
+    <div class="hero-logo">K</div>
+    <h1>📲 어플 설치</h1>
+    <div class="pitch">한 번만 설치하면 그 다음부터는<br>홈 화면 아이콘으로 바로 열 수 있어요</div>
+  </div>
+
+  <!-- 이미 설치된 경우 -->
+  <div class="installed" id="installedBox">
+    ✅ 이미 어플로 설치되어 있어요!<br>
+    <small style="color:#1a5a1a;">홈 화면의 빨강 K 아이콘으로 사용하세요</small>
+  </div>
+
+  <!-- 어플의 좋은 점 -->
+  <div class="benefits">
+    <div class="benefit-item"><span class="b-icon">🔔</span><div class="b-text">푸쉬 알림<small>새 리포트·영상 올라오면 바로 알려드려요</small></div></div>
+    <div class="benefit-item"><span class="b-icon">⚡</span><div class="b-text">빠른 접속<small>홈 화면 아이콘 누르면 바로 열림</small></div></div>
+    <div class="benefit-item"><span class="b-icon">🔐</span><div class="b-text">자동 로그인<small>한 번 로그인하면 30일 유지</small></div></div>
+  </div>
+
+  <!-- OS 자동 감지 + 토글 -->
+  <div class="os-tabs">
+    <button class="os-tab" data-os="ios">📱 iPhone</button>
+    <button class="os-tab" data-os="android">📱 Android</button>
+    <button class="os-tab" data-os="desktop">💻 PC</button>
+  </div>
+
+  <!-- iOS 가이드 -->
+  <div class="card" id="iosGuide" style="display:none;">
+    <h2>🍎 아이폰 설치 방법</h2>
+    <div class="step"><div class="step-num">1</div><div class="step-text">아래 <b>"공유 버튼"</b>을 누르세요<br><small style="color:var(--text-light);">화면 맨 아래쯤에 있는 <span class="icon-inline">⬆️</span> 모양</small></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">목록에서 <b>"홈 화면에 추가"</b> 선택</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">우측 상단 <b>"추가"</b> 누르면 끝!</div></div>
+
+    <div class="ios-arrow">
+      <span>지금 바로 ↓ 공유 버튼 누르세요</span>
+      <span class="arrow-share-icon">⬆️</span>
+    </div>
+
+    <div class="note" style="margin-top:14px;">
+      <b>⚠️ Safari에서만 가능</b><br>
+      카톡·네이버 앱에서 이 페이지를 보고 계신다면 사파리로 다시 열어주세요.<br>
+      (우측 상단 점 3개 → "사파리로 열기")
+    </div>
+  </div>
+
+  <!-- Android 가이드 -->
+  <div class="card" id="androidGuide" style="display:none;">
+    <h2>🤖 안드로이드 설치 방법</h2>
+
+    <button class="install-cta" id="installCta">⚡ 한 번에 설치하기</button>
+
+    <div id="androidSteps">
+      <div class="step"><div class="step-num">1</div><div class="step-text">위 <b>"한 번에 설치하기"</b> 버튼이 보이면 한 번만 눌러주세요</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">버튼이 안 보이면:<br>오른쪽 위 <b>점 3개 메뉴 ⋮</b> → <b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text"><b>"설치"</b> 누르면 끝!</div></div>
+    </div>
+
+    <div class="note" style="margin-top:14px;">
+      <b>⚠️ Chrome에서만 가능</b><br>
+      카톡·네이버 앱이라면 점 3개 → "다른 브라우저로 열기" → Chrome 선택
+    </div>
+  </div>
+
+  <!-- 데스크탑 가이드 -->
+  <div class="card" id="desktopGuide" style="display:none;">
+    <h2>💻 데스크탑 설치</h2>
+    <div class="step"><div class="step-num">1</div><div class="step-text">Chrome·Edge에서 주소창 우측 <b>컴퓨터 아이콘 🖥️</b> 클릭</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text"><b>"설치"</b> 누르면 데스크탑에 어플처럼 설치돼요</div></div>
+    <div class="note" style="margin-top:14px;">
+      💡 <b>휴대폰으로 설치하시는 게 더 좋아요</b> — 위쪽 QR 코드를 휴대폰 카메라로 비추거나, <a href="https://kwmath.co.kr/install" style="color:var(--primary);font-weight:700;">kwmath.co.kr/install</a> 직접 입력
+    </div>
+  </div>
+
+  <a href="/portal" class="go-portal">📋 그냥 웹으로 사용하기 (포털로 이동) →</a>
+</div>
+
+<script>
+  // ──── OS 자동 감지 + 토글 ────
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) && !window.MSStream;
+  const isAndroid = /Android/i.test(ua);
+  let activeOs = isIOS ? 'ios' : (isAndroid ? 'android' : 'desktop');
+
+  function showOs(os) {
+    activeOs = os;
+    document.querySelectorAll('.os-tab').forEach(t => {
+      t.classList.toggle('on', t.dataset.os === os);
+    });
+    document.getElementById('iosGuide').style.display     = (os === 'ios')     ? 'block' : 'none';
+    document.getElementById('androidGuide').style.display = (os === 'android') ? 'block' : 'none';
+    document.getElementById('desktopGuide').style.display = (os === 'desktop') ? 'block' : 'none';
+  }
+  document.querySelectorAll('.os-tab').forEach(t => {
+    t.addEventListener('click', () => showOs(t.dataset.os));
+  });
+  showOs(activeOs);
+
+  // ──── 이미 설치된 경우 감지 ────
+  function isInstalled() {
+    return window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+  }
+  if (isInstalled()) {
+    document.getElementById('installedBox').classList.add('show');
+  }
+
+  // ──── Service Worker 등록 (PWA 활성화) ────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(console.error);
+  }
+
+  // ──── Android 한 클릭 설치 (beforeinstallprompt 후킹) ────
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('installCta').classList.add('show');
+  });
+  document.getElementById('installCta').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if (choice.outcome === 'accepted') {
+      // 설치 완료
+      setTimeout(() => {
+        document.getElementById('installCta').classList.remove('show');
+        document.getElementById('installedBox').classList.add('show');
+      }, 1000);
+    }
+    deferredPrompt = null;
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('installCta').classList.remove('show');
+    document.getElementById('installedBox').classList.add('show');
+  });
+</script>
+</body>
+</html>

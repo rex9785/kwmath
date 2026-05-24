@@ -12,14 +12,16 @@ export async function onRequest({ request, env }) {
   const access = await requireStudentAccess(env, request);
   if (!access.ok) return access.response;
 
-  const { name, school, className } = {
-    name: access.student.name,
-    school: access.student.school,
-    className: access.student.className,
-  };
+  // ⚠️ 매칭 기준: 학생 DB의 "학원"(academy: 대치동 정규반/세정학원).
+  //   MathOS는 R2 video-codes/*.json 의 data.school 필드에 "학원" 이름을 저장하므로
+  //   학생의 academy(학원)와 R2의 data.school을 비교해야 함.
+  //   ※ 학생의 학교(school: "OO고등학교" 같은 텍스트)와 헷갈리지 말 것.
+  const name      = access.student.name;
+  const academy   = access.student.academy;
+  const className = access.student.className;
 
-  if (!school)
-    return Response.json({ error: '수강 정보가 등록되어 있지 않습니다. 선생님께 문의해주세요.' }, { status: 404 });
+  if (!academy)
+    return Response.json({ error: '수강 정보(학원/반)가 등록되어 있지 않습니다. 선생님께 문의해주세요.' }, { status: 404 });
 
   try {
     // R2에서 해당 반의 영상 코드 목록 조회
@@ -31,7 +33,7 @@ export async function onRequest({ request, env }) {
         const item = await env.BUCKET.get(obj.key);
         if (!item) continue;
         const data = await item.json();
-        const schoolMatch = data.school === school;
+        const schoolMatch = data.school === academy;
         const classMatch  = !className || data.class_name === className;
         if (schoolMatch && classMatch && data.active) {
           const locked = data.require_code === true;
@@ -78,7 +80,7 @@ export async function onRequest({ request, env }) {
     return Response.json({
       ok:         true,
       student:    name,
-      school,
+      school:     academy,   // 응답 키는 기존 호환성 위해 school 유지 (실제 값은 학원)
       class_name: className,
       videos:     videos.slice(0, 10),
     });
