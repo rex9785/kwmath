@@ -2,3 +2,10 @@ node_modules/
 .wrangler/
 dist/
 .env
+
+# 작업 중 백업·OneDrive 충돌 파일 (절대 push 금지)
+*.tmp
+*.tmp[0-9]
+*.bak
+*~
+.DS_Store
