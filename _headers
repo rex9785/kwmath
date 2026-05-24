@@ -1,56 +1,30 @@
 # Cloudflare Pages _headers
-# HTML 페이지는 항상 최신: no-store로 브라우저/CDN 캐시 모두 무효
-# 정적 자원(이미지·아이콘·manifest)은 짧게 캐시 + revalidate
+# HTML은 캐시는 OK + 매번 서버에 변경 여부 검증 (must-revalidate)
+# 정적 자원(이미지·아이콘·manifest)은 길게 캐시
+# sw.js는 항상 최신 (안 그러면 sw 자체가 옛 버전 계속 사용)
 
 /*
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 
-/
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Pragma: no-cache
-  Expires: 0
-
+# HTML 페이지 — 캐시는 저장하되 매번 변경 여부 체크 (변경 없으면 304, 빠름)
 /*.html
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Pragma: no-cache
-  Expires: 0
+  Cache-Control: public, max-age=0, must-revalidate
 
-/portal
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Pragma: no-cache
-  Expires: 0
-
-/report
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/video
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/materials
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/register
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/admin
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/class
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-# Service Worker도 항상 최신 (안 그러면 sw 자체가 옛 버전 계속 사용)
+# Service Worker — 항상 최신
 /sw.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Pragma: no-cache
 
+# manifest — 1시간
 /manifest.json
   Cache-Control: public, max-age=3600
 
-# 정적 자원
+# 아이콘·이미지 — 1일
 /icons/*
   Cache-Control: public, max-age=86400
 
-/functions/*
-  Cache-Control: no-store
+/*.png
+  Cache-Control: public, max-age=86400
+/*.jpg
+  Cache-Control: public, max-age=86400
