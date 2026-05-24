@@ -66,21 +66,16 @@
   .btn-cancel{background:#fff;color:var(--text-light);border:1.5px solid var(--border);padding:9px 16px;border-radius:9px;font-size:0.86rem;cursor:pointer;font-family:inherit;}
   .btn-primary{background:var(--primary);color:#fff;border:none;padding:9px 18px;border-radius:9px;font-size:0.86rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .btn-primary:hover{background:var(--primary-mid);}
-
-  /* ── 로그인 화면 우측 상단 작은 설치 FAB ── */
-  .install-fab{position:fixed;top:14px;right:14px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:50%;width:44px;height:44px;display:none;align-items:center;justify-content:center;text-decoration:none;font-size:1.15rem;box-shadow:0 4px 14px rgba(139,26,53,0.18);z-index:60;cursor:pointer;font-family:inherit;}
-  .install-fab.show{display:flex;}
-  .install-fab:hover{background:var(--primary-light);transform:scale(1.06);}
-  .install-fab .fab-tip{position:absolute;top:50px;right:0;background:#1a0a0f;color:#fff;font-size:0.74rem;font-weight:600;padding:6px 10px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;}
-  .install-fab:hover .fab-tip{opacity:1;}
+  /* install FAB (로그인 화면용) */
+  .install-fab{position:fixed;top:14px;right:14px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:22px;padding:9px 14px 9px 12px;display:none;align-items:center;gap:5px;text-decoration:none;font-size:0.82rem;font-weight:700;box-shadow:0 4px 14px rgba(139,26,53,0.18);z-index:60;cursor:pointer;font-family:inherit;letter-spacing:-0.2px;}
+  .install-fab.show{display:inline-flex;}
+  .install-fab:hover{background:var(--primary-light);transform:scale(1.04);}
+  .install-fab .fab-icon{font-size:1rem;line-height:1;}
 </style>
 </head>
 <body>
 
-<!-- 어플 설치 FAB (로그인 화면에서만 표시, 이미 설치된 경우 숨김) -->
-<a href="/install" class="install-fab" id="installFab" title="앱으로 설치">
-  📲<span class="fab-tip">앱으로 설치하기</span>
-</a>
+<a href="/install" class="install-fab" id="installFab" title="앱으로 설치"><span class="fab-icon">📲</span><span>앱 설치</span></a>
 
 <!-- ═══════════════════════════ 로그인 화면 ═══════════════════════════ -->
 <div id="loginScreen">
@@ -153,7 +148,7 @@
       <a href="/reviews" class="feat-btn" data-feat="reviews">
         <span class="feat-icon">📝</span>
         <span class="feat-title">수강 후기</span>
-        <span class="feat-desc">후기 작성·둘러보기</span>
+        <span class="feat-desc">한 줄 후기 작성·조회</span>
       </a>
       <a href="/" class="feat-btn" data-feat="home">
         <span class="feat-icon">🏠</span>
@@ -172,15 +167,13 @@
       </button>
     </div>
 
-    <!-- 어플 설치 안내 (이미 설치된 경우 자동 숨김) -->
-    <div id="installHint" style="background:linear-gradient(135deg,#FFF 0%,var(--primary-light) 100%);border:1.5px solid var(--primary);border-radius:14px;padding:18px 20px;display:none;">
-      <div style="font-weight:900;color:var(--primary);margin-bottom:6px;font-size:1rem;">📱 어플처럼 설치하기</div>
-      <div style="color:var(--text-light);font-size:0.84rem;line-height:1.6;margin-bottom:12px;">
-        한 번만 설치하면 홈 화면 아이콘으로 바로 열 수 있어요.<br>
-        푸쉬 알림도 받고, 인터넷 끊겨도 마지막에 본 페이지는 표시됩니다.
-      </div>
-      <button id="installNowBtn" style="display:none;width:100%;background:var(--primary);color:#fff;border:none;padding:13px;border-radius:10px;font-weight:800;font-size:0.95rem;margin-bottom:8px;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(139,26,53,0.22);">⚡ 한 번에 설치 (안드로이드)</button>
-      <a href="/install" style="display:block;background:#fff;color:var(--primary);text-align:center;padding:12px;border-radius:10px;text-decoration:none;font-weight:800;font-size:0.92rem;border:1.5px solid var(--primary);">상세 설치 가이드 →</a>
+    <!-- 어플 설치 안내 -->
+    <div id="installHint" style="background:#fff;border:1.5px dashed var(--primary);border-radius:14px;padding:18px 20px;font-size:0.84rem;color:var(--text);line-height:1.7;display:none;">
+      <div style="font-weight:800;color:var(--primary);margin-bottom:8px;">📱 어플처럼 사용하기</div>
+      <div style="color:var(--text-light);">
+        <b>iPhone (Safari)</b>: 하단 공유 버튼 → "홈 화면에 추가"<br>
+        <b>Android (Chrome)</b>: 우측 상단 메뉴 → "앱 설치" 또는 자동 배너 "설치"<br>
+        설치하면 홈화면 아이콘이 생기고 어플처럼 실행됩니다.
       </div>
     </div>
   </div>
@@ -249,9 +242,8 @@
 
   function formatPhone(el) {
     let v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 11);
-    // 8자리 이상일 때만 두 번째 하이픈 추가 (7자리에서 백스페이스로 지울 수 있게)
-    if (v.length > 7)       v = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
-    else if (v.length > 3)  v = v.slice(0,3) + '-' + v.slice(3);
+    if (v.length >= 7)      v = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
+    else if (v.length >= 4) v = v.slice(0,3) + '-' + v.slice(3);
     el.value = v;
   }
 
@@ -283,19 +275,16 @@
     const ph = $('loginPhone'); if (ph) ph.value = '';
     const pw = $('loginPw');    if (pw) { pw.value = ''; pw.type = 'password'; }
     const er = $('loginErr');   if (er) er.style.display = 'none';
-    // 어플로 설치된 경우(standalone) 아니면 FAB 표시
     const fab = $('installFab');
     if (fab) {
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-        || window.navigator.standalone === true;
-      fab.classList.toggle('show', !isStandalone);
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      fab.classList.toggle('show', !standalone);
     }
   }
   function showMainScreen() {
     $('loginScreen').style.display = 'none';
     $('mainScreen').style.display = 'block';
-    const fab = $('installFab');
-    if (fab) fab.classList.remove('show');
+    const fab = $('installFab'); if (fab) fab.classList.remove('show');
   }
 
   // ════════ 로그인 ════════
@@ -567,12 +556,12 @@
       const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-(PHONE_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(PHONE_KEY);
         showLoginScreen();
         return;
       }
       currentToken = savedToken;
-      currentPhone = data.phone || savedPhone || '';
       currentStudents = Array.isArray(data.students) ? data.students : [];
       enterMain(data.mustChangePassword);
     } catch (e) {
@@ -582,7 +571,7 @@
     }
   });
 
-  // ──── 안드로이드 한 클릭 설치 (beforeinstallprompt 후킹) ────
+  // ──── 안드로이드 한 클릭 설치 ────
   let deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();

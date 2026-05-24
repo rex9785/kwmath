@@ -137,8 +137,9 @@
 
 <script>
   // ─────────────── 인증 가드 ───────────────
-  const TOKEN_KEY = 'kwmath_token';
-  const PHONE_KEY = 'kwmath_phone';
+  // portal.html과 동일한 키 이름 사용 필수 (kwmath_portal_token / kwmath_portal_phone)
+  const TOKEN_KEY = 'kwmath_portal_token';
+  const PHONE_KEY = 'kwmath_portal_phone';
   let token = '';
   try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
   if (!token) { location.replace('/portal?next=/reviews'); }
@@ -293,13 +294,8 @@
     }
   }
 
-  // SW 등록
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));
-  }
-
-  // 초기 로드
-  loadBrowse();
+  // SW 등록 (한 줄로 처리 — 동기화 충돌로 if-블록 자꾸 깨져서 단축평가 방식)
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
 </script>
 </body>
 </html>
