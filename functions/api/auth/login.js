@@ -21,7 +21,7 @@ export async function onRequest({ request, env }) {
 
   // 계정 조회
   const account = await findAccountByPhone(env, phone);
-  if (!account) return jsonError('등록되지 않은 휴대폰 번호입니다. 학원에 문의해주세요.', 401);
+  if (!account) return jsonError('등록되지 않은 휴대폰 번호입니다. 관우T께 문의해주세요.', 401);
 
   // 비밀번호 검증
   const ok = await verifyPassword(password, account.hash, account.salt);

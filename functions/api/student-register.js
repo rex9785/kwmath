@@ -1,4 +1,7 @@
+import { normalizePhone, findAccountByPhone, createAccount } from './_auth.js';
+
 const DB = '559465b73e2f4b76b7df441fd0058bfb';
+const INITIAL_PASSWORD = '0000';
 
 function generateKey() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 문자 제외 (I, O, 0, 1)
@@ -46,7 +49,6 @@ export async function onRequest({ request, env }) {
   const daysArray  = Array.isArray(availableDays) ? availableDays : [];
   const personalKey = generateKey();
 
-  // 빈 select 값은 Notion이 에러 내므로 값이 있을 때만 추가
   const properties = {
     '이름': { title: [{ text: { content: name } }] },
     '학교': { rich_text: [{ text: { content: school || '' } }] },
@@ -83,5 +85,33 @@ export async function onRequest({ request, env }) {
   });
   const data = await res.json();
   if (data.object === 'error') return Response.json({ error: data.message || '학생 등록 실패' }, { status: 500 });
-  return Response.json({ ok: true, personalKey, id: data.id });
+
+  // ── 학부모/학생 휴대폰으로 계정 자동 생성 (초기 비번 0000, mustChangePassword=true) ──
+  //   이미 있는 휴대폰은 스킵. 실패해도 학생 등록 자체는 성공으로 반환
+  const accountResult = { created: [], skipped: [], failed: [] };
+  const phonesToCreate = [];
+  const normP = normalizePhone(parentPhone);
+  const normS = normalizePhone(studentPhone);
+  if (normP) phonesToCreate.push({ phone: normP, note: 'parent:' + name });
+  if (normS && normS !== normP) phonesToCreate.push({ phone: normS, note: 'student:' + name });
+
+  for (const item of phonesToCreate) {
+    try {
+      const existing = await findAccountByPhone(env, item.phone);
+      if (existing) { accountResult.skipped.push(item.phone); continue; }
+      const ret = await createAccount(env, item.phone, INITIAL_PASSWORD, true, item.note);
+      if (ret.ok) accountResult.created.push(item.phone);
+      else accountResult.failed.push(item.phone + ': ' + (ret.error || 'unknown'));
+    } catch (e) {
+      accountResult.failed.push(item.phone + ': ' + e.message);
+    }
+  }
+
+  return Response.json({
+    ok: true,
+    personalKey,
+    id: data.id,
+    account: accountResult,
+    initialPassword: INITIAL_PASSWORD,
+  });
 }
