@@ -66,9 +66,21 @@
   .btn-cancel{background:#fff;color:var(--text-light);border:1.5px solid var(--border);padding:9px 16px;border-radius:9px;font-size:0.86rem;cursor:pointer;font-family:inherit;}
   .btn-primary{background:var(--primary);color:#fff;border:none;padding:9px 18px;border-radius:9px;font-size:0.86rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .btn-primary:hover{background:var(--primary-mid);}
+
+  /* ── 로그인 화면 우측 상단 작은 설치 FAB ── */
+  .install-fab{position:fixed;top:14px;right:14px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:50%;width:44px;height:44px;display:none;align-items:center;justify-content:center;text-decoration:none;font-size:1.15rem;box-shadow:0 4px 14px rgba(139,26,53,0.18);z-index:60;cursor:pointer;font-family:inherit;}
+  .install-fab.show{display:flex;}
+  .install-fab:hover{background:var(--primary-light);transform:scale(1.06);}
+  .install-fab .fab-tip{position:absolute;top:50px;right:0;background:#1a0a0f;color:#fff;font-size:0.74rem;font-weight:600;padding:6px 10px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;}
+  .install-fab:hover .fab-tip{opacity:1;}
 </style>
 </head>
 <body>
+
+<!-- 어플 설치 FAB (로그인 화면에서만 표시, 이미 설치된 경우 숨김) -->
+<a href="/install" class="install-fab" id="installFab" title="앱으로 설치">
+  📲<span class="fab-tip">앱으로 설치하기</span>
+</a>
 
 <!-- ═══════════════════════════ 로그인 화면 ═══════════════════════════ -->
 <div id="loginScreen">
@@ -271,10 +283,19 @@
     const ph = $('loginPhone'); if (ph) ph.value = '';
     const pw = $('loginPw');    if (pw) { pw.value = ''; pw.type = 'password'; }
     const er = $('loginErr');   if (er) er.style.display = 'none';
+    // 어플로 설치된 경우(standalone) 아니면 FAB 표시
+    const fab = $('installFab');
+    if (fab) {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+      fab.classList.toggle('show', !isStandalone);
+    }
   }
   function showMainScreen() {
     $('loginScreen').style.display = 'none';
     $('mainScreen').style.display = 'block';
+    const fab = $('installFab');
+    if (fab) fab.classList.remove('show');
   }
 
   // ════════ 로그인 ════════
@@ -546,8 +567,7 @@
       const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(PHONE_KEY);
+(PHONE_KEY);
         showLoginScreen();
         return;
       }
@@ -587,8 +607,10 @@
   window.addEventListener('appinstalled', () => {
     const btn = $('installNowBtn');
     const hint = $('installHint');
+    const fab = $('installFab');
     if (btn) btn.style.display = 'none';
     if (hint) hint.style.display = 'none';
+    if (fab) fab.classList.remove('show');
   });
 </script>
 </body>
