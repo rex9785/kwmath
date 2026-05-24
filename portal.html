@@ -44,6 +44,11 @@
   .login-field label{display:block;font-size:0.76rem;font-weight:700;color:var(--text-light);margin-bottom:6px;letter-spacing:0.3px;}
   .login-field input{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:11px;font-size:1rem;font-family:inherit;outline:none;transition:border .2s;background:#fff;}
   .login-field input:focus{border-color:var(--primary);}
+  /* 비밀번호 보기 토글 (눈 아이콘) */
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:46px;}
+  .pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px 10px;color:var(--text-light);font-size:1.05rem;line-height:1;font-family:inherit;border-radius:6px;transition:background .15s;}
+  .pw-toggle:hover{background:var(--bg2);color:var(--primary);}
   .login-btn{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;border-radius:12px;font-size:0.97rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;margin-top:6px;}
   .login-btn:hover{background:var(--primary-mid);}
   .login-btn:disabled{opacity:.6;cursor:not-allowed;}
@@ -79,7 +84,10 @@
     </div>
     <div class="login-field">
       <label>비밀번호</label>
-      <input id="loginPw" type="password" placeholder="••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <div class="pw-wrap">
+        <input id="loginPw" type="password" placeholder="••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" class="pw-toggle" onclick="togglePwVisibility('loginPw', this)" title="비밀번호 보기">👁</button>
+      </div>
     </div>
     <button id="loginBtn" class="login-btn" onclick="doLogin()">로그인 →</button>
     <div class="login-err" id="loginErr"></div>
@@ -164,9 +172,15 @@
   <div class="modal-card">
     <h2 id="pwModalTitle">🔑 비밀번호 변경</h2>
     <div class="modal-sub" id="pwModalSub">새 비밀번호를 설정하세요. (4자 이상)</div>
-    <div class="login-field"><label>현재 비밀번호</label><input id="pwOld" type="password" autocomplete="current-password"></div>
-    <div class="login-field"><label>새 비밀번호</label><input id="pwNew" type="password" autocomplete="new-password"></div>
-    <div class="login-field"><label>새 비밀번호 확인</label><input id="pwNew2" type="password" autocomplete="new-password"></div>
+    <div class="login-field"><label>현재 비밀번호</label>
+      <div class="pw-wrap"><input id="pwOld" type="password" autocomplete="current-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwOld', this)">👁</button></div>
+    </div>
+    <div class="login-field"><label>새 비밀번호</label>
+      <div class="pw-wrap"><input id="pwNew" type="password" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwNew', this)">👁</button></div>
+    </div>
+    <div class="login-field"><label>새 비밀번호 확인</label>
+      <div class="pw-wrap"><input id="pwNew2" type="password" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwNew2', this)">👁</button></div>
+    </div>
     <div class="login-err" id="pwErr"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="pwCancelBtn" onclick="closePasswordModal()">취소</button>
@@ -228,10 +242,27 @@
     return null;
   }
 
+  // ════════ 비밀번호 보기 토글 ════════
+  function togglePwVisibility(inputId, btn) {
+    const inp = $(inputId);
+    if (!inp) return;
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      if (btn) { btn.textContent = '🙈'; btn.title = '비밀번호 숨기기'; }
+    } else {
+      inp.type = 'password';
+      if (btn) { btn.textContent = '👁'; btn.title = '비밀번호 보기'; }
+    }
+  }
+
   // ════════ 화면 전환 ════════
   function showLoginScreen() {
     $('loginScreen').style.display = 'flex';
     $('mainScreen').style.display = 'none';
+    // 로그인 화면 진입 시 입력값 명시적으로 비우기 (자동완성/이전 입력 잔존 방지)
+    const ph = $('loginPhone'); if (ph) ph.value = '';
+    const pw = $('loginPw');    if (pw) { pw.value = ''; pw.type = 'password'; }
+    const er = $('loginErr');   if (er) er.style.display = 'none';
   }
   function showMainScreen() {
     $('loginScreen').style.display = 'none';
@@ -492,23 +523,16 @@
 
   // ════════ 자동 로그인 복원 + PWA SW 등록 ════════
   window.addEventListener('DOMContentLoaded', async () => {
-    // Service Worker 등록 (PWA)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));
     }
-    // 토큰 복원
     const savedToken = localStorage.getItem(TOKEN_KEY);
     const savedPhone = localStorage.getItem(PHONE_KEY);
     if (!savedToken) { showLoginScreen(); return; }
-
-    // 토큰 유효성 검증 + 자녀 목록 갱신
     try {
-      const res = await fetch('/api/auth/me', {
-        headers: { 'Authorization': 'Bearer ' + savedToken },
-      });
+      const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        // 토큰 만료 → 정리
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(PHONE_KEY);
         showLoginScreen();
@@ -519,7 +543,6 @@
       currentStudents = Array.isArray(data.students) ? data.students : [];
       enterMain(data.mustChangePassword);
     } catch (e) {
-      // 네트워크 오류여도 토큰은 유지하고 메인으로 — 다음 API 호출 때 다시 처리
       currentToken = savedToken;
       currentPhone = savedPhone || '';
       showLoginScreen();
