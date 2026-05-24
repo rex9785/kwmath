@@ -3,387 +3,371 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>수업 리포트 열람 | LKW math LAB</title>
+<title>수업 리포트 | LKW math LAB</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{
-    --primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;
-    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F7;--border:#EDE0E1;
-  }
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
-  /* 상단 바 */
-  .topbar{background:var(--primary);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
-  .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
-  .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;transition:color .2s;}
-  .topbar-back:hover{color:#fff;}
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.82rem;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.26);}
 
-  /* 메인 */
-  .page-wrap{max-width:640px;margin:0 auto;padding:48px 5% 80px;}
+  .page{max-width:640px;margin:0 auto;padding:24px 18px 80px;}
 
-  /* 입력 카드 */
-  .input-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(134,38,51,0.08);margin-bottom:32px;}
-  .card-icon{font-size:2rem;margin-bottom:12px;}
-  .card-title{font-size:1.3rem;font-weight:900;margin-bottom:6px;}
-  .card-desc{font-size:0.87rem;color:var(--text-light);line-height:1.7;margin-bottom:28px;}
-  .input-group{display:flex;gap:10px;}
-  .phone-input{flex:1;padding:14px 18px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;font-family:inherit;outline:none;transition:border .2s;letter-spacing:4px;text-align:center;font-weight:700;}
-  .phone-input:focus{border-color:var(--primary);}
-  .search-btn{background:var(--primary);color:#fff;border:none;padding:14px 24px;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;white-space:nowrap;}
-  .search-btn:hover{background:var(--primary-mid);}
-  .input-hint{font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;}
+  .student-bar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .student-bar .info{font-size:0.92rem;font-weight:700;color:var(--text);}
+  .student-bar .info .meta{display:block;font-size:0.75rem;font-weight:500;color:var(--text-light);margin-top:2px;}
+  .student-bar select{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;outline:none;}
 
-  /* 리포트 영역 */
-  #resultArea{display:none;}
-  .result-header{margin-bottom:20px;}
-  .result-name{font-size:1.1rem;font-weight:900;margin-bottom:4px;}
-  .result-count{font-size:0.83rem;color:var(--text-light);}
+  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:10px;text-transform:uppercase;}
 
-  .report-card{background:#fff;border-radius:16px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(134,38,51,0.05);}
-  .report-card-header{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:filter .2s;gap:10px;}
-  .report-card-header:hover{filter:brightness(1.06);}
-  .report-card-date{font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;}
-  .report-card-school{font-size:0.75rem;opacity:0.85;}
-  .report-card-arrow{font-size:0.85rem;opacity:0.85;transition:transform .25s;display:inline-block;margin-left:4px;}
-  .report-card.open .report-card-arrow{transform:rotate(180deg);}
-  .report-card-body{padding:20px;display:none;}
-  .report-card.open .report-card-body{display:block;}
-  .new-badge{background:#fff;color:var(--primary);font-size:0.66rem;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:0.5px;line-height:1.4;}
-
-  /* 페이지네이션 */
-  .pagination{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:18px;flex-wrap:wrap;}
-  .page-btn{background:#fff;border:1.5px solid var(--border);color:var(--text);min-width:34px;height:34px;padding:0 10px;border-radius:8px;font-size:0.83rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
-  .page-btn:hover:not(:disabled){border-color:var(--primary);color:var(--primary);}
-  .page-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;}
-  .page-btn:disabled{opacity:0.4;cursor:not-allowed;}
-  .report-field{margin-bottom:14px;}
-  .report-field:last-child{margin-bottom:0;}
-  .report-label{font-size:0.72rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:5px;text-transform:uppercase;}
-  .report-val{font-size:0.9rem;line-height:1.7;color:var(--text);}
-  .hw-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.8rem;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:6px;}
-
-  /* PDF 섹션 */
   .pdf-item{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:8px;gap:12px;}
   .pdf-name{font-size:0.88rem;font-weight:600;color:var(--text);}
   .pdf-size{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
   .pdf-dl-btn{background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;}
   .pdf-dl-btn:hover{background:var(--primary-mid);}
-  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:12px;text-transform:uppercase;}
 
-  /* 빈/로딩 상태 */
-  .state-box{text-align:center;padding:40px 20px;color:var(--text-light);}
-  .state-box .state-icon{font-size:2.5rem;margin-bottom:12px;}
+  .report-card{background:#fff;border-radius:14px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .report-card-header{background:var(--primary);color:#fff;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;gap:10px;}
+  .report-card-header:hover{filter:brightness(1.06);}
+  .report-card-date{font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .report-card-school{font-size:0.75rem;opacity:0.85;}
+  .report-card-arrow{font-size:0.8rem;opacity:0.85;transition:transform .25s;display:inline-block;margin-left:4px;}
+  .report-card.open .report-card-arrow{transform:rotate(180deg);}
+  .report-card-body{padding:18px;display:none;}
+  .report-card.open .report-card-body{display:block;}
+  .report-field{margin-bottom:12px;}
+  .report-field:last-child{margin-bottom:0;}
+  .report-label{font-size:0.72rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:4px;text-transform:uppercase;}
+  .report-val{font-size:0.88rem;line-height:1.7;color:var(--text);}
+  .hw-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.78rem;font-weight:700;padding:2px 9px;border-radius:20px;margin-bottom:5px;}
+  .new-badge{background:#fff;color:var(--primary);font-size:0.66rem;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:0.5px;line-height:1.4;}
+
+  .pagination{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:18px;flex-wrap:wrap;}
+  .page-btn{background:#fff;border:1.5px solid var(--border);color:var(--text);min-width:34px;height:34px;padding:0 10px;border-radius:8px;font-size:0.83rem;font-weight:600;cursor:pointer;font-family:inherit;}
+  .page-btn:hover:not(:disabled){border-color:var(--primary);color:var(--primary);}
+  .page-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .page-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .state-box{text-align:center;padding:48px 24px;color:var(--text-light);}
+  .state-box .state-icon{font-size:2.4rem;margin-bottom:12px;}
   .state-box p{font-size:0.9rem;line-height:1.8;}
 
-  /* 에러 */
-  .err-msg{color:#c0392b;font-size:0.83rem;margin-top:8px;text-align:center;display:none;}
-
-  /* 카카오 버튼 */
-  .kakao-float{position:fixed;bottom:28px;right:24px;z-index:999;display:flex;flex-direction:column;align-items:center;gap:6px;}
-  .kakao-float a{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#FEE500;box-shadow:0 4px 16px rgba(0,0,0,0.18);transition:transform .2s;}
-  .kakao-float a:hover{transform:scale(1.08);}
-  .kakao-label{font-size:0.65rem;font-weight:700;color:#333;background:#fff;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
+  @media(max-width:480px){.student-bar{flex-direction:column;align-items:flex-start;}.student-bar select{width:100%;}}
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <a href="/" class="topbar-logo">📐 LKW math LAB</a>
-  <a href="/" class="topbar-back">← 홈페이지로</a>
+  <a href="/portal" class="topbar-title" style="text-decoration:none;color:#fff;">
+    <span class="logo-mark">K</span>
+    <span>📋 수업 리포트</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
 
-<div class="page-wrap">
-
-  <!-- 입력 카드 -->
-  <div class="input-card">
-    <div class="card-icon">📋</div>
-    <div class="card-title">수업 리포트 열람</div>
-    <div class="card-desc">
-      자녀의 이름과 학부모님 전화번호 끝 4자리를 입력하시면<br>
-      수업 리포트와 첨부 자료를 확인하실 수 있습니다.
+<div class="page">
+  <!-- 학생 정보 -->
+  <div class="student-bar">
+    <div class="info">
+      <span id="studentName">학생 정보 불러오는 중...</span>
+      <span class="meta" id="studentMeta"></span>
     </div>
-    <div class="input-group" style="flex-direction:column;gap:8px;">
-      <input class="phone-input" id="studentName" type="text" placeholder="자녀 이름 (예: 홍길동)"
-        style="letter-spacing:0;text-align:left;font-size:0.95rem;"
-        onkeydown="if(event.key==='Enter')searchReports()">
-      <div style="display:flex;gap:10px;">
-        <input class="phone-input" id="phone4" type="tel" maxlength="4" placeholder="전화번호 끝 4자리"
-          style="flex:1;" onkeydown="if(event.key==='Enter')searchReports()"
-          oninput="this.value=this.value.replace(/[^0-9]/g,'')">
-        <button class="search-btn" onclick="searchReports()">조회하기</button>
-      </div>
-    </div>
-    <div class="input-hint">※ 학부모님 전화번호 끝 4자리를 입력해주세요.</div>
-    <div class="err-msg" id="errMsg">이름 또는 전화번호가 일치하지 않습니다.</div>
+    <select id="childSelect" onchange="onChildChange()" style="display:none;"></select>
   </div>
 
   <!-- 결과 영역 -->
   <div id="resultArea">
-    <div class="result-header">
-      <div class="result-name" id="resultName"></div>
-      <div class="result-count" id="resultCount"></div>
-    </div>
-
-    <!-- PDF 첨부 자료 (개인) -->
-    <div id="pdfSection" style="display:none;margin-bottom:24px;">
-      <div class="section-label">📎 첨부 PDF 자료</div>
-      <div id="pdfList"></div>
-    </div>
-
-    <!-- 반 공통 자료 (그날 수업 자료) -->
-    <div id="classFilesSection" style="display:none;margin-bottom:24px;">
-      <div class="section-label">📁 오늘 수업 자료 (반 공통)</div>
-      <div id="classFileList"></div>
-    </div>
-
-    <!-- 수업 리포트 목록 -->
-    <div id="reportList"></div>
+    <div class="state-box"><div class="state-icon">⏳</div><p>리포트 불러오는 중...</p></div>
   </div>
 
-</div>
+  <!-- PDF 첨부 자료 -->
+  <div id="pdfSection" style="display:none;margin-bottom:24px;">
+    <div class="section-label">📎 첨부 PDF 자료</div>
+    <div id="pdfList"></div>
+  </div>
 
-<!-- 카카오 플로팅 -->
-<div class="kakao-float">
-  <a href="http://pf.kakao.com/_lIbJG" target="_blank" title="카카오채널 문의">
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="#3C1E1E">
-      <path d="M12 3C7.03 3 3 6.36 3 10.5c0 2.69 1.7 5.05 4.26 6.4L6.3 20.25c-.07.22.14.42.35.3L11.1 17.9c.3.03.6.05.9.05 4.97 0 9-3.36 9-7.45S16.97 3 12 3z"/>
-    </svg>
-  </a>
-  <span class="kakao-label">문의</span>
+  <!-- 반 공통 자료 -->
+  <div id="classFilesSection" style="display:none;margin-bottom:24px;">
+    <div class="section-label">📁 오늘 수업 자료 (반 공통)</div>
+    <div id="classFileList"></div>
+  </div>
+
+  <!-- 리포트 목록 -->
+  <div id="reportList"></div>
 </div>
 
 <script>
-let currentName = '';
-let currentPhone4 = '';
-let allReports = [];
-let currentPage = 1;
-const REPORTS_PER_PAGE = 5;
+  const TOKEN_KEY = 'kwmath_portal_token';
+  const SEL_KEY   = 'kwmath_selected_student';
+  const REPORTS_PER_PAGE = 5;
 
-function escapeHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  let currentToken = '';
+  let currentStudents = [];
+  let selectedStudent = null;
+  let allReports = [];
+  let currentPage = 1;
 
-function renderReportPage() {
-  const listEl = document.getElementById('reportList');
-  if (!allReports.length) { listEl.innerHTML = ''; return; }
-  const totalPages = Math.max(1, Math.ceil(allReports.length / REPORTS_PER_PAGE));
-  if (currentPage > totalPages) currentPage = totalPages;
-  if (currentPage < 1) currentPage = 1;
-  const start = (currentPage - 1) * REPORTS_PER_PAGE;
-  const pageItems = allReports.slice(start, start + REPORTS_PER_PAGE);
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-  const cardsHtml = pageItems.map((r, idxInPage) => {
-    const absoluteIdx = start + idxInPage;
-    const dateStr = r.date ? r.date.replace(/-/g, '.') : '';
-    // 가장 최근(첫 번째 = 최신) 1개만 NEW
-    const showNew = absoluteIdx === 0;
-    return `
-      <div class="report-card" id="rc-${absoluteIdx}">
-        <div class="report-card-header" onclick="toggleReport(${absoluteIdx})">
-          <div class="report-card-date">
-            ${showNew ? '<span class="new-badge">NEW</span>' : ''}
-            <span>${escapeHtml(dateStr)} · ${escapeHtml(r.title || '수업 리포트')}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="report-card-school">${escapeHtml(r.school || '')}</span>
-            <span class="report-card-arrow">▾</span>
-          </div>
-        </div>
-        <div class="report-card-body">
-          ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${escapeHtml(r.content).replace(/\n/g,'<br>')}</div></div>` : ''}
-          ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val"><span class="hw-badge">HW</span><br>${escapeHtml(r.homework).replace(/\n/g,'<br>')}</div></div>` : ''}
-          ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${escapeHtml(r.notes).replace(/\n/g,'<br>')}</div></div>` : ''}
-        </div>
-      </div>`;
-  }).join('');
+  function authHeaders() {
+    return { 'Authorization': 'Bearer ' + currentToken };
+  }
 
-  // 페이지네이션 (총 페이지 2 이상일 때만)
-  let pagerHtml = '';
-  if (totalPages > 1) {
-    const pageBtns = [];
-    for (let p = 1; p <= totalPages; p++) {
-      pageBtns.push(`<button class="page-btn${p===currentPage?' active':''}" onclick="gotoReportPage(${p})">${p}</button>`);
+  function redirectToPortal() {
+    window.location.replace('/portal');
+  }
+
+  function renderStudentBar() {
+    if (!selectedStudent) {
+      $('studentName').textContent = '학생 정보 없음';
+      $('studentMeta').textContent = '';
+      return;
     }
-    pagerHtml = `<div class="pagination">
-      <button class="page-btn" onclick="gotoReportPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>
-      ${pageBtns.join('')}
-      <button class="page-btn" onclick="gotoReportPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>
-    </div>`;
-  }
+    $('studentName').textContent = selectedStudent.name + ' 학생';
+    const parts = [selectedStudent.school, selectedStudent.grade, selectedStudent.academy, selectedStudent.className].filter(Boolean);
+    $('studentMeta').textContent = parts.join(' · ');
 
-  listEl.innerHTML = cardsHtml + pagerHtml;
-
-  // 현재 페이지의 첫 카드(=NEW 또는 페이지 최상단)는 기본으로 펼쳐서 보여줌
-  const firstCard = document.getElementById('rc-' + start);
-  if (firstCard) firstCard.classList.add('open');
-}
-
-function toggleReport(idx) {
-  const el = document.getElementById('rc-' + idx);
-  if (el) el.classList.toggle('open');
-}
-
-function gotoReportPage(p) {
-  currentPage = p;
-  renderReportPage();
-  // 부드러운 스크롤로 리스트 맨 위로
-  const top = document.getElementById('reportList');
-  if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-async function searchReports() {
-  const studentName = document.getElementById('studentName').value.trim();
-  const phone4      = document.getElementById('phone4').value.trim();
-  const errMsg      = document.getElementById('errMsg');
-  const resultArea  = document.getElementById('resultArea');
-  const reportList  = document.getElementById('reportList');
-  errMsg.style.display = 'none';
-  resultArea.style.display = 'none';
-
-  if (!studentName) {
-    errMsg.textContent = '자녀 이름을 입력해주세요.';
-    errMsg.style.display = 'block';
-    return;
-  }
-  if (!phone4 || phone4.length !== 4) {
-    errMsg.textContent = '전화번호 끝 4자리를 입력해주세요.';
-    errMsg.style.display = 'block';
-    return;
-  }
-
-  currentName   = studentName;
-  currentPhone4 = phone4;
-  reportList.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><p>리포트를 불러오는 중입니다...</p></div>`;
-  resultArea.style.display = 'block';
-
-  try {
-    const [reportRes, pdfRes] = await Promise.all([
-      fetch(`/api/reports?name=${encodeURIComponent(studentName)}&phone4=${phone4}`),
-      fetch(`/api/list-files?folder=reports/${encodeURIComponent(studentName)}&phone4=${phone4}`)
-    ]);
-
-    const reportData = await reportRes.json();
-    // 응답 구조: { student: {name,school,class_name}, reports: [...] } 또는 (이전 호환) 배열
-    const reports = Array.isArray(reportData) ? reportData : (reportData.reports || []);
-    const studentInfo = Array.isArray(reportData) ? null : reportData.student;
-    const pdfs = pdfRes.ok ? await pdfRes.json() : [];
-
-    // 반 공통 자료 조회 (학생의 학원/반이 있을 때만)
-    let classFiles = [];
-    if (studentInfo && studentInfo.school && studentInfo.class_name && reports.length > 0) {
-      try {
-        const folder = `class/${studentInfo.school}_${studentInfo.class_name}`;
-        const cfRes = await fetch(`/api/list-files?folder=${encodeURIComponent(folder)}&phone4=${phone4}`);
-        if (cfRes.ok) {
-          const allClassFiles = await cfRes.json();
-          // 가장 최근 리포트의 날짜와 일치하는 MMDD prefix 파일만 필터
-          const latestDate = reports[0].date || '';
-          const mmdd = latestDate ? latestDate.slice(5).replace('-', '') : '';
-          if (mmdd) {
-            classFiles = (allClassFiles || []).filter(f => {
-              const fname = (f.displayName || f.name || '').replace(/^\d+_/, '');
-              return fname.startsWith(mmdd + '_') || fname.startsWith(mmdd + '-');
-            });
-          }
-        }
-      } catch (_) { /* 무시 — 반 자료는 선택사항 */ }
-    }
-
-    // 반 공통 자료 섹션 렌더링
-    const classFilesSection = document.getElementById('classFilesSection');
-    const classFileList = document.getElementById('classFileList');
-    if (classFiles.length > 0) {
-      classFilesSection.style.display = 'block';
-      classFileList.innerHTML = classFiles.map(f => {
-        const sizeStr = f.sizeLabel || (f.size > 1024*1024
-          ? (f.size/1024/1024).toFixed(1) + ' MB'
-          : (f.size/1024).toFixed(0) + ' KB');
-        const displayName = (f.displayName || f.name || f.key.split('/').pop()).replace(/^\d{4}[_-]/, '');
-        return `<div class="pdf-item">
-          <div>
-            <div class="pdf-name">📁 ${displayName}</div>
-            <div class="pdf-size">${sizeStr}</div>
-          </div>
-          <button class="pdf-dl-btn" onclick="downloadPdf('${f.key}')">다운로드</button>
-        </div>`;
-      }).join('');
+    const sel = $('childSelect');
+    if (currentStudents.length > 1) {
+      sel.style.display = 'inline-block';
+      sel.innerHTML = currentStudents.map((s, i) =>
+        `<option value="${i}" ${s.name===selectedStudent.name?'selected':''}>${escapeHtml(s.name)}</option>`
+      ).join('');
     } else {
-      classFilesSection.style.display = 'none';
+      sel.style.display = 'none';
     }
+  }
 
-    // PDF 섹션 렌더링
-    const pdfSection = document.getElementById('pdfSection');
-    const pdfList = document.getElementById('pdfList');
-    if (pdfs.length > 0) {
-      pdfSection.style.display = 'block';
-      pdfList.innerHTML = pdfs.map(f => {
-        const sizeStr = f.sizeLabel || (f.size > 1024*1024
-          ? (f.size/1024/1024).toFixed(1) + ' MB'
-          : (f.size/1024).toFixed(0) + ' KB');
-        return `<div class="pdf-item">
-          <div>
-            <div class="pdf-name">📄 ${f.displayName || f.name || f.key.split('/').pop()}</div>
-            <div class="pdf-size">${sizeStr}</div>
-          </div>
-          <button class="pdf-dl-btn" onclick="downloadPdf('${f.key}')">다운로드</button>
-        </div>`;
-      }).join('');
-    } else {
-      pdfSection.style.display = 'none';
-    }
+  function onChildChange() {
+    const idx = parseInt($('childSelect').value, 10) || 0;
+    selectedStudent = currentStudents[idx];
+    sessionStorage.setItem(SEL_KEY, JSON.stringify(selectedStudent));
+    renderStudentBar();
+    loadReports();
+  }
 
-    // 리포트 목록 렌더링
-    if (!Array.isArray(reports) || reports.length === 0) {
-      document.getElementById('resultName').textContent = '';
-      document.getElementById('resultCount').textContent = '';
-      if (pdfs.length === 0) {
-        reportList.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><p>등록된 리포트가 없습니다.<br>코드를 다시 확인하거나 선생님께 문의해주세요.</p></div>`;
-      } else {
-        reportList.innerHTML = `<div class="state-box"><div class="state-icon">📎</div><p>첨부 자료만 등록되어 있습니다.<br>위에서 PDF를 확인하세요.</p></div>`;
+  // ─── 초기화: 토큰 확인 → 자녀 결정 → 데이터 로드 ───
+  async function init() {
+    currentToken = localStorage.getItem(TOKEN_KEY);
+    if (!currentToken) return redirectToPortal();
+
+    try {
+      const res = await fetch('/api/auth/me', { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        localStorage.removeItem(TOKEN_KEY);
+        return redirectToPortal();
       }
-      return;
+      currentStudents = Array.isArray(data.students) ? data.students : [];
+      if (!currentStudents.length) {
+        $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.</p></div>';
+        return;
+      }
+      // sessionStorage에서 선택된 자녀 (portal에서 골랐을 수도)
+      const saved = sessionStorage.getItem(SEL_KEY);
+      if (saved) {
+        try {
+          const sel = JSON.parse(saved);
+          selectedStudent = currentStudents.find(s => s.name === sel.name) || currentStudents[0];
+        } catch (_) { selectedStudent = currentStudents[0]; }
+      } else {
+        selectedStudent = currentStudents[0];
+      }
+      sessionStorage.setItem(SEL_KEY, JSON.stringify(selectedStudent));
+      renderStudentBar();
+      loadReports();
+    } catch (e) {
+      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>로그인 정보를 확인할 수 없습니다.</p></div>';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  // ─── 리포트 + PDF + 반 공통 자료 동시 fetch ───
+  async function loadReports() {
+    if (!selectedStudent) return;
+    const nameQ = encodeURIComponent(selectedStudent.name);
+    $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>리포트를 불러오는 중입니다...</p></div>';
+    $('pdfSection').style.display = 'none';
+    $('classFilesSection').style.display = 'none';
+
+    try {
+      const [rRes, pdfRes] = await Promise.all([
+        fetch('/api/reports?name=' + nameQ, { headers: authHeaders() }),
+        fetch('/api/list-files?folder=reports/' + nameQ + '&name=' + nameQ, { headers: authHeaders() }),
+      ]);
+      const rData = await rRes.json();
+      const reports = Array.isArray(rData) ? rData : (rData.reports || []);
+      const studentInfo = Array.isArray(rData) ? null : rData.student;
+      const pdfs = pdfRes.ok ? await pdfRes.json() : [];
+
+      // 반 공통 자료
+      let classFiles = [];
+      if (studentInfo && studentInfo.school && studentInfo.class_name && reports.length > 0) {
+        try {
+          const folder = 'class/' + studentInfo.school + '_' + studentInfo.class_name;
+          const cfRes = await fetch('/api/list-files?folder=' + encodeURIComponent(folder) + '&name=' + nameQ, { headers: authHeaders() });
+          if (cfRes.ok) {
+            const all = await cfRes.json();
+            const latestDate = reports[0].date || '';
+            const mmdd = latestDate ? latestDate.slice(5).replace('-', '') : '';
+            if (mmdd) {
+              classFiles = (all || []).filter(f => {
+                const fname = (f.displayName || f.name || '').replace(/^\d+_/, '');
+                return fname.startsWith(mmdd + '_') || fname.startsWith(mmdd + '-');
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
+      renderClassFiles(classFiles);
+      renderPdfs(pdfs);
+
+      $('resultArea').innerHTML = '';
+      if (!reports.length) {
+        if (pdfs.length === 0 && classFiles.length === 0) {
+          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon">📭</div><p>등록된 리포트가 없습니다.</p></div>';
+        } else {
+          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon">📎</div><p>첨부 자료만 등록되어 있습니다.<br>위 자료를 확인하세요.</p></div>';
+        }
+        return;
+      }
+      allReports = reports;
+      currentPage = 1;
+      renderReportPage();
+    } catch (e) {
+      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>리포트를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
+    }
+  }
+
+  function renderPdfs(pdfs) {
+    if (!pdfs.length) { $('pdfSection').style.display = 'none'; return; }
+    $('pdfSection').style.display = 'block';
+    $('pdfList').innerHTML = pdfs.map(f => {
+      const sizeStr = f.sizeLabel || (f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+' MB' : (f.size/1024).toFixed(0)+' KB');
+      const display = escapeHtml(f.displayName || f.name || f.key.split('/').pop());
+      return `<div class="pdf-item">
+        <div>
+          <div class="pdf-name">📄 ${display}</div>
+          <div class="pdf-size">${sizeStr}</div>
+        </div>
+        <button class="pdf-dl-btn" onclick="downloadFile('${escapeHtml(f.key)}')">다운로드</button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderClassFiles(files) {
+    if (!files.length) { $('classFilesSection').style.display = 'none'; return; }
+    $('classFilesSection').style.display = 'block';
+    $('classFileList').innerHTML = files.map(f => {
+      const sizeStr = f.sizeLabel || (f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+' MB' : (f.size/1024).toFixed(0)+' KB');
+      const display = escapeHtml((f.displayName || f.name || f.key.split('/').pop()).replace(/^\d{4}[_-]/, ''));
+      return `<div class="pdf-item">
+        <div>
+          <div class="pdf-name">📁 ${display}</div>
+          <div class="pdf-size">${sizeStr}</div>
+        </div>
+        <button class="pdf-dl-btn" onclick="downloadFile('${escapeHtml(f.key)}')">다운로드</button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderReportPage() {
+    const listEl = $('reportList');
+    if (!allReports.length) { listEl.innerHTML = ''; return; }
+    const totalPages = Math.max(1, Math.ceil(allReports.length / REPORTS_PER_PAGE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    const start = (currentPage - 1) * REPORTS_PER_PAGE;
+    const pageItems = allReports.slice(start, start + REPORTS_PER_PAGE);
+
+    const cardsHtml = pageItems.map((r, idxInPage) => {
+      const absoluteIdx = start + idxInPage;
+      const dateStr = r.date ? r.date.replace(/-/g, '.') : '';
+      const showNew = absoluteIdx === 0;
+      return `
+        <div class="report-card" id="rc-${absoluteIdx}">
+          <div class="report-card-header" onclick="toggleReport(${absoluteIdx})">
+            <div class="report-card-date">
+              ${showNew ? '<span class="new-badge">NEW</span>' : ''}
+              <span>${escapeHtml(dateStr)} · ${escapeHtml(r.title || '수업 리포트')}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="report-card-school">${escapeHtml(r.school || '')}</span>
+              <span class="report-card-arrow">▾</span>
+            </div>
+          </div>
+          <div class="report-card-body">
+            ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${escapeHtml(r.content).replace(/\n/g,'<br>')}</div></div>` : ''}
+            ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val"><span class="hw-badge">HW</span><br>${escapeHtml(r.homework).replace(/\n/g,'<br>')}</div></div>` : ''}
+            ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${escapeHtml(r.notes).replace(/\n/g,'<br>')}</div></div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    let pagerHtml = '';
+    if (totalPages > 1) {
+      const pageBtns = [];
+      for (let p = 1; p <= totalPages; p++) {
+        pageBtns.push(`<button class="page-btn${p===currentPage?' active':''}" onclick="gotoReportPage(${p})">${p}</button>`);
+      }
+      pagerHtml = `<div class="pagination">
+        <button class="page-btn" onclick="gotoReportPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>
+        ${pageBtns.join('')}
+        <button class="page-btn" onclick="gotoReportPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>
+      </div>`;
     }
 
-    const displayName = reports[0].studentName || '학생';
-    document.getElementById('resultName').textContent = `${displayName} 학부모님`;
-    document.getElementById('resultCount').textContent = `총 ${reports.length}개의 수업 리포트`;
+    listEl.innerHTML = cardsHtml + pagerHtml;
+    const firstCard = $('rc-' + start);
+    if (firstCard) firstCard.classList.add('open');
+  }
 
-    // reports는 최신순으로 정렬되어 옴 (reports.js sorts descending). 아코디언 + 5개씩 페이지네이션 렌더.
-    allReports = reports;
-    currentPage = 1;
+  function toggleReport(idx) {
+    const el = $('rc-' + idx);
+    if (el) el.classList.toggle('open');
+  }
+  function gotoReportPage(p) {
+    currentPage = p;
     renderReportPage();
-
-  } catch (e) {
-    reportList.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><p>리포트를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>`;
+    const top = $('reportList');
+    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-}
 
-async function downloadPdf(key) {
-  try {
-    const params = new URLSearchParams({
-      key: key,
-      name: currentName,
-      phone4: currentPhone4
-    });
-    const res = await fetch(`/api/download-file?${params}`);
-    if (!res.ok) {
-      let msg = '다운로드 실패 (' + res.status + ')';
-      try { const err = await res.json(); if (err.error) msg = err.error; } catch (_) {}
-      alert(msg);
-      return;
+  // ─── 파일 다운로드 (토큰 + 학생 이름 query) ───
+  async function downloadFile(key) {
+    try {
+      const params = new URLSearchParams({ key, name: selectedStudent.name });
+      const res = await fetch('/api/download-file?' + params, { headers: authHeaders() });
+      if (!res.ok) {
+        let msg = '다운로드 실패 (' + res.status + ')';
+        try { const err = await res.json(); if (err.error) msg = err.error; } catch (_) {}
+        alert(msg);
+        return;
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = key.split('/').pop();
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      alert('다운로드 중 오류: ' + e.message);
     }
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = key.split('/').pop();
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-  } catch (e) {
-    alert('다운로드 중 오류: ' + e.message);
   }
-}
 </script>
 </body>
 </html>

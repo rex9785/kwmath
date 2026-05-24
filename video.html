@@ -3,239 +3,204 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>수업 영상 열람 | LKW math LAB</title>
+<title>수업 영상 | LKW math LAB</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{
-    --primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;
-    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F7;--border:#EDE0E1;
-  }
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
-  .topbar{background:var(--primary);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
-  .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
-  .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;transition:color .2s;}
-  .topbar-back:hover{color:#fff;}
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.82rem;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.26);}
 
-  .page-wrap{max-width:600px;margin:0 auto;padding:48px 5% 80px;}
+  .page{max-width:640px;margin:0 auto;padding:24px 18px 80px;}
 
-  .input-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(134,38,51,0.08);margin-bottom:24px;}
-  .card-icon{font-size:2rem;margin-bottom:12px;}
-  .card-title{font-size:1.3rem;font-weight:900;margin-bottom:8px;color:var(--primary);}
-  .card-desc{font-size:0.87rem;color:var(--text-light);line-height:1.7;margin-bottom:24px;}
+  .student-bar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .student-bar .info{font-size:0.92rem;font-weight:700;color:var(--text);}
+  .student-bar .info .meta{display:block;font-size:0.75rem;font-weight:500;color:var(--text-light);margin-top:2px;}
+  .student-bar select{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;outline:none;}
 
-  .field-wrap{display:flex;flex-direction:column;gap:10px;margin-bottom:10px;}
-  .text-input{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:0.95rem;font-family:inherit;outline:none;transition:border .2s;}
-  .text-input:focus{border-color:var(--primary);}
-
-  .phone-row{display:flex;gap:10px;}
-  .phone-input{flex:1;padding:14px 18px;border:1.5px solid var(--border);border-radius:12px;font-size:1rem;font-family:inherit;outline:none;transition:border .2s;letter-spacing:4px;text-align:center;font-weight:700;}
-  .phone-input:focus{border-color:var(--primary);}
-  .search-btn{background:var(--primary);color:#fff;border:none;padding:14px 24px;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;white-space:nowrap;}
-  .search-btn:hover{background:var(--primary-mid);}
-  .input-hint{font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;}
-  .err-msg{color:#c0392b;font-size:0.83rem;margin-top:10px;text-align:center;display:none;}
-
-  /* 결과 영역 */
-  #resultArea{display:none;}
-  .result-header{margin-bottom:16px;}
-  .result-name{font-size:1rem;font-weight:900;color:var(--primary);}
-  .result-sub{font-size:0.82rem;color:var(--text-light);margin-top:2px;}
-
-  /* 영상 카드 */
-  .video-card{background:#fff;border-radius:16px;border:1px solid var(--border);margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(134,38,51,0.05);}
-  .video-card-header{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+  .video-card{background:#fff;border-radius:14px;border:1px solid var(--border);margin-bottom:12px;overflow:hidden;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .video-card-header{background:var(--primary);color:#fff;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;}
   .video-card-date{font-size:0.88rem;font-weight:700;}
-  .video-card-class{font-size:0.75rem;opacity:.8;}
-  .video-card-body{padding:18px 20px;}
+  .video-card-class{font-size:0.74rem;opacity:0.85;}
+  .video-card-body{padding:18px;}
   .video-title{font-size:0.88rem;font-weight:600;color:var(--text);margin-bottom:14px;line-height:1.5;}
 
-  .watch-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:var(--primary);color:#fff;text-decoration:none;border-radius:12px;padding:15px;font-size:0.95rem;font-weight:900;transition:background .2s;}
+  .watch-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:var(--primary);color:#fff;text-decoration:none;border-radius:11px;padding:14px;font-size:0.95rem;font-weight:900;transition:background .15s;border:none;cursor:pointer;font-family:inherit;}
   .watch-btn:hover{background:var(--primary-mid);}
-  .play-circle{width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .watch-btn.locked{background:#666;}
+  .watch-btn.locked:hover{background:#444;}
+  .play-circle{width:30px;height:30px;background:rgba(255,255,255,0.22);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .play-circle svg{fill:#fff;margin-left:2px;}
-  .access-note{font-size:0.75rem;color:var(--text-light);text-align:center;margin-top:10px;line-height:1.7;}
+  .access-note{font-size:0.74rem;color:var(--text-light);text-align:center;margin-top:10px;line-height:1.7;}
+  .latest-badge{background:rgba(255,255,255,0.25);font-size:0.7rem;padding:2px 8px;border-radius:10px;margin-left:6px;}
 
-  .kakao-float{position:fixed;bottom:28px;right:24px;z-index:999;display:flex;flex-direction:column;align-items:center;gap:6px;}
-  .kakao-float a{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#FEE500;box-shadow:0 4px 16px rgba(0,0,0,0.18);transition:transform .2s;}
-  .kakao-float a:hover{transform:scale(1.08);}
-  .kakao-label{font-size:0.65rem;font-weight:700;color:#333;background:#fff;padding:2px 8px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
-
-  .state-box{text-align:center;padding:30px 20px;color:var(--text-light);}
-  .state-box .state-icon{font-size:2.2rem;margin-bottom:10px;}
+  .state-box{text-align:center;padding:48px 24px;color:var(--text-light);}
+  .state-box .state-icon{font-size:2.4rem;margin-bottom:12px;}
+  .state-box p{font-size:0.9rem;line-height:1.8;}
+  @media(max-width:480px){.student-bar{flex-direction:column;align-items:flex-start;}.student-bar select{width:100%;}}
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <a href="/" class="topbar-logo">📐 LKW math LAB</a>
-  <a href="/" class="topbar-back">← 홈페이지로</a>
-</div>
-
-<div class="page-wrap">
-
-  <div class="input-card">
-    <div class="card-icon">🎬</div>
-    <div class="card-title">수업 영상 열람</div>
-    <div class="card-desc">
-      자녀 이름과 학부모님 전화번호 끝 4자리를 입력하시면<br>
-      수업 영상을 확인하실 수 있습니다.
-    </div>
-
-    <div class="field-wrap">
-      <input class="text-input" id="studentName" type="text"
-        placeholder="자녀 이름 (예: 홍길동)"
-        onkeydown="if(event.key==='Enter')searchVideos()">
-      <div class="phone-row">
-        <input class="phone-input" id="phone4" type="tel"
-          maxlength="4" placeholder="전화번호 끝 4자리"
-          onkeydown="if(event.key==='Enter')searchVideos()"
-          oninput="this.value=this.value.replace(/[^0-9]/g,'')">
-        <button class="search-btn" onclick="searchVideos()">조회하기</button>
-      </div>
-    </div>
-    <div class="input-hint">※ 학부모님 전화번호 끝 4자리를 입력해주세요.</div>
-    <div class="err-msg" id="errMsg"></div>
-  </div>
-
-  <!-- 결과 -->
-  <div id="resultArea">
-    <div class="result-header">
-      <div class="result-name" id="resultName"></div>
-      <div class="result-sub" id="resultSub"></div>
-    </div>
-    <div id="videoList"></div>
-  </div>
-
-</div>
-
-<div class="kakao-float">
-  <a href="http://pf.kakao.com/_lIbJG" target="_blank" title="카카오채널 문의">
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="#3C1E1E">
-      <path d="M12 3C7.03 3 3 6.36 3 10.5c0 2.69 1.7 5.05 4.26 6.4L6.3 20.25c-.07.22.14.42.35.3L11.1 17.9c.3.03.6.05.9.05 4.97 0 9-3.36 9-7.45S16.97 3 12 3z"/>
-    </svg>
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark">K</span>
+    <span>🎥 수업 영상</span>
   </a>
-  <span class="kakao-label">문의</span>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+  <div class="student-bar">
+    <div class="info">
+      <span id="studentName">학생 정보 불러오는 중...</span>
+      <span class="meta" id="studentMeta"></span>
+    </div>
+    <select id="childSelect" onchange="onChildChange()" style="display:none;"></select>
+  </div>
+
+  <div id="videoList">
+    <div class="state-box"><div class="state-icon">⏳</div><p>영상 불러오는 중...</p></div>
+  </div>
 </div>
 
 <script>
-async function searchVideos() {
-  const name   = document.getElementById('studentName').value.trim();
-  const phone4 = document.getElementById('phone4').value.trim();
-  const errMsg = document.getElementById('errMsg');
-  const resultArea = document.getElementById('resultArea');
-  const videoList  = document.getElementById('videoList');
+  const TOKEN_KEY = 'kwmath_portal_token';
+  const SEL_KEY   = 'kwmath_selected_student';
+  let currentToken = '';
+  let currentStudents = [];
+  let selectedStudent = null;
 
-  errMsg.style.display = 'none';
-  resultArea.style.display = 'none';
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function authHeaders(){ return { 'Authorization': 'Bearer ' + currentToken }; }
+  function redirectToPortal(){ window.location.replace('/portal'); }
 
-  if (!name) { showErr('자녀 이름을 입력해주세요.'); return; }
-  if (!phone4 || phone4.length !== 4) { showErr('전화번호 끝 4자리를 입력해주세요.'); return; }
-
-  videoList.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><p>영상을 불러오는 중입니다...</p></div>`;
-  resultArea.style.display = 'block';
-
-  try {
-    const res  = await fetch(`/api/class-videos?name=${encodeURIComponent(name)}&phone4=${phone4}`);
-    const data = await res.json();
-
-    if (!res.ok || !data.ok) {
-      resultArea.style.display = 'none';
-      showErr(data.error || '인증에 실패했습니다. 다시 확인해주세요.');
-      return;
-    }
-
-    document.getElementById('resultName').textContent = `${data.student} 학생`;
-    document.getElementById('resultSub').textContent  = `${data.school} · ${data.class_name} · 총 ${data.videos.length}개 수업 영상`;
-
-    if (!data.videos.length) {
-      videoList.innerHTML = `<div class="state-box"><div class="state-icon">📭</div><p>등록된 수업 영상이 없습니다.</p></div>`;
-      return;
-    }
-
-    videoList.innerHTML = data.videos.map((v, i) => {
-      const dateStr = v.date ? v.date.replace(/-/g, '.') : '';
-      const latestBadge = i === 0 ? ' <span style="background:rgba(255,255,255,0.25);font-size:0.7rem;padding:2px 8px;border-radius:10px;margin-left:6px;">최신</span>' : '';
-      const playButton = v.locked
-        ? `<button class="watch-btn" style="background:#888;cursor:pointer;border:none;font-family:inherit;width:100%;" onclick="unlockVideo('${v.code}', '${name}')">
-             <div class="play-circle">🔒</div>
-             수업코드 입력 후 시청 →
-           </button>`
-        : `<a href="${v.youtube_url}" target="_blank" class="watch-btn" onclick="logView('${v.code}', '${name}')">
-             <div class="play-circle">
-               <svg width="14" height="14" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-             </div>
-             수업 영상 시청하기 →
-           </a>`;
-      const note = v.locked
-        ? '<div class="access-note">🔒 이 영상은 선생님이 알려준 수업코드가 필요합니다.</div>'
-        : '<div class="access-note">영상 시청 기록이 선생님께 전달됩니다.</div>';
-      return `
-      <div class="video-card">
-        <div class="video-card-header">
-          <div class="video-card-date">${dateStr} 수업${latestBadge}</div>
-          <div class="video-card-class">${v.school || ''} ${v.class_name || ''}</div>
-        </div>
-        <div class="video-card-body">
-          <div class="video-title">${v.title || '수업 영상'}</div>
-          ${playButton}
-          ${note}
-        </div>
-      </div>`;
-    }).join('');
-
-  } catch(e) {
-    videoList.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><p>불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p></div>`;
+  function renderStudentBar(){
+    if (!selectedStudent){ $('studentName').textContent='학생 정보 없음'; return; }
+    $('studentName').textContent = selectedStudent.name + ' 학생';
+    const parts = [selectedStudent.school, selectedStudent.grade, selectedStudent.academy, selectedStudent.className].filter(Boolean);
+    $('studentMeta').textContent = parts.join(' · ');
+    const sel = $('childSelect');
+    if (currentStudents.length > 1) {
+      sel.style.display = 'inline-block';
+      sel.innerHTML = currentStudents.map((s, i) =>
+        `<option value="${i}" ${s.name===selectedStudent.name?'selected':''}>${escapeHtml(s.name)}</option>`
+      ).join('');
+    } else { sel.style.display = 'none'; }
   }
-}
 
-// 영상 클릭 시 추가 접근 로그 (조회 API에서 이미 기록하지만, 실제 클릭도 별도 기록)
-async function logView(code, name) {
-  if (!code) return;
-  try {
-    await fetch('/api/video-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, name })
-    });
-  } catch { /* 무시 */ }
-}
-
-// 잠긴 영상 — 코드 입력 후 열람
-async function unlockVideo(expectedCode, studentName) {
-  const input = prompt('선생님께 받은 수업코드를 입력해주세요\n(예: S2-0520-A7)');
-  if (!input) return;
-  const code = input.trim().toUpperCase();
-  if (code !== (expectedCode || '').toUpperCase()) {
-    alert('수업코드가 일치하지 않습니다. 다시 확인해주세요.');
-    return;
+  function onChildChange(){
+    const idx = parseInt($('childSelect').value, 10) || 0;
+    selectedStudent = currentStudents[idx];
+    sessionStorage.setItem(SEL_KEY, JSON.stringify(selectedStudent));
+    renderStudentBar();
+    loadVideos();
   }
-  try {
-    const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
-    const data = await res.json();
-    if (!res.ok || !data.youtube_url) {
-      alert('영상을 불러오지 못했습니다: ' + (data.error || res.status));
-      return;
+
+  async function init(){
+    currentToken = localStorage.getItem(TOKEN_KEY);
+    if (!currentToken) return redirectToPortal();
+    try {
+      const res = await fetch('/api/auth/me', { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { localStorage.removeItem(TOKEN_KEY); return redirectToPortal(); }
+      currentStudents = Array.isArray(data.students) ? data.students : [];
+      if (!currentStudents.length) {
+        $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.</p></div>';
+        return;
+      }
+      const saved = sessionStorage.getItem(SEL_KEY);
+      if (saved) {
+        try {
+          const sel = JSON.parse(saved);
+          selectedStudent = currentStudents.find(s => s.name === sel.name) || currentStudents[0];
+        } catch (_) { selectedStudent = currentStudents[0]; }
+      } else { selectedStudent = currentStudents[0]; }
+      sessionStorage.setItem(SEL_KEY, JSON.stringify(selectedStudent));
+      renderStudentBar();
+      loadVideos();
+    } catch (e) {
+      $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>로그인 정보를 확인할 수 없습니다.</p></div>';
     }
-    // 접근 로그
-    fetch('/api/video-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, name: studentName })
-    }).catch(() => {});
-    // 새 창에서 열기
-    window.open(data.youtube_url, '_blank');
-  } catch (e) {
-    alert('오류: ' + e.message);
   }
-}
 
-function showErr(msg) {
-  const el = document.getElementById('errMsg');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
+  async function loadVideos(){
+    if (!selectedStudent) return;
+    $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>영상을 불러오는 중입니다...</p></div>';
+    try {
+      const res = await fetch('/api/class-videos?name=' + encodeURIComponent(selectedStudent.name), { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">📭</div><p>' + escapeHtml(data.error || '영상을 불러올 수 없습니다.') + '</p></div>';
+        return;
+      }
+      if (!data.videos || !data.videos.length) {
+        $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">📭</div><p>등록된 수업 영상이 없습니다.</p></div>';
+        return;
+      }
+      $('videoList').innerHTML = data.videos.map((v, i) => {
+        const dateStr = v.date ? v.date.replace(/-/g, '.') : '';
+        const latestBadge = i === 0 ? '<span class="latest-badge">최신</span>' : '';
+        const playButton = v.locked
+          ? `<button class="watch-btn locked" onclick="unlockVideo('${escapeHtml(v.code)}', '${escapeHtml(selectedStudent.name)}')">
+               <div class="play-circle">🔒</div>
+               수업코드 입력 후 시청 →
+             </button>`
+          : `<a href="${escapeHtml(v.youtube_url)}" target="_blank" class="watch-btn" onclick="logView('${escapeHtml(v.code)}', '${escapeHtml(selectedStudent.name)}')">
+               <div class="play-circle"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+               수업 영상 시청하기 →
+             </a>`;
+        const note = v.locked
+          ? '<div class="access-note">🔒 이 영상은 선생님이 알려준 수업코드가 필요합니다.</div>'
+          : '<div class="access-note">영상 시청 기록이 선생님께 전달됩니다.</div>';
+        return `<div class="video-card">
+          <div class="video-card-header">
+            <div class="video-card-date">${escapeHtml(dateStr)} 수업${latestBadge}</div>
+            <div class="video-card-class">${escapeHtml(v.school || '')} ${escapeHtml(v.class_name || '')}</div>
+          </div>
+          <div class="video-card-body">
+            <div class="video-title">${escapeHtml(v.title || '수업 영상')}</div>
+            ${playButton}
+            ${note}
+          </div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>불러오지 못했습니다.</p></div>';
+    }
+  }
+
+  async function logView(code, name){
+    if (!code) return;
+    try {
+      await fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name }) });
+    } catch (_) {}
+  }
+
+  async function unlockVideo(expectedCode, studentName){
+    const input = prompt('선생님께 받은 수업코드를 입력해주세요\n(예: S2-0520-A7)');
+    if (!input) return;
+    const code = input.trim().toUpperCase();
+    if (code !== (expectedCode || '').toUpperCase()) { alert('수업코드가 일치하지 않습니다.'); return; }
+    try {
+      const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
+      const data = await res.json();
+      if (!res.ok || !data.youtube_url) { alert('영상을 불러오지 못했습니다: ' + (data.error || res.status)); return; }
+      fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name: studentName }) }).catch(() => {});
+      window.open(data.youtube_url, '_blank');
+    } catch (e) { alert('오류: ' + e.message); }
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>

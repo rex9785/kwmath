@@ -1,21 +1,47 @@
-// R2 파일 목록 (native R2 binding)
+// GET /api/list-files?folder=...&name=...
+// - admin: Authorization: Bearer <ADMIN_PASSWORD>
+// - 사용자(학부모/학생): Authorization: Bearer <userToken>
+//   - reports/{학생이름}/, class/{학원}_{반}/ 폴더만 접근 가능
+//   - 토큰 검증 + 학생 이름/학원/반 일치 확인
+
+import { requireAuth, resolveStudent } from './_auth.js';
+
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const folder = url.searchParams.get('folder') || 'materials';
-  const phone4 = url.searchParams.get('phone4');
 
-  // 어드민 토큰 인증
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
-  const isAdmin = token === env.ADMIN_PASSWORD;
+  const isAdmin = env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
 
-  // reports/{학생이름}/ 또는 class/{학원}_{반}/ 폴더는 phone4 존재 여부만 확인
-  // (실제 인증은 report.html에서 reports API가 Notion 검증한 후 호출)
-  const isReportsFolder = folder.startsWith('reports/');
-  const isClassFolder   = folder.startsWith('class/');
-  const isStudentFolderAuth = (isReportsFolder || isClassFolder) && phone4 && phone4.length === 4;
+  if (!isAdmin) {
+    // 사용자 모드: 토큰 검증 + 학생 매칭
+    const auth = await requireAuth(env, request);
+    if (!auth.ok) return auth.response;
 
-  if (!isAdmin && !isStudentFolderAuth) {
-    return Response.json({ error: '인증이 필요합니다.' }, { status: 401 });
+    const queryName = (url.searchParams.get('name') || '').trim();
+    const resolved = await resolveStudent(env, auth.phone, queryName);
+    if (!resolved.ok) return Response.json({ error: resolved.error || '권한 없음' }, { status: 403 });
+    const student = resolved.student;
+
+    // reports/{이름}/ — 학생 본인 폴더만 OK
+    if (folder.startsWith('reports/')) {
+      const folderName = folder.slice('reports/'.length).split('/')[0];
+      if (folderName !== student.name) {
+        return Response.json({ error: '다른 학생의 자료에 접근할 수 없습니다.' }, { status: 403 });
+      }
+    }
+    // class/{학원}_{반}/ — 학생의 학원/반과 일치해야 OK
+    else if (folder.startsWith('class/')) {
+      const classKey = folder.slice('class/'.length).split('/')[0];
+      const expected = (student.school || '') + '_' + (student.className || '');
+      if (classKey !== expected) {
+        return Response.json({ error: '다른 반의 자료에 접근할 수 없습니다.' }, { status: 403 });
+      }
+    }
+    // 그 외 폴더 — 사용자는 접근 불가
+    else {
+      return Response.json({ error: '사용자가 접근할 수 없는 폴더입니다.' }, { status: 403 });
+    }
   }
 
   const listed = await env.BUCKET.list({ prefix: folder + '/', limit: 200 });

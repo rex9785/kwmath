@@ -1,20 +1,42 @@
-// R2에서 파일을 직접 스트리밍 (native R2 binding)
+// GET /api/download-file?key=...&name=...
+// - admin: Authorization: Bearer <ADMIN_PASSWORD>
+// - 사용자: Authorization: Bearer <userToken>
+//   - reports/{학생이름}/ → 학생 본인 폴더만
+//   - class/{학원}_{반}/ → 학생의 학원/반 폴더만
+//   - 그 외 폴더(materials 등 공개)는 토큰 없이도 OK
+
+import { requireAuth, resolveStudent } from './_auth.js';
+
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const key = url.searchParams.get('key');
-
   if (!key) return Response.json({ error: 'key 파라미터 필요' }, { status: 400 });
 
-  // reports/ 폴더는 admin 토큰 OR 이름+phone4 인증 필요
-  if (key.startsWith('reports/')) {
-    const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
-    const isAdmin = token === env.ADMIN_PASSWORD;
-    const name = url.searchParams.get('name') || '';
-    const phone4 = url.searchParams.get('phone4') || '';
-    const folderName = key.split('/')[1]; // 학생 이름
-    const isStudentAuth = name && phone4.length === 4 && folderName === name;
-    if (!isAdmin && !isStudentAuth)
-      return Response.json({ error: '접근 권한 없음' }, { status: 403 });
+  const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
+  const isAdmin = env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
+
+  // 보호 폴더 접근 시 토큰 + 학생 매칭 검증
+  if (!isAdmin && (key.startsWith('reports/') || key.startsWith('class/'))) {
+    const auth = await requireAuth(env, request);
+    if (!auth.ok) return auth.response;
+
+    const queryName = (url.searchParams.get('name') || '').trim();
+    const resolved = await resolveStudent(env, auth.phone, queryName);
+    if (!resolved.ok) return Response.json({ error: resolved.error || '권한 없음' }, { status: 403 });
+    const student = resolved.student;
+
+    if (key.startsWith('reports/')) {
+      const folderName = key.split('/')[1];
+      if (folderName !== student.name) {
+        return Response.json({ error: '다른 학생의 자료에 접근할 수 없습니다.' }, { status: 403 });
+      }
+    } else if (key.startsWith('class/')) {
+      const classKey = key.split('/')[1] || '';
+      const expected = (student.school || '') + '_' + (student.className || '');
+      if (classKey !== expected) {
+        return Response.json({ error: '다른 반의 자료에 접근할 수 없습니다.' }, { status: 403 });
+      }
+    }
   }
 
   const object = await env.BUCKET.get(key);
@@ -24,7 +46,6 @@ export async function onRequest({ request, env }) {
   const contentType = object.httpMetadata?.contentType
     || (fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
 
-  // RFC 5987: 한글 파일명을 위해 filename* 인코딩 사용
   const encodedName = encodeURIComponent(fileName);
   return new Response(object.body, {
     status: 200,
