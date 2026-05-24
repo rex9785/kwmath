@@ -332,8 +332,13 @@
   function renderWelcome() {
     const first = currentStudents[0];
     const name = first ? first.name : '';
+    const role = first ? first.role : '';
     if (name) {
-      $('welcomeMsg').textContent = name + ' 학생 학부모님 환영합니다 👋';
+      if (role === 'student') {
+        $('welcomeMsg').textContent = name + ' 학생, 환영합니다 👋';
+      } else {
+        $('welcomeMsg').textContent = name + ' 학생 학부모님 환영합니다 👋';
+      }
     } else {
       $('welcomeMsg').textContent = '환영합니다 👋';
     }
