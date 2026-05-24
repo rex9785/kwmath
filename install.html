@@ -24,7 +24,8 @@
 
   .page{max-width:480px;margin:0 auto;padding:28px 20px 80px;}
   .hero{text-align:center;margin-bottom:28px;}
-  .hero-logo{display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;background:var(--primary);color:#fff;border-radius:20px;font-weight:900;font-size:2.2rem;margin-bottom:14px;box-shadow:0 8px 24px rgba(139,26,53,0.25);}
+  .hero-logo{display:inline-flex;align-items:center;justify-content:center;width:96px;height:96px;background:var(--primary);border-radius:24px;margin-bottom:14px;box-shadow:0 8px 24px rgba(139,26,53,0.25);overflow:hidden;}
+  .hero-logo img{width:78%;height:auto;display:block;}
   .hero h1{font-size:1.4rem;font-weight:900;margin-bottom:6px;}
   .hero .pitch{color:var(--text-light);font-size:0.92rem;line-height:1.6;margin-top:4px;}
 
@@ -113,13 +114,13 @@
 </div>
 
 <div class="topbar">
-  <span class="topbar-logo">K</span>
+  <span class="topbar-logo" style="padding:0;overflow:hidden;background:#fff;"><img src="/icons/icon-192.png" alt="K" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"></span>
   <span class="topbar-title">이관우 수학연구소</span>
 </div>
 
 <div class="page">
   <div class="hero">
-    <div class="hero-logo">K</div>
+    <div class="hero-logo"><img src="/icons/icon-512.png" alt="K"></div>
     <h1>📲 어플 설치</h1>
     <div class="pitch">한 번만 설치하면 그 다음부터는<br>홈 화면 아이콘으로 바로 열 수 있어요</div>
   </div>
@@ -226,7 +227,7 @@
 
   // ──── 카톡/네이버/페북 등 인앱 브라우저 감지 ────
   // 인앱 브라우저는 PWA 설치 기능 자체를 막아놨음 → 외부 브라우저로 열도록 안내
-  var inappRegex = /KAKAOTALK|NAVER|FBAN|FBAV|FB_IAB|Instagram|Line\//i;
+  var inappRegex = /KAKAOTALK|NAVER|FBAN|FBAV|FB_IAB|Instagram|Line\/|; wv\)|wv;/i;
   if (inappRegex.test(ua)) {
     var name = 'KAKAOTALK';
     if (/KAKAOTALK/i.test(ua))         name = '카카오톡';
