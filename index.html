@@ -791,7 +791,53 @@
         </div>
       </div>
     </div>
+
+    <!-- 실제 등록 후기 (포털에서 작성, 관리자 승인된 것만) -->
+    <div id="liveReviewsWrap" style="margin-top:36px;display:none;">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.78rem;font-weight:800;padding:5px 14px;border-radius:20px;letter-spacing:0.5px;">LIVE · 실제 등록 후기</div>
+      </div>
+      <div class="review-grid" id="liveReviewsList"></div>
+    </div>
+
+    <!-- 후기 작성 안내 CTA -->
+    <div style="text-align:center;margin-top:30px;">
+      <a href="/portal" style="display:inline-block;background:var(--primary,#8B1A35);color:#fff;text-decoration:none;padding:13px 28px;border-radius:11px;font-size:0.93rem;font-weight:800;box-shadow:0 4px 14px rgba(139,26,53,0.18);">
+        📝 수강 후기 작성하기 (포털 로그인)
+      </a>
+      <div style="font-size:0.78rem;color:#777;margin-top:8px;">기존 학생·학부모님은 포털에서 후기를 남기실 수 있습니다.</div>
+    </div>
   </div>
+
+  <script>
+    (function loadLiveReviews(){
+      function esc(s){return String(s||'').replace(/[&<>"\']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+      fetch('/api/reviews?public=1').then(r => r.json()).then(data => {
+        const list = (data && data.reviews) || [];
+        if (!list.length) return;
+        const wrap = document.getElementById('liveReviewsWrap');
+        const box  = document.getElementById('liveReviewsList');
+        if (!wrap || !box) return;
+        box.innerHTML = list.slice(0, 12).map(r => {
+          const initial = (r.authorName || '관우T').charAt(0);
+          const typeLabel = r.authorType === '학부모' ? '학부모님' : '학생';
+          const className = r.className ? ` · ${esc(r.className)}` : '';
+          return `
+            <div class="review-card">
+              <div class="review-text">"${esc(r.content)}"</div>
+              <div class="review-author">
+                <div class="author-avatar">${esc(initial)}</div>
+                <div>
+                  <div class="author-name">${esc(r.authorName || '익명')}</div>
+                  <div class="author-type">${typeLabel}${className}</div>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+        wrap.style.display = 'block';
+      }).catch(() => {});
+    })();
+  </script>
 </section>
 
 <!-- FAQ -->

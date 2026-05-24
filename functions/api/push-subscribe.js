@@ -1,23 +1,22 @@
-// POST /api/push-subscribe
-// 브라우저 푸쉬 구독 정보를 받아 R2에 저장.
+// /api/push-subscribe
+// 브라우저 푸쉬 구독 정보 저장/해제.
 // portal 페이지가 결정한 userId(이메일이든, 학생ID든, 휴대폰이든) 기준으로 묶음.
 // 한 사용자 = 여러 기기/브라우저 가능 (구독 여러 개 누적, endpoint로 중복 제거).
 //
-// Body: {
-//   userId: string,                // portal이 결정한 식별자
-//   subscription: PushSubscription // 브라우저 pushManager.subscribe() 결과
-// }
-//
-// 인증: portal 페이지가 어떻게 인증하든 자유. 이 API는 userId 자체만 받음.
-// (보안 강화 필요 시 portal에서 토큰 발급 후 헤더로 전달, 여기서 검증하는 식으로 확장 가능)
+// POST  — 구독 등록 (Body: { userId, subscription })
+// DELETE — 구독 해제 (Body: { userId, endpoint })
 //
 // 저장: R2 key = push-subs/{userId}.json
 // 구조: { userId, subs: [ { endpoint, keys: {p256dh, auth}, ua, savedAt } ], updatedAt }
 
 export async function onRequest({ request, env }) {
-  if (request.method !== 'POST')
-    return Response.json({ error: 'POST만 허용' }, { status: 405 });
+  if (request.method === 'POST')   return handleSubscribe(request, env);
+  if (request.method === 'DELETE') return handleUnsubscribe(request, env);
+  return Response.json({ error: 'POST 또는 DELETE만 허용' }, { status: 405 });
+}
 
+// ───────── POST: 구독 등록 ─────────
+async function handleSubscribe(request, env) {
   let body = {};
   try { body = await request.json(); } catch {}
 
@@ -60,6 +59,58 @@ export async function onRequest({ request, env }) {
       httpMetadata: { contentType: 'application/json' }
     });
     return Response.json({ ok: true, deviceCount: record.subs.length });
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 });
+  }
+}
+
+// ───────── DELETE: 구독 해제 ─────────
+// body: { userId, endpoint? }
+//   endpoint 명시 → 그 기기 1개만 해제
+//   endpoint 없음 → 해당 userId의 모든 기기 해제 (계정 삭제용)
+async function handleUnsubscribe(request, env) {
+  let body = {};
+  try { body = await request.json(); } catch {}
+
+  const userId = String(body.userId || '').trim();
+  const endpoint = String(body.endpoint || '').trim();
+
+  if (!userId)
+    return Response.json({ error: 'userId 필수' }, { status: 400 });
+
+  const key = `push-subs/${encodeURIComponent(userId)}.json`;
+
+  try {
+    const existing = await env.BUCKET.get(key);
+    if (!existing) {
+      // 이미 없으면 성공으로 처리 (idempotent)
+      return Response.json({ ok: true, removed: 0, remaining: 0 });
+    }
+    const text = await existing.text();
+    let record = JSON.parse(text);
+    if (!record || !Array.isArray(record.subs)) record = { userId, subs: [] };
+
+    const before = record.subs.length;
+    if (endpoint) {
+      // 특정 endpoint만 제거
+      record.subs = record.subs.filter(s => s.endpoint !== endpoint);
+    } else {
+      // 전체 제거
+      record.subs = [];
+    }
+    const removed = before - record.subs.length;
+    record.userId = userId;
+    record.updatedAt = new Date().toISOString();
+
+    if (record.subs.length === 0) {
+      // 구독 0개면 R2 파일 자체 삭제
+      await env.BUCKET.delete(key);
+    } else {
+      await env.BUCKET.put(key, JSON.stringify(record), {
+        httpMetadata: { contentType: 'application/json' }
+      });
+    }
+    return Response.json({ ok: true, removed, remaining: record.subs.length });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }

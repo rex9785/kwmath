@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수강 후기 | 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.82rem;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.26);}
+
+  .page{max-width:640px;margin:0 auto;padding:24px 18px 80px;}
+
+  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:10px;text-transform:uppercase;}
+  .section{margin-bottom:28px;}
+
+  /* 작성 폼 카드 */
+  .form-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .form-card h2{font-size:1rem;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .form-card .sub{font-size:0.78rem;color:var(--text-light);margin-bottom:14px;line-height:1.5;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:0.78rem;font-weight:700;color:var(--text-light);margin-bottom:5px;}
+  .field input, .field textarea, .field select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.88rem;font-family:inherit;background:#fff;outline:none;color:var(--text);}
+  .field textarea{min-height:120px;resize:vertical;line-height:1.6;}
+  .field input:focus, .field textarea:focus, .field select:focus{border-color:var(--primary);}
+  .field .hint{font-size:0.72rem;color:var(--text-light);margin-top:4px;}
+  .toggle-row{display:flex;gap:8px;}
+  .toggle-btn{flex:1;padding:10px;border:1.5px solid var(--border);background:#fff;border-radius:9px;font-size:0.86rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text-light);}
+  .toggle-btn.active{border-color:var(--primary);background:var(--primary-light);color:var(--primary);}
+  .btn-primary{background:var(--primary);color:#fff;border:none;padding:12px 18px;border-radius:10px;font-size:0.9rem;font-weight:800;cursor:pointer;font-family:inherit;width:100%;}
+  .btn-primary:hover{background:var(--primary-mid);}
+  .btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
+  .err-msg{color:#B02347;font-size:0.82rem;font-weight:600;margin-top:8px;min-height:18px;}
+
+  /* 후기 카드 */
+  .review-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(139,26,53,0.04);}
+  .review-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-wrap:wrap;}
+  .review-author{font-size:0.86rem;font-weight:700;color:var(--text);}
+  .review-meta{font-size:0.72rem;color:var(--text-light);}
+  .review-body{font-size:0.88rem;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-word;}
+  .status-badge{display:inline-block;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;margin-right:6px;}
+  .status-wait{background:#FFF7E0;color:#B07A00;}
+  .status-ok{background:#E5F5E8;color:#1F7A33;}
+  .status-no{background:#FBE5E9;color:#B02347;}
+  .type-badge{display:inline-block;font-size:0.7rem;font-weight:600;padding:1px 7px;border-radius:10px;background:var(--primary-light);color:var(--primary);}
+  .review-actions{margin-top:10px;display:flex;gap:6px;justify-content:flex-end;}
+  .btn-mini{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:5px 11px;border-radius:7px;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:inherit;}
+  .btn-mini:hover{border-color:var(--primary);color:var(--primary);}
+
+  .state-box{text-align:center;padding:36px 24px;color:var(--text-light);}
+  .state-box .state-icon{font-size:2rem;margin-bottom:10px;}
+  .state-box p{font-size:0.85rem;line-height:1.7;}
+
+  .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:10px 18px;border-radius:8px;font-size:0.84rem;font-weight:600;z-index:100;display:none;}
+  .toast.show{display:block;animation:slideUp .25s ease-out;}
+  @keyframes slideUp{from{opacity:0;transform:translate(-50%,8px);}to{opacity:1;transform:translate(-50%,0);}}
+
+  .tab-row{display:flex;gap:6px;margin-bottom:14px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:4px;}
+  .tab-btn{flex:1;background:transparent;border:none;padding:9px 10px;border-radius:7px;font-size:0.84rem;font-weight:700;cursor:pointer;color:var(--text-light);font-family:inherit;}
+  .tab-btn.active{background:var(--primary);color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark">K</span>
+    <span>📝 수강 후기</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+
+  <!-- 작성 폼 -->
+  <div class="section">
+    <div class="section-label">후기 작성</div>
+    <div class="form-card">
+      <h2>관우T 수업, 어떠셨나요?</h2>
+      <div class="sub">관리자 승인 후 노출됩니다. 욕설·홍보·개인정보는 게재하지 않습니다.</div>
+
+      <div class="field">
+        <label>작성자 유형</label>
+        <div class="toggle-row">
+          <button type="button" class="toggle-btn active" id="typeStudent" onclick="setType('학생')">학생 본인</button>
+          <button type="button" class="toggle-btn" id="typeParent" onclick="setType('학부모')">학부모</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>표시 이름 <span style="font-weight:400;color:var(--text-light);">(선택)</span></label>
+        <input id="authorName" type="text" maxlength="40" placeholder="비워두면 자동 (예: 홍길동 또는 홍길동 학부모)">
+        <div class="hint">실명·닉네임·이니셜 자유. 비공개로 두고 싶으면 "○○ 학생", "고2 학부모" 등도 OK.</div>
+      </div>
+
+      <div class="field">
+        <label>후기 내용 <span style="color:var(--primary);">*</span></label>
+        <textarea id="content" maxlength="2000" placeholder="수업·관리·소통 등 자유롭게 작성해 주세요. (최대 2000자)"></textarea>
+        <div class="hint" id="charCount">0 / 2000</div>
+      </div>
+
+      <button class="btn-primary" id="submitBtn" onclick="submitReview()">후기 등록 (대기 → 승인)</button>
+      <div class="err-msg" id="errMsg"></div>
+    </div>
+  </div>
+
+  <!-- 탭: 둘러보기 / 내 후기 -->
+  <div class="section">
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabBrowse" onclick="switchTab('browse')">📖 둘러보기</button>
+      <button class="tab-btn" id="tabMine" onclick="switchTab('mine')">📌 내 후기</button>
+    </div>
+
+    <div id="browseSection">
+      <div class="section-label">승인된 후기</div>
+      <div id="browseList"></div>
+    </div>
+
+    <div id="mineSection" style="display:none;">
+      <div class="section-label">내가 작성한 후기</div>
+      <div id="mineList"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─────────────── 인증 가드 ───────────────
+  const TOKEN_KEY = 'kwmath_token';
+  const PHONE_KEY = 'kwmath_phone';
+  let token = '';
+  try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+  if (!token) { location.replace('/portal?next=/reviews'); }
+
+  let currentType = '학생';
+
+  function setType(t) {
+    currentType = t;
+    document.getElementById('typeStudent').classList.toggle('active', t === '학생');
+    document.getElementById('typeParent').classList.toggle('active', t === '학부모');
+  }
+
+  document.getElementById('content').addEventListener('input', (e) => {
+    document.getElementById('charCount').textContent = `${e.target.value.length} / 2000`;
+  });
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function submitReview() {
+    const errBox = document.getElementById('errMsg');
+    errBox.textContent = '';
+    const content = document.getElementById('content').value.trim();
+    const authorName = document.getElementById('authorName').value.trim();
+    if (!content) { errBox.textContent = '후기 내용을 입력해주세요.'; return; }
+    if (content.length < 8) { errBox.textContent = '후기는 8자 이상 작성해주세요.'; return; }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = '등록 중...';
+
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ authorType: currentType, authorName, content }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errBox.textContent = data.error || '등록 실패';
+      } else {
+        document.getElementById('content').value = '';
+        document.getElementById('authorName').value = '';
+        document.getElementById('charCount').textContent = '0 / 2000';
+        showToast('후기 등록 완료! 관리자 승인 후 노출됩니다.');
+        loadMine();
+        switchTab('mine');
+      }
+    } catch (e) {
+      errBox.textContent = '네트워크 오류: ' + e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = '후기 등록 (대기 → 승인)';
+    }
+  }
+
+  function switchTab(tab) {
+    document.getElementById('tabBrowse').classList.toggle('active', tab === 'browse');
+    document.getElementById('tabMine').classList.toggle('active', tab === 'mine');
+    document.getElementById('browseSection').style.display = tab === 'browse' ? 'block' : 'none';
+    document.getElementById('mineSection').style.display = tab === 'mine' ? 'block' : 'none';
+    if (tab === 'mine') loadMine();
+  }
+
+  function statusBadge(s) {
+    const map = { '대기':'status-wait', '승인':'status-ok', '거절':'status-no' };
+    return `<span class="status-badge ${map[s]||'status-wait'}">${s}</span>`;
+  }
+
+  function reviewCardHtml(r, showStatus = false, showDelete = false) {
+    const typeBadge = `<span class="type-badge">${escapeHtml(r.authorType || '익명')}</span>`;
+    const statusHtml = showStatus ? statusBadge(r.status) : '';
+    const deleteBtn = (showDelete && r.status === '대기')
+      ? `<div class="review-actions"><button class="btn-mini" onclick="deleteReview('${r.id}')">삭제</button></div>`
+      : '';
+    return `
+      <div class="review-card">
+        <div class="review-head">
+          <div>
+            <span class="review-author">${escapeHtml(r.authorName || '익명')}</span>
+            ${typeBadge}
+            ${statusHtml}
+          </div>
+          <div class="review-meta">${fmtDate(r.createdAt)}</div>
+        </div>
+        <div class="review-body">${escapeHtml(r.content)}</div>
+        ${deleteBtn}
+      </div>
+    `;
+  }
+
+  async function loadBrowse() {
+    const box = document.getElementById('browseList');
+    box.innerHTML = '<div class="state-box"><p>불러오는 중...</p></div>';
+    try {
+      const res = await fetch('/api/reviews', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      const data = await res.json();
+      if (!res.ok) { box.innerHTML = `<div class="state-box"><p>${escapeHtml(data.error || '조회 실패')}</p></div>`; return; }
+      const list = data.reviews || [];
+      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon">📝</div><p>아직 승인된 후기가 없습니다.<br>첫 후기를 남겨보세요!</p></div>'; return; }
+      box.innerHTML = list.map(r => reviewCardHtml(r, false, false)).join('');
+    } catch (e) {
+      box.innerHTML = `<div class="state-box"><p>네트워크 오류: ${escapeHtml(e.message)}</p></div>`;
+    }
+  }
+
+  async function loadMine() {
+    const box = document.getElementById('mineList');
+    box.innerHTML = '<div class="state-box"><p>불러오는 중...</p></div>';
+    try {
+      const res = await fetch('/api/reviews?mine=1', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      const data = await res.json();
+      if (!res.ok) { box.innerHTML = `<div class="state-box"><p>${escapeHtml(data.error || '조회 실패')}</p></div>`; return; }
+      const list = data.reviews || [];
+      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>작성한 후기가 없습니다.</p></div>'; return; }
+      box.innerHTML = list.map(r => reviewCardHtml(r, true, true)).join('');
+    } catch (e) {
+      box.innerHTML = `<div class="state-box"><p>네트워크 오류: ${escapeHtml(e.message)}</p></div>`;
+    }
+  }
+
+  async function deleteReview(id) {
+    if (!confirm('이 후기를 삭제하시겠어요?\n(대기 상태에서만 가능)')) return;
+    try {
+      const res = await fetch('/api/reviews?id=' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || '삭제 실패'); return; }
+      showToast('삭제 완료');
+      loadMine();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  // SW 등록
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));
+  }
+
+  // 초기 로드
+  loadBrowse();
+</script>
+</body>
+</html>
