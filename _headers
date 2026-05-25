@@ -16,15 +16,14 @@
 /sw.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-# manifest — 항상 최신 (어플 이름/아이콘 변경 즉시 반영)
+# manifest — 1시간
 /manifest.json
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Cache-Control: public, max-age=3600
 
-# 아이콘 — 5분 (변경 빠르게 반영, 그래도 잦은 fetch 방지)
+# 아이콘·이미지 — 1일
 /icons/*
-  Cache-Control: public, max-age=300, must-revalidate
+  Cache-Control: public, max-age=86400
 
-# 일반 이미지 — 1일
 /*.png
   Cache-Control: public, max-age=86400
 /*.jpg
