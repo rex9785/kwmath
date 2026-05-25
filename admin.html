@@ -1083,13 +1083,7 @@
           <strong>${escapeHtml(s.name || '—')}</strong>
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
         </div>
-        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:0.7rem;color:var(--text-light);margin-right:4px;">오늘:</span>
-          <button class="att-btn" data-s="출석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
-          <button class="att-btn" data-s="지각" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
-          <button class="att-btn" data-s="결석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
-          <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
-        </div>
+        <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
       </div>
       <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
         ${s.school ? '<span>학교: <b>' + escapeHtml(s.school) + '</b></span>&nbsp;&nbsp;' : ''}
@@ -1317,36 +1311,27 @@
   function updateCsClassOptions() {
     const acad = document.getElementById("csAcademy").value;
     const sel  = document.getElementById("csClass");
+    const opts = CS_CLASS_OPTIONS[acad] || [];
     sel.innerHTML = "<option value=\"\">선택하세요</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
   }
 
-  // ──── 학생 카드 빠른 출석 체크 ────
-  async function markAttendance(name, status, btn) {
+  async function deleteStudent(name) {
     if (!name) return;
-    const today = new Date();
-    const date = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    if (!confirm("⚠️ \"" + name + "\" 학생을 퇴원처리하시겠습니까?\n\n다음 항목이 정리됩니다:\n• Notion 학생 정보 (휴지통으로)\n• Notion 수업 리포트 전부 (휴지통으로)\n• R2 첨부 PDF 전부 (영구 삭제)\n\n복구 가능: Notion 항목 30일 내. R2 파일은 복구 불가.")) return;
     try {
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') },
-        body: JSON.stringify({ name: name, date: date, status: status })
+      const res = await fetch("/api/delete-student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
+        body: JSON.stringify({ name: name }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) {
-        showToast('❌ ' + (data.error || '실패'));
-        return;
+      if (res.ok && data.ok) {
+        showToast("✅ " + name + " 퇴원처리 완료 (학생 " + data.students_archived + " / 리포트 " + data.reports_archived + " / 파일 " + data.files_deleted + ")");
+        loadStudents();
+      } else {
+        showToast("❌ 실패: " + (data.error || res.status));
       }
-      showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')');
-      // 시각 피드백: 누른 버튼 강조
-      if (btn) {
-        const parent = btn.parentElement;
-        if (parent) parent.querySelectorAll('.att-btn').forEach(function(b){ b.style.outline = ''; b.style.transform = ''; });
-        btn.style.outline = '2px solid var(--primary)';
-        btn.style.transform = 'scale(1.05)';
-      }
-    } catch (e) {
-      showToast('네트워크 오류: ' + e.message);
-    }
+    } catch (e) { showToast("❌ 오류: " + e.message); }
   }
 </script>
 </body>
