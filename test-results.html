@@ -68,7 +68,7 @@
 
     <div class="intro-card">
       <h2>📊 학습 진단 결과</h2>
-      <p>매주·매월 진행한 테스트 결과(매쓰플랫 보고서, 모의고사·내신 등급)가 여기에 누적됩니다. 시간이 지나면서 성적이 어떻게 변하는지 한눈에 볼 수 있어요.</p>
+      <p>매주·매월 진행한 학습 진단 보고서(원클릭 보고서, 모의고사·내신 등급)가 여기에 누적됩니다. 시간이 지나면서 성적이 어떻게 변하는지 한눈에 볼 수 있어요.</p>
     </div>
 
     <div class="section-label">📁 결과 보고서</div>
@@ -163,7 +163,7 @@
         return;
       }
       if (!Array.isArray(data) || data.length === 0) {
-        list.innerHTML = '<div class="empty-state"><span class="icon">📭</span>아직 등록된 <b>테스트 결과</b>가 없어요.<br><small>매쓰플랫 주간 보고서·모의고사 결과가 올라오면 여기에 자동 표시됩니다.</small></div>';
+        list.innerHTML = '<div class="empty-state"><span class="icon">📭</span>아직 등록된 <b>학습 진단 보고서</b>가 없어요.<br><small>원클릭 보고서·모의고사 결과가 올라오면 여기에 자동 표시됩니다.</small></div>';
         return;
       }
       // 날짜 최신순 정렬

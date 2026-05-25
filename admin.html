@@ -208,6 +208,23 @@
 
     <!-- 학생 목록 탭 -->
     <div class="tab-panel" id="tab-students">
+      <div class="card" style="padding:14px 18px;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <strong style="color:var(--primary);font-size:0.95rem;">🚀 반별 빠른 출석 — <span id="qaDateLabel"></span></strong>
+          <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="refreshQuickAttendanceSummary()">🔄 현황 새로고침</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select id="qaAcademy" onchange="onQaAcademyChange()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
+            <option value="">학원 선택</option>
+          </select>
+          <select id="qaClass" onchange="updateQaSummary()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
+            <option value="">반 선택</option>
+          </select>
+          <button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance('출석')">👥 반 전원 출석</button>
+          <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;" onclick="bulkClassAttendance('결석')">반 전원 결석</button>
+        </div>
+        <div id="qaSummary" style="margin-top:10px;font-size:0.82rem;color:var(--text-light);"></div>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <p class="panel-title" style="margin-bottom:0;">👨‍🎓 등록 학생 목록</p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -301,9 +318,37 @@
 
     <!-- 📺 영상 관리 탭 -->
     <div class="tab-panel" id="tab-videos">
-      <div class="panel-title">📺 영상 관리 <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:10px;" onclick="loadVideos()">🔄 새로고침</button></div>
-      <div style="font-size:0.83rem;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
+      <div class="panel-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">📺 영상 관리
+        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="loadVideos()">🔄 새로고침</button>
+        <button id="videoSelectModeBtn" class="del-btn" style="border-color:#555;color:#555;" onclick="toggleVideoSelectMode()">☑ 선택 모드</button>
+        <span id="videoCountLabel" style="font-size:0.8rem;color:var(--text-light);font-weight:600;"></span>
+      </div>
+      <div style="font-size:0.83rem;color:var(--text-light);margin-bottom:12px;line-height:1.6;">
         업로드된 모든 수업 영상을 관리합니다. <strong>잠그기</strong>를 누르면 학생/학부모는 수업코드를 입력해야 영상을 볼 수 있습니다.
+      </div>
+      <div class="card" style="padding:12px 14px;margin-bottom:14px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <select id="vfAcademy" onchange="onVideoFilterChange()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
+            <option value="">전체 학원</option>
+          </select>
+          <select id="vfClass" onchange="onVideoFilterChange()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
+            <option value="">전체 반</option>
+          </select>
+          <input id="vfDateFrom" type="date" onchange="onVideoFilterChange()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;" title="시작일">
+          <span style="font-size:0.8rem;color:var(--text-light);">~</span>
+          <input id="vfDateTo" type="date" onchange="onVideoFilterChange()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;" title="종료일">
+          <input id="vfSearch" type="text" placeholder="코드/제목 검색..." oninput="onVideoFilterChange()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;flex:1;min-width:140px;">
+          <button class="del-btn" onclick="resetVideoFilters()" style="border-color:var(--text-light);color:var(--text-light);">↺ 초기화</button>
+        </div>
+      </div>
+      <div id="videoBulkBar" style="display:none;background:var(--primary-light);border:1.5px solid var(--primary);border-radius:10px;padding:10px 14px;margin-bottom:12px;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-weight:700;color:var(--primary);">선택: <span id="videoSelCount">0</span>개</span>
+        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="videoSelectAll()">전체 선택</button>
+        <button class="del-btn" style="border-color:var(--text-light);color:var(--text-light);" onclick="videoSelectNone()">선택 해제</button>
+        <span style="flex:1;"></span>
+        <button class="del-btn" style="border-color:#2ecc71;color:#2ecc71;" onclick="bulkLockVideos(false)">🔓 일괄 공개</button>
+        <button class="del-btn" style="border-color:#B07A00;color:#B07A00;" onclick="bulkLockVideos(true)">🔒 일괄 잠그기</button>
+        <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="bulkDeleteVideos()">🗑 일괄 삭제</button>
       </div>
       <div id="videoList"><div class="empty">불러오는 중...</div></div>
     </div>
@@ -1054,6 +1099,9 @@
   }
 
   function renderStudentsView() {
+    if (typeof populateQaAcademies === 'function') {
+      try { populateQaAcademies(); } catch(e){}
+    }
     const q = (document.getElementById('studentSearch')?.value || '').toLowerCase();
     const filtered = !q ? allStudents : allStudents.filter(s =>
       (s.name||'').toLowerCase().includes(q)
@@ -1237,6 +1285,36 @@
     "세정학원":      ["썸머 기초특강반", "썸머 공통수학2반"],
   };
 
+  let _allVideos = [];
+  let _videoSelectMode = false;
+  let _videoSelected = new Set();
+  const VIDEO_FILTER_KEY = "kwmath_admin_video_filters_v1";
+
+  function saveVideoFilters() {
+    try {
+      const s = {
+        academy: document.getElementById("vfAcademy").value,
+        cls:     document.getElementById("vfClass").value,
+        from:    document.getElementById("vfDateFrom").value,
+        to:      document.getElementById("vfDateTo").value,
+        q:       document.getElementById("vfSearch").value,
+      };
+      localStorage.setItem(VIDEO_FILTER_KEY, JSON.stringify(s));
+    } catch(e){}
+  }
+  function loadSavedVideoFilters() {
+    try {
+      const s = JSON.parse(localStorage.getItem(VIDEO_FILTER_KEY) || "null");
+      if (!s) return;
+      const el = id => document.getElementById(id);
+      if (s.academy) el("vfAcademy").value = s.academy;
+      if (s.cls)     el("vfClass").value   = s.cls;
+      if (s.from)    el("vfDateFrom").value= s.from;
+      if (s.to)      el("vfDateTo").value  = s.to;
+      if (s.q)       el("vfSearch").value  = s.q;
+    } catch(e){}
+  }
+
   async function loadVideos() {
     const list = document.getElementById("videoList");
     list.innerHTML = "<div class=\"empty\">불러오는 중...</div>";
@@ -1244,15 +1322,105 @@
       const res = await fetch("/api/video-list", { headers: { Authorization: "Bearer " + adminToken } });
       const data = await res.json();
       if (!res.ok || !data.ok) { list.innerHTML = "<div class=\"empty\">불러오기 실패: " + (data.error || res.status) + "</div>"; return; }
-      renderVideos(data.videos || []);
+      _allVideos = data.videos || [];
+      populateVideoFilterOptions();
+      loadSavedVideoFilters();
+      applyVideoFiltersAndRender();
     } catch (e) {
       list.innerHTML = "<div class=\"empty\">오류: " + e.message + "</div>";
     }
   }
 
+  function populateVideoFilterOptions() {
+    const acadSel = document.getElementById("vfAcademy");
+    const classSel = document.getElementById("vfClass");
+    if (!acadSel || !classSel) return;
+    const prevA = acadSel.value, prevC = classSel.value;
+    const acads = Array.from(new Set(_allVideos.map(v => v.school).filter(Boolean))).sort();
+    acadSel.innerHTML = "<option value=\"\">전체 학원</option>" + acads.map(a => `<option value="${a}">${a}</option>`).join("");
+    if (prevA) acadSel.value = prevA;
+    refreshVideoClassOptions(prevC);
+  }
+  function refreshVideoClassOptions(preset) {
+    const acad = document.getElementById("vfAcademy").value;
+    const classSel = document.getElementById("vfClass");
+    const classes = acad
+      ? (CLASS_OPTIONS_BY_ACADEMY[acad] || Array.from(new Set(_allVideos.filter(v=>v.school===acad).map(v=>v.class_name).filter(Boolean))).sort())
+      : Array.from(new Set(_allVideos.map(v => v.class_name).filter(Boolean))).sort();
+    classSel.innerHTML = "<option value=\"\">전체 반</option>" + classes.map(c => `<option value="${c}">${c}</option>`).join("");
+    if (preset && classes.includes(preset)) classSel.value = preset;
+  }
+
+  function onVideoFilterChange() {
+    // 학원이 바뀌면 반 옵션도 갱신
+    refreshVideoClassOptions(document.getElementById("vfClass").value);
+    saveVideoFilters();
+    applyVideoFiltersAndRender();
+  }
+  function resetVideoFilters() {
+    ["vfAcademy","vfClass","vfDateFrom","vfDateTo","vfSearch"].forEach(id => { document.getElementById(id).value = ""; });
+    saveVideoFilters();
+    refreshVideoClassOptions("");
+    applyVideoFiltersAndRender();
+  }
+
+  function filteredVideos() {
+    const acad = document.getElementById("vfAcademy")?.value || "";
+    const cls  = document.getElementById("vfClass")?.value || "";
+    const from = document.getElementById("vfDateFrom")?.value || "";
+    const to   = document.getElementById("vfDateTo")?.value || "";
+    const q    = (document.getElementById("vfSearch")?.value || "").trim().toLowerCase();
+    return _allVideos.filter(v => {
+      if (acad && v.school !== acad) return false;
+      if (cls && v.class_name !== cls) return false;
+      if (from && (v.date || "") < from) return false;
+      if (to && (v.date || "") > to) return false;
+      if (q) {
+        const hay = ((v.code||"") + " " + (v.title||"") + " " + (v.school||"") + " " + (v.class_name||"")).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function applyVideoFiltersAndRender() {
+    const list = filteredVideos();
+    renderVideos(list);
+    const label = document.getElementById("videoCountLabel");
+    if (label) label.textContent = list.length === _allVideos.length ? `(전체 ${list.length}개)` : `(${list.length}/${_allVideos.length}개 표시)`;
+    updateVideoBulkBar();
+  }
+
+  function toggleVideoSelectMode() {
+    _videoSelectMode = !_videoSelectMode;
+    if (!_videoSelectMode) _videoSelected.clear();
+    const btn = document.getElementById("videoSelectModeBtn");
+    if (btn) {
+      btn.textContent = _videoSelectMode ? "✖ 선택 모드 종료" : "☑ 선택 모드";
+      btn.style.background = _videoSelectMode ? "var(--primary-light)" : "";
+    }
+    document.getElementById("videoBulkBar").style.display = _videoSelectMode ? "flex" : "none";
+    applyVideoFiltersAndRender();
+  }
+  function updateVideoBulkBar() {
+    const el = document.getElementById("videoSelCount");
+    if (el) el.textContent = _videoSelected.size;
+  }
+  function videoSelectAll() {
+    filteredVideos().forEach(v => _videoSelected.add(v.code));
+    applyVideoFiltersAndRender();
+  }
+  function videoSelectNone() { _videoSelected.clear(); applyVideoFiltersAndRender(); }
+
+  function toggleVideoSelected(code, checked) {
+    if (checked) _videoSelected.add(code);
+    else _videoSelected.delete(code);
+    updateVideoBulkBar();
+  }
+
   function renderVideos(videos) {
     const list = document.getElementById("videoList");
-    if (!videos.length) { list.innerHTML = "<div class=\"empty\">등록된 영상이 없습니다.</div>"; return; }
+    if (!videos.length) { list.innerHTML = "<div class=\"empty\">조건에 맞는 영상이 없습니다.</div>"; return; }
     list.innerHTML = videos.map(v => {
       const classOpts = (CLASS_OPTIONS_BY_ACADEMY[v.school] || []);
       const opts = classOpts.map(c => `<option value="${c}" ${c===v.class_name?"selected":""}>${c}</option>`).join("");
@@ -1262,8 +1430,12 @@
       const lockBadge = v.require_code
         ? `<span style="background:#FAEEDA;color:#854F0B;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔒 잠김</span>`
         : `<span style="background:#E1F5EE;color:#085041;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔓 공개</span>`;
+      const checkbox = _videoSelectMode
+        ? `<input type="checkbox" onchange="toggleVideoSelected(\x27${v.code}\x27, this.checked)" ${_videoSelected.has(v.code)?"checked":""} style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">`
+        : "";
       return `<div class="video-card">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          ${checkbox}
           <strong style="font-size:0.93rem;min-width:90px;">${v.date || "—"}</strong>
           <span style="font-size:0.82rem;color:var(--text-light);min-width:110px;">${v.school || ""}</span>
           <select onchange="changeVideoClass(\x27${v.code}\x27, this.value)" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;">${opts}</select>
@@ -1278,6 +1450,46 @@
         </div>
       </div>`;
     }).join("");
+  }
+
+  async function bulkLockVideos(lock) {
+    if (!_videoSelected.size) { showToast("선택된 영상이 없습니다"); return; }
+    if (!confirm("선택한 " + _videoSelected.size + "개 영상을 " + (lock ? "🔒 잠그기" : "🔓 공개") + " 처리할까요?")) return;
+    let okN = 0, failN = 0;
+    for (const code of Array.from(_videoSelected)) {
+      try {
+        const res = await fetch("/api/video-update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
+          body: JSON.stringify({ code: code, require_code: lock }),
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) okN++; else failN++;
+      } catch { failN++; }
+    }
+    showToast("일괄 " + (lock?"잠금":"공개") + " 완료 — 성공 " + okN + (failN?(" / 실패 "+failN):""));
+    _videoSelected.clear();
+    loadVideos();
+  }
+
+  async function bulkDeleteVideos() {
+    if (!_videoSelected.size) { showToast("선택된 영상이 없습니다"); return; }
+    if (!confirm("⚠️ 선택한 " + _videoSelected.size + "개 영상을 영구 삭제할까요?\n(유튜브 원본 영상은 영향 없음)")) return;
+    let okN = 0, failN = 0;
+    for (const code of Array.from(_videoSelected)) {
+      try {
+        const res = await fetch("/api/video-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
+          body: JSON.stringify({ code: code }),
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) okN++; else failN++;
+      } catch { failN++; }
+    }
+    showToast("일괄 삭제 완료 — 성공 " + okN + (failN?(" / 실패 "+failN):""));
+    _videoSelected.clear();
+    loadVideos();
   }
 
   async function toggleVideoLock(code, lock) {
@@ -1371,6 +1583,84 @@
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }
+  }
+
+  // ─── 반별 빠른 출석 ─────────────────────────
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function populateQaAcademies() {
+    const sel = document.getElementById('qaAcademy');
+    if (!sel) return;
+    const acads = Array.from(new Set((allStudents||[]).map(s => s.academy).filter(Boolean))).sort();
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">학원 선택</option>' + acads.map(a => '<option value="' + a + '">' + a + '</option>').join('');
+    if (prev && acads.includes(prev)) sel.value = prev;
+    const dl = document.getElementById('qaDateLabel');
+    if (dl) dl.textContent = todayStr();
+    onQaAcademyChange();
+  }
+  function onQaAcademyChange() {
+    const acad = document.getElementById('qaAcademy').value;
+    const sel = document.getElementById('qaClass');
+    const classes = Array.from(new Set((allStudents||[]).filter(s => !acad || s.academy === acad).map(s => s.className).filter(Boolean))).sort();
+    sel.innerHTML = '<option value="">반 선택</option>' + classes.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    updateQaSummary();
+  }
+  async function updateQaSummary() {
+    const acad = document.getElementById('qaAcademy').value;
+    const cls  = document.getElementById('qaClass').value;
+    const sumEl = document.getElementById('qaSummary');
+    if (!sumEl) return;
+    const targets = (allStudents||[]).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
+    if (!targets.length) { sumEl.innerHTML = '<span style="color:var(--text-light);">대상 학생 없음</span>'; return; }
+    sumEl.innerHTML = '<span style="color:var(--text-light);">현황 조회 중... (' + targets.length + '명)</span>';
+    const date = todayStr();
+    let counts = { '출석':0, '지각':0, '결석':0, '병결':0, '공결':0, '미체크':0 };
+    await Promise.all(targets.map(async (s) => {
+      try {
+        const res = await fetch('/api/attendance?name=' + encodeURIComponent(s.name) + '&month=' + date.slice(0,7), {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        const rec = data && data.records ? data.records[date] : null;
+        const status = (typeof rec === 'object' && rec !== null) ? rec.status : rec;
+        if (status && counts[status] != null) counts[status]++; else counts['미체크']++;
+      } catch { counts['미체크']++; }
+    }));
+    const pill = (label, n, bg, fg) => '<span style="display:inline-block;background:' + bg + ';color:' + fg + ';padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;margin-right:6px;">' + label + ' ' + n + '</span>';
+    sumEl.innerHTML =
+      '<span style="margin-right:8px;font-weight:600;">' + (acad?acad:'전체') + (cls?(' / ' + cls):'') + ' (' + targets.length + '명):</span>' +
+      pill('출석', counts['출석'], '#E5F5E8', '#1F7A33') +
+      pill('지각', counts['지각'], '#FFF4D6', '#B07A00') +
+      pill('결석', counts['결석'], '#FBE5E9', '#B02347') +
+      pill('병/공결', counts['병결']+counts['공결'], '#E8EAF6', '#3949AB') +
+      pill('미체크', counts['미체크'], '#F0F0F0', '#666');
+  }
+  function refreshQuickAttendanceSummary() { updateQaSummary(); }
+  async function bulkClassAttendance(status) {
+    const acad = document.getElementById('qaAcademy').value;
+    const cls  = document.getElementById('qaClass').value;
+    if (!acad || !cls) { showToast('학원과 반을 먼저 선택하세요'); return; }
+    const targets = (allStudents||[]).filter(s => s.academy === acad && s.className === cls);
+    if (!targets.length) { showToast('해당 반에 학생이 없습니다'); return; }
+    if (!confirm(acad + ' / ' + cls + ' (' + targets.length + '명)을 모두 [' + status + '] 처리할까요?\n오늘 날짜로 기록됩니다.')) return;
+    const date = todayStr();
+    let okN = 0, failN = 0;
+    for (const s of targets) {
+      try {
+        const res = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ name: s.name, date: date, status: status })
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) okN++; else failN++;
+      } catch { failN++; }
+    }
+    showToast('✅ 일괄 ' + status + ' 완료 — 성공 ' + okN + (failN?(' / 실패 '+failN):''));
+    updateQaSummary();
   }
 </script>
 </body>
