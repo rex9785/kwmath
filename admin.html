@@ -1273,6 +1273,7 @@
             <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)">📋 코드 복사</button>
             ${lockBtn}
             <a href="${v.youtube_url}" target="_blank" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);text-decoration:none;">▶ 보기</a>
+            <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="deleteVideo(\x27${v.code}\x27, \x27${(v.date || '').replace(/'/g, '')}\x27, \x27${(v.school || '').replace(/'/g, '')}\x27, \x27${(v.class_name || '').replace(/'/g, '')}\x27)">🗑 삭제</button>
           </div>
         </div>
       </div>`;
@@ -1308,6 +1309,29 @@
 
   function copyCode(code) {
     navigator.clipboard.writeText(code).then(function(){ showToast("코드 복사됨: " + code); });
+  }
+
+  async function deleteVideo(code, date, school, className) {
+    if (!code) return;
+    const label = [date, school, className].filter(Boolean).join(" / ") || code;
+    const ok = confirm("⚠️ 영상을 정말 삭제할까요?\n\n[" + label + "]\n코드: " + code + "\n\n삭제하면 R2에서 영상 코드가 즉시 제거되어 학생/학부모 페이지에서 더 이상 보이지 않습니다.\n(유튜브 원본 영상은 영향 없음)");
+    if (!ok) return;
+    try {
+      const res = await fetch("/api/video-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + adminToken },
+        body: JSON.stringify({ code: code }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast("🗑 삭제 완료: " + code);
+        loadVideos();
+      } else {
+        showToast("실패: " + (data.error || res.status));
+      }
+    } catch (e) {
+      showToast("오류: " + e.message);
+    }
   }
 
   const CS_CLASS_OPTIONS = {
