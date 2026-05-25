@@ -1172,8 +1172,8 @@
         ${s.grade ? '<span>학년: <b>' + escapeHtml(s.grade) + '</b></span>&nbsp;&nbsp;' : ''}
         ${s.goals && s.goals.length ? '<span>목적: ' + escapeHtml(s.goals.join(', ')) + '</span>&nbsp;&nbsp;' : ''}
         ${s.advanceProgress ? '<span>선행: <b>' + escapeHtml(s.advanceProgress) + '</b></span>&nbsp;&nbsp;' : ''}
-        ${s.studentPhone ? '<br><span>📱 학생: ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="togglePassword(\x27' + escapeAttr(s.studentPhone) + '\x27, this)">🔑 비번</button></span>&nbsp;&nbsp;' : ''}
-        ${s.parentPhone ? '<span>👪 학부모(' + escapeHtml(s.parentRelation || '') + '): <b>' + escapeHtml(s.parentPhone) + '</b> <button class="pw-btn" onclick="togglePassword(\x27' + escapeAttr(s.parentPhone) + '\x27, this)">🔑 비번</button></span>' : (s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>' : '')}
+        ${s.studentPhone ? '<br><span>📱 학생: ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 비번 초기화</button></span>&nbsp;&nbsp;' : ''}
+        ${s.parentPhone ? '<span>👪 학부모(' + escapeHtml(s.parentRelation || '') + '): <b>' + escapeHtml(s.parentPhone) + '</b> <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 비번 초기화</button></span>' : (s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>' : '')}
         ${mathInfo.length ? '<br><span style="color:var(--primary);font-weight:600;">📊 ' + mathInfo.join(' · ') + '</span>' : ''}
         ${s.weakness ? '<br><span>🎯 취약: ' + escapeHtml(s.weakness) + '</span>' : ''}
         ${s.dreamUniv ? '&nbsp;&nbsp;<span>🎓 ' + escapeHtml(s.dreamUniv) + '</span>' : ''}
@@ -1211,8 +1211,8 @@
               </span>
             </div>
             <div style="font-size:0.78rem;color:var(--text-light);margin-top:3px;line-height:1.6;">
-              ${s.parentPhone ? '👪 ' + escapeHtml(s.parentRelation||'') + ' ' + escapeHtml(s.parentPhone) + ' <button class="pw-btn" onclick="togglePassword(\x27' + escapeAttr(s.parentPhone) + '\x27, this)">🔑</button>' : (s.parentPhone4 ? '학부모끝 '+escapeHtml(s.parentPhone4) : '')}
-              ${s.studentPhone ? '&nbsp;·&nbsp;📱 ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="togglePassword(\x27' + escapeAttr(s.studentPhone) + '\x27, this)">🔑</button>' : ''}
+              ${s.parentPhone ? '👪 ' + escapeHtml(s.parentRelation||'') + ' ' + escapeHtml(s.parentPhone) + ' <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 초기화</button>' : (s.parentPhone4 ? '학부모끝 '+escapeHtml(s.parentPhone4) : '')}
+              ${s.studentPhone ? '&nbsp;·&nbsp;📱 ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 초기화</button>' : ''}
               ${s.mathMockGrade ? '&nbsp;·&nbsp;<span style="color:var(--primary);font-weight:600;">모의수학 ' + escapeHtml(s.mathMockGrade) + (s.mathMockScore!=null?' ('+s.mathMockScore+'점)':'') + '</span>' : ''}
               ${s.advanceProgress ? '&nbsp;·&nbsp;선행 ' + escapeHtml(s.advanceProgress) : ''}
             </div>
@@ -1835,43 +1835,25 @@
     } catch(e){}
   }
 
-  // 비밀번호 보기 토글 — admin이 학생/학부모 비번 평문 조회
-  async function togglePassword(phone, btn) {
-    if (!btn || !phone) return;
-    if (btn.dataset.shown === 'true') {
-      // 가리기
-      btn.dataset.shown = '';
-      btn.classList.remove('pw-shown');
-      btn.classList.add('pw-btn');
-      btn.textContent = btn.dataset.icon || '🔑';
-      return;
-    }
-    if (!btn.dataset.icon) btn.dataset.icon = btn.textContent;
-    btn.textContent = '⏳';
+  // 비밀번호 0000 초기화 — admin이 분실/잊음 신고 시 사용
+  async function resetPassword(phone, role) {
+    if (!phone) return;
+    const label = (role || '계정') + ' (' + phone + ')';
+    const ok = confirm('🔑 ' + label + ' 비밀번호를 0000으로 초기화할까요?\n\n초기화 후 ' + role + '님이 0000으로 다시 로그인하면 새 비밀번호 설정 화면이 떠요.');
+    if (!ok) return;
     try {
-      const res = await fetch('/api/admin-accounts?phone=' + encodeURIComponent(phone), {
-        headers: { 'Authorization': 'Bearer ' + adminToken },
+      const res = await fetch('/api/admin-reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ phone: phone }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        btn.textContent = btn.dataset.icon || '🔑';
-        showToast('❌ ' + (data.error || '비번 조회 실패'));
+        showToast('❌ ' + (data.error || '초기화 실패'));
         return;
       }
-      const pw = (data.account && data.account.plaintext) || '';
-      if (!pw) {
-        btn.textContent = btn.dataset.icon || '🔑';
-        const isInitial = data.account && data.account.mustChangePassword;
-        showToast(isInitial ? '🔓 초기 비번 0000 (아직 변경 안 함)' : '⚠️ 평문 비번 없음 — 변경 전 가입된 계정');
-        return;
-      }
-      btn.classList.remove('pw-btn');
-      btn.classList.add('pw-shown');
-      btn.textContent = pw;
-      btn.dataset.shown = 'true';
-      btn.title = '클릭하면 가려집니다';
+      showToast('✅ ' + label + ' 비번 0000으로 초기화됨. 알려주세요!');
     } catch (e) {
-      btn.textContent = btn.dataset.icon || '🔑';
       showToast('네트워크 오류: ' + e.message);
     }
   }
