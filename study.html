@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>KW-Study | 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=2">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+    /* 잔디 색상 — GitHub 초록 톤 (친숙) */
+    --g0:#EBEDF0;--g1:#9BE9A8;--g2:#40C463;--g3:#30A14E;--g4:#216E39;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;}
+
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+
+  .page{max-width:640px;margin:0 auto;padding:20px 18px 80px;}
+
+  .hero{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1.5px solid var(--border);border-radius:16px;padding:22px 22px;margin-bottom:16px;}
+  .hero h1{font-size:1.1rem;color:var(--primary);font-weight:900;letter-spacing:-0.3px;margin-bottom:4px;}
+  .hero .sub{font-size:0.82rem;color:var(--text-light);line-height:1.5;}
+
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+  .stat-box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 8px;text-align:center;}
+  .stat-num{font-size:1.4rem;font-weight:900;color:var(--primary);}
+  .stat-label{font-size:0.72rem;color:var(--text-light);margin-top:2px;font-weight:600;}
+
+  .big-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:var(--primary);color:#fff;border:none;padding:18px;border-radius:14px;font-size:1.05rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:-0.2px;box-shadow:0 6px 18px rgba(139,26,53,0.2);}
+  .big-btn:hover{background:var(--primary-mid);}
+  .big-btn .ic{font-size:1.4rem;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;}
+  .card h2{font-size:0.92rem;font-weight:800;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+
+  /* 잔디 — GitHub 초록 톤 */
+  .jandi-wrap{overflow-x:auto;padding-bottom:6px;}
+  .jandi{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,14px);gap:3px;}
+  .jcell{width:14px;height:14px;border-radius:3px;background:var(--g0);}
+  .jcell.l1{background:var(--g1);}
+  .jcell.l2{background:var(--g2);}
+  .jcell.l3{background:var(--g3);}
+  .jcell.l4{background:var(--g4);}
+  .jcell.today{outline:2px solid var(--primary);outline-offset:1px;}
+  .jandi-legend{display:flex;align-items:center;gap:5px;font-size:0.7rem;color:var(--text-light);margin-top:10px;justify-content:flex-end;}
+  .jandi-legend .jcell{display:inline-block;width:12px;height:12px;}
+
+  /* 최근 세션 */
+  .sess-list{display:flex;flex-direction:column;gap:6px;}
+  .sess-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:0.82rem;gap:8px;}
+  .sess-meta{color:var(--text-light);font-size:0.74rem;}
+  .sess-min{font-weight:800;color:var(--primary);}
+
+  /* 타이머 오버레이 */
+  .timer-screen{position:fixed;inset:0;background:#1a0a0f;color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px;z-index:200;}
+  .timer-screen.show{display:flex;}
+  .timer-display{font-size:5rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-2px;margin-bottom:8px;line-height:1;}
+  .timer-status{font-size:0.95rem;color:#aaa;margin-bottom:40px;font-weight:600;}
+  .timer-status.paused{color:#FFC107;}
+  .timer-btns{display:flex;gap:14px;}
+  .timer-btn{background:rgba(255,255,255,0.12);color:#fff;border:1.5px solid rgba(255,255,255,0.25);padding:14px 26px;border-radius:12px;font-size:0.95rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:-0.2px;}
+  .timer-btn:hover{background:rgba(255,255,255,0.22);}
+  .timer-btn.end{background:var(--primary);border-color:var(--primary);}
+  .timer-btn.end:hover{background:var(--primary-mid);}
+  .timer-tip{font-size:0.75rem;color:#888;margin-top:28px;text-align:center;max-width:280px;line-height:1.6;}
+
+  .empty{background:#fff;border:1px dashed var(--border);border-radius:12px;padding:24px 18px;text-align:center;color:var(--text-light);font-size:0.85rem;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.86rem;opacity:0;transition:opacity .25s;z-index:9999;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
+    <span>📚 KW-Study</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+
+  <div id="loading" class="empty">불러오는 중...</div>
+
+  <div id="content" style="display:none;">
+
+    <div class="hero">
+      <h1 id="heroTitle">오늘도 화이팅이에요</h1>
+      <div class="sub">집중한 시간이 모이면 결과가 만들어져요. 폰을 잠가도 시간은 계속 흘러요.</div>
+    </div>
+
+    <div class="summary">
+      <div class="stat-box"><div class="stat-num" id="todayMin">0분</div><div class="stat-label">오늘</div></div>
+      <div class="stat-box"><div class="stat-num" id="weekMin">0분</div><div class="stat-label">이번 주</div></div>
+      <div class="stat-box"><div class="stat-num" id="monthMin">0분</div><div class="stat-label">이번 달</div></div>
+    </div>
+
+    <button class="big-btn" onclick="startStudy()"><span class="ic">📚</span> 공부 시작하기</button>
+
+    <div style="height:18px;"></div>
+
+    <div class="card">
+      <h2>🌱 최근 30일 공부 잔디</h2>
+      <div class="jandi-wrap"><div class="jandi" id="jandi"></div></div>
+      <div class="jandi-legend">
+        적음
+        <span class="jcell"></span>
+        <span class="jcell l1"></span>
+        <span class="jcell l2"></span>
+        <span class="jcell l3"></span>
+        <span class="jcell l4"></span>
+        많음
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📝 최근 공부 세션</h2>
+      <div id="sessList" class="sess-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 타이머 풀스크린 ============ -->
+<div class="timer-screen" id="timerScreen">
+  <div class="timer-display" id="tmDisplay">00:00:00</div>
+  <div class="timer-status" id="tmStatus">📚 공부 중</div>
+  <div class="timer-btns">
+    <button class="timer-btn" id="tmPauseBtn" onclick="togglePause()">⏸ 일시정지</button>
+    <button class="timer-btn end" onclick="endStudy()">⏹ 공부 끝</button>
+  </div>
+  <div class="timer-tip">화면 꺼도, 폰 잠가도 시간은 계속 흘러요.<br>배터리 소모 거의 없어요.</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const TOKEN_KEY = 'kwmath_portal_token';
+  const ACTIVE_KEY = 'kwmath_kwstudy_active_v2';  // v2 — 이전 v1과 구조 다름
+  let token = '';
+  try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch(e){}
+  if (!token) { location.replace('/portal?next=/study'); }
+
+  let stats = null;
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function fmtMin(m) {
+    m = Math.round(m || 0);
+    if (m < 60) return m + '분';
+    const h = Math.floor(m / 60), mm = m % 60;
+    return h + '시간' + (mm ? ' ' + mm + '분' : '');
+  }
+
+  function ymd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/study', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        document.getElementById('loading').textContent = '오류: ' + (data.error || res.status);
+        return;
+      }
+      stats = data;
+      renderAll();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    } catch (e) {
+      document.getElementById('loading').textContent = '오류: ' + e.message;
+    }
+  }
+
+  function renderAll() {
+    document.getElementById('todayMin').textContent = fmtMin(stats.today);
+    document.getElementById('weekMin').textContent  = fmtMin(stats.week);
+    document.getElementById('monthMin').textContent = fmtMin(stats.month);
+    if (stats.today > 0) {
+      document.getElementById('heroTitle').textContent = '오늘 ' + fmtMin(stats.today) + ' 공부했어요 👏';
+    } else if (stats.all > 0) {
+      document.getElementById('heroTitle').textContent = '오늘도 시작해볼까요?';
+    } else {
+      document.getElementById('heroTitle').textContent = 'KW-Study 처음 오셨군요!';
+    }
+    renderJandi();
+    renderRecent();
+  }
+
+  function renderJandi() {
+    const wrap = document.getElementById('jandi');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayStr = ymd(today);
+    const cells = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      const dstr = ymd(d);
+      const m = (stats.byDate || {})[dstr] || 0;
+      let lvl = '';
+      if (m >= 240) lvl = 'l4';        // 4시간+
+      else if (m >= 120) lvl = 'l3';   // 2시간+
+      else if (m >= 30)  lvl = 'l2';   // 30분+
+      else if (m > 0)    lvl = 'l1';   // 조금이라도
+      const isToday = dstr === todayStr ? ' today' : '';
+      cells.push('<div class="jcell ' + lvl + isToday + '" title="' + dstr + ' · ' + fmtMin(m) + '"></div>');
+    }
+    wrap.innerHTML = cells.join('');
+  }
+
+  function renderRecent() {
+    const wrap = document.getElementById('sessList');
+    const list = stats.recentSessions || [];
+    if (!list.length) { wrap.innerHTML = '<div class="empty">아직 기록이 없어요. 첫 공부 시작!</div>'; return; }
+    wrap.innerHTML = list.slice(0, 10).map(s => {
+      const d = new Date(s.startedAt);
+      const dstr = d.toLocaleDateString('ko-KR', { month:'2-digit', day:'2-digit' });
+      const tstr = d.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+      return '<div class="sess-row">' +
+        '<span class="sess-meta">' + dstr + ' ' + tstr + ' 시작</span>' +
+        '<span class="sess-min">' + fmtMin(s.minutes) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  // ============ 타이머 로직 (v2 — startedAt/endedAt 기반) ============
+  // localStorage 구조:
+  //   { startedAt: ISO, pausedTotalMs: number, lastPauseAt: ISO|null }
+  //   - 일시정지 상태: lastPauseAt != null
+  //   - 진행 상태: lastPauseAt == null
+  // 화면 갱신용 setInterval(1초)는 폰 잠그면 멈춤. 시간 계산은 항상 timestamp 차이로.
+
+  let _tickInterval = null;
+
+  function loadActive() {
+    try {
+      const raw = localStorage.getItem(ACTIVE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch { return null; }
+  }
+  function saveActive(a) {
+    try { localStorage.setItem(ACTIVE_KEY, JSON.stringify(a)); } catch {}
+  }
+  function clearActive() {
+    try { localStorage.removeItem(ACTIVE_KEY); } catch {}
+  }
+
+  // 진행 시간 계산 (현재 기준)
+  function elapsedMs(a) {
+    if (!a) return 0;
+    const start = Date.parse(a.startedAt);
+    const paused = Number(a.pausedTotalMs) || 0;
+    if (a.lastPauseAt) {
+      // 일시정지 상태: 마지막 일시정지 시점까지 흐른 시간
+      return Math.max(0, Date.parse(a.lastPauseAt) - start - paused);
+    }
+    return Math.max(0, Date.now() - start - paused);
+  }
+
+  function startStudy() {
+    if (loadActive()) {
+      // 진행 중이면 그냥 타이머 화면 진입
+      enterTimerScreen();
+      return;
+    }
+    const a = {
+      startedAt: new Date().toISOString(),
+      pausedTotalMs: 0,
+      lastPauseAt: null,
+    };
+    saveActive(a);
+    enterTimerScreen();
+  }
+
+  function enterTimerScreen() {
+    document.getElementById('timerScreen').classList.add('show');
+    updateTimerLabels();
+    startTick();
+  }
+
+  function startTick() {
+    stopTick();
+    // 화면 보일 때만 1초마다 갱신 — 폰 잠겨도 시간은 timestamp로 정확히 흐름
+    _tickInterval = setInterval(updateTimerLabels, 1000);
+  }
+  function stopTick() {
+    if (_tickInterval) { clearInterval(_tickInterval); _tickInterval = null; }
+  }
+
+  function updateTimerLabels() {
+    const a = loadActive();
+    if (!a) return;
+    const sec = Math.floor(elapsedMs(a) / 1000);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    document.getElementById('tmDisplay').textContent =
+      String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    const status = document.getElementById('tmStatus');
+    if (a.lastPauseAt) { status.textContent = '⏸ 일시정지됨'; status.classList.add('paused'); }
+    else { status.textContent = '📚 공부 중'; status.classList.remove('paused'); }
+    const pb = document.getElementById('tmPauseBtn');
+    pb.textContent = a.lastPauseAt ? '▶ 다시 시작' : '⏸ 일시정지';
+  }
+
+  function togglePause() {
+    const a = loadActive();
+    if (!a) return;
+    if (a.lastPauseAt) {
+      // 재개 — 일시정지 동안의 시간을 누적
+      a.pausedTotalMs = (Number(a.pausedTotalMs) || 0) + (Date.now() - Date.parse(a.lastPauseAt));
+      a.lastPauseAt = null;
+    } else {
+      // 일시정지
+      a.lastPauseAt = new Date().toISOString();
+    }
+    saveActive(a);
+    updateTimerLabels();
+  }
+
+  async function endStudy() {
+    const a = loadActive();
+    if (!a) {
+      document.getElementById('timerScreen').classList.remove('show');
+      return;
+    }
+    // 일시정지 상태로 끝내면, 일시정지 시점까지의 시간만 인정
+    const endTs = a.lastPauseAt ? Date.parse(a.lastPauseAt) : Date.now();
+    const elapsedSec = Math.floor(elapsedMs(a) / 1000);
+    const minutes = Math.floor(elapsedSec / 60);
+    if (minutes < 1) {
+      if (!confirm('1분 미만은 기록되지 않습니다. 정말 종료할까요?')) return;
+      clearActive();
+      stopTick();
+      document.getElementById('timerScreen').classList.remove('show');
+      return;
+    }
+    if (!confirm('공부를 종료할까요?\n\n' + fmtMin(minutes) + ' 기록됩니다.')) return;
+    try {
+      const res = await fetch('/api/study', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          startedAt: a.startedAt,
+          endedAt: new Date(endTs).toISOString(),
+          minutes: minutes,
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ 저장 실패: ' + (data.error || res.status));
+        return;
+      }
+      clearActive();
+      stopTick();
+      document.getElementById('timerScreen').classList.remove('show');
+      showToast('🎉 ' + fmtMin(minutes) + ' 기록 완료');
+      loadStats();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  // 진행 중 세션 자동 복구
+  function checkResume() {
+    const a = loadActive();
+    if (!a) return;
+    // 24시간 이상 방치된 세션은 자동 폐기
+    const started = Date.parse(a.startedAt);
+    if (Date.now() - started > 24 * 60 * 60 * 1000) {
+      clearActive();
+      showToast('24시간 이상 방치된 세션을 자동 폐기했어요');
+      return;
+    }
+    enterTimerScreen();
+  }
+
+  loadStats().then(checkResume);
+
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
+</script>
+</body>
+</html>

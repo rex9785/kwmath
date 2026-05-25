@@ -126,7 +126,10 @@
             <div id="welcomeMsg" style="font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:6px;"></div>
             <div id="welcomePhone" style="font-size:0.78rem;color:var(--text-light);"></div>
           </div>
-          <div id="ddayBadges" style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end;"></div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end;">
+            <div id="ddayBadges" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;"></div>
+            <div id="todayStudyBadge" style="display:none;"></div>
+          </div>
         </div>
         <div id="childSelectWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
           <label style="display:block;font-size:0.78rem;font-weight:700;color:var(--text-light);margin-bottom:6px;">자녀 선택</label>
@@ -161,6 +164,11 @@
         <span class="feat-icon">📁</span>
         <span class="feat-title">수업 자료실</span>
         <span class="feat-desc">학습지·교재 다운로드</span>
+      </a>
+      <a href="/study" class="feat-btn" data-feat="study">
+        <span class="feat-icon">📚</span>
+        <span class="feat-title">KW-Study</span>
+        <span class="feat-desc">공부 시간 + 잔디</span>
       </a>
       <a href="/reviews" class="feat-btn" data-feat="reviews">
         <span class="feat-icon">📝</span>
@@ -648,6 +656,44 @@
     if (btn) btn.style.display = 'none';
     if (fab) fab.classList.remove('show');
   });
+
+  // ─── KW-Study 오늘 공부량 배지 ───
+  async function loadTodayStudyBadge() {
+    try {
+      const tk = (function(){
+        try { return sessionStorage.getItem('kwmath_portal_token') || localStorage.getItem('kwmath_portal_token') || ''; } catch(e){ return ''; }
+      })();
+      if (!tk) return;
+      const res = await fetch('/api/study?range=today', { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.ok) return;
+      const el = document.getElementById('todayStudyBadge');
+      if (!el) return;
+      const m = Number(data.today) || 0;
+      if (m <= 0) {
+        el.style.display = 'none';
+        return;
+      }
+      const h = Math.floor(m / 60), mm = m % 60;
+      const label = h > 0 ? (h + '시간' + (mm ? ' ' + mm + '분' : '')) : (m + '분');
+      el.innerHTML = '<a href="/study" style="display:inline-block;background:linear-gradient(135deg,#FBE2E8,#F2A8B5);color:#8B1A35;font-size:0.74rem;font-weight:800;padding:5px 12px;border-radius:20px;text-decoration:none;border:1px solid #8B1A35;">📚 오늘 ' + label + '</a>';
+      el.style.display = 'inline-block';
+    } catch (e) { /* silent */ }
+  }
+  // 로그인 후 메인 화면이 보이면 자동 호출
+  (function(){
+    const obs = new MutationObserver(function(){
+      const m = document.getElementById('mainScreen');
+      if (m && m.style.display !== 'none') {
+        loadTodayStudyBadge();
+      }
+    });
+    const ms = document.getElementById('mainScreen');
+    if (ms) obs.observe(ms, { attributes: true, attributeFilter: ['style'] });
+    // 초기 로드 시에도 한 번
+    setTimeout(loadTodayStudyBadge, 1000);
+  })();
 </script>
 </body>
 </html>
