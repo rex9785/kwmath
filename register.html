@@ -246,10 +246,10 @@
       <div class="done-icon">🎉</div>
       <h2>등록이 완료되었습니다!</h2>
       <p>선생님이 확인 후 곧 연락드리겠습니다.<br><br>
-      수업 리포트는 홈페이지의 <strong>'수업 리포트 열람'</strong>에서<br>
-      <strong>자녀 이름 + 학부모 전화번호 끝 4자리</strong>로 확인하실 수 있습니다.</p>
+      <strong>포털</strong>에서 휴대폰 번호로 로그인하실 수 있어요.<br>
+      초기 비밀번호는 <strong>0000</strong>입니다. (로그인 후 변경 권장)</p>
       <br><br>
-      <a href="/" style="display:inline-block;background:var(--primary);color:#fff;padding:13px 30px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.93rem;">홈페이지로 돌아가기</a>
+      <a href="/portal" style="display:inline-block;background:var(--primary);color:#fff;padding:13px 30px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.93rem;">포털로 로그인하기 →</a>
     </div>
   </div>
 </div>
@@ -370,28 +370,6 @@
       if (res.ok && data.ok) {
         document.getElementById('formArea').style.display = 'none';
         document.getElementById('doneScreen').style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        showErr(data.error || '등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
-      }
-    } catch (e) {
-      showErr('서버 통신 오류: ' + (e.message || '알 수 없는 오류'));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '등록 완료 →';
-    }
-  }
-
-  function showErr(msg) {
-    const errMsg = document.getElementById('errMsg');
-    errMsg.textContent = msg;
-    errMsg.style.display = 'block';
-    errMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-</script>
-</body>
-</html>
-                                                                                                                                               document.getElementById('doneScreen').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         showErr(data.error || '등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
