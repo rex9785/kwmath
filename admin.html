@@ -1608,6 +1608,30 @@
     }
   }
 
+  // ─── 학생 퇴원 처리 (Notion archive + R2 파일 삭제) ──
+  async function deleteStudent(name) {
+    if (!name) return;
+    const ok = confirm("⚠️ [" + name + "] 학생을 퇴원 처리할까요?\n\n· Notion 학생 DB에서 archive\n· 해당 학생의 모든 수업 리포트 archive\n· R2 reports/" + name + "/ 폴더의 파일 모두 삭제\n\n복구 불가. 정말 진행할까요?");
+    if (!ok) return;
+    try {
+      const res = await fetch("/api/delete-student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (window.adminToken || localStorage.getItem("adminToken") || "") },
+        body: JSON.stringify({ name: name }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast("❌ 퇴원 처리 실패: " + (data.error || res.status));
+        return;
+      }
+      showToast("🗑 " + name + " 퇴원 완료 — 학생 " + data.students_archived + " · 리포트 " + data.reports_archived + " · 파일 " + data.files_deleted);
+      // 학생 목록 새로고침
+      if (typeof loadStudents === "function") loadStudents();
+    } catch (e) {
+      showToast("네트워크 오류: " + e.message);
+    }
+  }
+
   // ─── 반별 빠른 출석 ─────────────────────────
   function todayStr() {
     const d = new Date();
