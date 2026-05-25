@@ -89,7 +89,7 @@
     </div>
     <div class="login-field">
       <label>휴대폰 번호</label>
-      <input id="loginPhone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="11" placeholder="01012345678 (숫자만)" oninput="stripToDigits(this)" autocomplete="username">
+      <input id="loginPhone" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)" autocomplete="username">
     </div>
     <div class="login-field">
       <label>비밀번호</label>
@@ -257,13 +257,19 @@
     el.style.display = msg ? 'block' : 'none';
   }
 
-  // 휴대폰 입력: 숫자만 허용 (자동 하이픈 X — 백스페이스 시 하이픈이 끼어드는 문제 방지)
-  // 하이픈은 normalizePhone()이 API 전송 시 자동으로 붙임
-  function stripToDigits(el) {
+  // 휴대폰 자동 포맷팅 (백스페이스 친화)
+  // - 4번째 숫자부터 하이픈 자동 추가
+  // - 7자리 정확히일 때는 꼬리 하이픈 X (백스페이스로 지울 수 있도록)
+  // - 8자리부터 두 번째 하이픈 추가
+  function formatPhone(el) {
     const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 11);
-    if (el.value !== v) el.value = v;
+    let f = v;
+    if (v.length > 7)      f = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
+    else if (v.length > 3) f = v.slice(0,3) + '-' + v.slice(3);
+    if (el.value !== f) el.value = f;
   }
-  function formatPhone(el) { stripToDigits(el); }
+  // 호환용 — 이전에 추가했던 함수, 이제 formatPhone에 위임
+  function stripToDigits(el) { formatPhone(el); }
 
   function normalizePhone(raw) {
     const d = (raw || '').replace(/[^0-9]/g, '');

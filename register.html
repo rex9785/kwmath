@@ -89,11 +89,11 @@
         <div class="form-section-title">연락처</div>
         <div class="form-row">
           <label>학생 휴대폰 <span class="req">*</span></label>
-          <input id="studentPhone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="11" placeholder="01012345678 (숫자만)" oninput="stripToDigits(this)">
+          <input id="studentPhone" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)">
         </div>
         <div class="form-row">
           <label>학부모 휴대폰 <span class="req">*</span></label>
-          <input id="parentPhone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="11" placeholder="01012345678 (숫자만)" oninput="stripToDigits(this)">
+          <input id="parentPhone" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)">
           <div class="form-hint">끝 4자리는 자동으로 추출되어 수업 리포트 열람에 사용됩니다.</div>
         </div>
         <div class="form-row">
@@ -281,11 +281,19 @@
     if (el) el.classList.toggle('open');
   }
 
-  function stripToDigits(el) {
+  // 휴대폰 자동 포맷팅 (백스페이스 친화)
+  // - 4번째 숫자부터 하이픈 자동 추가
+  // - 7자리 정확히일 때는 꼬리 하이픈 X (백스페이스로 지울 수 있도록)
+  // - 8자리부터 두 번째 하이픈 추가
+  function formatPhone(el) {
     const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 11);
-    if (el.value !== v) el.value = v;
+    let f = v;
+    if (v.length > 7)      f = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
+    else if (v.length > 3) f = v.slice(0,3) + '-' + v.slice(3);
+    if (el.value !== f) el.value = f;
   }
-  function formatPhone(el) { stripToDigits(el); }
+  // 호환용 — 이전에 추가했던 함수, 이제 formatPhone에 위임
+  function stripToDigits(el) { formatPhone(el); }
 
   function getCheckedValues(groupId) {
     return [].slice.call(document.querySelectorAll('#' + groupId + ' .check-item.checked input')).map(function(i){ return i.value; });
