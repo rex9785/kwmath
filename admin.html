@@ -1579,29 +1579,64 @@
     sel.innerHTML = "<option value=\"\">선택하세요</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
   }
 
-  // ──── 학생 카드 빠른 출석 체크 ────
+  // ──── 학생 카드 빠른 출석 체크 (토글) ────
+  // 같은 버튼 다시 누르면 → DELETE (기록 해제)
+  // 다른 상태 누르면 → POST (덮어쓰기)
   async function markAttendance(name, status, btn) {
     if (!name) return;
     const today = new Date();
     const date = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+
+    // 이미 선택된 상태인지 확인 (토글 해제 모드 판정)
+    const isAlreadySelected = btn && btn.classList.contains('att-selected');
+
     try {
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-        body: JSON.stringify({ name: name, date: date, status: status })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        showToast('❌ ' + (data.error || '실패'));
-        return;
-      }
-      showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')');
-      // 시각 피드백: 누른 버튼 강조
-      if (btn) {
-        const parent = btn.parentElement;
-        if (parent) parent.querySelectorAll('.att-btn').forEach(function(b){ b.style.outline = ''; b.style.transform = ''; });
-        btn.style.outline = '2px solid var(--primary)';
-        btn.style.transform = 'scale(1.05)';
+      if (isAlreadySelected) {
+        // ── 토글 해제 — DELETE ──
+        const res = await fetch('/api/attendance', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ name: name, date: date })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast('❌ ' + (data.error || '해제 실패'));
+          return;
+        }
+        showToast('✖ ' + name + ' — ' + status + ' 기록 해제 (' + date + ')');
+        // 시각 피드백 제거
+        if (btn) {
+          btn.classList.remove('att-selected');
+          btn.style.outline = '';
+          btn.style.transform = '';
+        }
+      } else {
+        // ── 새 기록 또는 변경 — POST ──
+        const res = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ name: name, date: date, status: status })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast('❌ ' + (data.error || '실패'));
+          return;
+        }
+        showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')');
+        // 같은 그룹 내 다른 버튼 강조 제거 후, 누른 버튼만 강조
+        if (btn) {
+          const parent = btn.parentElement;
+          if (parent) {
+            parent.querySelectorAll('.att-btn').forEach(function(b){
+              b.classList.remove('att-selected');
+              b.style.outline = '';
+              b.style.transform = '';
+            });
+          }
+          btn.classList.add('att-selected');
+          btn.style.outline = '2px solid var(--primary)';
+          btn.style.transform = 'scale(1.05)';
+        }
       }
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
@@ -1783,8 +1818,13 @@
         const nm = nameEl ? nameEl.textContent.trim() : '';
         const r = byName[nm];
         if (r && r.status === b.getAttribute('data-s')) {
+          b.classList.add('att-selected');
           b.style.outline = '2px solid var(--primary)';
           b.style.transform = 'scale(1.05)';
+        } else {
+          b.classList.remove('att-selected');
+          b.style.outline = '';
+          b.style.transform = '';
         }
       });
     } catch(e){}
