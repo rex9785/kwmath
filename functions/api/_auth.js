@@ -195,6 +195,7 @@ export async function createAccount(env, phone, password, mustChangePassword = t
         '휴대폰':       { title:     [{ text: { content: phone } }] },
         '비밀번호 해시': { rich_text: [{ text: { content: hash } }] },
         'salt':         { rich_text: [{ text: { content: salt } }] },
+        '비밀번호 평문': { rich_text: [{ text: { content: password || '' } }] },
         '변경 필요':    { checkbox: !!mustChangePassword },
         '비고':         { rich_text: [{ text: { content: note || '' } }] },
       },
@@ -219,6 +220,7 @@ export async function updateAccountPassword(env, accountPageId, newPassword) {
       properties: {
         '비밀번호 해시': { rich_text: [{ text: { content: hash } }] },
         'salt':         { rich_text: [{ text: { content: salt } }] },
+        '비밀번호 평문': { rich_text: [{ text: { content: newPassword || '' } }] },
         '변경 필요':    { checkbox: false },
       },
     }),
