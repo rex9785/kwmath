@@ -14,7 +14,8 @@
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
   .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
-  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.68rem;letter-spacing:-0.5px;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
   .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
   .topbar-btn:hover{background:rgba(255,255,255,0.26);}
 
@@ -50,7 +51,7 @@
 
 <div class="topbar">
   <a href="/portal" class="topbar-title">
-    <span class="logo-mark">K</span>
+    <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
     <span>📊 테스트 결과</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>

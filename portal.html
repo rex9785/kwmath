@@ -25,7 +25,8 @@
   /* ── 공통 ── */
   .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:1rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;}
-  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.85rem;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
   .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;}
   .topbar-btn:hover{background:rgba(255,255,255,0.28);}
 
@@ -37,7 +38,8 @@
   #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
   .login-card{background:#fff;border-radius:24px;padding:40px 32px 36px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(139,26,53,0.12);border:1px solid var(--border);}
   .login-logo-wrap{text-align:center;margin-bottom:24px;}
-  .login-logo-mark{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;background:var(--primary);color:#fff;border-radius:16px;font-weight:900;font-size:1.8rem;letter-spacing:-1px;margin-bottom:12px;}
+  .login-logo-mark{display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;background:var(--primary);border-radius:20px;overflow:hidden;margin-bottom:12px;padding:0;}
+  .login-logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
   .login-title{font-size:1.25rem;font-weight:900;color:var(--text);margin-bottom:4px;text-align:center;}
   .login-sub{font-size:0.83rem;color:var(--text-light);margin-bottom:28px;text-align:center;line-height:1.6;}
   .login-field{margin-bottom:14px;}
@@ -81,13 +83,13 @@
 <div id="loginScreen">
   <div class="login-card">
     <div class="login-logo-wrap">
-      <div class="login-logo-mark">K</div>
+      <div class="login-logo-mark"><img src="/icons/icon-512.png?v=6" alt="이관우 수학연구소"></div>
       <div class="login-title">이관우 수학연구소</div>
       <div class="login-sub">학부모·학생 전용 페이지<br>휴대폰 번호로 로그인하세요</div>
     </div>
     <div class="login-field">
       <label>휴대폰 번호</label>
-      <input id="loginPhone" type="tel" inputmode="tel" placeholder="010-0000-0000" oninput="formatPhone(this)" autocomplete="username">
+      <input id="loginPhone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="11" placeholder="01012345678 (숫자만)" oninput="stripToDigits(this)" autocomplete="username">
     </div>
     <div class="login-field">
       <label>비밀번호</label>
@@ -109,7 +111,7 @@
 <div id="mainScreen" style="display:none;">
   <div class="topbar">
     <div class="topbar-title">
-      <span class="logo-mark">K</span>
+      <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
       <span>이관우 수학연구소</span>
     </div>
     <button class="topbar-btn" onclick="doLogout()">로그아웃</button>
@@ -255,12 +257,13 @@
     el.style.display = msg ? 'block' : 'none';
   }
 
-  function formatPhone(el) {
-    let v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 11);
-    if (v.length >= 7)      v = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
-    else if (v.length >= 4) v = v.slice(0,3) + '-' + v.slice(3);
-    el.value = v;
+  // 휴대폰 입력: 숫자만 허용 (자동 하이픈 X — 백스페이스 시 하이픈이 끼어드는 문제 방지)
+  // 하이픈은 normalizePhone()이 API 전송 시 자동으로 붙임
+  function stripToDigits(el) {
+    const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 11);
+    if (el.value !== v) el.value = v;
   }
+  function formatPhone(el) { stripToDigits(el); }
 
   function normalizePhone(raw) {
     const d = (raw || '').replace(/[^0-9]/g, '');
