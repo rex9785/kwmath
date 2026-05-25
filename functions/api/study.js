@@ -87,6 +87,7 @@ export async function onRequest({ request, env }) {
     return Response.json({
       ok: true,
       name: studentName,
+      role: access.student.role,
       sessionsCount: rec.sessions.length,
       totalMinutes: agg.all,
       today: agg.today,
@@ -99,6 +100,10 @@ export async function onRequest({ request, env }) {
   }
 
   if (request.method === 'POST') {
+    // 학부모는 자녀 대신 세션 기록 불가 — 본인이 학생일 때만 OK
+    if (access.student.role !== 'student') {
+      return Response.json({ error: '학생 본인 계정에서만 공부 세션을 기록할 수 있습니다.' }, { status: 403 });
+    }
     let body = {};
     try { body = await request.json(); } catch {}
 

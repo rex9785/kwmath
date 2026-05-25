@@ -103,7 +103,11 @@
 
     <div class="hero">
       <h1 id="heroTitle">오늘도 화이팅이에요</h1>
-      <div class="sub">집중한 시간이 모이면 결과가 만들어져요. 폰을 잠가도 시간은 계속 흘러요.</div>
+      <div class="sub" id="heroSub">집중한 시간이 모이면 결과가 만들어져요. 폰을 잠가도 시간은 계속 흘러요.</div>
+      <div id="childPicker" style="display:none;margin-top:12px;">
+        <label style="font-size:0.78rem;font-weight:700;color:var(--primary);margin-right:8px;">자녀 선택</label>
+        <select id="childSelect" onchange="onChildChange()" style="padding:7px 12px;border:1.5px solid var(--primary);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;color:var(--text);"></select>
+      </div>
     </div>
 
     <div class="summary">
@@ -112,9 +116,8 @@
       <div class="stat-box"><div class="stat-num" id="monthMin">0분</div><div class="stat-label">이번 달</div></div>
     </div>
 
-    <button class="big-btn" onclick="startStudy()"><span class="ic">📚</span> 공부 시작하기</button>
-
-    <div style="height:18px;"></div>
+    <div id="startBtnWrap"><button class="big-btn" onclick="startStudy()"><span class="ic">📚</span> 공부 시작하기</button>
+    <div style="height:18px;"></div></div>
 
     <div class="card">
       <h2>📊 최근 14일 — 하루별</h2>
@@ -168,6 +171,9 @@
   if (!token) { location.replace('/portal?next=/study'); }
 
   let stats = null;
+  let myStudents = [];      // /api/auth/me 결과
+  let currentChild = null;  // 현재 선택된 학생
+  let isParentView = false; // 학부모로 로그인했는지
 
   function showToast(msg) {
     const t = document.getElementById('toast');
@@ -190,7 +196,85 @@
 
   async function loadStats() {
     try {
-      const res = await fetch('/api/study', { headers: { 'Authorization': 'Bearer ' + token } });
+      // 1) /api/auth/me — 자녀 목록 + role 가져오기
+      const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      const meData = await meRes.json();
+      if (!meRes.ok || !meData.ok) {
+        try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+        location.replace('/portal?next=/study');
+        return;
+      }
+      myStudents = Array.isArray(meData.students) ? meData.students : [];
+      if (!myStudents.length) {
+        document.getElementById('loading').innerHTML = '연결된 학생이 없어요. 관우T께 문의해주세요.';
+        return;
+      }
+
+      // 2) 학부모인지 학생인지 판단 — 모든 students의 role이 parent면 학부모 화면
+      // (한 휴대폰이 학생 역할이면 role==='student' — 본인이 학생)
+      isParentView = myStudents.every(s => s.role === 'parent');
+
+      // 3) 자녀 선택 초기화 (sessionStorage에 이전 선택 있으면 사용)
+      let initIdx = 0;
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('kwmath_selected_student') || 'null');
+        if (saved && saved.name) {
+          const i = myStudents.findIndex(s => s.name === saved.name);
+          if (i >= 0) initIdx = i;
+        }
+      } catch(e){}
+      currentChild = myStudents[initIdx];
+
+      // 4) 학부모면 자녀 선택 UI 표시 + 시작 버튼 숨김
+      applyRoleUI(initIdx);
+
+      // 5) 현재 학생의 stats 로드
+      await loadStudyData();
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    } catch (e) {
+      document.getElementById('loading').textContent = '오류: ' + e.message;
+    }
+  }
+
+  function applyRoleUI(idx) {
+    const startWrap = document.getElementById('startBtnWrap');
+    const childPicker = document.getElementById('childPicker');
+    const heroSub = document.getElementById('heroSub');
+
+    if (isParentView) {
+      // 학부모 — 시작 버튼 숨김
+      if (startWrap) startWrap.style.display = 'none';
+      if (heroSub) heroSub.textContent = '자녀의 공부 흐름을 확인해보세요. (보기 전용)';
+    } else {
+      // 학생 본인 — 시작 버튼 보임
+      if (startWrap) startWrap.style.display = '';
+    }
+
+    // 자녀가 2명 이상이면 항상 선택 UI 표시 (학생도 형제자매 있을 수 있음)
+    if (myStudents.length > 1) {
+      const sel = document.getElementById('childSelect');
+      sel.innerHTML = myStudents.map((s, i) =>
+        '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + s.name + (s.className ? ' (' + s.className + ')' : '') + '</option>'
+      ).join('');
+      childPicker.style.display = 'block';
+    } else {
+      childPicker.style.display = 'none';
+    }
+  }
+
+  async function onChildChange() {
+    const idx = parseInt(document.getElementById('childSelect').value, 10) || 0;
+    currentChild = myStudents[idx];
+    try { sessionStorage.setItem('kwmath_selected_student', JSON.stringify(currentChild)); } catch(e){}
+    await loadStudyData();
+  }
+
+  async function loadStudyData() {
+    try {
+      const url = '/api/study?name=' + encodeURIComponent(currentChild.name);
+      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
       const data = await res.json();
       if (!res.ok || !data.ok) {
         document.getElementById('loading').textContent = '오류: ' + (data.error || res.status);
@@ -198,8 +282,6 @@
       }
       stats = data;
       renderAll();
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('content').style.display = 'block';
     } catch (e) {
       document.getElementById('loading').textContent = '오류: ' + e.message;
     }
@@ -209,12 +291,23 @@
     document.getElementById('todayMin').textContent = fmtMin(stats.today);
     document.getElementById('weekMin').textContent  = fmtMin(stats.week);
     document.getElementById('monthMin').textContent = fmtMin(stats.month);
-    if (stats.today > 0) {
-      document.getElementById('heroTitle').textContent = '오늘 ' + fmtMin(stats.today) + ' 공부했어요 👏';
-    } else if (stats.all > 0) {
-      document.getElementById('heroTitle').textContent = '오늘도 시작해볼까요?';
+    const childName = (currentChild && currentChild.name) || '';
+    if (isParentView) {
+      if (stats.today > 0) {
+        document.getElementById('heroTitle').textContent = childName + ' 오늘 ' + fmtMin(stats.today) + ' 공부했어요';
+      } else if (stats.all > 0) {
+        document.getElementById('heroTitle').textContent = childName + ' 의 공부 기록';
+      } else {
+        document.getElementById('heroTitle').textContent = childName + ' 아직 기록이 없어요';
+      }
     } else {
-      document.getElementById('heroTitle').textContent = 'KW-Study 처음 오셨군요!';
+      if (stats.today > 0) {
+        document.getElementById('heroTitle').textContent = '오늘 ' + fmtMin(stats.today) + ' 공부했어요 👏';
+      } else if (stats.all > 0) {
+        document.getElementById('heroTitle').textContent = '오늘도 시작해볼까요?';
+      } else {
+        document.getElementById('heroTitle').textContent = 'KW-Study 처음 오셨군요!';
+      }
     }
     renderDailyChart();
     renderWeeklyChart();
@@ -381,6 +474,10 @@
   }
 
   function startStudy() {
+    if (isParentView) {
+      alert('학생 본인 계정에서만 공부를 시작할 수 있어요.');
+      return;
+    }
     if (loadActive()) { enterTimerScreen(); return; }
     const a = { startedAt: new Date().toISOString(), pausedTotalMs: 0, lastPauseAt: null };
     saveActive(a);
@@ -457,6 +554,7 @@
   }
 
   function checkResume() {
+    if (isParentView) return;  // 학부모는 active 세션이 있을 수 없음
     const a = loadActive();
     if (!a) return;
     const started = Date.parse(a.startedAt);
