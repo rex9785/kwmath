@@ -1587,7 +1587,7 @@
     try {
       const res = await fetch('/api/attendance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
         body: JSON.stringify({ name: name, date: date, status: status })
       });
       const data = await res.json();
@@ -1616,7 +1616,7 @@
     try {
       const res = await fetch("/api/delete-student", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (window.adminToken || localStorage.getItem("adminToken") || "") },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
         body: JSON.stringify({ name: name }),
       });
       const data = await res.json();
@@ -1734,7 +1734,7 @@
     try {
       const res = await fetch('/api/attendance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
         body: JSON.stringify({ name: name, date: today, homework: percent })
       });
       const data = await res.json();
@@ -1755,7 +1755,7 @@
     const today = (function(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
     try {
       const res = await fetch('/api/attendance?all=1', {
-        headers: { 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') }
+        headers: { 'Authorization': 'Bearer ' + adminToken }
       });
       if (!res.ok) return;
       const list = await res.json();
@@ -1795,7 +1795,7 @@
     showToast('📋 ' + name + ' 지난 숙제 조회 중...');
     try {
       const res = await fetch('/api/reports?name=' + encodeURIComponent(name), {
-        headers: { 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') }
+        headers: { 'Authorization': 'Bearer ' + adminToken }
       });
       const data = await res.json();
       if (!res.ok) { alert('조회 실패: ' + (data.error || res.status)); return; }
