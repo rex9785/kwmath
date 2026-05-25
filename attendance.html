@@ -54,6 +54,17 @@
   .cal-cell.sick{background:#E8ECFB;}.cal-cell.sick .s{color:var(--sick);}
   .cal-cell.off{background:#EDEDED;}.cal-cell.off .s{color:var(--off);}
 
+  .cal-cell .hw{position:absolute;top:2px;right:3px;font-size:0.55rem;font-weight:800;color:var(--primary);background:#fff;border:1px solid var(--primary);border-radius:6px;padding:0 4px;line-height:1.2;}
+  .cal-cell.hw-0{box-shadow:inset 0 -3px 0 #c0392b;}
+  .cal-cell.hw-25{box-shadow:inset 0 -3px 0 #e67e22;}
+  .cal-cell.hw-50{box-shadow:inset 0 -3px 0 #f1c40f;}
+  .cal-cell.hw-75{box-shadow:inset 0 -3px 0 #27ae60;}
+  .cal-cell.hw-100{box-shadow:inset 0 -3px 0 #1F7A33;}
+  .hw-stat{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1.5px solid var(--primary);grid-column:span 4;padding:10px 14px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
+  .hw-stat .lbl{font-size:0.78rem;color:var(--primary);font-weight:700;}
+  .hw-stat .val{font-size:1.1rem;font-weight:900;color:var(--primary);}
+  .hw-stat .sub{font-size:0.7rem;color:var(--text-light);}
+
   .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:0.76rem;color:var(--text-light);justify-content:center;}
   .legend span{display:inline-flex;align-items:center;gap:4px;}
   .legend .dot{display:inline-block;width:10px;height:10px;border-radius:3px;}
@@ -100,6 +111,7 @@
         <span><span class="dot" style="background:#FBE5E9;"></span>결석</span>
         <span><span class="dot" style="background:#E8ECFB;"></span>병결</span>
         <span><span class="dot" style="background:#EDEDED;"></span>공결</span>
+        <span style="width:100%;text-align:center;color:var(--text-light);font-size:0.7rem;margin-top:4px;">하단 색띠 = 숙제 완료율 (빨강 0% → 초록 100%)</span>
       </div>
     </div>
   </div>
@@ -184,24 +196,42 @@
   function prevMonth() { viewMonth.setMonth(viewMonth.getMonth() - 1); renderMonth(); }
   function nextMonth() { viewMonth.setMonth(viewMonth.getMonth() + 1); renderMonth(); }
 
+  // 옛 string 레코드와 새 object 레코드 둘 다 호환
+  function recStatus(r) { return (typeof r === 'string') ? r : (r && r.status) || ''; }
+  function recHomework(r) { return (typeof r === 'object' && r && typeof r.homework === 'number') ? r.homework : null; }
+  function hwBucketClass(p) {
+    if (p === 0)   return 'hw-0';
+    if (p <= 25)   return 'hw-25';
+    if (p <= 50)   return 'hw-50';
+    if (p <= 75)   return 'hw-75';
+    return 'hw-100';
+  }
+
   function renderMonth() {
     const y = viewMonth.getFullYear();
     const m = viewMonth.getMonth();
     const monthStr = y + '-' + String(m + 1).padStart(2, '0');
     document.getElementById('monthLabel').textContent = y + '년 ' + (m + 1) + '월';
 
-    // 요약
     let cnt = { '출석': 0, '지각': 0, '결석': 0, '병결': 0, '공결': 0 };
-    for (const [date, status] of Object.entries(allRecords)) {
-      if (date.startsWith(monthStr) && cnt.hasOwnProperty(status)) cnt[status]++;
+    let hwSum = 0, hwN = 0;
+    for (const [date, r] of Object.entries(allRecords)) {
+      if (!date.startsWith(monthStr)) continue;
+      const st = recStatus(r);
+      if (cnt.hasOwnProperty(st)) cnt[st]++;
+      const hp = recHomework(r);
+      if (hp !== null) { hwSum += hp; hwN++; }
     }
+    const hwAvg = hwN ? Math.round(hwSum / hwN) : null;
     document.getElementById('summary').innerHTML =
       '<div class="stat-box"><div class="stat-num" style="color:var(--att);">' + cnt['출석'] + '</div><div class="stat-label">출석</div></div>' +
       '<div class="stat-box"><div class="stat-num" style="color:var(--late);">' + cnt['지각'] + '</div><div class="stat-label">지각</div></div>' +
       '<div class="stat-box"><div class="stat-num" style="color:var(--abs);">' + cnt['결석'] + '</div><div class="stat-label">결석</div></div>' +
-      '<div class="stat-box"><div class="stat-num" style="color:var(--sick);">' + (cnt['병결'] + cnt['공결']) + '</div><div class="stat-label">병·공결</div></div>';
+      '<div class="stat-box"><div class="stat-num" style="color:var(--sick);">' + (cnt['병결'] + cnt['공결']) + '</div><div class="stat-label">병·공결</div></div>' +
+      (hwAvg !== null
+        ? '<div class="hw-stat"><div><div class="lbl">📝 이번 달 숙제 평균</div><div class="sub">' + hwN + '회 기록</div></div><div class="val">' + hwAvg + '%</div></div>'
+        : '<div class="hw-stat"><div class="lbl">📝 이번 달 숙제 기록 없음</div></div>');
 
-    // 캘린더
     const firstDow = new Date(y, m, 1).getDay();
     const lastDate = new Date(y, m + 1, 0).getDate();
     const today = new Date(); today.setHours(0,0,0,0);
@@ -212,10 +242,14 @@
     const cls = { '출석': 'att', '지각': 'late', '결석': 'abs', '병결': 'sick', '공결': 'off' };
     for (let d = 1; d <= lastDate; d++) {
       const ds = monthStr + '-' + String(d).padStart(2, '0');
-      const status = allRecords[ds];
-      const c = status ? cls[status] || '' : '';
+      const r = allRecords[ds];
+      const status = recStatus(r);
+      const hp = recHomework(r);
+      const cc = status ? cls[status] || '' : '';
+      const hwCls = (hp !== null) ? ' ' + hwBucketClass(hp) : '';
       const isToday = ds === todayStr ? ' today' : '';
-      html += '<div class="cal-cell ' + c + isToday + '"><div class="d">' + d + '</div>' + (status ? '<div class="s">' + status + '</div>' : '') + '</div>';
+      const hwBadge = (hp !== null) ? '<div class="hw">' + hp + '</div>' : '';
+      html += '<div class="cal-cell ' + cc + hwCls + isToday + '">' + hwBadge + '<div class="d">' + d + '</div>' + (status ? '<div class="s">' + status + '</div>' : '') + '</div>';
     }
     document.getElementById('calGrid').innerHTML = html;
   }

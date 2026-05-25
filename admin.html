@@ -91,6 +91,19 @@
   .search-btn{background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .report-list{display:flex;flex-direction:column;gap:12px;}
   .report-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px 24px;}
+  /* 숙제 완료율 버킷 — 5단계 */
+  .hw-bucket{display:inline-flex;align-items:center;gap:3px;flex-wrap:nowrap;}
+  .hw-btn{padding:3px 7px;border-radius:6px;font-size:0.7rem;font-weight:800;cursor:pointer;font-family:inherit;border:1px solid transparent;line-height:1.2;min-width:32px;text-align:center;color:#fff;opacity:0.55;transition:opacity .2s, transform .15s;}
+  .hw-btn:hover{opacity:0.85;}
+  .hw-btn.selected{opacity:1;transform:scale(1.08);box-shadow:0 0 0 2px rgba(0,0,0,0.08);}
+  .hw-btn[data-p="0"]{background:#c0392b;}
+  .hw-btn[data-p="25"]{background:#e67e22;}
+  .hw-btn[data-p="50"]{background:#f1c40f;color:#5b4a00;}
+  .hw-btn[data-p="75"]{background:#27ae60;}
+  .hw-btn[data-p="100"]{background:#1F7A33;}
+  .hw-prev-btn{background:none;border:1px solid var(--border);color:var(--text-light);padding:3px 7px;border-radius:6px;font-size:0.7rem;cursor:pointer;font-family:inherit;}
+  .hw-prev-btn:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary);}
+
   /* 영상 목록 카드도 공지폼과 같은 여백 */
   .video-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 24px;margin-bottom:10px;}
   .report-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
@@ -1117,6 +1130,7 @@
     const list = document.getElementById('studentList');
     if (!students.length) { list.innerHTML = '<div class="empty">해당 학생이 없습니다.</div>'; return; }
     list.innerHTML = students.map(renderStudentCard).join('');
+    setTimeout(function(){ if (typeof syncTodayAttendanceMarks === 'function') syncTodayAttendanceMarks(); }, 0);
   }
 
   function renderStudentCard(s) {
@@ -1131,11 +1145,20 @@
           <strong>${escapeHtml(s.name || '—')}</strong>
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
         </div>
-        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:0.7rem;color:var(--text-light);margin-right:4px;">오늘:</span>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:0.7rem;color:var(--text-light);margin-right:2px;">오늘:</span>
           <button class="att-btn" data-s="출석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
           <button class="att-btn" data-s="지각" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
           <button class="att-btn" data-s="결석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
+          <span style="font-size:0.7rem;color:var(--text-light);margin-left:6px;margin-right:2px;">숙제:</span>
+          <div class="hw-bucket" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
+            <button class="hw-btn" data-p="0"   onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',0,this)">0</button>
+            <button class="hw-btn" data-p="25"  onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',25,this)">25</button>
+            <button class="hw-btn" data-p="50"  onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',50,this)">50</button>
+            <button class="hw-btn" data-p="75"  onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',75,this)">75</button>
+            <button class="hw-btn" data-p="100" onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',100,this)">100</button>
+          </div>
+          <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${(s.name||'').replace(/'/g,'\\x27')}')">📋</button>
           <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
         </div>
       </div>
@@ -1629,6 +1652,20 @@
         if (status && counts[status] != null) counts[status]++; else counts['미체크']++;
       } catch { counts['미체크']++; }
     }));
+    let hwSum = 0, hwN = 0;
+    await Promise.all(targets.map(async (s) => {
+      try {
+        const res = await fetch('/api/attendance?name=' + encodeURIComponent(s.name) + '&month=' + date.slice(0,7), {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        const rec = data && data.records ? data.records[date] : null;
+        const r = (typeof rec === 'object' && rec !== null) ? rec : (typeof rec === 'string' ? { status: rec } : null);
+        if (r && typeof r.homework === 'number') { hwSum += r.homework; hwN++; }
+      } catch {}
+    }));
+    const hwAvg = hwN ? Math.round(hwSum / hwN) : null;
+
     const pill = (label, n, bg, fg) => '<span style="display:inline-block;background:' + bg + ';color:' + fg + ';padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;margin-right:6px;">' + label + ' ' + n + '</span>';
     sumEl.innerHTML =
       '<span style="margin-right:8px;font-weight:600;">' + (acad?acad:'전체') + (cls?(' / ' + cls):'') + ' (' + targets.length + '명):</span>' +
@@ -1636,7 +1673,10 @@
       pill('지각', counts['지각'], '#FFF4D6', '#B07A00') +
       pill('결석', counts['결석'], '#FBE5E9', '#B02347') +
       pill('병/공결', counts['병결']+counts['공결'], '#E8EAF6', '#3949AB') +
-      pill('미체크', counts['미체크'], '#F0F0F0', '#666');
+      pill('미체크', counts['미체크'], '#F0F0F0', '#666') +
+      (hwAvg !== null
+        ? '<span style="display:inline-block;background:linear-gradient(135deg,#FBE5E9,#E5F5E8);color:var(--primary);padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:800;margin-left:6px;border:1.5px solid var(--primary);">📝 숙제 평균 ' + hwAvg + '% (' + hwN + '/' + targets.length + ')</span>'
+        : '<span style="display:inline-block;color:var(--text-light);padding:3px 8px;font-size:0.78rem;margin-left:6px;">📝 숙제 미체크</span>');
   }
   function refreshQuickAttendanceSummary() { updateQaSummary(); }
   async function bulkClassAttendance(status) {
@@ -1661,6 +1701,89 @@
     }
     showToast('✅ 일괄 ' + status + ' 완료 — 성공 ' + okN + (failN?(' / 실패 '+failN):''));
     updateQaSummary();
+  }
+
+  // ─── 숙제 완료율 (5단 버킷) ─────────────────
+  async function markHomework(name, percent, btn) {
+    if (!name) return;
+    const today = (function(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') },
+        body: JSON.stringify({ name: name, date: today, homework: percent })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '실패')); return; }
+      showToast('📝 ' + name + ' — 숙제 ' + percent + '% (' + today + ')');
+      if (btn && btn.parentElement) {
+        btn.parentElement.querySelectorAll('.hw-btn').forEach(function(b){ b.classList.remove('selected'); });
+        btn.classList.add('selected');
+      }
+      if (typeof updateQaSummary === 'function') { try { updateQaSummary(); } catch(e){} }
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  async function syncTodayAttendanceMarks() {
+    if (!Array.isArray(allStudents) || !allStudents.length) return;
+    const today = (function(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+    try {
+      const res = await fetch('/api/attendance?all=1', {
+        headers: { 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') }
+      });
+      if (!res.ok) return;
+      const list = await res.json();
+      if (!Array.isArray(list)) return;
+      const byName = {};
+      for (const rec of list) {
+        const r = (rec.records || {})[today];
+        if (r) byName[rec.name] = (typeof r === 'string') ? { status: r } : r;
+      }
+      document.querySelectorAll('.hw-bucket[data-hw-student]').forEach(function(group){
+        const nm = group.getAttribute('data-hw-student');
+        const r = byName[nm];
+        if (!r) return;
+        if (typeof r.homework === 'number') {
+          group.querySelectorAll('.hw-btn').forEach(function(b){
+            if (parseInt(b.getAttribute('data-p'),10) === r.homework) b.classList.add('selected');
+          });
+        }
+      });
+      // 출석 버튼도 마크 (이미 today 기록이 있는 학생)
+      document.querySelectorAll('.att-btn[data-s]').forEach(function(b){
+        const card = b.closest('.report-card');
+        if (!card) return;
+        const nameEl = card.querySelector('strong');
+        const nm = nameEl ? nameEl.textContent.trim() : '';
+        const r = byName[nm];
+        if (r && r.status === b.getAttribute('data-s')) {
+          b.style.outline = '2px solid var(--primary)';
+          b.style.transform = 'scale(1.05)';
+        }
+      });
+    } catch(e){}
+  }
+
+  async function showLastHomework(name) {
+    if (!name) return;
+    showToast('📋 ' + name + ' 지난 숙제 조회 중...');
+    try {
+      const res = await fetch('/api/reports?name=' + encodeURIComponent(name), {
+        headers: { 'Authorization': 'Bearer ' + (window.adminToken || localStorage.getItem('adminToken') || '') }
+      });
+      const data = await res.json();
+      if (!res.ok) { alert('조회 실패: ' + (data.error || res.status)); return; }
+      const reports = (data && data.reports) || [];
+      if (!reports.length) { alert(name + ' 학생: 등록된 수업 리포트가 없습니다.'); return; }
+      const last = reports[0];
+      const hw = (last.homework || '').trim() || '(숙제 내용 없음)';
+      const dateStr = last.date || '(날짜 없음)';
+      alert('📋 ' + name + ' — 지난 회차(' + dateStr + ') 숙제\n\n' + hw);
+    } catch (e) {
+      alert('네트워크 오류: ' + e.message);
+    }
   }
 </script>
 </body>
