@@ -1135,7 +1135,10 @@
     const list = document.getElementById('studentList');
     if (!students.length) { list.innerHTML = '<div class="empty">해당 학생이 없습니다.</div>'; return; }
     list.innerHTML = students.map(renderStudentCard).join('');
-    setTimeout(function(){ if (typeof syncTodayAttendanceMarks === 'function') syncTodayAttendanceMarks(); }, 0);
+    setTimeout(function(){
+      if (typeof syncTodayAttendanceMarks === 'function') syncTodayAttendanceMarks();
+      if (typeof syncWeekStudy === 'function') syncWeekStudy();
+    }, 0);
   }
 
   function renderStudentCard(s) {
@@ -1179,6 +1182,7 @@
         ${s.dreamUniv ? '&nbsp;&nbsp;<span>🎓 ' + escapeHtml(s.dreamUniv) + '</span>' : ''}
         ${s.availableDays && s.availableDays.length ? '<br><span>📅 등원 가능: ' + escapeHtml(s.availableDays.join(', ')) + '</span>' : ''}
         ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + escapeHtml(s.notes) + '</span>' : ''}
+        <div class="week-study" data-student="${(s.name||'').replace(/"/g,'&quot;')}" style="margin-top:6px;font-size:0.78rem;color:var(--text-light);">📚 이번 주 공부: <span class="ws-val">…</span></div>
       </div>
     </div>`;
   }
@@ -1855,6 +1859,41 @@
       showToast('✅ ' + label + ' 비번 0000으로 초기화됨. 알려주세요!');
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  async function syncWeekStudy() {
+    if (!Array.isArray(allStudents) || !allStudents.length) return;
+    // 반별로 묶어서 조회 — 같은 반은 한 번 API 호출로 모든 학생 가져옴 (효율)
+    const byClass = {};
+    document.querySelectorAll('.week-study[data-student]').forEach(function(el){
+      const nm = el.getAttribute('data-student');
+      const s = allStudents.find(s => s.name === nm);
+      if (!s || !s.academy || !s.className) {
+        el.innerHTML = '📚 이번 주 공부: <span class="ws-val">—</span>';
+        return;
+      }
+      const key = s.academy + '|' + s.className;
+      if (!byClass[key]) byClass[key] = { academy: s.academy, className: s.className, els: {} };
+      byClass[key].els[nm] = el;
+    });
+    for (const key of Object.keys(byClass)) {
+      const group = byClass[key];
+      try {
+        const url = '/api/study-class?academy=' + encodeURIComponent(group.academy) + '&class=' + encodeURIComponent(group.className);
+        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + adminToken } });
+        const data = await res.json();
+        if (!res.ok || !data.ok) continue;
+        const byName = {};
+        for (const s of (data.students || [])) {
+          if (s.name) byName[s.name] = s.minutes;
+        }
+        for (const [nm, el] of Object.entries(group.els)) {
+          const m = byName[nm] || 0;
+          const fmt = m < 60 ? (m + '분') : (Math.floor(m/60) + '시간' + (m%60 ? ' ' + (m%60) + '분' : ''));
+          el.innerHTML = '📚 이번 주 공부: <span class="ws-val" style="color:var(--primary);font-weight:700;">' + fmt + '</span>';
+        }
+      } catch (e) { /* 조용히 실패 */ }
     }
   }
 
