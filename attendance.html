@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>출석 | 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=2">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+    --att:#1F7A33;--late:#B07A00;--abs:#B02347;--sick:#5060B0;--off:#6A6A6A;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.68rem;letter-spacing:-0.5px;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+
+  .page{max-width:640px;margin:0 auto;padding:24px 18px 80px;}
+
+  .student-bar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .student-bar .info{font-size:0.92rem;font-weight:700;color:var(--text);}
+  .student-bar .info .meta{display:block;font-size:0.75rem;font-weight:500;color:var(--text-light);margin-top:2px;}
+  .student-bar select{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;outline:none;}
+
+  /* 월간 요약 카드 */
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+  .stat-box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center;}
+  .stat-num{font-size:1.4rem;font-weight:900;}
+  .stat-label{font-size:0.72rem;color:var(--text-light);margin-top:2px;}
+
+  /* 월 선택 헤더 */
+  .month-nav{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:14px;}
+  .month-nav button{background:none;border:none;font-size:1.2rem;color:var(--primary);cursor:pointer;padding:4px 10px;font-family:inherit;}
+  .month-label{font-size:1rem;font-weight:800;color:var(--text);}
+
+  /* 캘린더 */
+  .calendar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;overflow:hidden;}
+  .cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;}
+  .cal-week .dow{text-align:center;font-size:0.74rem;font-weight:700;color:var(--text-light);padding:4px 0;}
+  .cal-week .dow.sun{color:var(--abs);}
+  .cal-week .dow.sat{color:#3a6fb0;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:0.78rem;border:1px solid transparent;background:var(--bg2);position:relative;}
+  .cal-cell.empty{background:transparent;}
+  .cal-cell .d{font-weight:700;color:var(--text);}
+  .cal-cell .s{font-size:0.62rem;margin-top:2px;font-weight:700;}
+  .cal-cell.today{border-color:var(--primary);}
+  .cal-cell.att{background:#E5F5E8;}.cal-cell.att .s{color:var(--att);}
+  .cal-cell.late{background:#FFF4D6;}.cal-cell.late .s{color:var(--late);}
+  .cal-cell.abs{background:#FBE5E9;}.cal-cell.abs .s{color:var(--abs);}
+  .cal-cell.sick{background:#E8ECFB;}.cal-cell.sick .s{color:var(--sick);}
+  .cal-cell.off{background:#EDEDED;}.cal-cell.off .s{color:var(--off);}
+
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:0.76rem;color:var(--text-light);justify-content:center;}
+  .legend span{display:inline-flex;align-items:center;gap:4px;}
+  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:3px;}
+
+  .empty-state{background:#fff;border:1px dashed var(--border);border-radius:14px;padding:36px 18px;text-align:center;color:var(--text-light);font-size:0.88rem;line-height:1.7;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark">K</span>
+    <span>📅 출석 현황</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+  <div id="loading" class="empty-state">불러오는 중...</div>
+
+  <div id="content" style="display:none;">
+    <div class="student-bar">
+      <div class="info" id="studentInfo"></div>
+      <select id="childSelect" style="display:none;" onchange="onChildChange()"></select>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="month-nav">
+      <button onclick="prevMonth()">‹</button>
+      <span class="month-label" id="monthLabel"></span>
+      <button onclick="nextMonth()">›</button>
+    </div>
+
+    <div class="calendar">
+      <div class="cal-week">
+        <div class="dow sun">일</div><div class="dow">월</div><div class="dow">화</div>
+        <div class="dow">수</div><div class="dow">목</div><div class="dow">금</div><div class="dow sat">토</div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#E5F5E8;"></span>출석</span>
+        <span><span class="dot" style="background:#FFF4D6;"></span>지각</span>
+        <span><span class="dot" style="background:#FBE5E9;"></span>결석</span>
+        <span><span class="dot" style="background:#E8ECFB;"></span>병결</span>
+        <span><span class="dot" style="background:#EDEDED;"></span>공결</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const TOKEN_KEY = 'kwmath_portal_token';
+  let token = '';
+  try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+  if (!token) { location.replace('/portal?next=/attendance'); }
+
+  let students = [];
+  let selected = null;
+  let viewMonth = new Date(); viewMonth.setDate(1);
+  let allRecords = {};
+
+  async function loadMe() {
+    try {
+      const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+        location.replace('/portal?next=/attendance');
+        return;
+      }
+      students = Array.isArray(data.students) ? data.students : [];
+      if (!students.length) {
+        document.getElementById('loading').textContent = '연결된 학생이 없습니다.';
+        return;
+      }
+      let initIdx = 0;
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('kwmath_selected_student') || 'null');
+        if (saved && saved.name) {
+          const i = students.findIndex(s => s.name === saved.name);
+          if (i >= 0) initIdx = i;
+        }
+      } catch(e){}
+      selected = students[initIdx];
+      renderStudentBar(initIdx);
+      await loadRecords();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    } catch (e) {
+      document.getElementById('loading').textContent = '오류: ' + e.message;
+    }
+  }
+
+  function renderStudentBar(idx) {
+    const s = students[idx];
+    document.getElementById('studentInfo').innerHTML =
+      s.name + ' 학생' + (s.school ? ' <span class="meta">' + s.school + (s.grade ? ' · ' + s.grade : '') + (s.className ? ' / ' + s.className : '') + '</span>' : '');
+    const sel = document.getElementById('childSelect');
+    if (students.length > 1) {
+      sel.innerHTML = students.map(function(st, i) { return '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + st.name + '</option>'; }).join('');
+      sel.style.display = 'inline-block';
+    }
+  }
+
+  function onChildChange() {
+    const idx = parseInt(document.getElementById('childSelect').value, 10) || 0;
+    selected = students[idx];
+    sessionStorage.setItem('kwmath_selected_student', JSON.stringify(selected));
+    renderStudentBar(idx);
+    loadRecords();
+  }
+
+  async function loadRecords() {
+    try {
+      const res = await fetch('/api/attendance?name=' + encodeURIComponent(selected.name), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      allRecords = (data && data.records) || {};
+      renderMonth();
+    } catch (e) {
+      allRecords = {};
+      renderMonth();
+    }
+  }
+
+  function prevMonth() { viewMonth.setMonth(viewMonth.getMonth() - 1); renderMonth(); }
+  function nextMonth() { viewMonth.setMonth(viewMonth.getMonth() + 1); renderMonth(); }
+
+  function renderMonth() {
+    const y = viewMonth.getFullYear();
+    const m = viewMonth.getMonth();
+    const monthStr = y + '-' + String(m + 1).padStart(2, '0');
+    document.getElementById('monthLabel').textContent = y + '년 ' + (m + 1) + '월';
+
+    // 요약
+    let cnt = { '출석': 0, '지각': 0, '결석': 0, '병결': 0, '공결': 0 };
+    for (const [date, status] of Object.entries(allRecords)) {
+      if (date.startsWith(monthStr) && cnt.hasOwnProperty(status)) cnt[status]++;
+    }
+    document.getElementById('summary').innerHTML =
+      '<div class="stat-box"><div class="stat-num" style="color:var(--att);">' + cnt['출석'] + '</div><div class="stat-label">출석</div></div>' +
+      '<div class="stat-box"><div class="stat-num" style="color:var(--late);">' + cnt['지각'] + '</div><div class="stat-label">지각</div></div>' +
+      '<div class="stat-box"><div class="stat-num" style="color:var(--abs);">' + cnt['결석'] + '</div><div class="stat-label">결석</div></div>' +
+      '<div class="stat-box"><div class="stat-num" style="color:var(--sick);">' + (cnt['병결'] + cnt['공결']) + '</div><div class="stat-label">병·공결</div></div>';
+
+    // 캘린더
+    const firstDow = new Date(y, m, 1).getDay();
+    const lastDate = new Date(y, m + 1, 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+
+    let html = '';
+    for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell empty"></div>';
+    const cls = { '출석': 'att', '지각': 'late', '결석': 'abs', '병결': 'sick', '공결': 'off' };
+    for (let d = 1; d <= lastDate; d++) {
+      const ds = monthStr + '-' + String(d).padStart(2, '0');
+      const status = allRecords[ds];
+      const c = status ? cls[status] || '' : '';
+      const isToday = ds === todayStr ? ' today' : '';
+      html += '<div class="cal-cell ' + c + isToday + '"><div class="d">' + d + '</div>' + (status ? '<div class="s">' + status + '</div>' : '') + '</div>';
+    }
+    document.getElementById('calGrid').innerHTML = html;
+  }
+
+  loadMe();
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
+</script>
+</body>
+</html>
