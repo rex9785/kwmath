@@ -39,6 +39,19 @@
   .pdf-dl-btn{background:var(--primary);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;text-decoration:none;}
   .pdf-dl-btn:hover{background:var(--primary-mid);}
 
+  /* 공부량 카드 + 미니 차트 */
+  .study-card{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1.5px solid var(--primary);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .study-card .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .study-card .head h2{font-size:0.92rem;font-weight:800;color:var(--primary);}
+  .study-card .head a{font-size:0.76rem;color:var(--primary);text-decoration:none;font-weight:600;}
+  .study-card .stats{display:flex;gap:14px;align-items:flex-end;margin-bottom:10px;}
+  .study-card .stats .big{font-size:1.5rem;font-weight:900;color:var(--primary);}
+  .study-card .stats .sub{font-size:0.78rem;color:var(--text-light);font-weight:600;}
+  .mini-chart{width:100%;height:60px;display:block;}
+  .mini-bar{fill:var(--primary);opacity:0.85;}
+  .mini-bar.empty{fill:#EBEDF0;}
+  .mini-axis{font-size:8.5px;fill:var(--text-light);font-family:inherit;}
+
   .empty-state{background:#fff;border:1px dashed var(--border);border-radius:14px;padding:36px 18px;text-align:center;color:var(--text-light);font-size:0.88rem;line-height:1.7;}
   .empty-state .icon{font-size:2rem;margin-bottom:10px;display:block;}
   .empty-state b{color:var(--primary);}
@@ -65,6 +78,19 @@
     <div class="student-bar" id="studentBar">
       <div class="info" id="studentInfo"></div>
       <select id="childSelect" style="display:none;" onchange="onChildChange()"></select>
+    </div>
+
+    <div id="studyCard" class="study-card" style="display:none;">
+      <div class="head">
+        <h2>📚 이번 달 공부량</h2>
+        <a href="/study">자세히 →</a>
+      </div>
+      <div class="stats">
+        <div><div class="big" id="scAvg">—</div><div class="sub">하루 평균</div></div>
+        <div><div class="big" id="scTotal">—</div><div class="sub">이번 달 누계</div></div>
+      </div>
+      <svg id="miniChart" class="mini-chart" viewBox="0 0 600 60" preserveAspectRatio="none"></svg>
+      <div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;text-align:right;">최근 14일</div>
     </div>
 
     <div class="intro-card">
@@ -180,6 +206,67 @@
   }
 
   loadMe();
+
+  // ─── 공부량 카드 ───
+  async function loadStudyCard() {
+    try {
+      const res = await fetch('/api/study', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) return;
+      const card = document.getElementById('studyCard');
+      if (!card) return;
+      // 이번 달 누계 + 평균
+      const monthMin = Number(data.month) || 0;
+      const today = new Date();
+      const daysIn = today.getDate();
+      const avgMin = daysIn > 0 ? Math.round(monthMin / daysIn) : 0;
+      const fmt = (m) => {
+        m = Math.round(m || 0);
+        if (m < 60) return m + '분';
+        const h = Math.floor(m / 60), mm = m % 60;
+        return h + '시간' + (mm ? ' ' + mm + '분' : '');
+      };
+      document.getElementById('scAvg').textContent = fmt(avgMin);
+      document.getElementById('scTotal').textContent = fmt(monthMin);
+
+      // 미니 차트 (최근 14일)
+      const byDate = data.byDate || {};
+      const ymd = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      const arr = [];
+      const t0 = new Date(); t0.setHours(0,0,0,0);
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(t0); d.setDate(t0.getDate() - i);
+        arr.push({ d: d, min: byDate[ymd(d)] || 0 });
+      }
+      const max = Math.max(60, ...arr.map(x => x.min));
+      const W = 600, H = 60;
+      const padL = 4, padR = 4, padB = 14, padT = 4;
+      const chartW = W - padL - padR;
+      const chartH = H - padT - padB;
+      const step = chartW / arr.length;
+      const barW = step * 0.7;
+      let svg = '';
+      arr.forEach((x, i) => {
+        const h = (x.min / max) * chartH;
+        const bx = padL + i * step + (step - barW) / 2;
+        const by = padT + chartH - h;
+        const cls = x.min > 0 ? 'mini-bar' : 'mini-bar empty';
+        svg += '<rect class="' + cls + '" x="' + bx + '" y="' + by + '" width="' + barW + '" height="' + Math.max(h, 1) + '" rx="2"/>';
+        if (i === 0 || i === arr.length - 1) {
+          const label = (x.d.getMonth()+1) + '/' + x.d.getDate();
+          svg += '<text class="mini-axis" x="' + (bx + barW/2) + '" y="' + (H-2) + '" text-anchor="middle">' + label + '</text>';
+        }
+      });
+      document.getElementById('miniChart').innerHTML = svg;
+      if (monthMin > 0 || arr.some(x => x.min > 0)) card.style.display = 'block';
+    } catch (e) { /* 조용히 실패 */ }
+  }
+  // 학생 선택되고 PDF 로드된 후에 공부량도 조회
+  const _origLoadPdfs = loadPdfs;
+  loadPdfs = async function() {
+    await _origLoadPdfs();
+    loadStudyCard();
+  };
 
   // SW 등록
   ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});

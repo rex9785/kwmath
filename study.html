@@ -11,8 +11,8 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
-    /* 잔디 색상 — GitHub 초록 톤 (친숙) */
-    --g0:#EBEDF0;--g1:#9BE9A8;--g2:#40C463;--g3:#30A14E;--g4:#216E39;}
+    /* 공부 기록 — 학원 크림슨 5단계 */
+    --g0:#EBEDF0;--g1:#FBE2E8;--g2:#F2A8B5;--g3:#C84A65;--g4:#8B1A35;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;}
 
   .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
@@ -39,7 +39,7 @@
   .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;}
   .card h2{font-size:0.92rem;font-weight:800;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 
-  /* 잔디 — GitHub 초록 톤 */
+  /* 공부 기록 — 크림슨 네모 5단계 */
   .jandi-wrap{overflow-x:auto;padding-bottom:6px;}
   .jandi{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,14px);gap:3px;}
   .jcell{width:14px;height:14px;border-radius:3px;background:var(--g0);}
@@ -47,9 +47,18 @@
   .jcell.l2{background:var(--g2);}
   .jcell.l3{background:var(--g3);}
   .jcell.l4{background:var(--g4);}
-  .jcell.today{outline:2px solid var(--primary);outline-offset:1px;}
+  .jcell.today{outline:2px solid var(--text);outline-offset:1px;}
   .jandi-legend{display:flex;align-items:center;gap:5px;font-size:0.7rem;color:var(--text-light);margin-top:10px;justify-content:flex-end;}
   .jandi-legend .jcell{display:inline-block;width:12px;height:12px;}
+
+  /* 차트 (pure SVG) */
+  .chart-svg{width:100%;height:auto;display:block;}
+  .chart-bar{fill:var(--primary);transition:fill .2s;}
+  .chart-bar.today{fill:var(--primary-mid);}
+  .chart-bar.empty{fill:var(--g0);}
+  .chart-axis{stroke:var(--border);stroke-width:1;}
+  .chart-label{font-size:9.5px;fill:var(--text-light);font-family:inherit;}
+  .chart-val{font-size:9px;fill:var(--primary);font-weight:700;font-family:inherit;}
 
   /* 최근 세션 */
   .sess-list{display:flex;flex-direction:column;gap:6px;}
@@ -108,7 +117,17 @@
     <div style="height:18px;"></div>
 
     <div class="card">
-      <h2>🌱 최근 30일 공부 잔디</h2>
+      <h2>📊 최근 14일 — 하루별</h2>
+      <svg id="chartDaily" class="chart-svg" viewBox="0 0 600 170" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="card">
+      <h2>📈 최근 8주 — 주별 누적</h2>
+      <svg id="chartWeekly" class="chart-svg" viewBox="0 0 600 170" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="card">
+      <h2>🟥 최근 30일 — 공부 기록</h2>
       <div class="jandi-wrap"><div class="jandi" id="jandi"></div></div>
       <div class="jandi-legend">
         적음
@@ -143,7 +162,7 @@
 
 <script>
   const TOKEN_KEY = 'kwmath_portal_token';
-  const ACTIVE_KEY = 'kwmath_kwstudy_active_v2';  // v2 — 이전 v1과 구조 다름
+  const ACTIVE_KEY = 'kwmath_kwstudy_active_v2';
   let token = '';
   try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch(e){}
   if (!token) { location.replace('/portal?next=/study'); }
@@ -197,8 +216,112 @@
     } else {
       document.getElementById('heroTitle').textContent = 'KW-Study 처음 오셨군요!';
     }
+    renderDailyChart();
+    renderWeeklyChart();
     renderJandi();
     renderRecent();
+  }
+
+  // ─── 일간 차트 (최근 14일) ───
+  function renderDailyChart() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayStr = ymd(today);
+    const data = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      const dstr = ymd(d);
+      const m = (stats.byDate || {})[dstr] || 0;
+      data.push({ d: d, dstr: dstr, min: m });
+    }
+    const max = Math.max(60, ...data.map(x => x.min));  // 최소 1시간 스케일 (작은 값도 보이게)
+
+    const W = 600, H = 170;
+    const padL = 28, padR = 8, padT = 8, padB = 30;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+    const barW = chartW / data.length * 0.7;
+    const gapW = chartW / data.length * 0.3;
+    const step = chartW / data.length;
+
+    let svg = '';
+    // baseline
+    svg += '<line class="chart-axis" x1="' + padL + '" y1="' + (padT+chartH) + '" x2="' + (W-padR) + '" y2="' + (padT+chartH) + '"/>';
+    // y-axis labels (0, max/2, max)
+    [0, max/2, max].forEach(v => {
+      const y = padT + chartH - (v/max) * chartH;
+      svg += '<line class="chart-axis" x1="' + padL + '" y1="' + y + '" x2="' + (W-padR) + '" y2="' + y + '" stroke-dasharray="2,3" opacity="0.5"/>';
+      svg += '<text class="chart-label" x="' + (padL-4) + '" y="' + (y+3) + '" text-anchor="end">' + fmtMin(v) + '</text>';
+    });
+    // bars
+    data.forEach((x, i) => {
+      const h = (x.min / max) * chartH;
+      const barX = padL + i * step + gapW/2;
+      const barY = padT + chartH - h;
+      const isToday = x.dstr === todayStr;
+      const cls = x.min > 0 ? (isToday ? 'chart-bar today' : 'chart-bar') : 'chart-bar empty';
+      svg += '<rect class="' + cls + '" x="' + barX + '" y="' + barY + '" width="' + barW + '" height="' + Math.max(h, 1) + '" rx="2"/>';
+      // x-axis label (날짜) - 격일로
+      if (i % 2 === 0 || i === data.length - 1) {
+        const label = (x.d.getMonth()+1) + '/' + x.d.getDate();
+        svg += '<text class="chart-label" x="' + (barX + barW/2) + '" y="' + (padT+chartH+12) + '" text-anchor="middle">' + label + '</text>';
+      }
+      // 값 표시 (큰 값만)
+      if (x.min >= max * 0.3) {
+        svg += '<text class="chart-val" x="' + (barX + barW/2) + '" y="' + (barY - 3) + '" text-anchor="middle">' + Math.round(x.min) + '</text>';
+      }
+    });
+    document.getElementById('chartDaily').innerHTML = svg;
+  }
+
+  // ─── 주간 차트 (최근 8주, 월요일 기준) ───
+  function renderWeeklyChart() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    // 이번 주 월요일
+    const day = (today.getDay() + 6) % 7;
+    const monday = new Date(today); monday.setDate(today.getDate() - day);
+
+    const weeks = [];
+    for (let i = 7; i >= 0; i--) {
+      const wStart = new Date(monday); wStart.setDate(monday.getDate() - i*7);
+      let sum = 0;
+      for (let d = 0; d < 7; d++) {
+        const dd = new Date(wStart); dd.setDate(wStart.getDate() + d);
+        const ds = ymd(dd);
+        sum += (stats.byDate || {})[ds] || 0;
+      }
+      weeks.push({ start: wStart, min: sum });
+    }
+    const max = Math.max(180, ...weeks.map(x => x.min));
+
+    const W = 600, H = 170;
+    const padL = 36, padR = 8, padT = 8, padB = 30;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+    const barW = chartW / weeks.length * 0.6;
+    const step = chartW / weeks.length;
+
+    let svg = '';
+    svg += '<line class="chart-axis" x1="' + padL + '" y1="' + (padT+chartH) + '" x2="' + (W-padR) + '" y2="' + (padT+chartH) + '"/>';
+    [0, max/2, max].forEach(v => {
+      const y = padT + chartH - (v/max) * chartH;
+      svg += '<line class="chart-axis" x1="' + padL + '" y1="' + y + '" x2="' + (W-padR) + '" y2="' + y + '" stroke-dasharray="2,3" opacity="0.5"/>';
+      svg += '<text class="chart-label" x="' + (padL-4) + '" y="' + (y+3) + '" text-anchor="end">' + fmtMin(v) + '</text>';
+    });
+    weeks.forEach((x, i) => {
+      const h = (x.min / max) * chartH;
+      const barX = padL + i * step + (step - barW)/2;
+      const barY = padT + chartH - h;
+      const isThisWeek = i === weeks.length - 1;
+      const cls = x.min > 0 ? (isThisWeek ? 'chart-bar today' : 'chart-bar') : 'chart-bar empty';
+      svg += '<rect class="' + cls + '" x="' + barX + '" y="' + barY + '" width="' + barW + '" height="' + Math.max(h, 1) + '" rx="2"/>';
+      const label = (x.start.getMonth()+1) + '/' + x.start.getDate();
+      svg += '<text class="chart-label" x="' + (barX + barW/2) + '" y="' + (padT+chartH+12) + '" text-anchor="middle">' + label + '</text>';
+      if (x.min >= max * 0.25) {
+        const hh = Math.floor(x.min / 60);
+        svg += '<text class="chart-val" x="' + (barX + barW/2) + '" y="' + (barY - 3) + '" text-anchor="middle">' + hh + 'h</text>';
+      }
+    });
+    document.getElementById('chartWeekly').innerHTML = svg;
   }
 
   function renderJandi() {
@@ -211,10 +334,10 @@
       const dstr = ymd(d);
       const m = (stats.byDate || {})[dstr] || 0;
       let lvl = '';
-      if (m >= 240) lvl = 'l4';        // 4시간+
-      else if (m >= 120) lvl = 'l3';   // 2시간+
-      else if (m >= 30)  lvl = 'l2';   // 30분+
-      else if (m > 0)    lvl = 'l1';   // 조금이라도
+      if (m >= 240) lvl = 'l4';
+      else if (m >= 120) lvl = 'l3';
+      else if (m >= 30)  lvl = 'l2';
+      else if (m > 0)    lvl = 'l1';
       const isToday = dstr === todayStr ? ' today' : '';
       cells.push('<div class="jcell ' + lvl + isToday + '" title="' + dstr + ' · ' + fmtMin(m) + '"></div>');
     }
@@ -237,12 +360,6 @@
   }
 
   // ============ 타이머 로직 (v2 — startedAt/endedAt 기반) ============
-  // localStorage 구조:
-  //   { startedAt: ISO, pausedTotalMs: number, lastPauseAt: ISO|null }
-  //   - 일시정지 상태: lastPauseAt != null
-  //   - 진행 상태: lastPauseAt == null
-  // 화면 갱신용 setInterval(1초)는 폰 잠그면 멈춤. 시간 계산은 항상 timestamp 차이로.
-
   let _tickInterval = null;
 
   function loadActive() {
@@ -252,36 +369,20 @@
       return JSON.parse(raw);
     } catch { return null; }
   }
-  function saveActive(a) {
-    try { localStorage.setItem(ACTIVE_KEY, JSON.stringify(a)); } catch {}
-  }
-  function clearActive() {
-    try { localStorage.removeItem(ACTIVE_KEY); } catch {}
-  }
+  function saveActive(a) { try { localStorage.setItem(ACTIVE_KEY, JSON.stringify(a)); } catch {} }
+  function clearActive() { try { localStorage.removeItem(ACTIVE_KEY); } catch {} }
 
-  // 진행 시간 계산 (현재 기준)
   function elapsedMs(a) {
     if (!a) return 0;
     const start = Date.parse(a.startedAt);
     const paused = Number(a.pausedTotalMs) || 0;
-    if (a.lastPauseAt) {
-      // 일시정지 상태: 마지막 일시정지 시점까지 흐른 시간
-      return Math.max(0, Date.parse(a.lastPauseAt) - start - paused);
-    }
+    if (a.lastPauseAt) return Math.max(0, Date.parse(a.lastPauseAt) - start - paused);
     return Math.max(0, Date.now() - start - paused);
   }
 
   function startStudy() {
-    if (loadActive()) {
-      // 진행 중이면 그냥 타이머 화면 진입
-      enterTimerScreen();
-      return;
-    }
-    const a = {
-      startedAt: new Date().toISOString(),
-      pausedTotalMs: 0,
-      lastPauseAt: null,
-    };
+    if (loadActive()) { enterTimerScreen(); return; }
+    const a = { startedAt: new Date().toISOString(), pausedTotalMs: 0, lastPauseAt: null };
     saveActive(a);
     enterTimerScreen();
   }
@@ -294,12 +395,9 @@
 
   function startTick() {
     stopTick();
-    // 화면 보일 때만 1초마다 갱신 — 폰 잠겨도 시간은 timestamp로 정확히 흐름
     _tickInterval = setInterval(updateTimerLabels, 1000);
   }
-  function stopTick() {
-    if (_tickInterval) { clearInterval(_tickInterval); _tickInterval = null; }
-  }
+  function stopTick() { if (_tickInterval) { clearInterval(_tickInterval); _tickInterval = null; } }
 
   function updateTimerLabels() {
     const a = loadActive();
@@ -321,11 +419,9 @@
     const a = loadActive();
     if (!a) return;
     if (a.lastPauseAt) {
-      // 재개 — 일시정지 동안의 시간을 누적
       a.pausedTotalMs = (Number(a.pausedTotalMs) || 0) + (Date.now() - Date.parse(a.lastPauseAt));
       a.lastPauseAt = null;
     } else {
-      // 일시정지
       a.lastPauseAt = new Date().toISOString();
     }
     saveActive(a);
@@ -334,18 +430,13 @@
 
   async function endStudy() {
     const a = loadActive();
-    if (!a) {
-      document.getElementById('timerScreen').classList.remove('show');
-      return;
-    }
-    // 일시정지 상태로 끝내면, 일시정지 시점까지의 시간만 인정
+    if (!a) { document.getElementById('timerScreen').classList.remove('show'); return; }
     const endTs = a.lastPauseAt ? Date.parse(a.lastPauseAt) : Date.now();
     const elapsedSec = Math.floor(elapsedMs(a) / 1000);
     const minutes = Math.floor(elapsedSec / 60);
     if (minutes < 1) {
       if (!confirm('1분 미만은 기록되지 않습니다. 정말 종료할까요?')) return;
-      clearActive();
-      stopTick();
+      clearActive(); stopTick();
       document.getElementById('timerScreen').classList.remove('show');
       return;
     }
@@ -354,32 +445,20 @@
       const res = await fetch('/api/study', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({
-          startedAt: a.startedAt,
-          endedAt: new Date(endTs).toISOString(),
-          minutes: minutes,
-        })
+        body: JSON.stringify({ startedAt: a.startedAt, endedAt: new Date(endTs).toISOString(), minutes: minutes })
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) {
-        showToast('❌ 저장 실패: ' + (data.error || res.status));
-        return;
-      }
-      clearActive();
-      stopTick();
+      if (!res.ok || !data.ok) { showToast('❌ 저장 실패: ' + (data.error || res.status)); return; }
+      clearActive(); stopTick();
       document.getElementById('timerScreen').classList.remove('show');
       showToast('🎉 ' + fmtMin(minutes) + ' 기록 완료');
       loadStats();
-    } catch (e) {
-      showToast('네트워크 오류: ' + e.message);
-    }
+    } catch (e) { showToast('네트워크 오류: ' + e.message); }
   }
 
-  // 진행 중 세션 자동 복구
   function checkResume() {
     const a = loadActive();
     if (!a) return;
-    // 24시간 이상 방치된 세션은 자동 폐기
     const started = Date.parse(a.startedAt);
     if (Date.now() - started > 24 * 60 * 60 * 1000) {
       clearActive();
@@ -390,7 +469,6 @@
   }
 
   loadStats().then(checkResume);
-
   ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
 </script>
 </body>
