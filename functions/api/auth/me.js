@@ -19,6 +19,11 @@ export async function onRequest({ request, env }) {
 
   const students = await fetchStudentsByPhone(env, auth.phone);
 
+  // 좀비 계정 방어 — 학생 DB에 연결된 학생이 없으면 토큰 무효 처리
+  if (!students.length) {
+    return jsonError('계정은 있으나 학원에 등록된 학생 정보가 없습니다. 관우T께 문의해주세요.', 401);
+  }
+
   return Response.json({
     ok: true,
     phone: auth.phone,

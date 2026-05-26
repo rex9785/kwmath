@@ -36,6 +36,12 @@ export async function onRequest({ request, env }) {
   // 자녀(또는 본인) 학생 목록
   const students = await fetchStudentsByPhone(env, phone);
 
+  // ⚠️ 좀비 계정 방어 — 계정은 있는데 학생 DB에 연결된 학생이 없으면 로그인 거절
+  // (퇴원처리 후 계정만 남은 좀비 등)
+  if (!students.length) {
+    return jsonError('계정은 있으나 학원에 등록된 학생 정보가 없습니다. 관우T께 문의해주세요.', 401);
+  }
+
   return Response.json({
     ok: true,
     token,
