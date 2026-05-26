@@ -696,14 +696,14 @@
         if (box) box.style.display = 'none';
         return;
       }
-      const top = list.slice(0, 5);  // 최근 5개
+      const top = list.slice(0, 5);  // 최근 5개 (펼치면 다 보여줌)
       const wrap = document.getElementById('noticeList');
       const count = document.getElementById('noticeCount');
       const box = document.getElementById('noticeBox');
       if (!wrap || !count || !box) return;
       count.textContent = list.length;
-      wrap.innerHTML = top.map((n, i) => {
-        const esc = (s) => String(s||'').replace(/[&<>\"\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+      const esc = (s) => String(s||'').replace(/[&<>\"\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+      const renderOne = (n) => {
         const badge = n.badge || '공지';
         const dateShort = (n.date || '').slice(5).replace('-', '/');
         return '<div class="notice-item" onclick="this.classList.toggle(' + JSON.stringify('open') + ')">'
@@ -714,9 +714,30 @@
           + '</div>'
           + (n.content ? '<div class="nt-content">' + esc(n.content) + '</div>' : '')
           + '</div>';
-      }).join('');
+      };
+      // 초기엔 최신 1개만 + 더보기 버튼 (나머지 있으면)
+      const firstOne = renderOne(top[0]);
+      const restCount = top.length - 1;
+      const restHtml = restCount > 0
+        ? '<div id="noticeRestList" style="display:none;">' + top.slice(1).map(renderOne).join('') + '</div>'
+          + '<button type="button" id="noticeMoreBtn" onclick="toggleNoticeMore()" '
+          + 'style="background:none;border:none;color:#854F0B;font-weight:700;font-size:0.78rem;cursor:pointer;padding:8px 0 0;width:100%;text-align:center;font-family:inherit;">'
+          + '+ ' + restCount + '개 더 보기 ▼'
+          + '</button>'
+        : '';
+      wrap.innerHTML = firstOne + restHtml;
       box.style.display = 'block';
     } catch (e) { /* silent */ }
+  }
+
+  function toggleNoticeMore() {
+    const list = document.getElementById('noticeRestList');
+    const btn = document.getElementById('noticeMoreBtn');
+    if (!list || !btn) return;
+    const isHidden = list.style.display === 'none';
+    list.style.display = isHidden ? 'block' : 'none';
+    const total = list.children.length;
+    btn.innerHTML = isHidden ? '접기 ▲' : ('+ ' + total + '개 더 보기 ▼');
   }
 
   // ─── KW-Study 오늘 공부량 배지 ───

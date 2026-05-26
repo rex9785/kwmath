@@ -71,6 +71,17 @@
   .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary);}
   .form-row textarea{resize:vertical;min-height:80px;}
   .form-row-inline{display:grid;grid-template-columns:2fr 1fr;gap:12px;}
+  .notice-filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:6px;}
+  .nft-btn{background:#f0e7ea;color:#666;border:none;padding:7px 12px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
+  .nft-btn:hover{background:#e5d6db;}
+  .nft-btn.active{background:var(--primary);color:#fff;}
+  .nft-count{background:rgba(0,0,0,0.12);color:inherit;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:700;min-width:18px;text-align:center;}
+  .nft-btn.active .nft-count{background:rgba(255,255,255,0.28);}
+  .notice-item .notice-target-badge{display:inline-block;font-size:0.7rem;padding:2px 7px;border-radius:6px;margin-left:6px;font-weight:700;vertical-align:middle;}
+  .nt-target-전체{background:#e0e8ff;color:#3a4fb8;}
+  .nt-target-학원{background:#e0f0e0;color:#2a7a2a;}
+  .nt-target-반{background:#fff4d6;color:#8a6a14;}
+  .nt-target-개인{background:#ffd6dc;color:#a83244;}
   .form-row input[type="radio"],.form-row input[type="checkbox"]{width:auto !important;margin:0;flex-shrink:0;}
   .push-mode-group{display:flex;flex-direction:column;gap:8px;}
   .push-mode-opt{display:flex !important;align-items:center;gap:8px;cursor:pointer;margin-bottom:0 !important;font-weight:normal !important;font-size:0.9rem;color:var(--text) !important;}
@@ -266,6 +277,13 @@
       </div>
 
       <p class="panel-title">현재 공지사항</p>
+      <div class="notice-filter-tabs" id="noticeFilterTabs">
+        <button class="nft-btn active" data-filter="all" onclick="filterNoticeList('all', this)">전체 <span class="nft-count" id="nfc-all">0</span></button>
+        <button class="nft-btn" data-filter="전체" onclick="filterNoticeList('전체', this)">전체대상 <span class="nft-count" id="nfc-전체">0</span></button>
+        <button class="nft-btn" data-filter="학원" onclick="filterNoticeList('학원', this)">학원별 <span class="nft-count" id="nfc-학원">0</span></button>
+        <button class="nft-btn" data-filter="반" onclick="filterNoticeList('반', this)">반별 <span class="nft-count" id="nfc-반">0</span></button>
+        <button class="nft-btn" data-filter="개인" onclick="filterNoticeList('개인', this)">개인별 <span class="nft-count" id="nfc-개인">0</span></button>
+      </div>
       <div class="notice-list" id="adminNoticeList">
         <div class="empty">불러오는 중...</div>
       </div>
@@ -561,31 +579,68 @@
   function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function escapeAttr(s){ return escapeHtml(s); }
 
+  let adminNoticeFilter = 'all';
   async function loadAdminNotices() {
     const list = document.getElementById('adminNoticeList');
     try {
-      const res = await fetch('/api/notices');
+      const res = await fetch('/api/notices', {
+        headers: { 'Authorization': 'Bearer ' + adminToken },
+      });
       const notices = await res.json();
       adminNoticesCache = Array.isArray(notices) ? notices : [];
-      if (!adminNoticesCache.length) {
-        list.innerHTML = '<div class="empty">등록된 공지사항이 없습니다.</div>';
-        return;
-      }
-      list.innerHTML = adminNoticesCache.map(renderNoticeItem).join('');
+      updateNoticeCounts();
+      renderFilteredNotices();
     } catch(e) {
       list.innerHTML = '<div class="empty">공지사항을 불러올 수 없습니다.</div>';
     }
+  }
+
+  function updateNoticeCounts() {
+    const all = adminNoticesCache;
+    const setN = (k, n) => { const el = document.getElementById('nfc-' + k); if (el) el.textContent = n; };
+    setN('all', all.length);
+    setN('전체', all.filter(n => (n.targetType||'전체') === '전체').length);
+    setN('학원', all.filter(n => n.targetType === '학원').length);
+    setN('반',   all.filter(n => n.targetType === '반').length);
+    setN('개인', all.filter(n => n.targetType === '개인').length);
+  }
+
+  function renderFilteredNotices() {
+    const list = document.getElementById('adminNoticeList');
+    const f = adminNoticeFilter;
+    const filtered = (f === 'all')
+      ? adminNoticesCache
+      : adminNoticesCache.filter(n => (n.targetType || '전체') === f);
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty">해당 조건의 공지사항이 없습니다.</div>';
+      return;
+    }
+    list.innerHTML = filtered.map(renderNoticeItem).join('');
+  }
+
+  function filterNoticeList(filter, btn) {
+    adminNoticeFilter = filter;
+    document.querySelectorAll('.nft-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderFilteredNotices();
   }
 
   function renderNoticeItem(n) {
     const isNew = n.badge === 'NEW';
     const dateStr = n.date ? n.date.replace(/-/g, '.') : '';
     const preview = n.content ? `<div class="notice-date" style="margin-top:4px;color:var(--text-light);font-size:0.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;">${escapeHtml((n.content||'').slice(0,60))}${(n.content||'').length>60?'…':''}</div>` : '';
+    const tt = n.targetType || '전체';
+    const tv = n.targetValue || '';
+    const targetBadge = `<span class="notice-target-badge nt-target-${tt}">${tt}${tv && tt !== '전체' ? ' · ' + escapeHtml(tv) : ''}</span>`;
+    const schedInfo = (n.scheduledAt && !n.pushed)
+      ? `<div class="notice-date" style="color:#a83244;font-size:0.78rem;margin-top:2px;">⏰ 예약: ${new Date(n.scheduledAt).toLocaleString('ko-KR')}</div>`
+      : '';
     return `<div class="notice-item" id="ni-${n.id}">
       <span class="notice-badge${isNew ? ' new' : ''}">${escapeHtml(n.badge)}</span>
       <div class="notice-text">
-        <div class="notice-title-txt">${escapeHtml(n.title)}</div>
+        <div class="notice-title-txt">${escapeHtml(n.title)}${targetBadge}</div>
         <div class="notice-date">${dateStr}</div>
+        ${schedInfo}
         ${preview}
       </div>
       <button class="edit-btn" onclick="startEditNotice('${n.id}')">✏️ 수정</button>
