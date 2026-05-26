@@ -9,6 +9,16 @@
 <link rel="manifest" href="/manifest.json?v=2">
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/icons/splash/splash-640x1136.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/icons/splash/splash-750x1334.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/icons/splash/splash-828x1792.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash/splash-1125x2436.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash/splash-1170x2532.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash/splash-1179x2556.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash/splash-1242x2208.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash/splash-1242x2688.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash/splash-1284x2778.png?v=1">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash/splash-1290x2796.png?v=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LKW math">
@@ -20,6 +30,7 @@
     --primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;
     --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
   }
+  html{background:#862633;} /* iOS native splash → JS splash 전환 시 흰 깜빡임 방지 */
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
   /* ── 앱 진입 splash overlay ── */
@@ -357,7 +368,7 @@
       setTimeout(() => { try { el.remove(); } catch(_){} }, 1600);
     }
     if (document.readyState === 'complete') {
-      setTimeout(hideSplash, 900);
+      setTimeout(hideSplash, 500);
     } else {
       window.addEventListener('load', () => setTimeout(hideSplash, 900));
     }
@@ -757,7 +768,7 @@
         const badge = n.badge || '공지';
         const dateShort = (n.date || '').slice(5).replace('-', '/');
         const contentText = n.content ? esc(n.content).replace(/\n/g, '<br>') : '<span style="color:#999;">(추가 내용 없음)</span>';
-        return '<div class="notice-item" onclick="this.classList.toggle(' + JSON.stringify('open') + ')">'
+        return '<div class="notice-item" onclick="this.classList.toggle(\'open\')">'
           + '<div class="nt-head">'
           + '<span class="nt-badge ' + esc(badge) + '">' + esc(badge) + '</span>'
           + '<span class="nt-title">' + esc(n.title || '') + '</span>'
