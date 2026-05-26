@@ -811,6 +811,9 @@
 
   <script>
     (function loadLiveReviews(){
+      // 메인 홈페이지 후기 노출 일시 정지 — 켜고 싶으면 아래 줄 'true' → 'false'로 변경
+      const SUPPRESS_PUBLIC_REVIEWS = true;
+      if (SUPPRESS_PUBLIC_REVIEWS) return;
       function esc(s){return String(s||'').replace(/[&<>"\']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
       fetch('/api/reviews?public=1').then(r => r.json()).then(data => {
         const list = (data && data.reviews) || [];
