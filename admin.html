@@ -257,6 +257,7 @@
           </div>
         </div>
         <button class="submit-btn" onclick="addNotice()">등록하기 →</button>
+        <button class="submit-btn" onclick="flushScheduledNotices(true)" style="background:#666;margin-top:8px;">🔔 예약 푸쉬 지금 발송 체크</button>
       </div>
 
       <p class="panel-title">현재 공지사항</p>
@@ -523,6 +524,8 @@
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     loadAdminNotices();
+    // admin이 로그인할 때 자동으로 예약 푸쉬 발송 체크 (silent)
+    flushScheduledNotices(false);
   }
 
   // 자동 로그인 복원
@@ -692,6 +695,25 @@
     }
   }
 
+  // 예약 푸쉬 수동/자동 트리거 — admin 토큰으로 /api/notices-flush 호출
+  async function flushScheduledNotices(showResult) {
+    try {
+      const res = await fetch('/api/notices-flush', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + adminToken },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (showResult) {
+        if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '실패')); return; }
+        const n = data.dispatched || 0;
+        showToast(n ? ('✅ 예약 푸쉬 ' + n + '건 발송 완료') : '✅ 대기 중인 예약 푸쉬 없음');
+        loadAdminNotices();
+      }
+    } catch (e) {
+      if (showResult) showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
   async function addNotice() {
     const title = document.getElementById('newTitle').value.trim();
     const badge = document.getElementById('newBadge').value;
@@ -752,7 +774,7 @@
       if (r) { r.checked = true; updatePushModeUI(); }
       document.getElementById('newTitle').value = '';
       document.getElementById('newContent').value = '';
-      loadNotices();
+      loadAdminNotices();
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }
