@@ -91,6 +91,19 @@
   .search-btn{background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .report-list{display:flex;flex-direction:column;gap:12px;}
   .report-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px 24px;}
+  /* 학원/반 수정 모달 */
+  .ec-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
+  .ec-modal-bg.show{display:flex;}
+  .ec-modal{background:#fff;border-radius:16px;padding:22px 22px;max-width:380px;width:100%;}
+  .ec-modal h3{font-size:1.05rem;font-weight:900;color:var(--text);margin-bottom:6px;}
+  .ec-modal .ec-sub{font-size:0.78rem;color:var(--text-light);margin-bottom:16px;line-height:1.5;}
+  .ec-modal label{font-size:0.78rem;color:var(--text-light);font-weight:700;display:block;margin-bottom:5px;margin-top:10px;}
+  .ec-modal select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.92rem;font-family:inherit;background:#fff;outline:none;}
+  .ec-modal-actions{display:flex;gap:10px;margin-top:18px;}
+  .ec-modal-actions button{flex:1;padding:11px;border-radius:10px;font-size:0.92rem;font-weight:800;cursor:pointer;font-family:inherit;border:none;}
+  .ec-cancel{background:var(--bg2);color:var(--text);border:1px solid var(--border) !important;}
+  .ec-save{background:var(--primary);color:#fff;}
+
   /* 비밀번호 보기 버튼 */
   .pw-btn{background:none;border:1px dashed var(--border);color:var(--text-light);padding:2px 8px;border-radius:6px;font-size:0.7rem;cursor:pointer;font-family:inherit;margin-left:4px;}
   .pw-btn:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary);border-style:solid;}
@@ -390,6 +403,22 @@
 </div><!-- dashboard end -->
 
 <!-- 토스트 알림 -->
+<!-- 학원/반 수정 모달 -->
+<div class="ec-modal-bg" id="editClassModal">
+  <div class="ec-modal">
+    <h3>📝 학원/반 수정</h3>
+    <div class="ec-sub"><b id="ecmName"></b> 학생의 학원/반을 변경합니다.<br>변경 후엔 옛 반의 영상/자료가 학생에게 안 보이게 돼요.</div>
+    <label>학원</label>
+    <select id="ecmAcademy" onchange="ecmUpdateClassOptions()"></select>
+    <label>반</label>
+    <select id="ecmClass"></select>
+    <div class="ec-modal-actions">
+      <button class="ec-cancel" onclick="closeEditClassModal()">취소</button>
+      <button class="ec-save" onclick="submitEditClass()">변경</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- 출석부 PDF 렌더 영역 (화면에선 숨김 / 인쇄 시 표시) -->
@@ -1167,7 +1196,7 @@
             <button class="hw-btn" data-p="100" onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',100,this)">100</button>
           </div>
           <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${(s.name||'').replace(/'/g,'\\x27')}')">📋</button>
-          <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
         </div>
       </div>
       <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
@@ -1221,7 +1250,7 @@
               ${s.advanceProgress ? '&nbsp;·&nbsp;선행 ' + escapeHtml(s.advanceProgress) : ''}
             </div>
           </div>
-          <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
         </div>
       `).join('') : '';
       return `<div class="card" style="padding:0;overflow:hidden;">
@@ -1894,6 +1923,57 @@
           el.innerHTML = '📚 이번 주 공부: <span class="ws-val" style="color:var(--primary);font-weight:700;">' + fmt + '</span>';
         }
       } catch (e) { /* 조용히 실패 */ }
+    }
+  }
+
+  // ─── 학원/반 수정 모달 ───
+  let _ecmStudentId = '';
+  function openEditClassModal(studentId, name, currentAcademy, currentClass) {
+    _ecmStudentId = studentId;
+    document.getElementById('ecmName').textContent = name || '?';
+    const acadSel = document.getElementById('ecmAcademy');
+    const academies = Object.keys(CLASS_OPTIONS_BY_ACADEMY);
+    acadSel.innerHTML = academies.map(a => '<option value="' + a + '"' + (a === currentAcademy ? ' selected' : '') + '>' + a + '</option>').join('');
+    ecmUpdateClassOptions(currentClass);
+    document.getElementById('editClassModal').classList.add('show');
+  }
+  function closeEditClassModal() {
+    document.getElementById('editClassModal').classList.remove('show');
+    _ecmStudentId = '';
+  }
+  function ecmUpdateClassOptions(presetClass) {
+    const acad = document.getElementById('ecmAcademy').value;
+    const opts = (CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    const sel = document.getElementById('ecmClass');
+    sel.innerHTML = opts.map(c => '<option value="' + c + '"' + (c === presetClass ? ' selected' : '') + '>' + c + '</option>').join('');
+  }
+  async function submitEditClass() {
+    const studentId = _ecmStudentId;
+    if (!studentId) return;
+    const academy   = document.getElementById('ecmAcademy').value;
+    const className = document.getElementById('ecmClass').value;
+    if (!academy || !className) { showToast('학원/반 선택하세요'); return; }
+    if (!confirm('학원/반을 변경할까요?\n학원: ' + academy + '\n반: ' + className + '\n\n변경 후엔 옛 반의 영상/자료를 학생이 못 보게 됩니다.')) return;
+    try {
+      const res = await fetch('/api/admin-update-student-class', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ studentId: studentId, academy: academy, className: className }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ 변경 실패: ' + (data.error || res.status));
+        return;
+      }
+      if (data.noChange) {
+        showToast('변경 사항 없음 (이미 같은 학원/반)');
+      } else {
+        showToast('✅ ' + (data.name || '학생') + ' — ' + data.to.academy + '/' + data.to.className + ' 변경 완료');
+      }
+      closeEditClassModal();
+      if (typeof loadStudents === 'function') loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
     }
   }
 
