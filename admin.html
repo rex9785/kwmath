@@ -1187,6 +1187,7 @@
           <button class="att-btn" data-s="출석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
           <button class="att-btn" data-s="지각" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
           <button class="att-btn" data-s="결석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
+          <button class="att-btn" data-s="병결" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
           <span style="font-size:0.7rem;color:var(--text-light);margin-left:6px;margin-right:2px;">숙제:</span>
           <div class="hw-bucket" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
             <button class="hw-btn" data-p="0"   onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',0,this)">0</button>
