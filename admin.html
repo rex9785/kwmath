@@ -71,6 +71,11 @@
   .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary);}
   .form-row textarea{resize:vertical;min-height:80px;}
   .form-row-inline{display:grid;grid-template-columns:2fr 1fr;gap:12px;}
+  .form-row input[type="radio"],.form-row input[type="checkbox"]{width:auto !important;margin:0;flex-shrink:0;}
+  .push-mode-group{display:flex;flex-direction:column;gap:8px;}
+  .push-mode-opt{display:flex !important;align-items:center;gap:8px;cursor:pointer;margin-bottom:0 !important;font-weight:normal !important;font-size:0.9rem;color:var(--text) !important;}
+  .push-mode-opt span{flex-shrink:0;}
+  .push-mode-dt{width:auto !important;margin-left:auto;padding:6px 10px !important;font-size:0.85rem !important;}
   .submit-btn{background:var(--primary);color:#fff;border:none;padding:11px 24px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;}
   .submit-btn:hover{background:var(--primary-mid);}
 
@@ -239,21 +244,21 @@
         </div>
         <div class="form-row">
           <label>🔔 푸쉬 발송</label>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:normal;">
+          <div class="push-mode-group">
+            <label class="push-mode-opt">
               <input type="radio" name="newPushMode" value="none" onchange="updatePushModeUI()">
-              푸쉬 안 함 (공지만 등록)
+              <span>푸쉬 안 함 (공지만 등록)</span>
             </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:normal;">
+            <label class="push-mode-opt">
               <input type="radio" name="newPushMode" value="immediate" checked onchange="updatePushModeUI()">
-              즉시 발송 (작성과 동시에)
+              <span>즉시 발송 (작성과 동시에)</span>
             </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:normal;">
+            <label class="push-mode-opt">
               <input type="radio" name="newPushMode" value="scheduled" onchange="updatePushModeUI()">
-              예약 발송
-              <input type="datetime-local" id="newScheduledAt" style="display:none;margin-left:8px;padding:4px 8px;">
+              <span>예약 발송</span>
+              <input type="datetime-local" id="newScheduledAt" class="push-mode-dt" style="display:none;">
             </label>
-            <small style="color:#888;">예약: 등록만 즉시 되고, 푸쉬는 정해진 시각에 발송됩니다. (cron이 5분마다 체크)</small>
+            <small style="color:#888;display:block;margin-top:4px;">예약: 등록만 즉시 되고, 푸쉬는 정해진 시각에 자동 발송됩니다.</small>
           </div>
         </div>
         <button class="submit-btn" onclick="addNotice()">등록하기 →</button>
@@ -524,6 +529,8 @@
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     loadAdminNotices();
+    // 학생 리스트 미리 로드 (공지 폼의 학원/반/학생 드롭다운에서 사용)
+    if (typeof loadStudents === 'function') loadStudents();
     // admin이 로그인할 때 자동으로 예약 푸쉬 발송 체크 (silent)
     flushScheduledNotices(false);
   }
