@@ -314,6 +314,10 @@
     const mathMockGrade  = document.getElementById('mathMockGrade').value;
     const mathMockScoreV = document.getElementById('mathMockScore').value;
     const mathMockScore  = mathMockScoreV ? Number(mathMockScoreV) : null;
+    if (mathMockScore !== null && (!Number.isFinite(mathMockScore) || mathMockScore < 0 || mathMockScore > 100)) {
+      showErr('모의고사 수학 원점수는 0~100 사이여야 합니다.');
+      return;
+    }
     const korMockGrade   = document.getElementById('korMockGrade').value;
     const engMockGrade   = document.getElementById('engMockGrade').value;
     const schoolMathGrade= document.getElementById('schoolMathGrade').value;

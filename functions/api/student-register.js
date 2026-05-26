@@ -75,7 +75,10 @@ export async function onRequest({ request, env }) {
   if (advanceProgress)  properties['선행 진도']         = { select: { name: advanceProgress } };
   if (mathMockScore !== null && mathMockScore !== undefined && mathMockScore !== '') {
     const n = Number(mathMockScore);
-    if (!Number.isNaN(n)) properties['모의고사 수학 원점수'] = { number: n };
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      return Response.json({ error: '모의고사 수학 원점수는 0~100 사이여야 합니다.' }, { status: 400 });
+    }
+    properties['모의고사 수학 원점수'] = { number: n };
   }
 
   const res = await fetch('https://api.notion.com/v1/pages', {
