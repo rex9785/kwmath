@@ -288,16 +288,9 @@
           <div>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 분류</label>
             <select id="fileFolder" onchange="togglePhoneInput()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
-              <option value="materials">📚 공개 자료실 (홈페이지 전체)</option>
-              <option value="class-shared">📂 반 공통 자료 (학부모 리포트 페이지에 자동 표시)</option>
-              <option value="class">🔒 반별 자료실 (개인키 인증, 구버전)</option>
-              <option value="reports">📋 리포트 PDF (전화번호 인증)</option>
+              <option value="class-shared">📚 수업자료·교재 (반별, 그 반 학생만)</option>
+              <option value="reports">📋 학생 리포트 (학생별, 본인+학부모만)</option>
             </select>
-          </div>
-          <div id="classSelectWrap" style="display:none;">
-            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">반 이름</label>
-            <input id="classNameInput" type="text" placeholder="예: A반, 고1수학반" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
-            <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">Notion 학생 DB의 '반' 선택 항목과 정확히 일치해야 합니다</p>
           </div>
           <div id="classSharedWrap" style="display:none;">
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학원</label>
@@ -314,10 +307,22 @@
             <input id="csDate" type="date" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
             <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">파일은 <code>class/{학원}_{반}/{MMDD}/</code> 폴더에 자동 저장됩니다</p>
           </div>
-          <div id="reportPhoneWrap" style="display:none;">
-            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학부모 전화번호 끝 4자리</label>
-            <input id="reportPhone4" type="text" maxlength="4" placeholder="예: 1234"
-              style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
+          <div id="reportStudentWrap" style="display:none;">
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학원</label>
+            <select id="rsAcademy" onchange="rsUpdateClassOptions()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
+              <option value="">선택하세요</option>
+              <option value="대치동 정규반">대치동 정규반</option>
+              <option value="세정학원">세정학원</option>
+            </select>
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">반</label>
+            <select id="rsClass" onchange="rsUpdateStudentOptions()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
+              <option value="">학원을 먼저 선택하세요</option>
+            </select>
+            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학생 <span style="color:var(--primary);font-size:0.78rem;">(이 학생과 학부모만 볼 수 있음)</span></label>
+            <select id="rsStudent" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
+              <option value="">반을 먼저 선택하세요</option>
+            </select>
+            <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">파일은 <code>reports/{학생이름}/</code> 폴더에 자동 저장됩니다</p>
           </div>
           <div>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 선택 <span style="color:var(--primary);font-size:0.78rem;">(여러 파일 동시 선택 가능)</span></label>
@@ -349,8 +354,8 @@
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
         <select id="viewFolder" onchange="loadFiles()" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
-          <option value="materials">📚 자료실 파일</option>
-          <option value="reports">📋 리포트 PDF</option>
+          <option value="class">📚 수업자료·교재 (반별)</option>
+          <option value="reports">📋 학생 리포트 (학생별)</option>
         </select>
         <span id="fileCount" style="font-size:0.82rem;color:var(--text-light);"></span>
       </div>
@@ -824,15 +829,35 @@
   // ── 자료실: 폴더 선택에 따라 입력 wrapper 토글 ──
   function togglePhoneInput() {
     const folder = document.getElementById('fileFolder').value;
-    document.getElementById('reportPhoneWrap').style.display = folder === 'reports' ? 'block' : 'none';
-    document.getElementById('classSelectWrap').style.display = folder === 'class' ? 'block' : 'none';
+    document.getElementById('reportStudentWrap').style.display = folder === 'reports' ? 'block' : 'none';
     document.getElementById('classSharedWrap').style.display = folder === 'class-shared' ? 'block' : 'none';
-    document.getElementById('categoryWrap').style.display = (folder === 'reports' || folder === 'class-shared') ? 'none' : 'block';
+    // 학생 리포트/반 공통 모두 카테고리 입력 불필요
+    document.getElementById('categoryWrap').style.display = 'none';
     // 반 공통 자료 선택 시 날짜 기본값 오늘
     if (folder === 'class-shared') {
       const dEl = document.getElementById('csDate');
       if (dEl && !dEl.value) dEl.value = new Date().toISOString().slice(0, 10);
     }
+  }
+
+  // 리포트 업로드: 학원 → 반 → 학생 select 동적 갱신
+  const RS_CLASS_OPTIONS = CLASS_OPTIONS_BY_ACADEMY;
+  function rsUpdateClassOptions() {
+    const acad = document.getElementById('rsAcademy').value;
+    const sel = document.getElementById('rsClass');
+    const opts = (RS_CLASS_OPTIONS[acad] || []);
+    sel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    document.getElementById('rsStudent').innerHTML = '<option value="">반을 먼저 선택하세요</option>';
+  }
+  function rsUpdateStudentOptions() {
+    const acad = document.getElementById('rsAcademy').value;
+    const cls  = document.getElementById('rsClass').value;
+    const sel  = document.getElementById('rsStudent');
+    if (!acad || !cls) { sel.innerHTML = '<option value="">반을 먼저 선택하세요</option>'; return; }
+    const students = (allStudents || []).filter(s => s.academy === acad && s.className === cls);
+    if (!students.length) { sel.innerHTML = '<option value="">해당 반에 학생 없음</option>'; return; }
+    students.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    sel.innerHTML = '<option value="">학생 선택</option>' + students.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
   }
 
   // ── 자료실: 단일 파일 업로드 (FormData → Cloudflare Worker → R2) ──
@@ -850,26 +875,7 @@
     if (!res.ok) throw new Error('업로드 실패');
     const { key, fileSize } = await res.json();
 
-    // 자료실·반별 자료 Notion 메타데이터 저장
-    if (folder === 'materials' || folder === 'class') {
-      const category = document.getElementById('fileCategorySelect')?.value || '수업자료';
-      const className = folder === 'class' ? (document.getElementById('classNameInput')?.value.trim() || '') : '';
-      await fetch('/api/materials-write', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password: adminToken,
-          title: total === 1 && title ? title : file.name,
-          fileName: file.name,
-          r2Key: key,
-          category,
-          fileSize,
-          phone4: phone4 || '',
-          className,
-        })
-      });
-    }
-
+    // 옛 materials/class 분기 — 새 구조에선 R2 키 자체로 분류되니 메타데이터 X
     return key;
   }
 
@@ -890,16 +896,15 @@
       if (!date)         { showToast('수업 날짜를 선택해주세요.'); return; }
       const mmdd = date.slice(5).replace('-', '');
       folder = 'class/' + acad + '_' + cls + '/' + mmdd;
-    } else if (folderSel === 'class') {
-      folder = 'materials';  // 구버전: 반별 자료도 R2는 materials, Notion에서 반 구분
+    } else if (folderSel === 'reports') {
+      const studentName = document.getElementById('rsStudent').value.trim();
+      if (!studentName) { showToast('학생을 선택해주세요.'); return; }
+      folder = 'reports/' + studentName;
     } else {
       folder = folderSel;
     }
 
     if (!fileInput.files.length) { showToast('파일을 선택해주세요.'); return; }
-    if (folderSel === 'reports' && (!phone4 || phone4.length !== 4)) {
-      showToast('리포트 PDF는 전화번호 끝 4자리를 입력해주세요.'); return;
-    }
 
     const files = Array.from(fileInput.files);
     const progressWrap = document.getElementById('uploadProgress');
