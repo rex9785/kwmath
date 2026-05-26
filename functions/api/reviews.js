@@ -72,7 +72,7 @@ export async function onRequest({ request, env }) {
       if (url.searchParams.get('public') === '1') {
         const list = await queryReviews(env, {
           and: [
-            { property: '승인 상태', select: { equals: '승인' } },
+// status 필터 제거 — 모든 후기 자동 승인
             { property: '메인 노출', checkbox: { equals: true } },
           ],
         });
@@ -104,7 +104,7 @@ export async function onRequest({ request, env }) {
       }
       // 포털 후기 탭: 승인된 것만
       const list = await queryReviews(env, {
-        property: '승인 상태', select: { equals: '승인' },
+// status 필터 제거
       });
       return jsonOk({
         reviews: list.map(r => ({
@@ -161,7 +161,7 @@ export async function onRequest({ request, env }) {
             '작성자 휴대폰': { rich_text: [{ text: { content: auth.phone } }] },
             '학생 이름':    { rich_text: [{ text: { content: studentName } }] },
             '반':           { rich_text: [{ text: { content: className } }] },
-            '승인 상태':    { select:    { name: '대기' } },
+            '승인 상태':    { select:    { name: '승인' } },
             '메인 노출':    { checkbox:  false },
           },
         }),

@@ -185,9 +185,9 @@
       <button class="tab-btn active" onclick="switchTab('notices', this)">📢 공지사항 관리</button>
       <button class="tab-btn" onclick="switchTab('reports', this)">📋 리포트 조회</button>
       <button class="tab-btn" onclick="switchTab('students', this)">👨‍🎓 학생 목록</button>
+      <button class="tab-btn" onclick="switchTab('attendance', this)">📅 출결/숙제</button>
       <button class="tab-btn" onclick="switchTab('files', this)">📁 자료실 관리</button>
       <button class="tab-btn" onclick="switchTab('videos', this)">📺 영상 관리</button>
-      <button class="tab-btn" onclick="switchTab('reviews', this)">📝 수강 후기 승인</button>
     </div>
 
     <!-- 공지사항 탭 -->
@@ -239,6 +239,20 @@
 
     <!-- 학생 목록 탭 -->
     <div class="tab-panel" id="tab-students">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <p class="panel-title" style="margin-bottom:0;">👨‍🎓 등록 학생 목록</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="renderStudentsView()"
+            style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
+          <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;">📋 반별로 보기</button>
+          <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
+        </div>
+      </div>
+      <div id="studentList"><div class="empty">불러오는 중...</div></div>
+    </div>
+
+    <!-- 출결/숙제 탭 (신규) -->
+    <div class="tab-panel" id="tab-attendance">
       <div class="card" style="padding:14px 18px;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
           <strong style="color:var(--primary);font-size:0.95rem;">🚀 반별 빠른 출석 — <span id="qaDateLabel"></span></strong>
@@ -256,16 +270,12 @@
         </div>
         <div id="qaSummary" style="margin-top:10px;font-size:0.82rem;color:var(--text-light);"></div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-        <p class="panel-title" style="margin-bottom:0;">👨‍🎓 등록 학생 목록</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="renderStudentsView()"
-            style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
-          <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;">📋 반별로 보기</button>
-          <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
-        </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <p class="panel-title" style="margin-bottom:0;">📅 학생별 출결 · 숙제 체크</p>
+        <input id="attStudentSearch" type="text" placeholder="이름 검색..." oninput="renderAttendanceList()"
+          style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
       </div>
-      <div id="studentList"><div class="empty">불러오는 중...</div></div>
+      <div id="attendanceList"><div class="empty">불러오는 중...</div></div>
     </div>
 
     <!-- 자료실 관리 탭 -->
@@ -384,20 +394,6 @@
       <div id="videoList"><div class="empty">불러오는 중...</div></div>
     </div>
 
-    <!-- 수강 후기 승인 탭 -->
-    <div class="tab-panel" id="tab-reviews">
-      <div class="panel-title">📝 수강 후기 승인 <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:10px;" onclick="loadReviewsAdmin()">🔄 새로고침</button></div>
-      <div style="font-size:0.83rem;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
-        포털에서 작성된 수강 후기입니다. <strong>승인</strong>하면 포털 후기 둘러보기에 노출되고, <strong>메인 노출</strong>을 켜면 메인 홈페이지에도 표시됩니다.
-      </div>
-      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-        <button class="del-btn" onclick="filterReviews('all')" id="rvFiltAll" style="border-color:var(--primary);color:var(--primary);">전체</button>
-        <button class="del-btn" onclick="filterReviews('대기')" id="rvFiltWait">대기</button>
-        <button class="del-btn" onclick="filterReviews('승인')" id="rvFiltOk">승인</button>
-        <button class="del-btn" onclick="filterReviews('거절')" id="rvFiltNo">거절</button>
-      </div>
-      <div id="reviewAdminList"><div class="empty">불러오는 중...</div></div>
-    </div>
 
   </div><!-- dash-body end -->
 </div><!-- dashboard end -->
@@ -488,115 +484,12 @@
     document.getElementById('tab-' + name).classList.add('active');
     if (name === 'reports') loadAllReports();
     if (name === 'students') loadStudents();
+    if (name === 'attendance') loadAttendanceTab();
     if (name === 'files') loadFiles();
     if (name === 'videos') loadVideos();
-    if (name === 'reviews') loadReviewsAdmin();
-  }
+      }
 
   // ─────────────── 수강 후기 관리 ───────────────
-  let reviewsAdminCache = [];
-  let reviewsFilter = 'all';
-
-  async function loadReviewsAdmin() {
-    const box = document.getElementById('reviewAdminList');
-    box.innerHTML = '<div class="empty">불러오는 중...</div>';
-    try {
-      const res = await fetch('/api/reviews?admin=1', {
-        headers: { 'Authorization': 'Bearer ' + adminToken },
-      });
-      const data = await res.json();
-      if (!res.ok) { box.innerHTML = `<div class="empty">${escapeHtml(data.error || '조회 실패')}</div>`; return; }
-      reviewsAdminCache = data.reviews || [];
-      renderReviewsAdmin();
-    } catch (e) {
-      box.innerHTML = `<div class="empty">네트워크 오류: ${escapeHtml(e.message)}</div>`;
-    }
-  }
-
-  function filterReviews(f) {
-    reviewsFilter = f;
-    ['All', 'Wait', 'Ok', 'No'].forEach(k => {
-      const el = document.getElementById('rvFilt' + k);
-      if (el) { el.style.borderColor = ''; el.style.color = ''; }
-    });
-    const map = { 'all':'All', '대기':'Wait', '승인':'Ok', '거절':'No' };
-    const active = document.getElementById('rvFilt' + map[f]);
-    if (active) { active.style.borderColor = 'var(--primary)'; active.style.color = 'var(--primary)'; }
-    renderReviewsAdmin();
-  }
-
-  function renderReviewsAdmin() {
-    const box = document.getElementById('reviewAdminList');
-    let list = reviewsAdminCache.slice();
-    if (reviewsFilter !== 'all') list = list.filter(r => r.status === reviewsFilter);
-    if (!list.length) { box.innerHTML = '<div class="empty">해당하는 후기가 없습니다.</div>'; return; }
-
-    box.innerHTML = list.map(r => {
-      const statusColors = { '대기':'#FFF7E0;color:#B07A00', '승인':'#E5F5E8;color:#1F7A33', '거절':'#FBE5E9;color:#B02347' };
-      const sc = statusColors[r.status] || statusColors['대기'];
-      const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleString('ko-KR') : '';
-      const mainBadge = r.mainShow
-        ? '<span style="background:var(--primary);color:#fff;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">메인 노출 ON</span>'
-        : '';
-      return `
-        <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(139,26,53,0.04);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
-            <div>
-              <span style="font-weight:700;font-size:0.9rem;color:var(--text);">${escapeHtml(r.authorName||'익명')}</span>
-              <span style="background:var(--primary-light);color:var(--primary);font-size:0.7rem;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:6px;">${escapeHtml(r.authorType||'')}</span>
-              <span style="background:${sc};font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;margin-left:6px;">${escapeHtml(r.status)}</span>
-              ${mainBadge}
-            </div>
-            <div style="font-size:0.72rem;color:var(--text-light);">${escapeHtml(dateStr)}</div>
-          </div>
-          <div style="font-size:0.74rem;color:var(--text-light);margin-bottom:8px;">
-            ${r.studentName ? `학생: ${escapeHtml(r.studentName)}` : ''}
-            ${r.className ? ` / 반: ${escapeHtml(r.className)}` : ''}
-            ${r.authorPhone ? ` / ${escapeHtml(r.authorPhone)}` : ''}
-          </div>
-          <div style="font-size:0.88rem;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-word;background:var(--bg2);padding:12px 14px;border-radius:8px;margin-bottom:10px;">${escapeHtml(r.content)}</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-            ${r.status !== '승인' ? `<button class="del-btn" onclick="patchReview('${r.id}', { status:'승인' })" style="border-color:#1F7A33;color:#1F7A33;">승인</button>` : ''}
-            ${r.status !== '거절' ? `<button class="del-btn" onclick="patchReview('${r.id}', { status:'거절' })" style="border-color:#B02347;color:#B02347;">거절</button>` : ''}
-            ${r.status === '승인' ? `<button class="del-btn" onclick="patchReview('${r.id}', { mainShow:${!r.mainShow} })" style="border-color:var(--primary);color:var(--primary);">${r.mainShow ? '메인 OFF' : '메인 ON'}</button>` : ''}
-            <button class="del-btn" onclick="deleteReviewAdmin('${r.id}')">삭제</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  async function patchReview(id, body) {
-    try {
-      const res = await fetch('/api/reviews?id=' + encodeURIComponent(id), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.error || '수정 실패'); return; }
-      showToast('수정 완료');
-      loadReviewsAdmin();
-    } catch (e) {
-      showToast('네트워크 오류: ' + e.message);
-    }
-  }
-
-  async function deleteReviewAdmin(id) {
-    if (!confirm('이 후기를 삭제하시겠어요?\n(영구 삭제)')) return;
-    try {
-      const res = await fetch('/api/reviews?id=' + encodeURIComponent(id), {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer ' + adminToken },
-      });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.error || '삭제 실패'); return; }
-      showToast('삭제 완료');
-      loadReviewsAdmin();
-    } catch (e) {
-      showToast('네트워크 오류: ' + e.message);
-    }
-  }
 
   // ── 공지사항 로드 ──
   let adminNoticesCache = [];
@@ -1183,20 +1076,6 @@
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:0.7rem;color:var(--text-light);margin-right:2px;">오늘:</span>
-          <button class="att-btn" data-s="출석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
-          <button class="att-btn" data-s="지각" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
-          <button class="att-btn" data-s="결석" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
-          <button class="att-btn" data-s="병결" onclick="markAttendance('${(s.name||'').replace(/'/g,'\\x27')}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
-          <span style="font-size:0.7rem;color:var(--text-light);margin-left:6px;margin-right:2px;">숙제:</span>
-          <div class="hw-bucket" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
-            <button class="hw-btn" data-p="0"   onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',0,this)">0</button>
-            <button class="hw-btn" data-p="25"  onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',25,this)">25</button>
-            <button class="hw-btn" data-p="50"  onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',50,this)">50</button>
-            <button class="hw-btn" data-p="75"  onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',75,this)">75</button>
-            <button class="hw-btn" data-p="100" onclick="markHomework('${(s.name||'').replace(/'/g,'\\x27')}',100,this)">100</button>
-          </div>
-          <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${(s.name||'').replace(/'/g,'\\x27')}')">📋</button>
           <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
         </div>
       </div>
@@ -1212,8 +1091,7 @@
         ${s.dreamUniv ? '&nbsp;&nbsp;<span>🎓 ' + escapeHtml(s.dreamUniv) + '</span>' : ''}
         ${s.availableDays && s.availableDays.length ? '<br><span>📅 등원 가능: ' + escapeHtml(s.availableDays.join(', ')) + '</span>' : ''}
         ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + escapeHtml(s.notes) + '</span>' : ''}
-        <div class="week-study" data-student="${(s.name||'').replace(/"/g,'&quot;')}" style="margin-top:6px;font-size:0.78rem;color:var(--text-light);">📚 이번 주 공부: <span class="ws-val">…</span></div>
-      </div>
+        </div>
     </div>`;
   }
 
@@ -1925,6 +1803,67 @@
         }
       } catch (e) { /* 조용히 실패 */ }
     }
+  }
+
+  // ─── 출결/숙제 탭 ───
+  function loadAttendanceTab() {
+    if (!Array.isArray(allStudents) || !allStudents.length) {
+      // 학생 데이터 없으면 먼저 로드
+      loadStudents();
+      // loadStudents 비동기인데 renderStudentsView가 자동 호출되니, attendance 별도로 한 번 더
+      setTimeout(renderAttendanceList, 500);
+    } else {
+      renderAttendanceList();
+    }
+    // 빠른 출석 select 옵션 갱신
+    setTimeout(function(){ if (typeof populateQaAcademies === 'function') populateQaAcademies(); }, 100);
+  }
+
+  function renderAttendanceList() {
+    const list = document.getElementById('attendanceList');
+    if (!list) return;
+    const q = (document.getElementById('attStudentSearch')?.value || '').toLowerCase();
+    const filtered = (allStudents || []).filter(s => !q
+      || (s.name||'').toLowerCase().includes(q)
+      || (s.academy||'').toLowerCase().includes(q)
+      || (s.className||'').toLowerCase().includes(q));
+    if (!filtered.length) { list.innerHTML = '<div class="empty">학생이 없습니다.</div>'; return; }
+    // 학원 + 반 정렬
+    filtered.sort((a,b) => ((a.academy||'')+(a.className||'')+(a.name||'')).localeCompare((b.academy||'')+(b.className||'')+(b.name||'')));
+    list.innerHTML = filtered.map(renderAttendanceRow).join('');
+    setTimeout(function(){
+      if (typeof syncTodayAttendanceMarks === 'function') syncTodayAttendanceMarks();
+      if (typeof syncWeekStudy === 'function') syncWeekStudy();
+    }, 0);
+  }
+
+  function renderAttendanceRow(s) {
+    const nameEsc = (s.name||'').replace(/'/g,'\\x27');
+    return `<div class="report-card" style="padding:14px 18px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <div>
+          <strong style="font-size:0.95rem;">${escapeHtml(s.name||'—')}</strong>
+          <span style="font-size:0.78rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy||'')}${s.className?' / '+escapeHtml(s.className):''}</span>
+        </div>
+        <div class="week-study" data-student="${(s.name||'').replace(/"/g,'&quot;')}" style="font-size:0.78rem;color:var(--text-light);">📚 이번 주: <span class="ws-val">…</span></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:0.72rem;color:var(--text-light);margin-right:2px;">오늘:</span>
+        <button class="att-btn" data-s="출석" onclick="markAttendance('${nameEsc}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
+        <button class="att-btn" data-s="지각" onclick="markAttendance('${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
+        <button class="att-btn" data-s="결석" onclick="markAttendance('${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
+        <button class="att-btn" data-s="병결" onclick="markAttendance('${nameEsc}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
+        <span style="font-size:0.72rem;color:var(--text-light);margin-left:10px;margin-right:2px;">숙제:</span>
+        <div class="hw-bucket" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
+          <button class="hw-btn" data-p="0"   onclick="markHomework('${nameEsc}',0,this)">0</button>
+          <button class="hw-btn" data-p="25"  onclick="markHomework('${nameEsc}',25,this)">25</button>
+          <button class="hw-btn" data-p="50"  onclick="markHomework('${nameEsc}',50,this)">50</button>
+          <button class="hw-btn" data-p="75"  onclick="markHomework('${nameEsc}',75,this)">75</button>
+          <button class="hw-btn" data-p="100" onclick="markHomework('${nameEsc}',100,this)">100</button>
+        </div>
+        <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${nameEsc}')">📋</button>
+      </div>
+    </div>`;
   }
 
   // ─── 학원/반 수정 모달 ───
