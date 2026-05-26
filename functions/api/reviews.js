@@ -59,6 +59,17 @@ async function queryReviews(env, filter, sorts) {
   return (data.results || []).filter(p => !p.archived && !p.in_trash).map(pageToReview);
 }
 
+// 메인 홈피 노출용 이름 마스킹 (가운데 1글자만 O)
+// 박지영 → 박O영, 이지민영 → 이지O영
+function maskName(name) {
+  const n = (name || '').toString().trim();
+  if (!n) return '익명';
+  if (n.length === 1) return n;
+  if (n.length === 2) return n[0] + 'O';
+  const mid = Math.floor(n.length / 2);
+  return n.slice(0, mid) + 'O' + n.slice(mid + 1);
+}
+
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
@@ -76,12 +87,23 @@ export async function onRequest({ request, env }) {
             { property: '메인 노출', checkbox: { equals: true } },
           ],
         });
-        // 퍼블릭 응답에선 휴대폰 제거
+        // 퍼블릭 응답: 휴대폰 제거 + 이름 마스킹
+        // 학생: 본인 이름 마스킹 → "박O영 학생"
+        // 학부모: 자녀 이름 마스킹 → "이O재 학부모님" (학부모 본인 이름 X)
         return jsonOk({
-          reviews: list.map(r => ({
-            id: r.id, content: r.content, authorName: r.authorName,
-            authorType: r.authorType, className: r.className, createdAt: r.createdAt,
-          })),
+          reviews: list.map(r => {
+            const sourceName = (r.authorType === '학부모')
+              ? (r.studentName || r.authorName || '')   // 학부모 후기 → 자녀 이름
+              : (r.authorName || r.studentName || '');  // 학생 후기 → 본인 이름
+            return {
+              id: r.id,
+              content: r.content,
+              authorName: maskName(sourceName),  // 마스킹된 이름
+              authorType: r.authorType,
+              className: r.className,
+              createdAt: r.createdAt,
+            };
+          }),
         });
       }
 
