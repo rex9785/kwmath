@@ -9,6 +9,17 @@ import { dispatchNoticePush } from './notices-write.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 
+// 침묵 시간: 한국시간 23:00 ~ 07:00 — 푸쉬 발송 보류
+// Cloudflare Workers는 UTC, 한국은 UTC+9 → 한국시간 hour 계산
+function isQuietHourKST() {
+  const utcHour = new Date().getUTCHours();
+  const utcMinutes = new Date().getUTCMinutes();
+  // KST hour = (UTC hour + 9) mod 24
+  const kstHour = (utcHour + 9) % 24;
+  // 23, 0, 1, 2, 3, 4, 5, 6 시는 침묵
+  return (kstHour >= 23) || (kstHour < 7);
+}
+
 function isAuthed(request, env) {
   const url = new URL(request.url);
   const queryKey = url.searchParams.get('key');
@@ -21,6 +32,17 @@ function isAuthed(request, env) {
 export async function onRequest({ request, env }) {
   if (!isAuthed(request, env)) {
     return Response.json({ error: '인증이 필요합니다.' }, { status: 401 });
+  }
+
+  // 침묵 시간(밤 11시 ~ 아침 7시 KST)이면 발송 보류
+  if (isQuietHourKST()) {
+    return Response.json({
+      ok: true,
+      skipped: true,
+      reason: '침묵 시간 (23:00~07:00 KST) — 발송 보류',
+      checkedAt: new Date().toISOString(),
+      dispatched: 0,
+    });
   }
 
   // 예약 시각이 지났고, 아직 발송 안 된 공지만 조회
