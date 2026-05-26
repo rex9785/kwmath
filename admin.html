@@ -488,6 +488,23 @@
   </div>
 </div>
 
+<!-- 다른 반 추가 등록 모달 -->
+<div class="ec-modal-bg" id="addEnrollmentModal">
+  <div class="ec-modal">
+    <h3>➕ 다른 반에 추가 등록</h3>
+    <div class="ec-sub"><b id="aemName"></b> 학생을 새 반에 추가 등록합니다.<br>학생 정보(학교/학년/학부모 휴대폰 등)는 그대로 복사돼요. 같은 학생이지만 별도 enrollment record로 생성됩니다.</div>
+    <div style="background:#f9f3f5;padding:8px 12px;border-radius:8px;font-size:0.8rem;margin-bottom:10px;color:#666;">현재: <span id="aemCurrentClass" style="font-weight:700;color:var(--primary);"></span></div>
+    <label>새 학원</label>
+    <select id="aemAcademy" onchange="aemUpdateClassOptions()"></select>
+    <label>새 반</label>
+    <select id="aemClass"></select>
+    <div class="ec-modal-actions">
+      <button class="ec-cancel" onclick="closeAddEnrollmentModal()">취소</button>
+      <button class="ec-save" onclick="submitAddEnrollment()">추가 등록</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- 출석부 PDF 렌더 영역 (화면에선 숨김 / 인쇄 시 표시) -->
@@ -1304,7 +1321,7 @@
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
         </div>
       </div>
       <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
@@ -1357,7 +1374,7 @@
               ${s.advanceProgress ? '&nbsp;·&nbsp;선행 ' + escapeHtml(s.advanceProgress) : ''}
             </div>
           </div>
-          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" onclick="deleteStudent('${(s.name||'').replace(/'/g,'\\x27')}')">🗑 퇴원처리</button>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
         </div>
       `).join('') : '';
       return `<div class="card" style="padding:0;overflow:hidden;">
@@ -1786,23 +1803,50 @@
   }
 
   // ─── 학생 퇴원 처리 (Notion archive + R2 파일 삭제) ──
-  async function deleteStudent(name) {
-    if (!name) return;
-    const ok = confirm("⚠️ [" + name + "] 학생을 퇴원 처리할까요?\n\n· Notion 학생 DB에서 archive\n· 해당 학생의 모든 수업 리포트 archive\n· R2 reports/" + name + "/ 폴더의 파일 모두 삭제\n\n복구 불가. 정말 진행할까요?");
-    if (!ok) return;
+  async function deleteStudent(studentId, name, className, academy) {
+    if (!studentId && !name) return;
+    // 같은 이름의 다른 enrollment가 있는지 확인 (per-class records 대응)
+    const sameNameOthers = (allStudents || []).filter(x => x.name === name && x.id !== studentId);
+    let mode = 'full';  // full: 모든 enrollment + 리포트 + 계정 archive (이름 기반, 기존 동작)
+                        // enrollment-only: 이 enrollment만 archive (다른 반 유지)
+    if (sameNameOthers.length > 0) {
+      // 다른 반 enrollment가 있음 → 사용자에게 선택 요청
+      const label = (academy || '') + (className ? ' · ' + className : '');
+      const others = sameNameOthers.map(o => '· ' + (o.academy||'') + ' · ' + (o.className||'')).join('\n');
+      const choice = confirm(
+        '⚠️ [' + name + '] 학생은 여러 반에 등록돼있어요.\n\n' +
+        '현재 이 카드: ' + label + '\n' +
+        '다른 등록:\n' + others + '\n\n' +
+        '[확인] = 이 반 enrollment만 퇴원 (다른 반 유지)\n' +
+        '[취소] = 작업 취소\n\n' +
+        '(전체 퇴원을 원하면 다른 반들도 각각 같은 방식으로 처리해주세요)'
+      );
+      if (!choice) return;
+      mode = 'enrollment-only';
+    } else {
+      // 단독 enrollment → 전체 퇴원 (기존 동작)
+      const ok = confirm("⚠️ [" + name + "] 학생을 퇴원 처리할까요?\n\n· Notion 학생 DB에서 archive\n· 해당 학생의 모든 수업 리포트 archive\n· R2 reports/" + name + "/ 폴더의 파일 모두 삭제\n· 계정도 archive\n\n복구 불가. 정말 진행할까요?");
+      if (!ok) return;
+    }
     try {
+      const body = (mode === 'enrollment-only')
+        ? { studentId: studentId }
+        : { name: name };
       const res = await fetch("/api/delete-student", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + adminToken },
-        body: JSON.stringify({ name: name }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
         showToast("❌ 퇴원 처리 실패: " + (data.error || res.status));
         return;
       }
-      showToast("🗑 " + name + " 퇴원 완료 — 학생 " + data.students_archived + " · 리포트 " + data.reports_archived + " · 파일 " + data.files_deleted);
-      // 학생 목록 새로고침
+      if (mode === 'enrollment-only') {
+        showToast("🗑 " + name + " 이 반에서만 퇴원 (다른 반 유지)");
+      } else {
+        showToast("🗑 " + name + " 전체 퇴원 완료 — 학생 " + data.students_archived + " · 리포트 " + data.reports_archived + " · 파일 " + data.files_deleted);
+      }
       if (typeof loadStudents === "function") loadStudents();
     } catch (e) {
       showToast("네트워크 오류: " + e.message);
@@ -2112,6 +2156,55 @@
     const sel = document.getElementById('ecmClass');
     sel.innerHTML = opts.map(c => '<option value="' + c + '"' + (c === presetClass ? ' selected' : '') + '>' + c + '</option>').join('');
   }
+  // ─── 다른 반 추가 등록 모달 ───
+  let _aemSourceId = '';
+  function openAddEnrollmentModal(sourceId, name, currentAcademy, currentClass) {
+    _aemSourceId = sourceId;
+    document.getElementById('aemName').textContent = name || '?';
+    document.getElementById('aemCurrentClass').textContent = (currentAcademy || '') + (currentClass ? ' · ' + currentClass : '');
+    const acadSel = document.getElementById('aemAcademy');
+    const academies = Object.keys(CLASS_OPTIONS_BY_ACADEMY);
+    // 기본값은 현재 학원 (보통 같은 학원 안에서 다른 반 추가)
+    acadSel.innerHTML = academies.map(a => '<option value="' + a + '"' + (a === currentAcademy ? ' selected' : '') + '>' + a + '</option>').join('');
+    aemUpdateClassOptions();
+    document.getElementById('addEnrollmentModal').classList.add('show');
+  }
+  function closeAddEnrollmentModal() {
+    document.getElementById('addEnrollmentModal').classList.remove('show');
+    _aemSourceId = '';
+  }
+  function aemUpdateClassOptions() {
+    const acad = document.getElementById('aemAcademy').value;
+    const opts = (CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    const sel = document.getElementById('aemClass');
+    sel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+  }
+  async function submitAddEnrollment() {
+    const sourceId  = _aemSourceId;
+    if (!sourceId) return;
+    const academy   = document.getElementById('aemAcademy').value;
+    const className = document.getElementById('aemClass').value;
+    if (!academy || !className) { showToast('학원/반 선택하세요'); return; }
+    if (!confirm('새 반에 추가 등록할까요?\n학원: ' + academy + '\n반: ' + className)) return;
+    try {
+      const res = await fetch('/api/admin-add-enrollment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ sourceStudentId: sourceId, academy: academy, className: className }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ 추가 등록 실패: ' + (data.error || res.status));
+        return;
+      }
+      showToast('✅ ' + data.name + ' — ' + data.academy + ' · ' + data.className + ' 추가 등록 완료');
+      closeAddEnrollmentModal();
+      if (typeof loadStudents === 'function') loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
   async function submitEditClass() {
     const studentId = _ecmStudentId;
     if (!studentId) return;

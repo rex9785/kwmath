@@ -16,7 +16,12 @@ export async function onRequest({ request, env }) {
   let body = {};
   try { body = await request.json(); } catch {}
   const name = (body.name || '').trim();
-  if (!name) return Response.json({ error: '학생 이름이 필요합니다' }, { status: 400 });
+  const studentId = (body.studentId || '').trim();
+  // 모드:
+  //   - studentId 만: enrollment-only 모드 (그 학생 페이지만 archive, 리포트/계정 손대지 않음)
+  //   - name 만: 전체 퇴원 (기존 동작, 같은 이름의 모든 enrollment + 리포트 + 계정 archive)
+  if (!name && !studentId) return Response.json({ error: '학생 이름 또는 studentId 필요' }, { status: 400 });
+  const enrollmentOnly = !!studentId && !name;
 
   const headers = {
     Authorization:    `Bearer ${env.NOTION_TOKEN}`,
@@ -24,16 +29,29 @@ export async function onRequest({ request, env }) {
     'Content-Type':   'application/json',
   };
 
-  const result = { name, students_archived: 0, reports_archived: 0, accounts_archived: 0, files_deleted: 0, errors: [] };
-  const phonesToArchive = new Set();  // 학부모/학생 phone 수집
+  const result = { name: name || '', studentId: studentId || '', enrollmentOnly, students_archived: 0, reports_archived: 0, accounts_archived: 0, files_deleted: 0, errors: [] };
+  const phonesToArchive = new Set();
 
   try {
     // 1. Notion 학생 DB에서 학생 검색 → archive
-    const sRes = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
-      method: 'POST', headers,
-      body: JSON.stringify({ filter: { property: '이름', title: { equals: name } } }),
-    });
-    const sData = await sRes.json();
+    let sData;
+    if (enrollmentOnly) {
+      // studentId 모드: 그 페이지만
+      const pRes = await fetch(`https://api.notion.com/v1/pages/${studentId}`, { headers });
+      const pData = await pRes.json();
+      if (pData.object === 'error') {
+        return Response.json({ error: '학생을 찾을 수 없습니다: ' + (pData.message || '') }, { status: 404 });
+      }
+      // name 추출 (R2 폴더 처리 안 하지만 result 표시용)
+      result.name = (pData.properties?.['이름']?.title || [])[0]?.plain_text || '';
+      sData = { results: [pData] };
+    } else {
+      const sRes = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ filter: { property: '이름', title: { equals: name } } }),
+      });
+      sData = await sRes.json();
+    }
     for (const page of (sData.results || [])) {
       // phone 정보 수집 (계정 archive용)
       try {
@@ -79,7 +97,10 @@ export async function onRequest({ request, env }) {
       }
     }
 
-    // 3. R2 reports/{이름}/ 폴더의 모든 파일 삭제
+    // 3. R2 reports/{이름}/ 폴더의 모든 파일 삭제 — enrollment-only 모드에선 스킵
+    if (enrollmentOnly) {
+      return Response.json({ ok: true, ...result });
+    }
     const listed = await env.BUCKET.list({ prefix: `reports/${name}/`, limit: 500 });
     for (const obj of (listed.objects || [])) {
       try {

@@ -250,8 +250,10 @@
   .notice-item .nt-badge.NEW{background:#c0392b;}
   .notice-item .nt-title{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .notice-item .nt-date{font-size:0.7rem;color:var(--text-light);}
-  .notice-item .nt-content{font-size:0.78rem;color:var(--text-light);margin-top:4px;line-height:1.5;display:none;}
+  .notice-item .nt-content{font-size:0.78rem;color:var(--text-light);margin-top:6px;line-height:1.5;display:none;padding-left:4px;}
   .notice-item.open .nt-content{display:block;}
+  .notice-item .nt-chevron{font-size:0.7rem;color:#854F0B;opacity:0.5;transition:transform .15s;display:inline-block;}
+  .notice-item.open .nt-chevron{transform:rotate(180deg);opacity:1;}
 
   /* 기능 버튼 그리드 카드 */
   .feat-btn{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 18px;text-decoration:none;color:var(--text);box-shadow:0 4px 14px rgba(139,26,53,0.05);transition:all .15s;cursor:pointer;font-family:inherit;text-align:left;}
@@ -408,10 +410,16 @@
     const name = first ? first.name : '';
     const role = first ? first.role : '';
     if (name) {
+      // 같은 이름 학생이 여러 enrollment인 경우 학원·반 같이 표시
+      const sameName = currentStudents.filter(s => s.name === name);
+      let suffix = '';
+      if (sameName.length > 1 && first.className) {
+        suffix = ' (' + (first.academy ? first.academy + ' · ' : '') + first.className + ')';
+      }
       if (role === 'student') {
-        $('welcomeMsg').textContent = name + ' 학생, 환영합니다 👋';
+        $('welcomeMsg').textContent = name + suffix + ' 학생, 환영합니다 👋';
       } else {
-        $('welcomeMsg').textContent = name + ' 학생 학부모님 환영합니다 👋';
+        $('welcomeMsg').textContent = name + suffix + ' 학생 학부모님 환영합니다 👋';
       }
     } else {
       $('welcomeMsg').textContent = '환영합니다 👋';
@@ -451,9 +459,13 @@
       return;
     }
     wrap.style.display = 'block';
-    sel.innerHTML = currentStudents.map((s, i) =>
-      `<option value="${i}">${s.name || '—'} (${s.school || ''}${s.grade ? ' · ' + s.grade : ''}${s.className ? ' / ' + s.className : ''})</option>`
-    ).join('');
+    sel.innerHTML = currentStudents.map((s, i) => {
+      // 학원·반 우선 표시 (같은 이름 학생이 여러 enrollment인 경우 구분)
+      const acadCls = [s.academy, s.className].filter(Boolean).join(' · ');
+      const schoolGrade = [s.school, s.grade].filter(Boolean).join(' · ');
+      const meta = acadCls ? acadCls + (schoolGrade ? ' / ' + schoolGrade : '') : schoolGrade;
+      return `<option value="${i}">${s.name || '—'}${meta ? ' (' + meta + ')' : ''}</option>`;
+    }).join('');
     sel.value = '0';
     selectedStudent = currentStudents[0];
   }
@@ -706,13 +718,15 @@
       const renderOne = (n) => {
         const badge = n.badge || '공지';
         const dateShort = (n.date || '').slice(5).replace('-', '/');
+        const contentText = n.content ? esc(n.content).replace(/\n/g, '<br>') : '<span style="color:#999;">(추가 내용 없음)</span>';
         return '<div class="notice-item" onclick="this.classList.toggle(' + JSON.stringify('open') + ')">'
           + '<div class="nt-head">'
           + '<span class="nt-badge ' + esc(badge) + '">' + esc(badge) + '</span>'
           + '<span class="nt-title">' + esc(n.title || '') + '</span>'
           + '<span class="nt-date">' + esc(dateShort) + '</span>'
+          + '<span class="nt-chevron">▼</span>'
           + '</div>'
-          + (n.content ? '<div class="nt-content">' + esc(n.content) + '</div>' : '')
+          + '<div class="nt-content">' + contentText + '</div>'
           + '</div>';
       };
       // 초기엔 최신 1개만 + 더보기 버튼 (나머지 있으면)
