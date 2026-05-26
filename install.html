@@ -64,7 +64,9 @@
   .go-portal:hover{background:var(--primary-light);}
 
   /* iOS 공유 버튼 화살표 애니메이션 */
-  .ios-arrow{display:flex;align-items:center;justify-content:center;gap:8px;background:#000;color:#fff;padding:18px;border-radius:14px;margin-top:12px;font-size:0.88rem;}
+  .ios-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#000;color:#fff;padding:18px;border-radius:14px;margin-top:12px;font-size:0.88rem;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,0.2);transition:transform .12s;border:none;font-family:inherit;width:100%;}
+  .ios-arrow:active{transform:scale(0.98);background:#1a1a1a;}
+  .ios-arrow small{font-size:0.72rem;opacity:0.7;font-weight:normal;}
   .arrow-share-icon{font-size:1.4rem;display:inline-block;animation:bounce 1.4s infinite;}
   @keyframes bounce{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
 
@@ -152,10 +154,10 @@
     <div class="step"><div class="step-num">2</div><div class="step-text">목록에서 <b>"홈 화면에 추가"</b> 선택</div></div>
     <div class="step"><div class="step-num">3</div><div class="step-text">우측 상단 <b>"추가"</b> 누르면 끝!</div></div>
 
-    <div class="ios-arrow">
-      <span>지금 바로 ↓ 공유 버튼 누르세요</span>
-      <span class="arrow-share-icon">⬆️</span>
-    </div>
+    <button class="ios-arrow" type="button" onclick="tryIOSShare(event)">
+      <span style="display:flex;align-items:center;gap:8px;justify-content:center;"><span>👇 공유 시트 열기</span><span class="arrow-share-icon">⬆️</span></span>
+      <small>안 열리면 Safari 하단 ↗ 모양 버튼 직접 눌러주세요</small>
+    </button>
 
     <div class="note" style="margin-top:14px;">
       <b>⚠️ Safari에서만 가능</b><br>
@@ -194,6 +196,24 @@
 
 <script>
   // ──── OS 자동 감지 + 토글 ────
+  // iOS 공유 시트 열기 시도 — 됐을 때 홈화면추가 옵션이 있으면 거기서 선택 가능
+  async function tryIOSShare(evt) {
+    if (evt) evt.preventDefault();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: '이관우 수학연구소',
+          text: 'LKW math · 학부모/학생 페이지',
+          url: location.origin + '/portal',
+        });
+      } catch (err) {
+        // 사용자가 취소하거나 미지원 — 무시
+      }
+    } else {
+      alert('이 브라우저는 공유 시트를 자동으로 열 수 없어요.\n\nSafari 하단 ↗ 모양 공유 버튼을 직접 눌러주세요.\n그러면 "홈 화면에 추가" 옵션이 나타납니다.');
+    }
+  }
+
   var ua = navigator.userAgent;
   var isIOS = /iPhone|iPad|iPod/i.test(ua) && !window.MSStream;
   var isAndroid = /Android/i.test(ua);
