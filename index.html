@@ -259,7 +259,13 @@
     .review-grid,.clips-grid{grid-template-columns:1fr 1fr;}
     .hero h1{font-size:2.2rem;}
     .section-title{font-size:1.65rem;}
-    nav .nav-links{display:none;}
+    nav .nav-links{display:flex;gap:8px;}
+    /* 메뉴 항목은 모바일에서 숨기되, 포털 로그인 CTA만 보이게 */
+    nav .nav-links > li{display:none;}
+    nav .nav-links > li:has(.nav-cta){display:list-item;}
+    /* :has 미지원 브라우저 fallback — 마지막 li(포털 로그인)만 보이게 */
+    nav .nav-links > li:last-child{display:list-item;}
+    nav .nav-cta{padding:7px 13px;font-size:0.78rem!important;}
   }
 </style>
 </head>
