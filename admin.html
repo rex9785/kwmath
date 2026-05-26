@@ -459,6 +459,12 @@
 <script>
   let adminToken = '';
 
+  // ── 학원/반 옵션 (전역 상수, 스크립트 최상단에서 선언) ──
+  const CLASS_OPTIONS_BY_ACADEMY = {
+    "대치동 정규반": ["썸머 공통수학2반", "썸머 미적반", "썸머 확통반"],
+    "세정학원":      ["썸머 기초특강반", "썸머 공통수학2반"],
+  };
+
   // 토스트 알림
   function showToast(msg) {
     const t = document.getElementById('toast');
@@ -1310,10 +1316,7 @@
   }
 
   // ─── 영상 관리 ─────────────────────────────
-  const CLASS_OPTIONS_BY_ACADEMY = {
-    "대치동 정규반": ["썸머 공통수학2반", "썸머 미적반", "썸머 확통반"],
-    "세정학원":      ["썸머 기초특강반", "썸머 공통수학2반"],
-  };
+  // (CLASS_OPTIONS_BY_ACADEMY는 스크립트 최상단에서 선언됨)
 
   let _allVideos = [];
   let _videoSelectMode = false;
