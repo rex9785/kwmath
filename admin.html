@@ -316,6 +316,16 @@
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
       </div>
+      <!-- 일괄 선택 바 (시즌 전환용) -->
+      <div id="bulkActionBar" style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#FFF8F0 0%,#FAEEDA 100%);border:1.5px solid #E8C56C;border-radius:10px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:#854F0B;">
+          <input type="checkbox" id="bulkSelectAll" onchange="toggleSelectAllStudents(this.checked)" style="width:18px;height:18px;cursor:pointer;">
+          <span>전체 선택</span>
+        </label>
+        <span style="color:#854F0B;font-size:0.82rem;">선택: <b id="bulkSelectedCount">0</b>명</span>
+        <button class="edit-btn" onclick="openSeasonTransitionModal()" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap;margin-left:auto;">🔄 시즌 전환 · 일괄 이동</button>
+        <button class="edit-btn" onclick="clearBulkSelection()" style="white-space:nowrap;">선택 해제</button>
+      </div>
       <div id="studentList"><div class="empty">불러오는 중...</div></div>
     </div>
 
@@ -484,6 +494,37 @@
     <div class="ec-modal-actions">
       <button class="ec-cancel" onclick="closeEditClassModal()">취소</button>
       <button class="ec-save" onclick="submitEditClass()">변경</button>
+    </div>
+  </div>
+</div>
+
+<!-- 시즌 전환 · 일괄 이동 모달 -->
+<div class="ec-modal-bg" id="seasonTransitionModal">
+  <div class="ec-modal" style="max-width:480px;">
+    <h3>🔄 시즌 전환 · 일괄 이동</h3>
+    <div class="ec-sub">
+      선택한 <b id="stmCount">0</b>명을 새 반으로 이동합니다.
+      <div id="stmSelectedPreview" style="margin-top:8px;padding:8px 10px;background:#f9f3f5;border-radius:8px;font-size:0.78rem;color:#666;max-height:80px;overflow-y:auto;"></div>
+    </div>
+    <label>모드</label>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;font-size:0.88rem;">
+        <input type="radio" name="stmMode" value="transition" checked style="width:auto;">
+        <span><b>시즌 전환</b> — 새 반 추가 + 옛 반 퇴원 (옛 시즌 데이터는 archived로 보존)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;font-size:0.88rem;">
+        <input type="radio" name="stmMode" value="add-only" style="width:auto;">
+        <span><b>추가만</b> — 옛 반 유지 (특강/보강 추가)</span>
+      </label>
+    </div>
+    <label>새 학원</label>
+    <select id="stmAcademy" onchange="stmUpdateClassOptions()"></select>
+    <label>새 반</label>
+    <select id="stmClass" onchange="stmOnClassChange()"></select>
+    <input type="text" id="stmNewClassName" placeholder="새 반 이름 입력 (예: 2학기 미적반)" style="display:none;margin-top:6px;width:100%;padding:9px 12px;border:1.5px solid var(--primary);border-radius:8px;font-size:0.88rem;font-family:inherit;outline:none;">
+    <div class="ec-modal-actions">
+      <button class="ec-cancel" onclick="closeSeasonTransitionModal()">취소</button>
+      <button class="ec-save" onclick="submitSeasonTransition()">실행</button>
     </div>
   </div>
 </div>
@@ -1255,6 +1296,145 @@
 
   // ── 학생 목록 ──
   let allStudents = [];
+  // 일괄 선택용 (시즌 전환)
+  let bulkSelectedIds = new Set();
+
+  function onStudentCheckbox(id, checked) {
+    if (checked) bulkSelectedIds.add(id);
+    else bulkSelectedIds.delete(id);
+    updateBulkSelectionUI();
+  }
+  function toggleSelectAllStudents(checked) {
+    // 현재 화면에 보이는 학생들만 토글 (필터링/검색 반영)
+    const visibleCards = document.querySelectorAll('#studentList .student-bulk-cb');
+    visibleCards.forEach(cb => {
+      cb.checked = checked;
+      const id = cb.getAttribute('data-id');
+      if (checked) bulkSelectedIds.add(id);
+      else bulkSelectedIds.delete(id);
+    });
+    updateBulkSelectionUI();
+  }
+  function clearBulkSelection() {
+    bulkSelectedIds.clear();
+    document.querySelectorAll('#studentList .student-bulk-cb').forEach(cb => cb.checked = false);
+    const all = document.getElementById('bulkSelectAll');
+    if (all) all.checked = false;
+    updateBulkSelectionUI();
+  }
+  function updateBulkSelectionUI() {
+    const cnt = document.getElementById('bulkSelectedCount');
+    if (cnt) cnt.textContent = bulkSelectedIds.size;
+  }
+
+  // ─── 동적 학원/반 옵션 ───
+  // hardcode 상수 + 학생 데이터에서 실제 사용 중인 반 합집합
+  function getAllClassOptionsByAcademy() {
+    const result = {};
+    // 1) hardcode 기본값
+    for (const [acad, classes] of Object.entries(CLASS_OPTIONS_BY_ACADEMY)) {
+      result[acad] = new Set(classes);
+    }
+    // 2) 학생 데이터에서 실제 사용 중인 반 추가
+    for (const s of (allStudents || [])) {
+      if (!s.academy) continue;
+      if (!result[s.academy]) result[s.academy] = new Set();
+      if (s.className) result[s.academy].add(s.className);
+    }
+    // Set → Array
+    const out = {};
+    for (const [k, v] of Object.entries(result)) {
+      out[k] = Array.from(v).sort();
+    }
+    return out;
+  }
+  function getAllAcademies() {
+    const dyn = getAllClassOptionsByAcademy();
+    return Object.keys(dyn).sort();
+  }
+
+  // ─── 시즌 전환 모달 ───
+  function openSeasonTransitionModal() {
+    if (bulkSelectedIds.size === 0) { showToast('학생을 먼저 선택하세요 (체크박스)'); return; }
+    const ids = Array.from(bulkSelectedIds);
+    const selectedStudents = (allStudents || []).filter(s => ids.includes(s.id));
+    document.getElementById('stmCount').textContent = selectedStudents.length;
+    // 선택 학생 미리보기
+    const preview = selectedStudents.map(s => '• ' + (s.name || '?') + ' (' + (s.academy || '') + (s.className ? ' · ' + s.className : '') + ')').join('<br>');
+    document.getElementById('stmSelectedPreview').innerHTML = preview;
+    // 학원/반 옵션 채우기 (동적)
+    const acadSel = document.getElementById('stmAcademy');
+    const academies = getAllAcademies();
+    acadSel.innerHTML = academies.map(a => '<option value="' + a + '">' + a + '</option>').join('');
+    stmUpdateClassOptions();
+    document.getElementById('seasonTransitionModal').classList.add('show');
+  }
+  function closeSeasonTransitionModal() {
+    document.getElementById('seasonTransitionModal').classList.remove('show');
+  }
+  function stmUpdateClassOptions() {
+    const acad = document.getElementById('stmAcademy').value;
+    const dyn = getAllClassOptionsByAcademy();
+    const opts = dyn[acad] || [];
+    const sel = document.getElementById('stmClass');
+    sel.innerHTML = opts.map(c => '<option value="' + c + '">' + c + '</option>').join('')
+                  + '<option value="__new__">➕ 새 반 만들기...</option>';
+    stmOnClassChange();
+  }
+  function stmOnClassChange() {
+    const val = document.getElementById('stmClass').value;
+    const inp = document.getElementById('stmNewClassName');
+    inp.style.display = (val === '__new__') ? 'block' : 'none';
+    if (val === '__new__') {
+      setTimeout(() => inp.focus(), 50);
+    } else {
+      inp.value = '';
+    }
+  }
+  async function submitSeasonTransition() {
+    const mode = (document.querySelector('input[name="stmMode"]:checked') || {}).value || 'transition';
+    const academy = document.getElementById('stmAcademy').value;
+    let className = document.getElementById('stmClass').value;
+    if (className === '__new__') {
+      className = (document.getElementById('stmNewClassName').value || '').trim();
+      if (!className) { showToast('새 반 이름을 입력하세요'); return; }
+    }
+    if (!academy || !className) { showToast('학원/반 선택하세요'); return; }
+    const ids = Array.from(bulkSelectedIds);
+    if (!ids.length) { showToast('선택된 학생이 없습니다'); return; }
+
+    const modeLabel = mode === 'transition' ? '시즌 전환 (옛 반 퇴원 + 새 반)' : '추가만 (옛 반 유지)';
+    if (!confirm(ids.length + '명을 [' + academy + ' · ' + className + ']로 ' + modeLabel + '?\n\n실행하면 되돌릴 수 없어요. 계속할까요?')) return;
+
+    showToast('⏳ 일괄 이동 처리 중... (' + ids.length + '명)');
+    try {
+      const moves = ids.map(id => ({ sourceStudentId: id, targetAcademy: academy, targetClassName: className }));
+      const res = await fetch('/api/admin-bulk-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ moves: moves, mode: mode }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ 일괄 이동 실패: ' + (data.error || res.status));
+        return;
+      }
+      let msg = '✅ ' + data.succeeded + '/' + data.total + '명 이동 완료';
+      if (data.failed > 0) {
+        const failedNames = data.results.filter(r => !r.ok).map(r => '· ' + (r.name || r.sourceStudentId.slice(0,8)) + ': ' + r.error).join('\n');
+        msg += ' (실패 ' + data.failed + '명)';
+        alert(msg + '\n\n실패 목록:\n' + failedNames);
+      } else {
+        showToast(msg);
+      }
+      closeSeasonTransitionModal();
+      clearBulkSelection();
+      if (typeof loadStudents === 'function') loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
   async function loadStudents() {
     const list = document.getElementById('studentList');
     const countEl = document.getElementById('studentCount');
@@ -1314,11 +1494,15 @@
     if (s.schoolMathGrade)  mathInfo.push('내신 ' + escapeHtml(s.schoolMathGrade));
     if (s.korMockGrade)     mathInfo.push('국어 ' + escapeHtml(s.korMockGrade));
     if (s.engMockGrade)     mathInfo.push('영어 ' + escapeHtml(s.engMockGrade));
-    return `<div class="report-card">
+    const isChecked = bulkSelectedIds.has(s.id);
+    return `<div class="report-card" data-student-id="${s.id}">
       <div class="report-header">
-        <div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" class="student-bulk-cb" data-id="${s.id}" ${isChecked ? 'checked' : ''} onchange="onStudentCheckbox('${s.id}', this.checked)" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
+          <div>
           <strong>${escapeHtml(s.name || '—')}</strong>
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
+          </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
@@ -2163,8 +2347,7 @@
     document.getElementById('aemName').textContent = name || '?';
     document.getElementById('aemCurrentClass').textContent = (currentAcademy || '') + (currentClass ? ' · ' + currentClass : '');
     const acadSel = document.getElementById('aemAcademy');
-    const academies = Object.keys(CLASS_OPTIONS_BY_ACADEMY);
-    // 기본값은 현재 학원 (보통 같은 학원 안에서 다른 반 추가)
+    const academies = getAllAcademies();
     acadSel.innerHTML = academies.map(a => '<option value="' + a + '"' + (a === currentAcademy ? ' selected' : '') + '>' + a + '</option>').join('');
     aemUpdateClassOptions();
     document.getElementById('addEnrollmentModal').classList.add('show');
@@ -2175,9 +2358,28 @@
   }
   function aemUpdateClassOptions() {
     const acad = document.getElementById('aemAcademy').value;
-    const opts = (CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    const dyn = getAllClassOptionsByAcademy();
+    const opts = (dyn[acad] || []);
     const sel = document.getElementById('aemClass');
-    sel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    sel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('')
+                  + '<option value="__new__">➕ 새 반 만들기...</option>';
+    // 새 반 입력 input은 추가하지 않음 — 시즌 전환 모달과 달리 단일 학생 모달이라 단순하게
+    sel.onchange = function(){
+      if (sel.value === '__new__') {
+        const newName = prompt('새 반 이름을 입력하세요 (예: 2학기 미적반)');
+        if (newName && newName.trim()) {
+          // 즉시 옵션 추가하고 선택
+          const opt = document.createElement('option');
+          opt.value = newName.trim();
+          opt.textContent = newName.trim();
+          opt.selected = true;
+          sel.insertBefore(opt, sel.lastChild);
+          sel.value = newName.trim();
+        } else {
+          sel.value = '';
+        }
+      }
+    };
   }
   async function submitAddEnrollment() {
     const sourceId  = _aemSourceId;
