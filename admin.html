@@ -237,11 +237,24 @@
             </select>
           </div>
         </div>
-        <div class="form-row" style="display:flex;align-items:center;gap:10px;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:600;">
-            <input type="checkbox" id="newSendPush" checked style="width:18px;height:18px;cursor:pointer;">
-            🔔 작성과 동시에 푸쉬 발송
-          </label>
+        <div class="form-row">
+          <label>🔔 푸쉬 발송</label>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:normal;">
+              <input type="radio" name="newPushMode" value="none" onchange="updatePushModeUI()">
+              푸쉬 안 함 (공지만 등록)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:normal;">
+              <input type="radio" name="newPushMode" value="immediate" checked onchange="updatePushModeUI()">
+              즉시 발송 (작성과 동시에)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:normal;">
+              <input type="radio" name="newPushMode" value="scheduled" onchange="updatePushModeUI()">
+              예약 발송
+              <input type="datetime-local" id="newScheduledAt" style="display:none;margin-left:8px;padding:4px 8px;">
+            </label>
+            <small style="color:#888;">예약: 등록만 즉시 되고, 푸쉬는 정해진 시각에 발송됩니다. (cron이 5분마다 체크)</small>
+          </div>
         </div>
         <button class="submit-btn" onclick="addNotice()">등록하기 →</button>
       </div>
@@ -664,14 +677,36 @@
     };
   }
 
+  function updatePushModeUI() {
+    const mode = (document.querySelector('input[name="newPushMode"]:checked') || {}).value || 'immediate';
+    const dt = document.getElementById('newScheduledAt');
+    if (dt) {
+      dt.style.display = (mode === 'scheduled') ? 'inline-block' : 'none';
+      if (mode === 'scheduled' && !dt.value) {
+        // 기본값: 지금 + 1시간
+        const t = new Date(Date.now() + 60*60*1000);
+        const pad = n => String(n).padStart(2, '0');
+        dt.value = t.getFullYear() + '-' + pad(t.getMonth()+1) + '-' + pad(t.getDate())
+                 + 'T' + pad(t.getHours()) + ':' + pad(t.getMinutes());
+      }
+    }
+  }
+
   async function addNotice() {
     const title = document.getElementById('newTitle').value.trim();
     const badge = document.getElementById('newBadge').value;
     const content = document.getElementById('newContent').value.trim();
     const targetType = document.getElementById('newTargetType').value;
-    const sendPush = document.getElementById('newSendPush').checked;
+    const pushMode = (document.querySelector('input[name="newPushMode"]:checked') || {}).value || 'none';
+    const scheduledAtRaw = document.getElementById('newScheduledAt').value;
 
     if (!title) { showToast('제목을 입력해주세요.'); return; }
+    if (pushMode === 'scheduled') {
+      if (!scheduledAtRaw) { showToast('예약 시각을 선택해주세요.'); return; }
+      const tStamp = new Date(scheduledAtRaw).getTime();
+      if (!isFinite(tStamp)) { showToast('예약 시각 형식 오류'); return; }
+      if (tStamp <= Date.now()) { showToast('예약 시각은 지금 이후여야 합니다.'); return; }
+    }
 
     // 대상 값 추출
     let targetValue = '';
@@ -692,16 +727,29 @@
       const res = await fetch('/api/notices-write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-        body: JSON.stringify({ title, badge, content, targetType, targetValue, sendPush }),
+        body: JSON.stringify({
+          title, badge, content, targetType, targetValue,
+          pushMode,
+          scheduledAt: pushMode === 'scheduled' ? new Date(scheduledAtRaw).toISOString() : null,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '실패')); return; }
       let msg = '✅ 공지 등록 완료';
-      if (data.push) {
+      if (data.pushMode === 'scheduled' && data.scheduledAt) {
+        const d = new Date(data.scheduledAt);
+        const pad = n => String(n).padStart(2, '0');
+        msg += ' — 예약: ' + (d.getMonth()+1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      } else if (data.push) {
         if (data.push.sent != null) msg += ' (푸쉬 ' + data.push.sent + '건 발송)';
         else if (data.push.note) msg += ' — ' + data.push.note;
+      } else if (data.pushMode === 'none') {
+        msg += ' (푸쉬 없음)';
       }
       showToast(msg);
+      // 라디오 초기화: 즉시 발송으로
+      const r = document.querySelector('input[name="newPushMode"][value="immediate"]');
+      if (r) { r.checked = true; updatePushModeUI(); }
       document.getElementById('newTitle').value = '';
       document.getElementById('newContent').value = '';
       loadNotices();

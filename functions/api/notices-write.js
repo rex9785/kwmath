@@ -9,7 +9,7 @@ function auth(request, env) {
 }
 
 // 대상별 phone 리스트 추출 — 푸쉬 발송용
-async function collectTargetPhones(env, targetType, targetValue) {
+export async function collectTargetPhones(env, targetType, targetValue) {
   if (targetType === '전체' || !targetType) {
     // R2 push-subs/ 전체
     try {
@@ -53,59 +53,107 @@ async function collectTargetPhones(env, targetType, targetValue) {
   } catch { return []; }
 }
 
+// 푸쉬 발송 + Notion 마킹 — notices-flush에서도 재사용
+export async function dispatchNoticePush(env, originUrl, { pageId, title, badge, content, targetType, targetValue }) {
+  let pushResult;
+  try {
+    const phones = await collectTargetPhones(env, targetType, targetValue);
+    if (phones.length) {
+      const pushRes = await fetch(new URL('/api/push-send', originUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: env.ADMIN_PASSWORD,
+          userIds: phones,
+          title: '📢 ' + (badge || '공지') + ' — ' + title,
+          body: (content || '').slice(0, 100) || '새 공지사항이 등록됐어요',
+          url: '/portal',
+          tag: 'notice-' + Date.now(),
+        }),
+      });
+      pushResult = await pushRes.json().catch(() => ({}));
+      pushResult.targetCount = phones.length;
+    } else {
+      pushResult = { ok: true, sent: 0, note: '대상 phone 없음', targetCount: 0 };
+    }
+  } catch (e) {
+    pushResult = { error: e.message };
+  }
+  // Notion 마킹
+  if (pageId) {
+    try {
+      await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ properties: {
+          '푸쉬 발송됨': { checkbox: true },
+          '푸쉬 결과': { rich_text: [{ text: { content: JSON.stringify(pushResult).slice(0, 1900) } }] },
+        }}),
+      });
+    } catch (_) { /* 비치명적 */ }
+  }
+  return pushResult;
+}
+
 export async function onRequest({ request, env }) {
   if (!auth(request, env)) return Response.json({ error: '인증이 필요합니다.' }, { status: 401 });
 
   if (request.method === 'POST') {
     const body = await request.json();
-    const { title, badge, content, targetType, targetValue, sendPush } = body;
+    const { title, badge, content, targetType, targetValue, pushMode, scheduledAt } = body;
+    // pushMode: 'none' | 'immediate' | 'scheduled'  (구버전 호환: sendPush=true → 'immediate')
+    let mode = (pushMode || '').toString();
+    if (!mode) mode = body.sendPush ? 'immediate' : 'none';
+
     if (!title) return Response.json({ error: '제목을 입력해주세요.' }, { status: 400 });
+    if (mode === 'scheduled' && !scheduledAt) {
+      return Response.json({ error: '예약 시각을 입력해주세요.' }, { status: 400 });
+    }
+
     const today = new Date().toISOString().split('T')[0];
     const tt = (targetType || '전체').toString();
     const tv = (targetValue || '').toString();
 
+    const properties = {
+      '제목': { title: [{ text: { content: title } }] },
+      '뱃지': { select: { name: badge || '공지' } },
+      '날짜': { date: { start: today } },
+      '내용': { rich_text: [{ text: { content: content || '' } }] },
+      '공개': { checkbox: true },
+      '대상 유형': { select: { name: tt } },
+      '대상 값':   { rich_text: [{ text: { content: tv } }] },
+      '푸쉬 발송됨': { checkbox: false },
+    };
+    if (mode === 'scheduled') {
+      let iso;
+      try { iso = new Date(scheduledAt).toISOString(); }
+      catch { return Response.json({ error: '예약 시각 형식 오류' }, { status: 400 }); }
+      properties['예약 발송 시각'] = { date: { start: iso } };
+    }
+
     const res = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parent: { database_id: DB }, properties: {
-        '제목': { title: [{ text: { content: title } }] },
-        '뱃지': { select: { name: badge || '공지' } },
-        '날짜': { date: { start: today } },
-        '내용': { rich_text: [{ text: { content: content || '' } }] },
-        '공개': { checkbox: true },
-        '대상 유형': { select: { name: tt } },
-        '대상 값':   { rich_text: [{ text: { content: tv } }] },
-      }}),
+      body: JSON.stringify({ parent: { database_id: DB }, properties }),
     });
     const data = await res.json();
     if (data.object === 'error') return Response.json({ error: data.message }, { status: 500 });
 
-    // 푸쉬 발송 (옵션) — sendPush === true 일 때만
+    // 즉시 발송이면 바로 dispatch
     let pushResult = null;
-    if (sendPush) {
-      try {
-        const phones = await collectTargetPhones(env, tt, tv);
-        if (phones.length) {
-          const pushRes = await fetch(new URL('/api/push-send', request.url), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              password: env.ADMIN_PASSWORD,
-              userIds: phones,
-              title: '📢 ' + (badge || '공지') + ' — ' + title,
-              body: (content || '').slice(0, 100) || '새 공지사항이 등록됐어요',
-              url: '/portal',
-              tag: 'notice-' + Date.now(),
-            }),
-          });
-          pushResult = await pushRes.json().catch(() => ({}));
-        } else {
-          pushResult = { ok: true, sent: 0, note: '대상 phone 없음' };
-        }
-      } catch (e) { pushResult = { error: e.message }; }
+    if (mode === 'immediate') {
+      pushResult = await dispatchNoticePush(env, request.url, {
+        pageId: data.id, title, badge, content, targetType: tt, targetValue: tv,
+      });
     }
 
-    return Response.json({ ok: true, id: data.id, push: pushResult });
+    return Response.json({
+      ok: true,
+      id: data.id,
+      pushMode: mode,
+      scheduledAt: mode === 'scheduled' ? scheduledAt : null,
+      push: pushResult,
+    });
   }
 
   if (request.method === 'PATCH') {
