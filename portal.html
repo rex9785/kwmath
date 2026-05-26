@@ -138,6 +138,14 @@
       </div>
     </div>
 
+    <!-- 학원 공지/안내 박스 -->
+    <div id="noticeBox" class="notice-box" style="display:none;">
+      <div class="head">
+        <h3>📢 학원 공지·안내 <span class="count" id="noticeCount">0</span></h3>
+      </div>
+      <div id="noticeList"></div>
+    </div>
+
     <!-- 기능 버튼 그리드 -->
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px;">
       <a href="/report" class="feat-btn" data-feat="report">
@@ -229,6 +237,22 @@
 <div class="toast" id="toast"></div>
 
 <style>
+  /* 학원 공지/안내 박스 */
+  .notice-box{background:linear-gradient(135deg,#fff 0%,#FFF8F0 100%);border:1.5px solid #E8C56C;border-radius:14px;padding:14px 18px;margin-bottom:16px;}
+  .notice-box .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .notice-box .head h3{font-size:0.88rem;color:#854F0B;font-weight:800;display:flex;align-items:center;gap:6px;}
+  .notice-box .count{font-size:0.7rem;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:10px;font-weight:700;}
+  .notice-item{padding:8px 0;border-top:1px solid #E8C56C44;font-size:0.83rem;color:var(--text);cursor:pointer;}
+  .notice-item:first-of-type{border-top:none;padding-top:0;}
+  .notice-item .nt-head{display:flex;align-items:center;gap:6px;}
+  .notice-item .nt-badge{font-size:0.65rem;background:var(--primary);color:#fff;padding:2px 7px;border-radius:8px;font-weight:700;}
+  .notice-item .nt-badge.안내{background:#888;}
+  .notice-item .nt-badge.NEW{background:#c0392b;}
+  .notice-item .nt-title{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .notice-item .nt-date{font-size:0.7rem;color:var(--text-light);}
+  .notice-item .nt-content{font-size:0.78rem;color:var(--text-light);margin-top:4px;line-height:1.5;display:none;}
+  .notice-item.open .nt-content{display:block;}
+
   /* 기능 버튼 그리드 카드 */
   .feat-btn{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 18px;text-decoration:none;color:var(--text);box-shadow:0 4px 14px rgba(139,26,53,0.05);transition:all .15s;cursor:pointer;font-family:inherit;text-align:left;}
   .feat-btn:hover{border-color:var(--primary);box-shadow:0 6px 20px rgba(139,26,53,0.12);transform:translateY(-1px);}
@@ -657,6 +681,44 @@
     if (fab) fab.classList.remove('show');
   });
 
+  // ─── 학원 공지/안내 ───
+  async function loadNoticesBox() {
+    try {
+      const tk = (function(){
+        try { return sessionStorage.getItem('kwmath_portal_token') || localStorage.getItem('kwmath_portal_token') || ''; } catch(e){ return ''; }
+      })();
+      if (!tk) return;
+      const res = await fetch('/api/notices', { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (!res.ok) return;
+      const list = await res.json();
+      if (!Array.isArray(list) || !list.length) {
+        const box = document.getElementById('noticeBox');
+        if (box) box.style.display = 'none';
+        return;
+      }
+      const top = list.slice(0, 5);  // 최근 5개
+      const wrap = document.getElementById('noticeList');
+      const count = document.getElementById('noticeCount');
+      const box = document.getElementById('noticeBox');
+      if (!wrap || !count || !box) return;
+      count.textContent = list.length;
+      wrap.innerHTML = top.map((n, i) => {
+        const esc = (s) => String(s||'').replace(/[&<>\"\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+        const badge = n.badge || '공지';
+        const dateShort = (n.date || '').slice(5).replace('-', '/');
+        return '<div class="notice-item" onclick="this.classList.toggle(' + JSON.stringify('open') + ')">'
+          + '<div class="nt-head">'
+          + '<span class="nt-badge ' + esc(badge) + '">' + esc(badge) + '</span>'
+          + '<span class="nt-title">' + esc(n.title || '') + '</span>'
+          + '<span class="nt-date">' + esc(dateShort) + '</span>'
+          + '</div>'
+          + (n.content ? '<div class="nt-content">' + esc(n.content) + '</div>' : '')
+          + '</div>';
+      }).join('');
+      box.style.display = 'block';
+    } catch (e) { /* silent */ }
+  }
+
   // ─── KW-Study 오늘 공부량 배지 ───
   async function loadTodayStudyBadge() {
     try {
@@ -687,12 +749,14 @@
       const m = document.getElementById('mainScreen');
       if (m && m.style.display !== 'none') {
         loadTodayStudyBadge();
+        loadNoticesBox();
       }
     });
     const ms = document.getElementById('mainScreen');
     if (ms) obs.observe(ms, { attributes: true, attributeFilter: ['style'] });
     // 초기 로드 시에도 한 번
     setTimeout(loadTodayStudyBadge, 1000);
+    setTimeout(loadNoticesBox, 1100);
   })();
 </script>
 </body>

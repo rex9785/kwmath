@@ -212,6 +212,37 @@
           <label>내용 (선택)</label>
           <textarea id="newContent" placeholder="공지 내용을 입력하세요 (선택사항)"></textarea>
         </div>
+        <div class="form-row-inline">
+          <div class="form-row">
+            <label>대상</label>
+            <select id="newTargetType" onchange="updateNoticeTargetUI()">
+              <option value="전체">전체 (모든 학생/학부모)</option>
+              <option value="학원">학원별</option>
+              <option value="반">반별</option>
+              <option value="개인">개인 (학생 1명)</option>
+            </select>
+          </div>
+          <div class="form-row" id="newTargetValueWrap" style="display:none;">
+            <label>대상 값</label>
+            <select id="newTargetAcademy" style="display:none;" onchange="onNewTargetAcademyChange()">
+              <option value="">학원 선택</option>
+              <option value="대치동 정규반">대치동 정규반</option>
+              <option value="세정학원">세정학원</option>
+            </select>
+            <select id="newTargetClass" style="display:none;">
+              <option value="">반 선택</option>
+            </select>
+            <select id="newTargetStudent" style="display:none;">
+              <option value="">학생 선택</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row" style="display:flex;align-items:center;gap:10px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;font-weight:600;">
+            <input type="checkbox" id="newSendPush" checked style="width:18px;height:18px;cursor:pointer;">
+            🔔 작성과 동시에 푸쉬 발송
+          </label>
+        </div>
         <button class="submit-btn" onclick="addNotice()">등록하기 →</button>
       </div>
 
@@ -591,31 +622,85 @@
   }
 
   // ── 공지사항 등록 ──
+  function updateNoticeTargetUI() {
+    const tt = document.getElementById('newTargetType').value;
+    const wrap = document.getElementById('newTargetValueWrap');
+    const acadSel = document.getElementById('newTargetAcademy');
+    const clsSel  = document.getElementById('newTargetClass');
+    const stdSel  = document.getElementById('newTargetStudent');
+    acadSel.style.display = 'none';
+    clsSel.style.display = 'none';
+    stdSel.style.display = 'none';
+    wrap.style.display = (tt === '전체') ? 'none' : 'block';
+    if (tt === '학원') {
+      acadSel.style.display = 'block';
+    } else if (tt === '반') {
+      acadSel.style.display = 'block';
+      clsSel.style.display = 'block';
+    } else if (tt === '개인') {
+      acadSel.style.display = 'block';
+      clsSel.style.display = 'block';
+      stdSel.style.display = 'block';
+    }
+  }
+  function onNewTargetAcademyChange() {
+    const acad = document.getElementById('newTargetAcademy').value;
+    const clsSel = document.getElementById('newTargetClass');
+    const stdSel = document.getElementById('newTargetStudent');
+    const opts = (CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    clsSel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    stdSel.innerHTML = '<option value="">학생 선택</option>';
+    clsSel.onchange = function(){
+      const cls = clsSel.value;
+      if (!acad || !cls) { stdSel.innerHTML = '<option value="">학생 선택</option>'; return; }
+      const ss = (allStudents || []).filter(s => s.academy === acad && s.className === cls).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+      stdSel.innerHTML = '<option value="">학생 선택</option>' + ss.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+    };
+  }
+
   async function addNotice() {
     const title = document.getElementById('newTitle').value.trim();
     const badge = document.getElementById('newBadge').value;
     const content = document.getElementById('newContent').value.trim();
+    const targetType = document.getElementById('newTargetType').value;
+    const sendPush = document.getElementById('newSendPush').checked;
+
     if (!title) { showToast('제목을 입력해주세요.'); return; }
+
+    // 대상 값 추출
+    let targetValue = '';
+    if (targetType === '학원') {
+      targetValue = document.getElementById('newTargetAcademy').value;
+      if (!targetValue) { showToast('학원을 선택해주세요.'); return; }
+    } else if (targetType === '반') {
+      const acad = document.getElementById('newTargetAcademy').value;
+      const cls  = document.getElementById('newTargetClass').value;
+      if (!acad || !cls) { showToast('학원과 반을 선택해주세요.'); return; }
+      targetValue = acad + '/' + cls;
+    } else if (targetType === '개인') {
+      targetValue = document.getElementById('newTargetStudent').value;
+      if (!targetValue) { showToast('학생을 선택해주세요.'); return; }
+    }
+
     try {
       const res = await fetch('/api/notices-write', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify({ title, badge, content })
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ title, badge, content, targetType, targetValue, sendPush }),
       });
       const data = await res.json();
-      if (data.ok) {
-        document.getElementById('newTitle').value = '';
-        document.getElementById('newContent').value = '';
-        showToast('공지사항이 등록되었습니다! ✅');
-        await loadAdminNotices();
-      } else {
-        showToast('등록 실패: ' + (data.error || '오류'));
+      if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '실패')); return; }
+      let msg = '✅ 공지 등록 완료';
+      if (data.push) {
+        if (data.push.sent != null) msg += ' (푸쉬 ' + data.push.sent + '건 발송)';
+        else if (data.push.note) msg += ' — ' + data.push.note;
       }
-    } catch(e) {
-      showToast('오류가 발생했습니다.');
+      showToast(msg);
+      document.getElementById('newTitle').value = '';
+      document.getElementById('newContent').value = '';
+      loadNotices();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
     }
   }
 
