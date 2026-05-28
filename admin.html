@@ -322,6 +322,16 @@
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
       </div>
+      <!-- 신규 등록 승인 대기 패널 (대기중인 학생만 표시) -->
+      <div id="pendingApprovalPanel" style="background:linear-gradient(135deg,#FFF8DC 0%,#FFE8A8 100%);border:2px solid #E8C56C;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:none;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <strong style="color:#854F0B;font-size:0.95rem;">🆕 신규 등록 승인 대기</strong>
+          <span id="pendingCount" style="background:#E8C56C;color:#fff;padding:2px 10px;border-radius:10px;font-size:0.78rem;font-weight:700;">0</span>
+          <span style="font-size:0.78rem;color:#854F0B;margin-left:auto;">승인하면 학생/학부모가 로그인 가능해집니다</span>
+        </div>
+        <div id="pendingApprovalList"></div>
+      </div>
+
       <!-- 반 관리 패널 (접기/펼치기) -->
       <div style="background:#f7f9fc;border:1.5px solid #d8e0ec;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleClassManager()">
@@ -1627,8 +1637,12 @@
     if (typeof populateQaAcademies === 'function') {
       try { populateQaAcademies(); } catch(e){}
     }
+    // 1) 승인 대기 학생 별도 렌더링 (일반 목록에선 제외)
+    renderPendingApproval();
+    // 2) 일반 목록은 승인된 + 옛 학생 (대기중/거부 제외)
+    const approved = (allStudents || []).filter(s => s.approvalStatus !== '대기중' && s.approvalStatus !== '거부');
     const q = (document.getElementById('studentSearch')?.value || '').toLowerCase();
-    const filtered = !q ? allStudents : allStudents.filter(s =>
+    const filtered = !q ? approved : approved.filter(s =>
       (s.name||'').toLowerCase().includes(q)
       || (s.school||'').toLowerCase().includes(q)
       || (s.academy||'').toLowerCase().includes(q)
@@ -1636,6 +1650,88 @@
     );
     if (studentViewMode === 'group') renderStudentGroups(filtered);
     else renderStudents(filtered);
+  }
+
+  // ─── 신규 등록 승인 대기 ───
+  function renderPendingApproval() {
+    const panel = document.getElementById('pendingApprovalPanel');
+    const list = document.getElementById('pendingApprovalList');
+    const countEl = document.getElementById('pendingCount');
+    if (!panel || !list) return;
+    const pending = (allStudents || []).filter(s => s.approvalStatus === '대기중');
+    if (countEl) countEl.textContent = pending.length;
+    if (!pending.length) {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = 'block';
+    const esc = (v) => String(v||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    list.innerHTML = pending.map(s => `
+      <div style="background:#fff;border:1px solid #E8C56C;border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+          <div style="margin-bottom:4px;">
+            <strong style="font-size:1rem;color:#854F0B;">${esc(s.name||'?')}</strong>
+            <span style="margin-left:8px;font-size:0.82rem;color:#666;">${esc(s.academy||'')}${s.className?' / '+esc(s.className):''}</span>
+            <span style="margin-left:6px;font-size:0.72rem;background:#FFE8A8;color:#854F0B;padding:1px 7px;border-radius:6px;font-weight:700;">대기중</span>
+          </div>
+          <div style="font-size:0.82rem;color:#555;line-height:1.6;">
+            ${s.school ? '학교: <b>'+esc(s.school)+'</b>' : ''}
+            ${s.grade ? ' · 학년: <b>'+esc(s.grade)+'</b>' : ''}
+            ${s.goals && s.goals.length ? '<br>목적: '+esc(s.goals.join(', ')) : ''}
+            ${s.parentPhone ? '<br>👪 학부모('+esc(s.parentRelation||'')+'): <b>'+esc(s.parentPhone)+'</b>' : ''}
+            ${s.studentPhone ? ' · 📱 학생: '+esc(s.studentPhone) : ''}
+            ${s.mathMockGrade ? '<br>📊 모의수학 '+esc(s.mathMockGrade)+(s.mathMockScore!=null?' ('+s.mathMockScore+'점)':'') : ''}
+            ${s.advanceProgress ? ' · 선행 '+esc(s.advanceProgress) : ''}
+            ${s.dreamUniv ? '<br>🎓 '+esc(s.dreamUniv) : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:flex-start;">
+          <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;background:#E5F5E8;font-weight:700;" onclick="approveStudent('${s.id}','${esc(s.name).replace(/'/g,'\\x27')}')">✅ 승인</button>
+          <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;font-weight:700;" onclick="rejectStudent('${s.id}','${esc(s.name).replace(/'/g,'\\x27')}')">❌ 거부</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function approveStudent(studentId, name) {
+    if (!confirm('[' + name + '] 학생을 승인할까요?\n승인하면 학부모/학생 휴대폰으로 로그인 계정이 자동 생성됩니다 (초기 비번 0000).')) return;
+    try {
+      const res = await fetch('/api/admin-approve-student', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ studentId: studentId, action: 'approve' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ ' + (data.error || '승인 실패'));
+        return;
+      }
+      const created = (data.account && data.account.created) || [];
+      showToast('✅ ' + name + ' 승인 — 계정 ' + created.length + '개 생성 (초기 비번 ' + data.initialPassword + ')');
+      if (typeof loadStudents === 'function') loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  async function rejectStudent(studentId, name) {
+    if (!confirm('⚠️ [' + name + '] 학생 등록 신청을 거부할까요?\n학생 record가 archive 됩니다. (복구 가능하지만 사용 불가)')) return;
+    try {
+      const res = await fetch('/api/admin-approve-student', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ studentId: studentId, action: 'reject' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ ' + (data.error || '거부 실패'));
+        return;
+      }
+      showToast('🗑 ' + name + ' 등록 거부');
+      if (typeof loadStudents === 'function') loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
   }
 
   function renderStudents(students) {

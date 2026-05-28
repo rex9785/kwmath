@@ -61,6 +61,7 @@ export async function onRequest({ request, env }) {
     '학원': { select: { name: academy || '대치동 정규반' } },
     '특이사항': { rich_text: [{ text: { content: notes || '' } }] },
     '개인키': { rich_text: [{ text: { content: personalKey } }] },
+    '승인 상태': { select: { name: '대기중' } },
     '취약 단원':       { rich_text: [{ text: { content: weakness  || '' } }] },
     '희망 대학/계열':  { rich_text: [{ text: { content: dreamUniv || '' } }] },
     '등원 가능 요일':  { multi_select: daysArray.map(d => ({ name: d })) },
@@ -89,32 +90,13 @@ export async function onRequest({ request, env }) {
   const data = await res.json();
   if (data.object === 'error') return Response.json({ error: data.message || '학생 등록 실패' }, { status: 500 });
 
-  // ── 학부모/학생 휴대폰으로 계정 자동 생성 (초기 비번 0000, mustChangePassword=true) ──
-  //   이미 있는 휴대폰은 스킵. 실패해도 학생 등록 자체는 성공으로 반환
-  const accountResult = { created: [], skipped: [], failed: [] };
-  const phonesToCreate = [];
-  const normP = normalizePhone(parentPhone);
-  const normS = normalizePhone(studentPhone);
-  if (normP) phonesToCreate.push({ phone: normP, note: 'parent:' + name });
-  if (normS && normS !== normP) phonesToCreate.push({ phone: normS, note: 'student:' + name });
-
-  for (const item of phonesToCreate) {
-    try {
-      const existing = await findAccountByPhone(env, item.phone);
-      if (existing) { accountResult.skipped.push(item.phone); continue; }
-      const ret = await createAccount(env, item.phone, INITIAL_PASSWORD, true, item.note);
-      if (ret.ok) accountResult.created.push(item.phone);
-      else accountResult.failed.push(item.phone + ': ' + (ret.error || 'unknown'));
-    } catch (e) {
-      accountResult.failed.push(item.phone + ': ' + e.message);
-    }
-  }
-
+  // ── 계정 생성은 관우T 승인 후에 (admin-approve-student.js에서 처리) ──
+  // 등록 신청 → 승인 대기 → admin이 승인하면 그때 계정 생성 + 초기 비번 0000
   return Response.json({
     ok: true,
+    pending: true,
     personalKey,
     id: data.id,
-    account: accountResult,
-    initialPassword: INITIAL_PASSWORD,
+    message: '등록 신청이 접수됐습니다. 관우T 승인 후 로그인 가능합니다.\n승인되면 학부모/학생 휴대폰 번호로 로그인하실 수 있어요. (초기 비밀번호 0000)',
   });
 }

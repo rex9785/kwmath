@@ -42,11 +42,12 @@ export async function onRequest({ request, env }) {
         dreamUniv:   rich(props, '희망 대학/계열'),
         availableDays: multi(props, '등원 가능 요일'),
         notes: rich(props, '특이사항'),
+        approvalStatus: sel(props, '승인 상태'),
         createdAt: p.created_time || '',
       };
     });
     return Response.json(students);
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+        return Response.json({ error: e.message }, { status: 500 });
   }
 }
