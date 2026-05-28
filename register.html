@@ -256,10 +256,39 @@
 </div>
 
 <script>
-  const CLASS_OPTIONS = {
-    '대치동 정규반': ['썸머 공통수학2반', '썸머 미적반', '썸머 확통반'],
-    '세정학원':      ['썸머 기초특강반', '썸머 공통수학2반'],
+  // fallback (서버 로드 실패 시)
+  let CLASS_OPTIONS = {
+    '대치동 정규반': [],
+    '세정학원':      [],
   };
+  let ACADEMY_OPTIONS = ['대치동 정규반', '세정학원'];
+
+  // 서버에서 동적 로드 (admin이 관리)
+  async function loadClassOptionsFromServer() {
+    try {
+      const res = await fetch('/api/class-options');
+      const data = await res.json();
+      if (data && Array.isArray(data.academies) && data.classes) {
+        ACADEMY_OPTIONS = data.academies;
+        CLASS_OPTIONS = data.classes;
+        // 학원 드롭다운 갱신
+        const acadSel = document.getElementById('academy');
+        if (acadSel) {
+          const currentVal = acadSel.value;
+          acadSel.innerHTML = '<option value="">학원 선택</option>' + ACADEMY_OPTIONS.map(a => '<option value="'+a+'">'+a+'</option>').join('');
+          if (ACADEMY_OPTIONS.includes(currentVal)) acadSel.value = currentVal;
+        }
+        // 반 드롭다운도 갱신
+        updateClassOptions();
+      }
+    } catch (e) { /* 서버 안 되면 fallback 사용 */ }
+  }
+  // 페이지 로드 시 즉시 호출
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadClassOptionsFromServer);
+  } else {
+    loadClassOptionsFromServer();
+  }
 
   function updateClassOptions() {
     const academy = document.getElementById('academy').value;

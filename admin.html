@@ -316,6 +316,18 @@
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
       </div>
+      <!-- 반 관리 패널 (접기/펼치기) -->
+      <div style="background:#f7f9fc;border:1.5px solid #d8e0ec;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleClassManager()">
+          <strong style="color:#3949AB;font-size:0.92rem;">🏫 학원·반 관리</strong>
+          <span id="classManagerToggle" style="color:#3949AB;font-size:0.88rem;font-weight:700;">▶ 펼치기</span>
+        </div>
+        <div id="classManagerBody" style="display:none;margin-top:12px;border-top:1px solid #d8e0ec;padding-top:12px;">
+          <div style="font-size:0.78rem;color:#666;margin-bottom:10px;">학생 0명인 반에만 삭제 버튼이 활성화됩니다. 새 반 추가는 [시즌 전환] / [➕ 다른 반] 모달에서 "새 반 만들기"로 가능합니다.</div>
+          <div id="classManagerList"><div class="empty">불러오는 중...</div></div>
+        </div>
+      </div>
+
       <!-- 일괄 선택 바 (시즌 전환용) -->
       <div id="bulkActionBar" style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#FFF8F0 0%,#FAEEDA 100%);border:1.5px solid #E8C56C;border-radius:10px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:#854F0B;">
@@ -610,6 +622,8 @@
     loadAdminNotices();
     // 학생 리스트 미리 로드 (공지 폼의 학원/반/학생 드롭다운에서 사용)
     if (typeof loadStudents === 'function') loadStudents();
+    // 학원/반 옵션 서버 로드 (반 관리 UI + 모든 드롭다운에서 사용)
+    if (typeof loadClassOptionsFromServer === 'function') loadClassOptionsFromServer();
     // admin이 로그인할 때 자동으로 예약 푸쉬 발송 체크 (silent)
     flushScheduledNotices(false);
   }
@@ -1332,20 +1346,33 @@
   }
 
   // ─── 동적 학원/반 옵션 ───
-  // hardcode 상수 + 학생 데이터에서 실제 사용 중인 반 합집합
+  // R2 저장된 옵션 (서버 동기) + 학생 데이터에서 사용 중 (클라이언트 fallback)
+  let _classOptionsCache = null;  // { academies, classes, counts } from /api/class-options
+  async function loadClassOptionsFromServer() {
+    try {
+      const res = await fetch('/api/class-options');
+      const data = await res.json();
+      if (data && Array.isArray(data.academies) && data.classes) {
+        _classOptionsCache = data;
+      }
+    } catch(_) {}
+    return _classOptionsCache;
+  }
   function getAllClassOptionsByAcademy() {
+    // 1) 서버 캐시 우선
+    if (_classOptionsCache && _classOptionsCache.classes) {
+      return _classOptionsCache.classes;
+    }
+    // 2) fallback — hardcode + 학생 데이터
     const result = {};
-    // 1) hardcode 기본값
     for (const [acad, classes] of Object.entries(CLASS_OPTIONS_BY_ACADEMY)) {
       result[acad] = new Set(classes);
     }
-    // 2) 학생 데이터에서 실제 사용 중인 반 추가
     for (const s of (allStudents || [])) {
       if (!s.academy) continue;
       if (!result[s.academy]) result[s.academy] = new Set();
       if (s.className) result[s.academy].add(s.className);
     }
-    // Set → Array
     const out = {};
     for (const [k, v] of Object.entries(result)) {
       out[k] = Array.from(v).sort();
@@ -1353,8 +1380,125 @@
     return out;
   }
   function getAllAcademies() {
+    if (_classOptionsCache && Array.isArray(_classOptionsCache.academies)) {
+      return _classOptionsCache.academies;
+    }
     const dyn = getAllClassOptionsByAcademy();
     return Object.keys(dyn).sort();
+  }
+  // 반/학원 학생 수 (서버에서 받은 counts 사용)
+  function getClassStudentCount(acad, cls) {
+    if (_classOptionsCache && _classOptionsCache.counts) {
+      return _classOptionsCache.counts[acad + '/' + cls] || 0;
+    }
+    return (allStudents || []).filter(s => s.academy === acad && s.className === cls).length;
+  }
+
+  // ─── 반 관리 패널 ───
+  function toggleClassManager() {
+    const body = document.getElementById('classManagerBody');
+    const toggle = document.getElementById('classManagerToggle');
+    if (!body || !toggle) return;
+    if (body.style.display === 'none') {
+      body.style.display = 'block';
+      toggle.textContent = '▼ 접기';
+      renderClassManager();
+    } else {
+      body.style.display = 'none';
+      toggle.textContent = '▶ 펼치기';
+    }
+  }
+  async function renderClassManager() {
+    const list = document.getElementById('classManagerList');
+    if (!list) return;
+    // 항상 최신 데이터 로드
+    await loadClassOptionsFromServer();
+    const data = _classOptionsCache || { academies: [], classes: {} };
+    if (!data.academies.length) {
+      list.innerHTML = '<div class="empty">등록된 학원이 없습니다.</div>';
+      return;
+    }
+    const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let html = '';
+    for (const acad of data.academies) {
+      const classes = data.classes[acad] || [];
+      const acadStudents = (allStudents || []).filter(s => s.academy === acad).length;
+      const canDeleteAcad = acadStudents === 0;
+      html += `<div style="background:#fff;border:1px solid #e0e6ef;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <strong style="color:#3949AB;">${esc(acad)} <span style="font-size:0.78rem;color:#888;font-weight:normal;">(학생 ${acadStudents}명)</span></strong>
+          <button class="del-btn" ${canDeleteAcad ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteAcademy('${esc(acad).replace(/'/g,'\\x27')}')" title="${canDeleteAcad ? '학원 삭제' : '학생 있어서 삭제 불가'}">🗑 학원 삭제</button>
+        </div>`;
+      if (!classes.length) {
+        html += '<div style="color:#999;font-size:0.82rem;padding:4px 8px;">반 없음</div>';
+      } else {
+        html += '<div style="display:flex;flex-direction:column;gap:5px;padding-left:6px;">';
+        for (const cls of classes) {
+          const cnt = getClassStudentCount(acad, cls);
+          const canDelete = cnt === 0;
+          html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f9fafc;border-radius:6px;font-size:0.85rem;">
+            <span>${esc(cls)} <span style="color:#888;font-size:0.78rem;margin-left:6px;">학생 ${cnt}명</span></span>
+            <button class="del-btn" ${canDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${canDelete ? '반 삭제' : '학생 있어서 삭제 불가'}" style="padding:4px 10px;font-size:0.78rem;">🗑 삭제</button>
+          </div>`;
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    list.innerHTML = html;
+  }
+  async function deleteClass(academy, className) {
+    if (!confirm('[' + academy + ' · ' + className + '] 반을 삭제할까요?\n(드롭다운 옵션에서만 사라집니다. 옛 데이터는 보존됨)')) return;
+    try {
+      const res = await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'delete-class', academy: academy, className: className }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ ' + (data.error || '삭제 실패'));
+        return;
+      }
+      showToast('🗑 [' + academy + ' · ' + className + '] 삭제됨');
+      await loadClassOptionsFromServer();
+      renderClassManager();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+  async function deleteAcademy(academy) {
+    if (!confirm('[' + academy + '] 학원을 삭제할까요?\n(학원 자체와 그 안의 모든 반 옵션이 드롭다운에서 사라집니다. 옛 데이터는 보존됨)')) return;
+    try {
+      const res = await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'delete-academy', academy: academy }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ ' + (data.error || '삭제 실패'));
+        return;
+      }
+      showToast('🗑 [' + academy + '] 학원 삭제됨');
+      await loadClassOptionsFromServer();
+      renderClassManager();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  // 새 반/학원 추가 시 서버에 등록 (시즌 전환 마법사 등에서 호출)
+  async function registerNewClass(academy, className) {
+    if (!academy) return;
+    try {
+      await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'add-class', academy: academy, className: className }),
+      });
+      await loadClassOptionsFromServer();
+    } catch (_) {}
   }
 
   // ─── 시즌 전환 모달 ───
@@ -1399,11 +1543,17 @@
     const mode = (document.querySelector('input[name="stmMode"]:checked') || {}).value || 'transition';
     const academy = document.getElementById('stmAcademy').value;
     let className = document.getElementById('stmClass').value;
+    let isNewClass = false;
     if (className === '__new__') {
       className = (document.getElementById('stmNewClassName').value || '').trim();
       if (!className) { showToast('새 반 이름을 입력하세요'); return; }
+      isNewClass = true;
     }
     if (!academy || !className) { showToast('학원/반 선택하세요'); return; }
+    // 새 반이면 R2에 등록 (먼저)
+    if (isNewClass && typeof registerNewClass === 'function') {
+      await registerNewClass(academy, className);
+    }
     const ids = Array.from(bulkSelectedIds);
     if (!ids.length) { showToast('선택된 학생이 없습니다'); return; }
 
