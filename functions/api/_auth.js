@@ -144,7 +144,10 @@ export async function fetchStudentsByPhone(env, phone) {
       className: sel(props, '반'),
       approvalStatus: sel(props, '승인 상태'),
       // 이 휴대폰이 학부모/학생 중 어느 쪽으로 매칭됐는지
-      role: phone === parentPhone ? 'parent' : (phone === studentPhone ? 'student' : 'other'),
+      // 두 번호가 같으면(=부모님 안 계셔서 학생이 자기 번호를 양쪽에 입력) 학생 본인으로 인식
+      role: (phone === studentPhone)
+        ? 'student'
+        : (phone === parentPhone ? 'parent' : 'other'),
       parentPhone, studentPhone,
     };
   });
