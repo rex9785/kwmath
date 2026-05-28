@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내 정보 | 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=2">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.26);}
+
+  .page{max-width:560px;margin:0 auto;padding:22px 18px 80px;}
+
+  /* 자녀 선택 bar */
+  .child-bar{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .child-bar label{font-size:0.78rem;font-weight:700;color:var(--text-light);}
+  .child-bar select{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.86rem;font-family:inherit;background:#fff;outline:none;font-weight:600;}
+
+  /* 카드 공통 */
+  .card{background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px 18px;margin-bottom:12px;box-shadow:0 2px 10px rgba(139,26,53,0.04);}
+  .card-label{font-size:0.72rem;font-weight:800;color:var(--primary);letter-spacing:0.6px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+  .card-body{font-size:0.92rem;line-height:1.7;color:var(--text);}
+  .muted{color:var(--text-light);font-size:0.82rem;}
+
+  /* 강조 카드 — 다음 수업 */
+  .hero-card{background:linear-gradient(135deg,#8B1A35 0%,#6A1F2A 100%);color:#fff;border-radius:16px;padding:18px 22px;margin-bottom:12px;box-shadow:0 6px 22px rgba(139,26,53,0.18);}
+  .hero-card .hero-label{font-size:0.72rem;font-weight:700;opacity:0.85;letter-spacing:0.6px;text-transform:uppercase;margin-bottom:6px;}
+  .hero-card .hero-main{font-size:1.35rem;font-weight:900;letter-spacing:-0.4px;margin-bottom:4px;}
+  .hero-card .hero-sub{font-size:0.82rem;opacity:0.88;}
+  .hero-card .hero-pill{display:inline-block;background:rgba(255,255,255,0.18);color:#fff;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:10px;margin-top:8px;}
+
+  /* 숙제 카드 */
+  .hw-card{background:#fff;border:2px solid var(--primary);border-radius:14px;padding:16px 18px;margin-bottom:12px;}
+  .hw-meta{font-size:0.74rem;color:var(--text-light);margin-bottom:8px;}
+  .hw-text{font-size:0.92rem;color:var(--text);line-height:1.75;white-space:pre-wrap;background:var(--primary-light);padding:12px 14px;border-radius:10px;}
+  .hw-more{display:inline-block;margin-top:10px;font-size:0.78rem;color:var(--primary);text-decoration:none;font-weight:700;}
+  .hw-more:hover{text-decoration:underline;}
+
+  /* 기본 정보 / 성적 등 row */
+  .info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);font-size:0.88rem;}
+  .info-row:last-child{border-bottom:none;}
+  .info-key{color:var(--text-light);font-weight:600;font-size:0.82rem;}
+  .info-val{color:var(--text);font-weight:700;text-align:right;max-width:60%;}
+
+  .badge-chip{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.74rem;font-weight:700;padding:3px 9px;border-radius:8px;margin:2px 3px 2px 0;}
+
+  .state-box{text-align:center;padding:40px 24px;color:var(--text-light);}
+  .state-box .state-icon{font-size:2.2rem;margin-bottom:10px;}
+  .state-box p{font-size:0.88rem;line-height:1.7;}
+
+  @media(max-width:480px){
+    .info-val{max-width:55%;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
+    <span>👤 내 정보</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+  <!-- 자녀 선택 (학부모면 표시) -->
+  <div id="childBar" class="child-bar" style="display:none;">
+    <label>자녀 선택</label>
+    <select id="childSelect" onchange="onChildChange()"></select>
+  </div>
+
+  <div id="content">
+    <div class="state-box"><div class="state-icon">⏳</div><p>내 정보를 불러오는 중...</p></div>
+  </div>
+</div>
+
+<script>
+  const TOKEN_KEY = 'kwmath_portal_token';
+  const SEL_KEY   = 'kwmath_selected_student';
+
+  let currentToken = '';
+  let currentStudents = [];
+  let selectedStudent = null;
+
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function authHeaders(){ return { 'Authorization': 'Bearer ' + currentToken }; }
+  function redirectToPortal(){ window.location.replace('/portal'); }
+
+  // 한글 요일 → JS getDay() index
+  const DAY_TO_IDX = {'일':0,'월':1,'화':2,'수':3,'목':4,'금':5,'토':6};
+  const IDX_TO_DAY = ['일','월','화','수','목','금','토'];
+
+  function renderChildBar(){
+    if (currentStudents.length > 1) {
+      $('childBar').style.display = 'flex';
+      $('childSelect').innerHTML = currentStudents.map((s, i) =>
+        `<option value="${i}" ${selectedStudent && s.id===selectedStudent.id?'selected':''}>${escapeHtml(s.name)}</option>`
+      ).join('');
+    } else {
+      $('childBar').style.display = 'none';
+    }
+  }
+
+  function onChildChange(){
+    const idx = parseInt($('childSelect').value, 10) || 0;
+    selectedStudent = currentStudents[idx];
+    sessionStorage.setItem(SEL_KEY, JSON.stringify(selectedStudent));
+    loadMyInfo();
+  }
+
+  async function init(){
+    currentToken = localStorage.getItem(TOKEN_KEY);
+    if (!currentToken) return redirectToPortal();
+    try {
+      const res = await fetch('/api/auth/me', { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { localStorage.removeItem(TOKEN_KEY); return redirectToPortal(); }
+      currentStudents = Array.isArray(data.students) ? data.students : [];
+      if (!currentStudents.length) {
+        $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.</p></div>';
+        return;
+      }
+      const saved = sessionStorage.getItem(SEL_KEY);
+      if (saved) {
+        try {
+          const sel = JSON.parse(saved);
+          selectedStudent = currentStudents.find(s => s.id === sel.id || s.name === sel.name) || currentStudents[0];
+        } catch (_) { selectedStudent = currentStudents[0]; }
+      } else { selectedStudent = currentStudents[0]; }
+      sessionStorage.setItem(SEL_KEY, JSON.stringify(selectedStudent));
+      renderChildBar();
+      loadMyInfo();
+    } catch (e) {
+      $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>로그인 정보를 확인할 수 없습니다.</p></div>';
+    }
+  }
+
+  async function loadMyInfo(){
+    if (!selectedStudent) return;
+    $('content').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>정보를 불러오는 중...</p></div>';
+    try {
+      const [dRes, rRes] = await Promise.all([
+        fetch('/api/me-detail?id=' + encodeURIComponent(selectedStudent.id), { headers: authHeaders() }),
+        fetch('/api/reports?name=' + encodeURIComponent(selectedStudent.name), { headers: authHeaders() }),
+      ]);
+      const dData = await dRes.json();
+      if (!dRes.ok || !dData.ok) {
+        $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>' + escapeHtml(dData.error || '정보를 불러오지 못했습니다.') + '</p></div>';
+        return;
+      }
+      let latestReport = null;
+      try {
+        const rData = await rRes.json();
+        const reports = Array.isArray(rData) ? rData : (rData.reports || []);
+        latestReport = reports[0] || null;
+      } catch (_) {}
+      renderMyInfo(dData.student, latestReport);
+    } catch (e) {
+      $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
+    }
+  }
+
+  // 다음 수업 추정 — 등원 가능 요일 기반
+  function calcNextClass(availableDays){
+    const days = (availableDays || []).map(d => DAY_TO_IDX[d]).filter(i => i != null);
+    if (!days.length) return null;
+    days.sort((a,b) => a-b);
+    const today = new Date();
+    const todayIdx = today.getDay();
+    let nextIdx = days.find(i => i >= todayIdx);
+    let daysAhead;
+    if (nextIdx == null) {
+      nextIdx = days[0];
+      daysAhead = (7 - todayIdx) + nextIdx;
+    } else {
+      daysAhead = nextIdx - todayIdx;
+    }
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + daysAhead);
+    return {
+      date: nextDate,
+      dayName: IDX_TO_DAY[nextIdx],
+      daysAhead,
+      regularDays: days.map(i => IDX_TO_DAY[i]),
+    };
+  }
+
+  function fmtDate(d){
+    const m = d.getMonth()+1;
+    const day = d.getDate();
+    return `${m}월 ${day}일`;
+  }
+
+  function renderMyInfo(s, latestReport){
+    const next = calcNextClass(s.availableDays);
+
+    // ── 다음 수업 hero card ──
+    let heroHtml = '';
+    if (next) {
+      const ddayText = next.daysAhead === 0 ? '오늘' : next.daysAhead === 1 ? '내일' : `D-${next.daysAhead}`;
+      const mainText = next.daysAhead === 0
+        ? `오늘 ${next.dayName}요일 · 수업이 있어요!`
+        : `${fmtDate(next.date)} (${next.dayName}) · ${ddayText}`;
+      heroHtml = `
+        <div class="hero-card">
+          <div class="hero-label">🗓 다음 수업</div>
+          <div class="hero-main">${escapeHtml(mainText)}</div>
+          <div class="hero-sub">정기 수업 요일: ${escapeHtml(next.regularDays.join(', '))}요일</div>
+          ${s.academy ? `<span class="hero-pill">${escapeHtml(s.academy)}${s.className?' · '+escapeHtml(s.className):''}</span>` : ''}
+        </div>`;
+    } else {
+      heroHtml = `
+        <div class="hero-card">
+          <div class="hero-label">🗓 다음 수업</div>
+          <div class="hero-main">등원 요일 미등록</div>
+          <div class="hero-sub">관우T께 등원 요일 등록을 문의해주세요.</div>
+        </div>`;
+    }
+
+    // ── 이번 숙제 ──
+    let hwHtml = '';
+    if (latestReport && latestReport.homework) {
+      const dateStr = (latestReport.date || '').replace(/-/g,'.');
+      hwHtml = `
+        <div class="hw-card">
+          <div class="card-label">📝 이번 숙제</div>
+          <div class="hw-meta">${escapeHtml(dateStr)} 수업${latestReport.title ? ' · '+escapeHtml(latestReport.title) : ''}</div>
+          <div class="hw-text">${escapeHtml(latestReport.homework)}</div>
+          <a class="hw-more" href="/report">📋 수업 영상 및 레포트 전체 보기 →</a>
+        </div>`;
+    } else {
+      hwHtml = `
+        <div class="card">
+          <div class="card-label">📝 이번 숙제</div>
+          <div class="muted">${latestReport ? '이번 수업엔 등록된 숙제가 없습니다.' : '아직 등록된 수업 리포트가 없습니다.'}</div>
+        </div>`;
+    }
+
+    // ── 기본 정보 ──
+    const infoRows = [];
+    if (s.name)      infoRows.push(['이름', escapeHtml(s.name)]);
+    if (s.school)    infoRows.push(['학교', escapeHtml(s.school)]);
+    if (s.grade)     infoRows.push(['학년', escapeHtml(s.grade)]);
+    if (s.academy)   infoRows.push(['학원', escapeHtml(s.academy)]);
+    if (s.className) infoRows.push(['반', escapeHtml(s.className)]);
+    const basicHtml = `
+      <div class="card">
+        <div class="card-label">👤 기본 정보</div>
+        ${infoRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
+      </div>`;
+
+    // ── 성적 현황 ──
+    const gradeRows = [];
+    if (s.mathMockGrade) gradeRows.push(['모의수학', escapeHtml(s.mathMockGrade) + (s.mathMockScore!=null ? ` (${s.mathMockScore}점)` : '')]);
+    if (s.korMockGrade)  gradeRows.push(['모의국어', escapeHtml(s.korMockGrade)]);
+    if (s.engMockGrade)  gradeRows.push(['모의영어', escapeHtml(s.engMockGrade)]);
+    if (s.schoolMathGrade) gradeRows.push(['내신 수학', escapeHtml(s.schoolMathGrade)]);
+    if (s.advanceProgress) gradeRows.push(['선행 진도', escapeHtml(s.advanceProgress)]);
+    const gradeHtml = gradeRows.length ? `
+      <div class="card">
+        <div class="card-label">📊 성적 현황</div>
+        ${gradeRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
+      </div>` : '';
+
+    // ── 목표 / 특이사항 ──
+    const goalRows = [];
+    if (s.dreamUniv) goalRows.push(['희망 대학·계열', escapeHtml(s.dreamUniv)]);
+    if (s.goals && s.goals.length) {
+      goalRows.push(['수강 목적', s.goals.map(g => `<span class="badge-chip">${escapeHtml(g)}</span>`).join('')]);
+    }
+    if (s.weakness) goalRows.push(['취약 단원', escapeHtml(s.weakness)]);
+    if (s.notes)    goalRows.push(['특이사항', escapeHtml(s.notes)]);
+    const goalHtml = goalRows.length ? `
+      <div class="card">
+        <div class="card-label">🎓 목표 · 학습</div>
+        ${goalRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
+      </div>` : '';
+
+    // ── 연락처 ──
+    const contactRows = [];
+    if (s.parentPhone) {
+      const relation = s.parentRelation ? ` (${escapeHtml(s.parentRelation)})` : '';
+      contactRows.push(['👪 학부모' + relation, escapeHtml(s.parentPhone)]);
+    }
+    if (s.studentPhone) contactRows.push(['📱 학생', escapeHtml(s.studentPhone)]);
+    const contactHtml = contactRows.length ? `
+      <div class="card">
+        <div class="card-label">📞 등록된 연락처</div>
+        ${contactRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
+        <div class="muted" style="margin-top:10px;font-size:0.76rem;">변경이 필요하면 관우T께 문의해주세요.</div>
+      </div>` : '';
+
+    $('content').innerHTML = heroHtml + hwHtml + basicHtml + gradeHtml + goalHtml + contactHtml;
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
