@@ -173,6 +173,19 @@
       </div>
     </div>
 
+    <!-- 알림 켜기 안내 배너 (안 켠 사용자만 자동 노출, [나중에] 누르면 7일 숨김) -->
+    <div id="pushBanner" style="display:none;background:linear-gradient(135deg,#FFF8DC 0%,#FFE8A8 100%);border:1.5px solid #E8C56C;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:1.2rem;">🔔</span>
+      <div style="flex:1;min-width:180px;">
+        <div style="font-size:0.86rem;font-weight:700;color:#854F0B;">새 리포트·공지 알림 받기</div>
+        <div style="font-size:0.74rem;color:#854F0B;opacity:0.85;margin-top:2px;">한 번 켜두면 새 소식이 휴대폰 알림으로 와요</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="toggleEnablePush()" style="background:#854F0B;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">켜기</button>
+        <button onclick="snoozePushBanner()" style="background:#fff;color:#854F0B;border:1.5px solid #E8C56C;padding:7px 12px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit;">나중에</button>
+      </div>
+    </div>
+
     <!-- 학원 공지/안내 박스 -->
     <div id="noticeBox" class="notice-box" style="display:none;">
       <div class="head">
@@ -213,11 +226,6 @@
         <span class="feat-title">수강 후기</span>
         <span class="feat-desc">한 줄 후기 작성·조회</span>
       </a>
-      <button type="button" class="feat-btn" onclick="toggleEnablePush()" id="pushBtn">
-        <span class="feat-icon" id="pushIcon">🔔</span>
-        <span class="feat-title" id="pushTitle">알림 켜기</span>
-        <span class="feat-desc" id="pushDesc">새 리포트 푸쉬 알림</span>
-      </button>
     </div>
 
     <!-- 어플 설치 안내 -->
@@ -230,11 +238,13 @@
       </div>
     </div>
 
-    <!-- 하단 계정 관리 (로그아웃 · 비밀번호 변경) -->
-    <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:18px;font-size:0.82rem;color:var(--text-light);">
+    <!-- 하단 계정 관리 (로그아웃 · 비밀번호 변경 · 알림 설정) -->
+    <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:14px;font-size:0.82rem;color:var(--text-light);flex-wrap:wrap;">
       <a href="#" onclick="event.preventDefault();doLogout()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">로그아웃</a>
       <span style="color:var(--border);">|</span>
       <a href="#" onclick="event.preventDefault();openPasswordModal()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">비밀번호 변경</a>
+      <span style="color:var(--border);">|</span>
+      <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔔 알림 설정</a>
     </div>
   </div>
 </div>
@@ -596,21 +606,40 @@
     } catch (_) { return false; }
   }
 
+  // 알림 안 켠 사용자만 상단 배너 노출. 켰거나·권한 거부·snooze 중이면 숨김.
   async function updatePushButton() {
-    const subbed = await isPushSubscribed();
-    if (subbed) {
-      $('pushIcon').textContent  = '🔕';
-      $('pushTitle').textContent = '알림 꺼져있음';
-      $('pushDesc').textContent  = '눌러서 켜기';
-      // 사실은 켜져 있으면 끄는 옵션이 자연스럽지만, 일단 단순화: 켜져 있으면 안내만
-      $('pushIcon').textContent  = '🔔';
-      $('pushTitle').textContent = '알림 활성화됨';
-      $('pushDesc').textContent  = '새 리포트 푸쉬 받음';
-    } else {
-      $('pushIcon').textContent  = '🔔';
-      $('pushTitle').textContent = '알림 켜기';
-      $('pushDesc').textContent  = '새 리포트 푸쉬 알림';
+    const banner = $('pushBanner');
+    if (!banner) return;
+
+    // 1. 브라우저가 푸쉬 미지원 → 배너 안 보임
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      banner.style.display = 'none';
+      return;
     }
+    // 2. 권한 영구 거부 → 배너 노출해도 못 켬, 숨김 (브라우저 설정에서 풀어야)
+    if (Notification.permission === 'denied') {
+      banner.style.display = 'none';
+      return;
+    }
+    // 3. 이미 구독 중 → 숨김
+    try {
+      const subbed = await isPushSubscribed();
+      if (subbed) { banner.style.display = 'none'; return; }
+    } catch (_) {}
+    // 4. snooze 중 → 숨김
+    const snoozedUntil = parseInt(localStorage.getItem('pushSnoozedUntil') || '0', 10);
+    if (snoozedUntil > Date.now()) { banner.style.display = 'none'; return; }
+
+    // 위 어느 케이스에도 안 걸리면 → 배너 표시
+    banner.style.display = 'flex';
+  }
+
+  function snoozePushBanner() {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    localStorage.setItem('pushSnoozedUntil', String(Date.now() + SEVEN_DAYS_MS));
+    const banner = $('pushBanner');
+    if (banner) banner.style.display = 'none';
+    showToast('알림 안내를 일주일 동안 숨길게요.');
   }
 
   async function toggleEnablePush() {
