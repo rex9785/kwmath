@@ -2228,14 +2228,23 @@
   function onQaAcademyChange() {
     const acad = document.getElementById('qaAcademy').value;
     const sel = document.getElementById('qaClass');
-    const classes = Array.from(new Set((allStudents||[]).filter(s => !acad || s.academy === acad).map(s => s.className).filter(Boolean))).sort();
-    sel.innerHTML = '<option value="">반 선택</option>' + classes.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    if (!acad) {
+      // 학원 미선택 → 반 드롭다운 비활성화 (반 선택 불가)
+      sel.innerHTML = '<option value="">학원 먼저 선택</option>';
+      sel.disabled = true;
+    } else {
+      sel.disabled = false;
+      const classes = Array.from(new Set((allStudents||[]).filter(s => s.academy === acad).map(s => s.className).filter(Boolean))).sort();
+      sel.innerHTML = '<option value="">반 선택</option>' + classes.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    }
     updateQaSummary();
+    if (typeof renderAttendanceList === 'function') renderAttendanceList();
   }
   async function updateQaSummary() {
     const acad = document.getElementById('qaAcademy').value;
     const cls  = document.getElementById('qaClass').value;
     const sumEl = document.getElementById('qaSummary');
+    if (typeof renderAttendanceList === 'function') renderAttendanceList();
     if (!sumEl) return;
     const targets = (allStudents||[]).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
     if (!targets.length) { sumEl.innerHTML = '<span style="color:var(--text-light);">대상 학생 없음</span>'; return; }
@@ -2448,11 +2457,23 @@
     const list = document.getElementById('attendanceList');
     if (!list) return;
     const q = (document.getElementById('attStudentSearch')?.value || '').toLowerCase();
-    const filtered = (allStudents || []).filter(s => !q
-      || (s.name||'').toLowerCase().includes(q)
-      || (s.academy||'').toLowerCase().includes(q)
-      || (s.className||'').toLowerCase().includes(q));
-    if (!filtered.length) { list.innerHTML = '<div class="empty">학생이 없습니다.</div>'; return; }
+    const acad = (document.getElementById('qaAcademy')?.value || '');
+    const cls  = (document.getElementById('qaClass')?.value || '');
+    // 학원/반 필터 우선 적용 (선택돼있으면), 그 다음 이름 검색
+    let filtered = (allStudents || []).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
+    if (q) {
+      filtered = filtered.filter(s =>
+        (s.name||'').toLowerCase().includes(q)
+        || (s.academy||'').toLowerCase().includes(q)
+        || (s.className||'').toLowerCase().includes(q));
+    }
+    if (!filtered.length) {
+      const msg = (acad && cls) ? `[${acad} · ${cls}] 반에 학생이 없습니다.`
+                : (acad) ? `[${acad}] 학원에 학생이 없습니다.`
+                : '학원/반을 선택하면 그 반 학생만 표시됩니다.';
+      list.innerHTML = '<div class="empty">' + msg + '</div>';
+      return;
+    }
     // 학원 + 반 정렬
     filtered.sort((a,b) => ((a.academy||'')+(a.className||'')+(a.name||'')).localeCompare((b.academy||'')+(b.className||'')+(b.name||'')));
     list.innerHTML = filtered.map(renderAttendanceRow).join('');
