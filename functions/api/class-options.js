@@ -84,10 +84,34 @@ function mergeOptions(saved, used) {
   return result;
 }
 
+// saved + used에서 새로 추가된 학원/반이 있으면 saved에 흡수해서 R2 저장
+async function syncStudentClassesToSaved(env, saved, used) {
+  let changed = false;
+  for (const acad of used.academies) {
+    if (!saved.academies.includes(acad)) {
+      saved.academies.push(acad);
+      changed = true;
+    }
+    if (!saved.classes[acad]) saved.classes[acad] = [];
+    for (const cls of (used.classes[acad] || new Set())) {
+      if (!saved.classes[acad].includes(cls)) {
+        saved.classes[acad].push(cls);
+        changed = true;
+      }
+    }
+  }
+  if (changed) {
+    await saveOptions(env, saved);
+  }
+  return changed;
+}
+
 export async function onRequest({ request, env }) {
   if (request.method === 'GET') {
     const saved = await loadOptions(env);
     const used  = await getUsedFromStudents(env);
+    // 학생 데이터에서 사용 중인 학원/반을 R2 saved에 자동 흡수 (한 번 등록되면 학생 0명이 돼도 남음)
+    await syncStudentClassesToSaved(env, saved, used);
     const merged = mergeOptions(saved, used);
     return Response.json(merged);
   }
