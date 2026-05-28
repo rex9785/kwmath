@@ -90,12 +90,12 @@
         <div class="form-row">
           <label>학생 휴대폰 <span class="req">*</span></label>
           <input id="studentPhone" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)">
-          <div class="form-hint">입력하신 휴대폰 번호가 포털 로그인 아이디가 됩니다. (초기 비밀번호 0000)</div>
+          <div class="form-hint">입력하신 휴대폰 번호가 포털 로그인 아이디가 됩니다. (승인 완료 후, 초기 비밀번호 0000)</div>
         </div>
         <div class="form-row">
           <label>학부모 휴대폰 <span class="req">*</span></label>
           <input id="parentPhone" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)">
-          <div class="form-hint">입력하신 휴대폰 번호가 포털 로그인 아이디가 됩니다. (초기 비밀번호 0000)</div>
+          <div class="form-hint">입력하신 휴대폰 번호가 포털 로그인 아이디가 됩니다. (승인 완료 후, 초기 비밀번호 0000)</div>
         </div>
         <div class="form-row">
           <label>학부모 관계 <span class="req">*</span></label>
@@ -244,13 +244,18 @@
     </div>
 
     <div id="doneScreen">
-      <div class="done-icon">🎉</div>
-      <h2>등록이 완료되었습니다!</h2>
-      <p>선생님이 확인 후 곧 연락드리겠습니다.<br><br>
-      <strong>포털</strong>에서 휴대폰 번호로 로그인하실 수 있어요.<br>
-      초기 비밀번호는 <strong>0000</strong>입니다. (로그인 후 변경 권장)</p>
-      <br><br>
-      <a href="/portal" style="display:inline-block;background:var(--primary);color:#fff;padding:13px 30px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.93rem;">포털로 로그인하기 →</a>
+      <div class="done-icon">📝</div>
+      <h2>등록 신청이 접수됐어요!</h2>
+      <p>관우T가 확인 후 <strong>승인</strong>해드릴 예정입니다.<br>
+      승인되면 곧 연락드리겠습니다.<br><br>
+      <span style="color:var(--primary);font-weight:700;">✅ 승인 완료 후</span> <strong>포털</strong>에서 휴대폰 번호로 로그인 가능합니다.<br>
+      <small style="color:#888;">초기 비밀번호는 <strong>0000</strong> (로그인 후 변경 권장)</small></p>
+      <br>
+      <div style="background:#FFF8DC;border:1.5px solid #E8C56C;border-radius:10px;padding:12px 16px;text-align:left;font-size:0.85rem;color:#854F0B;margin-bottom:18px;">
+        ⏳ 아직 로그인은 되지 않습니다.<br>
+        승인 완료까지 잠시 기다려주세요.
+      </div>
+      <a href="/" style="display:inline-block;background:#888;color:#fff;padding:13px 30px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.93rem;">홈으로 →</a>
     </div>
   </div>
 </div>
