@@ -142,6 +142,7 @@ export async function fetchStudentsByPhone(env, phone) {
       grade: sel(props, '학년'),
       academy: sel(props, '학원'),
       className: sel(props, '반'),
+      approvalStatus: sel(props, '승인 상태'),
       // 이 휴대폰이 학부모/학생 중 어느 쪽으로 매칭됐는지
       role: phone === parentPhone ? 'parent' : (phone === studentPhone ? 'student' : 'other'),
       parentPhone, studentPhone,

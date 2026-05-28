@@ -37,9 +37,22 @@ export async function onRequest({ request, env }) {
   const students = await fetchStudentsByPhone(env, phone);
 
   // ⚠️ 좀비 계정 방어 — 계정은 있는데 학생 DB에 연결된 학생이 없으면 로그인 거절
-  // (퇴원처리 후 계정만 남은 좀비 등)
   if (!students.length) {
     return jsonError('계정은 있으나 학원에 등록된 학생 정보가 없습니다. 관우T께 문의해주세요.', 401);
+  }
+
+  // ⚠️ 승인 대기 방어 — 연결된 학생이 다 "대기중" 또는 "거부" 상태면 로그인 거절
+  // 빈 값(옛 학생, 승인 시스템 도입 전)은 자동으로 통과
+  const approvedStudents = students.filter(s => {
+    const status = s.approvalStatus || '';
+    return status === '' || status === '승인';
+  });
+  if (!approvedStudents.length) {
+    const pendingCount = students.filter(s => s.approvalStatus === '대기중').length;
+    if (pendingCount > 0) {
+      return jsonError('등록 신청이 접수됐지만 아직 관우T 승인 대기 중입니다. 잠시 후 다시 시도해주세요.', 403);
+    }
+    return jsonError('학원 등록이 거부됐거나 활성 학생이 없습니다. 관우T께 문의해주세요.', 403);
   }
 
   return Response.json({
@@ -48,6 +61,6 @@ export async function onRequest({ request, env }) {
     expires,
     mustChangePassword: !!account.mustChangePassword,
     phone,
-    students,
+    students: approvedStudents,  // 승인된 학생만 반환
   });
 }

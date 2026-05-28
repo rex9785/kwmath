@@ -14,7 +14,6 @@ export async function onRequest({ request, env }) {
   if (!auth.ok) return auth.response;
 
   const account = await findAccountByPhone(env, auth.phone);
-  // 계정 페이지가 사라졌으면 토큰도 무효 처리 (이건 운영 중 드물지만 대비)
   if (!account) return jsonError('계정을 찾을 수 없습니다. 다시 로그인해주세요.', 401);
 
   const students = await fetchStudentsByPhone(env, auth.phone);
@@ -24,10 +23,19 @@ export async function onRequest({ request, env }) {
     return jsonError('계정은 있으나 학원에 등록된 학생 정보가 없습니다. 관우T께 문의해주세요.', 401);
   }
 
+  // 승인된 학생만 통과 (대기중/거부 제외, 빈 값은 옛 학생이므로 통과)
+  const approvedStudents = students.filter(s => {
+    const status = s.approvalStatus || '';
+    return status === '' || status === '승인';
+  });
+  if (!approvedStudents.length) {
+    return jsonError('학원 등록이 아직 승인되지 않았거나 거부됐습니다. 관우T께 문의해주세요.', 403);
+  }
+
   return Response.json({
     ok: true,
     phone: auth.phone,
     mustChangePassword: !!account.mustChangePassword,
-    students,
+    students: approvedStudents,
   });
 }
