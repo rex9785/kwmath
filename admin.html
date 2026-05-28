@@ -1610,13 +1610,15 @@
     const countEl = document.getElementById('studentCount');
     list.innerHTML = '<div class="empty">불러오는 중...</div>';
     try {
-      const res = await fetch('/api/students', {
-        headers: { 'Authorization': `Bearer ${adminToken}` }
+      const res = await fetch('/api/students?t=' + Date.now(), {
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+        cache: 'no-store',
       });
       allStudents = await res.json();
       if (!Array.isArray(allStudents)) allStudents = [];
       countEl.textContent = `총 ${allStudents.length}명`;
-      renderStudents(allStudents);
+      // renderStudentsView()로 변경 — 그 안에서 renderPendingApproval() + group/flat 모드 자동 분기
+      renderStudentsView();
     } catch(e) {
       list.innerHTML = '<div class="empty">학생 목록을 불러올 수 없습니다.</div>';
     }
