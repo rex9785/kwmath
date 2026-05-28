@@ -107,6 +107,12 @@
   .search-btn{background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .report-list{display:flex;flex-direction:column;gap:12px;}
   .report-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px 24px;}
+  .report-card.student-card{cursor:pointer;transition:background .15s;}
+  .report-card.student-card:hover{background:#fafbfc;}
+  .report-card.student-card .student-card-details{display:none;padding-top:10px;margin-top:10px;border-top:1px solid var(--border);}
+  .report-card.student-card.expanded .student-card-details{display:block;}
+  .student-card-chevron{margin-left:6px;color:var(--text-light);font-size:0.78rem;transition:transform .2s;opacity:0.5;display:inline-block;}
+  .report-card.student-card.expanded .student-card-chevron{transform:rotate(180deg);opacity:0.9;}
   /* 학원/반 수정 모달 */
   .ec-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
   .ec-modal-bg.show{display:flex;}
@@ -1642,6 +1648,17 @@
     }, 0);
   }
 
+  // 학생 카드 토글 — 버튼/체크박스 클릭 시엔 토글 안 함
+  function toggleStudentCard(card, evt) {
+    if (!card) return;
+    if (evt && evt.target) {
+      // 버튼/input/.pw-btn 클릭이면 토글 안 함 (해당 버튼이 자체 stopPropagation 안 한 경우 보호)
+      const t = evt.target;
+      if (t.closest('button') || t.closest('input')) return;
+    }
+    card.classList.toggle('expanded');
+  }
+
   function renderStudentCard(s) {
     const mathInfo = [];
     if (s.mathMockGrade)    mathInfo.push('모의수학 ' + escapeHtml(s.mathMockGrade) + (s.mathMockScore!=null ? ' ('+s.mathMockScore+'점)' : ''));
@@ -1649,26 +1666,27 @@
     if (s.korMockGrade)     mathInfo.push('국어 ' + escapeHtml(s.korMockGrade));
     if (s.engMockGrade)     mathInfo.push('영어 ' + escapeHtml(s.engMockGrade));
     const isChecked = bulkSelectedIds.has(s.id);
-    return `<div class="report-card" data-student-id="${s.id}">
-      <div class="report-header">
+    return `<div class="report-card student-card" data-student-id="${s.id}" onclick="toggleStudentCard(this, event)" style="padding:14px 18px;">
+      <div class="report-header" style="margin:0;">
         <div style="display:flex;align-items:center;gap:10px;">
           <input type="checkbox" class="student-bulk-cb" data-id="${s.id}" ${isChecked ? 'checked' : ''} onchange="onStudentCheckbox('${s.id}', this.checked)" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
           <div>
           <strong>${escapeHtml(s.name || '—')}</strong>
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
+          <span class="student-card-chevron">▼</span>
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
         </div>
       </div>
-      <div style="font-size:0.85rem;color:var(--text-light);line-height:1.85;margin-top:6px;">
+      <div class="student-card-details" style="font-size:0.85rem;color:var(--text-light);line-height:1.85;">
         ${s.school ? '<span>학교: <b>' + escapeHtml(s.school) + '</b></span>&nbsp;&nbsp;' : ''}
         ${s.grade ? '<span>학년: <b>' + escapeHtml(s.grade) + '</b></span>&nbsp;&nbsp;' : ''}
         ${s.goals && s.goals.length ? '<span>목적: ' + escapeHtml(s.goals.join(', ')) + '</span>&nbsp;&nbsp;' : ''}
         ${s.advanceProgress ? '<span>선행: <b>' + escapeHtml(s.advanceProgress) + '</b></span>&nbsp;&nbsp;' : ''}
-        ${s.studentPhone ? '<br><span>📱 학생: ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 비번 초기화</button></span>&nbsp;&nbsp;' : ''}
-        ${s.parentPhone ? '<span>👪 학부모(' + escapeHtml(s.parentRelation || '') + '): <b>' + escapeHtml(s.parentPhone) + '</b> <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 비번 초기화</button></span>' : (s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>' : '')}
+        ${s.studentPhone ? '<br><span>📱 학생: ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 비번 초기화</button></span>&nbsp;&nbsp;' : ''}
+        ${s.parentPhone ? '<span>👪 학부모(' + escapeHtml(s.parentRelation || '') + '): <b>' + escapeHtml(s.parentPhone) + '</b> <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 비번 초기화</button></span>' : (s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>' : '')}
         ${mathInfo.length ? '<br><span style="color:var(--primary);font-weight:600;">📊 ' + mathInfo.join(' · ') + '</span>' : ''}
         ${s.weakness ? '<br><span>🎯 취약: ' + escapeHtml(s.weakness) + '</span>' : ''}
         ${s.dreamUniv ? '&nbsp;&nbsp;<span>🎓 ' + escapeHtml(s.dreamUniv) + '</span>' : ''}
@@ -1706,13 +1724,13 @@
               </span>
             </div>
             <div style="font-size:0.78rem;color:var(--text-light);margin-top:3px;line-height:1.6;">
-              ${s.parentPhone ? '👪 ' + escapeHtml(s.parentRelation||'') + ' ' + escapeHtml(s.parentPhone) + ' <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 초기화</button>' : (s.parentPhone4 ? '학부모끝 '+escapeHtml(s.parentPhone4) : '')}
-              ${s.studentPhone ? '&nbsp;·&nbsp;📱 ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 초기화</button>' : ''}
+              ${s.parentPhone ? '👪 ' + escapeHtml(s.parentRelation||'') + ' ' + escapeHtml(s.parentPhone) + ' <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 초기화</button>' : (s.parentPhone4 ? '학부모끝 '+escapeHtml(s.parentPhone4) : '')}
+              ${s.studentPhone ? '&nbsp;·&nbsp;📱 ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 초기화</button>' : ''}
               ${s.mathMockGrade ? '&nbsp;·&nbsp;<span style="color:var(--primary);font-weight:600;">모의수학 ' + escapeHtml(s.mathMockGrade) + (s.mathMockScore!=null?' ('+s.mathMockScore+'점)':'') + '</span>' : ''}
               ${s.advanceProgress ? '&nbsp;·&nbsp;선행 ' + escapeHtml(s.advanceProgress) : ''}
             </div>
           </div>
-          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
         </div>
       `).join('') : '';
       return `<div class="card" style="padding:0;overflow:hidden;">
