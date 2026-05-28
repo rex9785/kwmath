@@ -142,10 +142,10 @@
 <!-- ═══════════════════════════ 메인 화면 ═══════════════════════════ -->
 <div id="mainScreen" style="display:none;">
   <div class="topbar">
-    <div class="topbar-title">
+    <a href="/" class="topbar-title" style="text-decoration:none;color:#fff;" title="학원 홈페이지로">
       <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
       <span>이관우 수학연구소</span>
-    </div>
+    </a>
     <a href="/me" class="topbar-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
       <span style="font-size:0.9rem;">👤</span>
       <span>내 정보</span>
@@ -212,11 +212,6 @@
         <span class="feat-icon">📝</span>
         <span class="feat-title">수강 후기</span>
         <span class="feat-desc">한 줄 후기 작성·조회</span>
-      </a>
-      <a href="/" class="feat-btn" data-feat="home">
-        <span class="feat-icon">🏠</span>
-        <span class="feat-title">홈페이지</span>
-        <span class="feat-desc">학원 정보·공지</span>
       </a>
       <button type="button" class="feat-btn" onclick="toggleEnablePush()" id="pushBtn">
         <span class="feat-icon" id="pushIcon">🔔</span>
