@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>수업 리포트 | 이관우 수학연구소</title>
+<title>수업영상 및 레포트 | 이관우 수학연구소</title>
 <link rel="manifest" href="/manifest.json?v=2">
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
@@ -38,12 +38,25 @@
   .report-card{background:#fff;border-radius:14px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
   .report-card-header{background:var(--primary);color:#fff;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;gap:10px;}
   .report-card-header:hover{filter:brightness(1.06);}
-  .report-card-date{font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;}
-  .report-card-school{font-size:0.75rem;opacity:0.85;}
+  .report-card-date{font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+  .report-card-school{font-size:0.72rem;opacity:0.85;white-space:nowrap;}
   .report-card-arrow{font-size:0.8rem;opacity:0.85;transition:transform .25s;display:inline-block;margin-left:4px;}
   .report-card.open .report-card-arrow{transform:rotate(180deg);}
-  .report-card-body{padding:18px;display:none;}
+  .report-card-body{padding:16px 18px;display:none;}
   .report-card.open .report-card-body{display:block;}
+  /* 펼친 본문 상단의 영상 버튼 (작게, 우측) */
+  .video-row{display:flex;justify-content:flex-end;margin-bottom:14px;}
+  .video-watch{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;text-decoration:none;border-radius:9px;padding:8px 14px;font-size:0.83rem;font-weight:700;border:none;cursor:pointer;font-family:inherit;transition:background .15s;}
+  .video-watch:hover{background:var(--primary-mid);}
+  .video-watch.locked{background:#666;}
+  .video-watch.locked:hover{background:#444;}
+  .video-watch-play{width:18px;height:18px;background:rgba(255,255,255,0.22);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .video-watch-play svg{fill:#fff;margin-left:1px;}
+  .video-note{font-size:0.7rem;color:var(--text-light);text-align:right;margin-top:-8px;margin-bottom:12px;}
+  .no-report-msg{font-size:0.82rem;color:var(--text-light);text-align:center;padding:14px 0;line-height:1.6;}
+  /* 헤더 안 영상/리포트 인디케이터 (있다는 표시) */
+  .header-icons{display:inline-flex;gap:4px;font-size:0.74rem;opacity:0.8;}
+  .header-icons span{background:rgba(255,255,255,0.16);padding:1px 7px;border-radius:8px;font-weight:600;}
   .report-field{margin-bottom:12px;}
   .report-field:last-child{margin-bottom:0;}
   .report-label{font-size:0.72rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:4px;text-transform:uppercase;}
@@ -69,7 +82,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title" style="text-decoration:none;color:#fff;">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>📋 수업 리포트</span>
+    <span>🎥 수업영상 및 레포트</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -113,7 +126,7 @@
   let currentToken = '';
   let currentStudents = [];
   let selectedStudent = null;
-  let allReports = [];
+  let allLessons = [];  // [{date, report?, video?}]
   let currentPage = 1;
 
   function $(id){ return document.getElementById(id); }
@@ -193,22 +206,30 @@
 
   document.addEventListener('DOMContentLoaded', init);
 
-  // ─── 리포트 + PDF + 반 공통 자료 동시 fetch ───
+  // ─── 리포트 + 영상 + PDF + 반 공통 자료 동시 fetch ───
   async function loadReports() {
     if (!selectedStudent) return;
     const nameQ = encodeURIComponent(selectedStudent.name);
-    $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>리포트를 불러오는 중입니다...</p></div>';
+    $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>수업 정보를 불러오는 중입니다...</p></div>';
     $('pdfSection').style.display = 'none';
     $('classFilesSection').style.display = 'none';
 
     try {
-      const [rRes, pdfRes] = await Promise.all([
+      const [rRes, vRes, pdfRes] = await Promise.all([
         fetch('/api/reports?name=' + nameQ, { headers: authHeaders() }),
+        fetch('/api/class-videos?name=' + nameQ, { headers: authHeaders() }),
         fetch('/api/list-files?folder=reports/' + nameQ + '&name=' + nameQ, { headers: authHeaders() }),
       ]);
       const rData = await rRes.json();
       const reports = Array.isArray(rData) ? rData : (rData.reports || []);
       const studentInfo = Array.isArray(rData) ? null : rData.student;
+
+      let videos = [];
+      try {
+        const vData = await vRes.json();
+        if (vRes.ok && vData.ok && Array.isArray(vData.videos)) videos = vData.videos;
+      } catch (_) {}
+
       const pdfs = pdfRes.ok ? await pdfRes.json() : [];
 
       // 반 공통 자료
@@ -234,20 +255,36 @@
       renderClassFiles(classFiles);
       renderPdfs(pdfs);
 
+      // ─── 영상 + 리포트 union (date 기준) ───
+      const map = {};
+      reports.forEach(r => {
+        const d = (r.date || '').slice(0,10);
+        if (!d) return;
+        if (!map[d]) map[d] = { date: d };
+        map[d].report = r;
+      });
+      videos.forEach(v => {
+        const d = (v.date || '').slice(0,10);
+        if (!d) return;
+        if (!map[d]) map[d] = { date: d };
+        // 한 날짜에 영상 여러 개면 첫 번째만 (보통은 회차당 하나)
+        if (!map[d].video) map[d].video = v;
+      });
+      allLessons = Object.values(map).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
       $('resultArea').innerHTML = '';
-      if (!reports.length) {
+      if (!allLessons.length) {
         if (pdfs.length === 0 && classFiles.length === 0) {
-          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon">📭</div><p>등록된 리포트가 없습니다.</p></div>';
+          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon">📭</div><p>등록된 수업이 없습니다.</p></div>';
         } else {
           $('reportList').innerHTML = '<div class="state-box"><div class="state-icon">📎</div><p>첨부 자료만 등록되어 있습니다.<br>위 자료를 확인하세요.</p></div>';
         }
         return;
       }
-      allReports = reports;
       currentPage = 1;
       renderReportPage();
     } catch (e) {
-      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>리포트를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
+      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>수업 정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
     }
   }
 
@@ -285,33 +322,79 @@
 
   function renderReportPage() {
     const listEl = $('reportList');
-    if (!allReports.length) { listEl.innerHTML = ''; return; }
-    const totalPages = Math.max(1, Math.ceil(allReports.length / REPORTS_PER_PAGE));
+    if (!allLessons.length) { listEl.innerHTML = ''; return; }
+    const totalPages = Math.max(1, Math.ceil(allLessons.length / REPORTS_PER_PAGE));
     if (currentPage > totalPages) currentPage = totalPages;
     if (currentPage < 1) currentPage = 1;
     const start = (currentPage - 1) * REPORTS_PER_PAGE;
-    const pageItems = allReports.slice(start, start + REPORTS_PER_PAGE);
+    const pageItems = allLessons.slice(start, start + REPORTS_PER_PAGE);
 
-    const cardsHtml = pageItems.map((r, idxInPage) => {
+    const cardsHtml = pageItems.map((lesson, idxInPage) => {
       const absoluteIdx = start + idxInPage;
-      const dateStr = r.date ? r.date.replace(/-/g, '.') : '';
+      const r = lesson.report;
+      const v = lesson.video;
+      const dateStr = lesson.date ? lesson.date.replace(/-/g, '.') : '';
       const showNew = absoluteIdx === 0;
+      const title = (r && r.title) || '수업';
+      const school = (r && r.school) || (v && (v.school || v.class_name)) || '';
+      const classMeta = v ? [v.school, v.class_name].filter(Boolean).join(' ') : '';
+
+      // 헤더 인디케이터 (영상/리포트 둘 다 / 한쪽만)
+      const icons = [];
+      if (v) icons.push('🎥');
+      if (r) icons.push('📋');
+      const iconBadge = icons.length ? `<span class="header-icons"><span>${icons.join(' ')}</span></span>` : '';
+
+      // 영상 버튼 (펼친 본문 우측 상단, 작게)
+      let videoRow = '';
+      if (v) {
+        const codeEsc = escapeHtml(v.code || '');
+        const nameEsc = escapeHtml(selectedStudent ? selectedStudent.name : '');
+        if (v.locked) {
+          videoRow = `<div class="video-row">
+            <button class="video-watch locked" onclick="event.stopPropagation();unlockVideo('${codeEsc}','${nameEsc}')">
+              <span class="video-watch-play">🔒</span> 코드 입력 후 시청 →
+            </button>
+          </div>
+          <div class="video-note">🔒 선생님이 알려준 수업코드 필요</div>`;
+        } else {
+          videoRow = `<div class="video-row">
+            <a href="${escapeHtml(v.youtube_url || '#')}" target="_blank" class="video-watch" onclick="event.stopPropagation();logView('${codeEsc}','${nameEsc}')">
+              <span class="video-watch-play"><svg width="9" height="9" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span> 수업영상 시청하기 →
+            </a>
+          </div>
+          <div class="video-note">영상 시청 기록이 선생님께 전달됩니다</div>`;
+        }
+      }
+
+      // 리포트 본문
+      let reportBody = '';
+      if (r) {
+        reportBody = `
+          ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${escapeHtml(r.content).replace(/\n/g,'<br>')}</div></div>` : ''}
+          ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val"><span class="hw-badge">HW</span><br>${escapeHtml(r.homework).replace(/\n/g,'<br>')}</div></div>` : ''}
+          ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${escapeHtml(r.notes).replace(/\n/g,'<br>')}</div></div>` : ''}
+        `;
+      } else {
+        reportBody = `<div class="no-report-msg">📋 이 회차의 수업 레포트는 아직 등록되지 않았습니다.</div>`;
+      }
+
       return `
         <div class="report-card" id="rc-${absoluteIdx}">
           <div class="report-card-header" onclick="toggleReport(${absoluteIdx})">
             <div class="report-card-date">
               ${showNew ? '<span class="new-badge">NEW</span>' : ''}
-              <span>${escapeHtml(dateStr)} · ${escapeHtml(r.title || '수업 리포트')}</span>
+              <span>${escapeHtml(dateStr)} 수업</span>
+              ${iconBadge}
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-              <span class="report-card-school">${escapeHtml(r.school || '')}</span>
+              <span class="report-card-school">${escapeHtml(school || classMeta || '')}</span>
               <span class="report-card-arrow">▾</span>
             </div>
           </div>
           <div class="report-card-body">
-            ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${escapeHtml(r.content).replace(/\n/g,'<br>')}</div></div>` : ''}
-            ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val"><span class="hw-badge">HW</span><br>${escapeHtml(r.homework).replace(/\n/g,'<br>')}</div></div>` : ''}
-            ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${escapeHtml(r.notes).replace(/\n/g,'<br>')}</div></div>` : ''}
+            ${videoRow}
+            ${reportBody}
           </div>
         </div>`;
     }).join('');
@@ -337,6 +420,27 @@
   function toggleReport(idx) {
     const el = $('rc-' + idx);
     if (el) el.classList.toggle('open');
+  }
+
+  // ─── 영상 시청 기록 / 잠금 해제 (video.html에서 가져옴) ───
+  async function logView(code, name){
+    if (!code) return;
+    try {
+      await fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name }) });
+    } catch (_) {}
+  }
+  async function unlockVideo(expectedCode, studentName){
+    const input = prompt('선생님께 받은 수업코드를 입력해주세요\n(예: S2-0520-A7)');
+    if (!input) return;
+    const code = input.trim().toUpperCase();
+    if (code !== (expectedCode || '').toUpperCase()) { alert('수업코드가 일치하지 않습니다.'); return; }
+    try {
+      const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
+      const data = await res.json();
+      if (!res.ok || !data.youtube_url) { alert('영상을 불러오지 못했습니다: ' + (data.error || res.status)); return; }
+      fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name: studentName }) }).catch(() => {});
+      window.open(data.youtube_url, '_blank');
+    } catch (e) { alert('오류: ' + e.message); }
   }
   function gotoReportPage(p) {
     currentPage = p;

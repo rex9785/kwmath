@@ -146,7 +146,7 @@
       <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
       <span>이관우 수학연구소</span>
     </div>
-    <button class="topbar-btn" onclick="doLogout()">로그아웃</button>
+    <span style="font-size:0.78rem;color:rgba(255,255,255,0.78);font-weight:600;">학부모/학생 포털</span>
   </div>
 
   <div class="page">
@@ -181,9 +181,9 @@
     <!-- 기능 버튼 그리드 -->
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px;">
       <a href="/report" class="feat-btn" data-feat="report">
-        <span class="feat-icon">📋</span>
-        <span class="feat-title">수업 리포트</span>
-        <span class="feat-desc">오늘 배운 내용·숙제</span>
+        <span class="feat-icon">🎥</span>
+        <span class="feat-title">수업영상 및 레포트</span>
+        <span class="feat-desc">날짜별 영상·수업내용·숙제</span>
       </a>
       <a href="/test-results" class="feat-btn" data-feat="test-results">
         <span class="feat-icon">📊</span>
@@ -194,11 +194,6 @@
         <span class="feat-icon">📅</span>
         <span class="feat-title">출석 현황</span>
         <span class="feat-desc">월별 출석 캘린더</span>
-      </a>
-      <a href="/video" class="feat-btn" data-feat="video">
-        <span class="feat-icon">🎥</span>
-        <span class="feat-title">수업 영상</span>
-        <span class="feat-desc">복습 영상 다시보기</span>
       </a>
       <a href="/materials" class="feat-btn" data-feat="materials">
         <span class="feat-icon">📁</span>
@@ -225,11 +220,6 @@
         <span class="feat-title" id="pushTitle">알림 켜기</span>
         <span class="feat-desc" id="pushDesc">새 리포트 푸쉬 알림</span>
       </button>
-      <button type="button" class="feat-btn" onclick="openPasswordModal()">
-        <span class="feat-icon">🔑</span>
-        <span class="feat-title">비밀번호 변경</span>
-        <span class="feat-desc">계정 보안 관리</span>
-      </button>
     </div>
 
     <!-- 어플 설치 안내 -->
@@ -240,6 +230,13 @@
         <b>Android (Chrome)</b>: 우측 상단 메뉴 → "앱 설치" 또는 자동 배너 "설치"<br>
         설치하면 홈화면 아이콘이 생기고 어플처럼 실행됩니다.
       </div>
+    </div>
+
+    <!-- 하단 계정 관리 (로그아웃 · 비밀번호 변경) -->
+    <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:18px;font-size:0.82rem;color:var(--text-light);">
+      <a href="#" onclick="event.preventDefault();doLogout()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">로그아웃</a>
+      <span style="color:var(--border);">|</span>
+      <a href="#" onclick="event.preventDefault();openPasswordModal()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">비밀번호 변경</a>
     </div>
   </div>
 </div>
