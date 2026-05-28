@@ -324,10 +324,21 @@
       </div>
       <!-- 신규 등록 승인 대기 패널 (대기중인 학생만 표시) -->
       <div id="pendingApprovalPanel" style="background:linear-gradient(135deg,#FFF8DC 0%,#FFE8A8 100%);border:2px solid #E8C56C;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:none;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
           <strong style="color:#854F0B;font-size:0.95rem;">🆕 신규 등록 승인 대기</strong>
           <span id="pendingCount" style="background:#E8C56C;color:#fff;padding:2px 10px;border-radius:10px;font-size:0.78rem;font-weight:700;">0</span>
-          <span style="font-size:0.78rem;color:#854F0B;margin-left:auto;">승인하면 학생/학부모가 로그인 가능해집니다</span>
+          <span style="font-size:0.78rem;color:#854F0B;">승인하면 학생/학부모가 로그인 가능해집니다</span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;color:#854F0B;cursor:pointer;font-weight:600;">
+              <input type="checkbox" id="pendingSelectAll" onchange="togglePendingSelectAll(this.checked)" style="width:16px;height:16px;cursor:pointer;">
+              전체 선택
+            </label>
+            <span id="pendingSelectedCount" style="font-size:0.78rem;color:#666;">0명 선택</span>
+            <button id="bulkApproveBtn" class="del-btn" onclick="bulkApprovePending()" disabled
+              style="border-color:#2a7a2a;color:#2a7a2a;background:#E5F5E8;font-weight:700;opacity:0.4;cursor:not-allowed;">
+              ✅ 선택 일괄 승인
+            </button>
+          </div>
         </div>
         <div id="pendingApprovalList"></div>
       </div>
@@ -1655,6 +1666,9 @@
   }
 
   // ─── 신규 등록 승인 대기 ───
+  // 선택된 대기 학생 ID 모음 (체크박스 상태 보존)
+  const pendingSelectedIds = new Set();
+
   function renderPendingApproval() {
     const panel = document.getElementById('pendingApprovalPanel');
     const list = document.getElementById('pendingApprovalList');
@@ -1664,35 +1678,162 @@
     if (countEl) countEl.textContent = pending.length;
     if (!pending.length) {
       panel.style.display = 'none';
+      pendingSelectedIds.clear();
+      updatePendingSelectedUi();
       return;
     }
     panel.style.display = 'block';
+
+    // 사라진 학생 ID는 선택 set에서 제거
+    const validIds = new Set(pending.map(s => s.id));
+    [...pendingSelectedIds].forEach(id => { if (!validIds.has(id)) pendingSelectedIds.delete(id); });
+
     const esc = (v) => String(v||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    list.innerHTML = pending.map(s => `
-      <div style="background:#fff;border:1px solid #E8C56C;border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:240px;">
-          <div style="margin-bottom:4px;">
-            <strong style="font-size:1rem;color:#854F0B;">${esc(s.name||'?')}</strong>
-            <span style="margin-left:8px;font-size:0.82rem;color:#666;">${esc(s.academy||'')}${s.className?' / '+esc(s.className):''}</span>
-            <span style="margin-left:6px;font-size:0.72rem;background:#FFE8A8;color:#854F0B;padding:1px 7px;border-radius:6px;font-weight:700;">대기중</span>
+
+    list.innerHTML = pending.map(s => {
+      const isChecked = pendingSelectedIds.has(s.id);
+      const nameEsc = esc(s.name||'').replace(/'/g,'\\x27');
+      // 디테일 라인 (펼쳤을 때만 보임)
+      const detailParts = [];
+      if (s.school)         detailParts.push('학교: <b>'+esc(s.school)+'</b>');
+      if (s.grade)          detailParts.push('학년: <b>'+esc(s.grade)+'</b>');
+      if (s.goals && s.goals.length) detailParts.push('목적: '+esc(s.goals.join(', ')));
+      if (s.advanceProgress) detailParts.push('선행: <b>'+esc(s.advanceProgress)+'</b>');
+      const phoneParts = [];
+      if (s.parentPhone)    phoneParts.push('👪 학부모('+esc(s.parentRelation||'')+'): <b>'+esc(s.parentPhone)+'</b>');
+      if (s.studentPhone)   phoneParts.push('📱 학생: '+esc(s.studentPhone));
+      const mockParts = [];
+      if (s.mathMockGrade)  mockParts.push('모의수학 '+esc(s.mathMockGrade)+(s.mathMockScore!=null?' ('+s.mathMockScore+'점)':''));
+      if (s.korMockGrade)   mockParts.push('국어 '+esc(s.korMockGrade));
+      if (s.engMockGrade)   mockParts.push('영어 '+esc(s.engMockGrade));
+      if (s.schoolMathGrade)mockParts.push('내신 '+esc(s.schoolMathGrade));
+
+      return `
+      <div class="report-card student-card pending-card" data-pending-id="${s.id}" onclick="toggleStudentCard(this, event)"
+        style="background:#fff;border:1px solid #E8C56C;padding:10px 14px;margin-bottom:6px;">
+        <div class="report-header" style="margin:0;">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+            <input type="checkbox" class="pending-bulk-cb" data-id="${s.id}" ${isChecked?'checked':''}
+              onchange="onPendingCheckbox('${s.id}', this.checked)"
+              style="width:18px;height:18px;cursor:pointer;flex-shrink:0;accent-color:#2a7a2a;">
+            <div style="min-width:0;flex:1;">
+              <strong style="font-size:0.95rem;color:#854F0B;">${esc(s.name||'?')}</strong>
+              <span style="font-size:0.82rem;color:#666;margin-left:8px;">${esc(s.academy||'')}${s.className?' / '+esc(s.className):''}</span>
+              <span style="margin-left:6px;font-size:0.7rem;background:#FFE8A8;color:#854F0B;padding:1px 7px;border-radius:6px;font-weight:700;">대기중</span>
+              <span class="student-card-chevron">▼</span>
+            </div>
           </div>
-          <div style="font-size:0.82rem;color:#555;line-height:1.6;">
-            ${s.school ? '학교: <b>'+esc(s.school)+'</b>' : ''}
-            ${s.grade ? ' · 학년: <b>'+esc(s.grade)+'</b>' : ''}
-            ${s.goals && s.goals.length ? '<br>목적: '+esc(s.goals.join(', ')) : ''}
-            ${s.parentPhone ? '<br>👪 학부모('+esc(s.parentRelation||'')+'): <b>'+esc(s.parentPhone)+'</b>' : ''}
-            ${s.studentPhone ? ' · 📱 학생: '+esc(s.studentPhone) : ''}
-            ${s.mathMockGrade ? '<br>📊 모의수학 '+esc(s.mathMockGrade)+(s.mathMockScore!=null?' ('+s.mathMockScore+'점)':'') : ''}
-            ${s.advanceProgress ? ' · 선행 '+esc(s.advanceProgress) : ''}
-            ${s.dreamUniv ? '<br>🎓 '+esc(s.dreamUniv) : ''}
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+            <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;background:#E5F5E8;font-weight:700;"
+              onclick="event.stopPropagation();approveStudent('${s.id}','${nameEsc}')">✅ 승인</button>
+            <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;font-weight:700;"
+              onclick="event.stopPropagation();rejectStudent('${s.id}','${nameEsc}')">❌ 거부</button>
           </div>
         </div>
-        <div style="display:flex;gap:6px;align-items:flex-start;">
-          <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;background:#E5F5E8;font-weight:700;" onclick="approveStudent('${s.id}','${esc(s.name).replace(/'/g,'\\x27')}')">✅ 승인</button>
-          <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;font-weight:700;" onclick="rejectStudent('${s.id}','${esc(s.name).replace(/'/g,'\\x27')}')">❌ 거부</button>
+        <div class="student-card-details" style="font-size:0.83rem;color:#555;line-height:1.7;">
+          ${detailParts.length ? detailParts.join(' · ') : ''}
+          ${phoneParts.length ? '<br>'+phoneParts.join(' · ') : ''}
+          ${mockParts.length ? '<br>📊 '+mockParts.join(' · ') : ''}
+          ${s.dreamUniv ? '<br>🎓 '+esc(s.dreamUniv) : ''}
+          ${s.weakness ? '<br>🎯 취약: '+esc(s.weakness) : ''}
+          ${s.availableDays && s.availableDays.length ? '<br>📅 등원 가능: '+esc(s.availableDays.join(', ')) : ''}
+          ${s.notes ? '<br><span style="background:#FFE8A8;color:#854F0B;padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">'+esc(s.notes)+'</span>' : ''}
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
+
+    updatePendingSelectedUi();
+  }
+
+  function onPendingCheckbox(id, checked) {
+    if (checked) pendingSelectedIds.add(id);
+    else pendingSelectedIds.delete(id);
+    updatePendingSelectedUi();
+  }
+
+  function togglePendingSelectAll(checked) {
+    const pending = (allStudents || []).filter(s => s.approvalStatus === '대기중');
+    pendingSelectedIds.clear();
+    if (checked) pending.forEach(s => pendingSelectedIds.add(s.id));
+    // DOM 체크박스 동기화
+    document.querySelectorAll('.pending-bulk-cb').forEach(cb => { cb.checked = checked; });
+    updatePendingSelectedUi();
+  }
+
+  function updatePendingSelectedUi() {
+    const countEl = document.getElementById('pendingSelectedCount');
+    const btn = document.getElementById('bulkApproveBtn');
+    const selectAll = document.getElementById('pendingSelectAll');
+    const total = (allStudents || []).filter(s => s.approvalStatus === '대기중').length;
+    const sel = pendingSelectedIds.size;
+    if (countEl) countEl.textContent = sel + '명 선택';
+    if (btn) {
+      if (sel > 0) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.textContent = '✅ 선택 ' + sel + '명 일괄 승인';
+      } else {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'not-allowed';
+        btn.textContent = '✅ 선택 일괄 승인';
+      }
+    }
+    if (selectAll) {
+      selectAll.checked = (total > 0 && sel === total);
+      selectAll.indeterminate = (sel > 0 && sel < total);
+    }
+  }
+
+  async function bulkApprovePending() {
+    const ids = [...pendingSelectedIds];
+    if (!ids.length) return;
+    // 이름 매핑
+    const nameById = {};
+    (allStudents || []).forEach(s => { nameById[s.id] = s.name || '?'; });
+    const namesPreview = ids.slice(0, 5).map(id => nameById[id]).join(', ') + (ids.length > 5 ? ' 외 '+(ids.length-5)+'명' : '');
+    if (!confirm('선택된 ' + ids.length + '명을 일괄 승인할까요?\n\n[' + namesPreview + ']\n\n승인하면 학부모/학생 휴대폰으로 로그인 계정이 자동 생성됩니다 (초기 비번 0000).')) return;
+
+    const btn = document.getElementById('bulkApproveBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'wait';
+      btn.textContent = '⏳ 승인 중... (0/' + ids.length + ')';
+    }
+
+    let ok = 0, fail = 0, totalCreated = 0;
+    const failedNames = [];
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      const name = nameById[id] || '?';
+      try {
+        const res = await fetch('/api/admin-approve-student', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+          body: JSON.stringify({ studentId: id, action: 'approve' }),
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          ok++;
+          totalCreated += ((data.account && data.account.created) || []).length;
+        } else {
+          fail++;
+          failedNames.push(name);
+        }
+      } catch (e) {
+        fail++;
+        failedNames.push(name);
+      }
+      if (btn) btn.textContent = '⏳ 승인 중... (' + (i+1) + '/' + ids.length + ')';
+    }
+
+    pendingSelectedIds.clear();
+    let msg = '✅ 일괄 승인 완료: ' + ok + '명 / 계정 ' + totalCreated + '개 생성';
+    if (fail) msg += ' / ❌ 실패 ' + fail + '명 (' + failedNames.slice(0,3).join(', ') + (fail>3?' 외':'') + ')';
+    showToast(msg);
+    if (typeof loadStudents === 'function') loadStudents();
   }
 
   async function approveStudent(studentId, name) {
