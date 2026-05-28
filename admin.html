@@ -1693,6 +1693,34 @@
     list.innerHTML = pending.map(s => {
       const isChecked = pendingSelectedIds.has(s.id);
       const nameEsc = esc(s.name||'').replace(/'/g,'\\x27');
+
+      // ── 동명이인 감지 (본인 제외 카운트, alias 사용중 번호는 본인 포함) ──
+      const sameNameOthers = (allStudents || []).filter(o =>
+        o.id !== s.id && (o.name || '') === (s.name || '')
+      );
+      const dupCount = sameNameOthers.length;
+      const dupBadge = dupCount > 0
+        ? `<span style="margin-left:6px;font-size:0.7rem;background:#FBE5E9;color:#B02347;padding:1px 7px;border-radius:6px;font-weight:700;">⚠️ 동명이인 ${dupCount}명</span>`
+        : '';
+      // 예측되는 alias 번호 — 본인 alias도 카운트에 포함 (이미 수동 입력된 경우 그 번호 유지)
+      const aliasRegex = new RegExp('^' + (s.name||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
+      const usedAliasNums = new Set();
+      const allSameName = [...sameNameOthers, s]; // 본인도 포함
+      allSameName.forEach(o => {
+        const m = (o.mathPlatName || '').match(aliasRegex);
+        if (m) usedAliasNums.add(parseInt(m[1], 10));
+      });
+      let predictedNum = (s.mathPlatName || '').match(aliasRegex) ? parseInt((s.mathPlatName.match(aliasRegex))[1], 10) : 1;
+      if (!(s.mathPlatName || '').match(aliasRegex)) {
+        while (usedAliasNums.has(predictedNum)) predictedNum++;
+      }
+      const dupNotice = dupCount > 0
+        ? `<div style="margin-top:8px;padding:8px 10px;background:#FBE5E9;border-left:3px solid #B02347;color:#B02347;font-size:0.78rem;line-height:1.65;border-radius:4px;">
+             ⚠️ 같은 이름 학생 <b>${dupCount}명</b> 이미 등록됨. 승인 시 매쓰플랫 alias <b>[${esc(s.name||'')}${predictedNum}]</b> 자동 부여됩니다.
+             <br><span style="font-size:0.72rem;opacity:0.85;">매쓰플랫 명단에도 학생을 같은 이름(${esc(s.name||'')}1·${esc(s.name||'')}2 ...)으로 등록해주세요.</span>
+           </div>`
+        : '';
+
       // 디테일 라인 (펼쳤을 때만 보임)
       const detailParts = [];
       if (s.school)         detailParts.push('학교: <b>'+esc(s.school)+'</b>');
@@ -1720,6 +1748,7 @@
               <strong style="font-size:0.95rem;color:#854F0B;">${esc(s.name||'?')}</strong>
               <span style="font-size:0.82rem;color:#666;margin-left:8px;">${esc(s.academy||'')}${s.className?' / '+esc(s.className):''}</span>
               <span style="margin-left:6px;font-size:0.7rem;background:#FFE8A8;color:#854F0B;padding:1px 7px;border-radius:6px;font-weight:700;">대기중</span>
+              ${dupBadge}
               <span class="student-card-chevron">▼</span>
             </div>
           </div>
@@ -1731,6 +1760,7 @@
           </div>
         </div>
         <div class="student-card-details" style="font-size:0.83rem;color:#555;line-height:1.7;">
+          ${dupNotice}
           ${detailParts.length ? detailParts.join(' · ') : ''}
           ${phoneParts.length ? '<br>'+phoneParts.join(' · ') : ''}
           ${mockParts.length ? '<br>📊 '+mockParts.join(' · ') : ''}
@@ -1805,6 +1835,7 @@
 
     let ok = 0, fail = 0, totalCreated = 0;
     const failedNames = [];
+    const aliasAssigned = []; // 동명이인 alias 부여 결과
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       const name = nameById[id] || '?';
@@ -1818,6 +1849,7 @@
         if (res.ok && data.ok) {
           ok++;
           totalCreated += ((data.account && data.account.created) || []).length;
+          if (data.assignedAlias) aliasAssigned.push(data.assignedAlias);
         } else {
           fail++;
           failedNames.push(name);
@@ -1832,6 +1864,9 @@
     pendingSelectedIds.clear();
     let msg = '✅ 일괄 승인 완료: ' + ok + '명 / 계정 ' + totalCreated + '개 생성';
     if (fail) msg += ' / ❌ 실패 ' + fail + '명 (' + failedNames.slice(0,3).join(', ') + (fail>3?' 외':'') + ')';
+    if (aliasAssigned.length) {
+      msg += '\n📋 매쓰플랫 alias 자동 부여: ' + aliasAssigned.slice(0,3).join(', ') + (aliasAssigned.length > 3 ? ' 외 '+(aliasAssigned.length-3)+'명' : '');
+    }
     showToast(msg);
     if (typeof loadStudents === 'function') loadStudents();
   }
@@ -1850,7 +1885,11 @@
         return;
       }
       const created = (data.account && data.account.created) || [];
-      showToast('✅ ' + name + ' 승인 — 계정 ' + created.length + '개 생성 (초기 비번 ' + data.initialPassword + ')');
+      let msg = '✅ ' + name + ' 승인 — 계정 ' + created.length + '개 생성 (초기 비번 ' + data.initialPassword + ')';
+      if (data.assignedAlias) {
+        msg += '\n📋 매쓰플랫 alias [' + data.assignedAlias + '] 자동 부여 — 매쓰플랫 명단도 같은 이름으로 맞춰주세요';
+      }
+      showToast(msg);
       if (typeof loadStudents === 'function') loadStudents();
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
@@ -1930,6 +1969,7 @@
         ${s.weakness ? '<br><span>🎯 취약: ' + escapeHtml(s.weakness) + '</span>' : ''}
         ${s.dreamUniv ? '&nbsp;&nbsp;<span>🎓 ' + escapeHtml(s.dreamUniv) + '</span>' : ''}
         ${s.availableDays && s.availableDays.length ? '<br><span>📅 등원 가능: ' + escapeHtml(s.availableDays.join(', ')) + '</span>' : ''}
+        ${s.mathPlatName ? '<br><span style="color:#888;font-size:0.74rem;">📋 매쓰플랫: <b style="color:#666;">' + escapeHtml(s.mathPlatName) + '</b></span>' : ''}
         ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + escapeHtml(s.notes) + '</span>' : ''}
         </div>
     </div>`;

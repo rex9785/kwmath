@@ -43,6 +43,7 @@ export async function onRequest({ request, env }) {
         availableDays: multi(props, '등원 가능 요일'),
         notes: rich(props, '특이사항'),
         approvalStatus: sel(props, '승인 상태'),
+        mathPlatName: rich(props, '매쓰플랫 이름'),
         createdAt: p.created_time || '',
       };
     });

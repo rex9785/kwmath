@@ -86,6 +86,70 @@ export async function onRequest({ request, env }) {
     return Response.json({ error: '승인 상태 업데이트 실패: ' + (err.message || ar.status) }, { status: 500 });
   }
 
+  // 1-b) 동명이인 alias 자동 부여 — 같은 이름 학생들 중 alias 비어있으면 김수림1/2/3 자동
+  let assignedAlias = '';
+  let duplicateCount = 0;
+  try {
+    const sameNameRes = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        filter: { property: '이름', title: { equals: name } },
+        page_size: 50,
+      }),
+    });
+    const sameNameData = await sameNameRes.json();
+    const sameNameStudents = (sameNameData.results || [])
+      .filter(p => !p.archived && !p.in_trash);
+
+    duplicateCount = sameNameStudents.length;
+
+    if (sameNameStudents.length >= 2) {
+      // 동명이인 발생 — alias 비어있는 학생들에게 자동 부여
+      // 등록 순(created_time)으로 정렬해서 1, 2, 3... 부여
+      const items = sameNameStudents.map(p => ({
+        id: p.id,
+        alias: ((p.properties['매쓰플랫 이름']?.rich_text || [])[0]?.plain_text || '').trim(),
+        createdAt: p.created_time || '',
+      })).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+      // 이미 사용 중인 번호 추출 (수동 입력 alias 보존)
+      const aliasPattern = new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
+      const usedNumbers = new Set();
+      for (const it of items) {
+        const m = it.alias.match(aliasPattern);
+        if (m) usedNumbers.add(parseInt(m[1], 10));
+      }
+
+      // alias 비어있는 학생에게 다음 사용 가능 번호 부여 (옛 학생 retro 포함)
+      let nextNum = 1;
+      for (const it of items) {
+        if (it.alias) continue;
+        while (usedNumbers.has(nextNum)) nextNum++;
+        const newAlias = name + nextNum;
+        usedNumbers.add(nextNum);
+        try {
+          await fetch(`https://api.notion.com/v1/pages/${it.id}`, {
+            method: 'PATCH', headers,
+            body: JSON.stringify({
+              properties: { '매쓰플랫 이름': { rich_text: [{ text: { content: newAlias } }] } },
+            }),
+          });
+          it.alias = newAlias;
+          if (it.id === studentId) assignedAlias = newAlias;
+        } catch (_) {}
+        // 다음 iteration에서 while이 다시 used를 스킵하므로 별도 ++ 불필요
+      }
+
+      // 본인 alias가 위에서 결정 안 됐다면 (이미 수동으로 채워져 있던 경우) 그 값 사용
+      if (!assignedAlias) {
+        const me = items.find(it => it.id === studentId);
+        if (me) assignedAlias = me.alias;
+      }
+    }
+  } catch (e) {
+    // alias 부여 실패는 비치명적 — 승인 자체는 계속 진행
+  }
+
   // 2) 계정 자동 생성 (학부모/학생 phones)
   const accountResult = { created: [], skipped: [], failed: [] };
   const phonesToCreate = [];
@@ -112,6 +176,9 @@ export async function onRequest({ request, env }) {
     name, studentId,
     account: accountResult,
     initialPassword: INITIAL_PASSWORD,
-    message: `[${name}] 등록 승인 완료. 학부모/학생 휴대폰으로 로그인 가능 (초기 비번 ${INITIAL_PASSWORD}).`,
+    assignedAlias,       // 동명이인이면 부여된 매쓰플랫 alias (예: '김수림2')
+    duplicateCount,      // 같은 이름 학생 수 (본인 포함)
+    message: `[${name}] 등록 승인 완료. 학부모/학생 휴대폰으로 로그인 가능 (초기 비번 ${INITIAL_PASSWORD}).`
+      + (assignedAlias ? `\n동명이인 — 매쓰플랫 alias [${assignedAlias}] 자동 부여됨. 매쓰플랫 명단도 같은 이름으로 등록해주세요.` : ''),
   });
 }

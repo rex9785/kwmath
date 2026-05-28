@@ -69,6 +69,7 @@ export async function onRequest({ request, env }) {
     parentRelation: sel('학부모 관계'),
     parentPhone:    rt('학부모 휴대폰'),
     studentPhone:   rt('학생 연락처'),
+    // 매쓰플랫 alias는 admin 전용 — me 페이지(학생/학부모)에선 노출 안 함
     // 메타
     approvalStatus: sel('승인 상태'),
     createdAt: page.created_time || '',

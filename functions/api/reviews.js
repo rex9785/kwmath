@@ -209,7 +209,7 @@ export async function onRequest({ request, env }) {
         phoneCheck = auth.phone;
       }
 
-      // 페이지 정보 조회 — 본인 확인 + 대기 상태 검증
+      // 페이지 정보 조회 — 본인 확인
       const pageRes = await fetch(`https://api.notion.com/v1/pages/${id}`, {
         method: 'GET', headers: notionHeaders(env),
       });
@@ -218,11 +218,9 @@ export async function onRequest({ request, env }) {
 
       const review = pageToReview(page);
       if (!allow) {
+        // 본인이 작성한 후기는 언제든 삭제 가능 (자동 승인 정책 후 대기 상태 가드 제거)
         if (review.authorPhone !== phoneCheck) {
           return jsonErr('본인이 작성한 후기만 삭제할 수 있습니다.', 403);
-        }
-        if (review.status !== '대기') {
-          return jsonErr('승인되거나 거절된 후기는 삭제할 수 없습니다. 관리자에게 문의하세요.', 403);
         }
       }
 

@@ -87,7 +87,7 @@
     <div class="section-label">후기 작성</div>
     <div class="form-card">
       <h2>관우T 수업, 어떠셨나요?</h2>
-      <div class="sub">관리자 승인 후 노출됩니다. 욕설·홍보·개인정보는 게재하지 않습니다.</div>
+      <div class="sub">작성하신 후기는 즉시 노출됩니다. 욕설·홍보·개인정보 발견 시 비공개 처리될 수 있습니다.</div>
 
       <div class="field">
         <label>작성자 유형</label>
@@ -109,7 +109,7 @@
         <div class="hint" id="charCount">0 / 2000</div>
       </div>
 
-      <button class="btn-primary" id="submitBtn" onclick="submitReview()">후기 등록 (대기 → 승인)</button>
+      <button class="btn-primary" id="submitBtn" onclick="submitReview()">후기 등록</button>
       <div class="err-msg" id="errMsg"></div>
     </div>
   </div>
@@ -122,7 +122,7 @@
     </div>
 
     <div id="browseSection">
-      <div class="section-label">승인된 후기</div>
+      <div class="section-label">수강 후기</div>
       <div id="browseList"></div>
     </div>
 
@@ -199,14 +199,14 @@
         document.getElementById('content').value = '';
         document.getElementById('authorName').value = '';
         document.getElementById('charCount').textContent = '0 / 2000';
-        showToast('후기 등록 완료! 관리자 승인 후 노출됩니다.');
+        showToast('후기 등록 완료! 둘러보기 탭에서 확인할 수 있어요.');
         loadMine();
         switchTab('mine');
       }
     } catch (e) {
       errBox.textContent = '네트워크 오류: ' + e.message;
     } finally {
-      btn.disabled = false; btn.textContent = '후기 등록 (대기 → 승인)';
+      btn.disabled = false; btn.textContent = '후기 등록';
     }
   }
 
@@ -223,10 +223,9 @@
     return `<span class="status-badge ${map[s]||'status-wait'}">${s}</span>`;
   }
 
-  function reviewCardHtml(r, showStatus = false, showDelete = false) {
+  function reviewCardHtml(r, showDelete = false) {
     const typeBadge = `<span class="type-badge">${escapeHtml(r.authorType || '익명')}</span>`;
-    const statusHtml = showStatus ? statusBadge(r.status) : '';
-    const deleteBtn = (showDelete && r.status === '대기')
+    const deleteBtn = showDelete
       ? `<div class="review-actions"><button class="btn-mini" onclick="deleteReview('${r.id}')">삭제</button></div>`
       : '';
     return `
@@ -235,7 +234,6 @@
           <div>
             <span class="review-author">${escapeHtml(r.authorName || '익명')}</span>
             ${typeBadge}
-            ${statusHtml}
           </div>
           <div class="review-meta">${fmtDate(r.createdAt)}</div>
         </div>
@@ -255,8 +253,8 @@
       const data = await res.json();
       if (!res.ok) { box.innerHTML = `<div class="state-box"><p>${escapeHtml(data.error || '조회 실패')}</p></div>`; return; }
       const list = data.reviews || [];
-      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon">📝</div><p>아직 승인된 후기가 없습니다.<br>첫 후기를 남겨보세요!</p></div>'; return; }
-      box.innerHTML = list.map(r => reviewCardHtml(r, false, false)).join('');
+      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon">📝</div><p>아직 등록된 후기가 없습니다.<br>첫 후기를 남겨보세요!</p></div>'; return; }
+      box.innerHTML = list.map(r => reviewCardHtml(r, false)).join('');
     } catch (e) {
       box.innerHTML = `<div class="state-box"><p>네트워크 오류: ${escapeHtml(e.message)}</p></div>`;
     }
@@ -273,14 +271,14 @@
       if (!res.ok) { box.innerHTML = `<div class="state-box"><p>${escapeHtml(data.error || '조회 실패')}</p></div>`; return; }
       const list = data.reviews || [];
       if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>작성한 후기가 없습니다.</p></div>'; return; }
-      box.innerHTML = list.map(r => reviewCardHtml(r, true, true)).join('');
+      box.innerHTML = list.map(r => reviewCardHtml(r, true)).join('');
     } catch (e) {
       box.innerHTML = `<div class="state-box"><p>네트워크 오류: ${escapeHtml(e.message)}</p></div>`;
     }
   }
 
   async function deleteReview(id) {
-    if (!confirm('이 후기를 삭제하시겠어요?\n(대기 상태에서만 가능)')) return;
+    if (!confirm('이 후기를 삭제하시겠어요?\n삭제하면 둘러보기 탭에서도 사라집니다.')) return;
     try {
       const res = await fetch('/api/reviews?id=' + encodeURIComponent(id), {
         method: 'DELETE',

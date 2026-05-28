@@ -142,6 +142,7 @@ export async function fetchStudentsByPhone(env, phone) {
       grade: sel(props, '학년'),
       academy: sel(props, '학원'),
       className: sel(props, '반'),
+      // 매쓰플랫 alias는 admin 전용 — portal 응답에서 제외 (admin은 /api/students에서 받음)
       approvalStatus: sel(props, '승인 상태'),
       // 이 휴대폰이 학부모/학생 중 어느 쪽으로 매칭됐는지
       // 두 번호가 같으면(=부모님 안 계셔서 학생이 자기 번호를 양쪽에 입력) 학생 본인으로 인식
