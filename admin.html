@@ -554,10 +554,13 @@
 <script>
   let adminToken = '';
 
-  // ── 학원/반 옵션 (전역 상수, 스크립트 최상단에서 선언) ──
+  // ── 학원/반 옵션 (전역 상수) ──
+  // 빈 객체로 두면 학생 데이터에서 자동으로 추출됨 (학생 0명인 반은 자동으로 사라짐)
+  // 신규 학원/반은 시즌 전환 / 다른 반 추가 모달에서 자유롭게 입력 가능
+  // 기본값이 필요하면 여기에 추가 가능 (예: 신규 학원에 학생 0명이어도 옵션 유지하고 싶을 때)
   const CLASS_OPTIONS_BY_ACADEMY = {
-    "대치동 정규반": ["썸머 공통수학2반", "썸머 미적반", "썸머 확통반"],
-    "세정학원":      ["썸머 기초특강반", "썸머 공통수학2반"],
+    "대치동 정규반": [],
+    "세정학원":      [],
   };
 
   // 토스트 알림
@@ -789,7 +792,8 @@
     const acad = document.getElementById('newTargetAcademy').value;
     const clsSel = document.getElementById('newTargetClass');
     const stdSel = document.getElementById('newTargetStudent');
-    const opts = (CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    const dyn = (typeof getAllClassOptionsByAcademy === 'function') ? getAllClassOptionsByAcademy() : {};
+    const opts = (dyn[acad] || CLASS_OPTIONS_BY_ACADEMY[acad] || []);
     clsSel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('');
     stdSel.innerHTML = '<option value="">학생 선택</option>';
     clsSel.onchange = function(){
@@ -2325,7 +2329,7 @@
     _ecmStudentId = studentId;
     document.getElementById('ecmName').textContent = name || '?';
     const acadSel = document.getElementById('ecmAcademy');
-    const academies = Object.keys(CLASS_OPTIONS_BY_ACADEMY);
+    const academies = (typeof getAllAcademies === 'function') ? getAllAcademies() : Object.keys(CLASS_OPTIONS_BY_ACADEMY);
     acadSel.innerHTML = academies.map(a => '<option value="' + a + '"' + (a === currentAcademy ? ' selected' : '') + '>' + a + '</option>').join('');
     ecmUpdateClassOptions(currentClass);
     document.getElementById('editClassModal').classList.add('show');
@@ -2336,9 +2340,28 @@
   }
   function ecmUpdateClassOptions(presetClass) {
     const acad = document.getElementById('ecmAcademy').value;
-    const opts = (CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    const dyn = (typeof getAllClassOptionsByAcademy === 'function') ? getAllClassOptionsByAcademy() : {};
+    const opts = (dyn[acad] || CLASS_OPTIONS_BY_ACADEMY[acad] || []);
     const sel = document.getElementById('ecmClass');
-    sel.innerHTML = opts.map(c => '<option value="' + c + '"' + (c === presetClass ? ' selected' : '') + '>' + c + '</option>').join('');
+    // presetClass 가 dynamic options에 없으면 추가
+    const optsWithPreset = (presetClass && !opts.includes(presetClass)) ? [presetClass, ...opts] : opts;
+    sel.innerHTML = optsWithPreset.map(c => '<option value="' + c + '"' + (c === presetClass ? ' selected' : '') + '>' + c + '</option>').join('')
+                  + '<option value="__new__">➕ 새 반 만들기...</option>';
+    sel.onchange = function(){
+      if (sel.value === '__new__') {
+        const newName = prompt('새 반 이름을 입력하세요');
+        if (newName && newName.trim()) {
+          const opt = document.createElement('option');
+          opt.value = newName.trim();
+          opt.textContent = newName.trim();
+          opt.selected = true;
+          sel.insertBefore(opt, sel.lastChild);
+          sel.value = newName.trim();
+        } else {
+          sel.value = presetClass || '';
+        }
+      }
+    };
   }
   // ─── 다른 반 추가 등록 모달 ───
   let _aemSourceId = '';

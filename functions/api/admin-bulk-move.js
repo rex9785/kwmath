@@ -79,7 +79,7 @@ async function copyEnrollment(env, headers, sourceId, academy, className) {
     '수강 목적':         { multi_select: ms('수강 목적').map(n => ({ name: n })) },
     '학원':              { select: { name: academy } },
     '반':                { select: { name: className } },
-    '특이사항':          { rich_text: [{ text: { content: '[시즌 전환 추가 enrollment] ' + (rt('특이사항') || '') } }] },
+    '특이사항':          { rich_text: [{ text: { content: (rt('특이사항') || '') } }] },
     '개인키':            { rich_text: [{ text: { content: newKey } }] },
     '취약 단원':         { rich_text: [{ text: { content: rt('취약 단원') } }] },
     '희망 대학/계열':    { rich_text: [{ text: { content: rt('희망 대학/계열') } }] },
