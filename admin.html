@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>관리자 페이지 | LKW math LAB</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
@@ -27,7 +27,7 @@
 
   /* ── 관리자 대시보드 ── */
   #dashboard{display:none;}
-  .topbar{background:var(--primary);color:#fff;padding:env(safe-area-inset-top,0) 5% 0 5%;min-height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .topbar{background:var(--primary);color:#fff;padding:0 5%;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
   .topbar-title{font-size:1rem;font-weight:900;letter-spacing:-0.5px;}
   .topbar-right{display:flex;align-items:center;gap:16px;}
   .topbar-link{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;transition:color .2s;}
@@ -2775,4 +2775,178 @@
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
         <span style="font-size:0.72rem;color:var(--text-light);margin-right:2px;">오늘:</span>
         <button class="att-btn" data-s="출석" onclick="markAttendance('${nameEsc}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
-        <button class="att-btn" data-s="지각" onclick="markAttendance('${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-we
+        <button class="att-btn" data-s="지각" onclick="markAttendance('${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
+        <button class="att-btn" data-s="결석" onclick="markAttendance('${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
+        <button class="att-btn" data-s="병결" onclick="markAttendance('${nameEsc}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
+        <span style="font-size:0.72rem;color:var(--text-light);margin-left:10px;margin-right:2px;">숙제:</span>
+        <div class="hw-bucket" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
+          <button class="hw-btn" data-p="0"   onclick="markHomework('${nameEsc}',0,this)">0</button>
+          <button class="hw-btn" data-p="25"  onclick="markHomework('${nameEsc}',25,this)">25</button>
+          <button class="hw-btn" data-p="50"  onclick="markHomework('${nameEsc}',50,this)">50</button>
+          <button class="hw-btn" data-p="75"  onclick="markHomework('${nameEsc}',75,this)">75</button>
+          <button class="hw-btn" data-p="100" onclick="markHomework('${nameEsc}',100,this)">100</button>
+        </div>
+        <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${nameEsc}')">📋</button>
+      </div>
+    </div>`;
+  }
+
+  // ─── 학원/반 수정 모달 ───
+  let _ecmStudentId = '';
+  function openEditClassModal(studentId, name, currentAcademy, currentClass) {
+    _ecmStudentId = studentId;
+    document.getElementById('ecmName').textContent = name || '?';
+    const acadSel = document.getElementById('ecmAcademy');
+    const academies = (typeof getAllAcademies === 'function') ? getAllAcademies() : Object.keys(CLASS_OPTIONS_BY_ACADEMY);
+    acadSel.innerHTML = academies.map(a => '<option value="' + a + '"' + (a === currentAcademy ? ' selected' : '') + '>' + a + '</option>').join('');
+    ecmUpdateClassOptions(currentClass);
+    document.getElementById('editClassModal').classList.add('show');
+  }
+  function closeEditClassModal() {
+    document.getElementById('editClassModal').classList.remove('show');
+    _ecmStudentId = '';
+  }
+  function ecmUpdateClassOptions(presetClass) {
+    const acad = document.getElementById('ecmAcademy').value;
+    const dyn = (typeof getAllClassOptionsByAcademy === 'function') ? getAllClassOptionsByAcademy() : {};
+    const opts = (dyn[acad] || CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    const sel = document.getElementById('ecmClass');
+    // presetClass 가 dynamic options에 없으면 추가
+    const optsWithPreset = (presetClass && !opts.includes(presetClass)) ? [presetClass, ...opts] : opts;
+    sel.innerHTML = optsWithPreset.map(c => '<option value="' + c + '"' + (c === presetClass ? ' selected' : '') + '>' + c + '</option>').join('')
+                  + '<option value="__new__">➕ 새 반 만들기...</option>';
+    sel.onchange = function(){
+      if (sel.value === '__new__') {
+        const newName = prompt('새 반 이름을 입력하세요');
+        if (newName && newName.trim()) {
+          const opt = document.createElement('option');
+          opt.value = newName.trim();
+          opt.textContent = newName.trim();
+          opt.selected = true;
+          sel.insertBefore(opt, sel.lastChild);
+          sel.value = newName.trim();
+        } else {
+          sel.value = presetClass || '';
+        }
+      }
+    };
+  }
+  // ─── 다른 반 추가 등록 모달 ───
+  let _aemSourceId = '';
+  function openAddEnrollmentModal(sourceId, name, currentAcademy, currentClass) {
+    _aemSourceId = sourceId;
+    document.getElementById('aemName').textContent = name || '?';
+    document.getElementById('aemCurrentClass').textContent = (currentAcademy || '') + (currentClass ? ' · ' + currentClass : '');
+    const acadSel = document.getElementById('aemAcademy');
+    const academies = getAllAcademies();
+    acadSel.innerHTML = academies.map(a => '<option value="' + a + '"' + (a === currentAcademy ? ' selected' : '') + '>' + a + '</option>').join('');
+    aemUpdateClassOptions();
+    document.getElementById('addEnrollmentModal').classList.add('show');
+  }
+  function closeAddEnrollmentModal() {
+    document.getElementById('addEnrollmentModal').classList.remove('show');
+    _aemSourceId = '';
+  }
+  function aemUpdateClassOptions() {
+    const acad = document.getElementById('aemAcademy').value;
+    const dyn = getAllClassOptionsByAcademy();
+    const opts = (dyn[acad] || []);
+    const sel = document.getElementById('aemClass');
+    sel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('')
+                  + '<option value="__new__">➕ 새 반 만들기...</option>';
+    // 새 반 입력 input은 추가하지 않음 — 시즌 전환 모달과 달리 단일 학생 모달이라 단순하게
+    sel.onchange = function(){
+      if (sel.value === '__new__') {
+        const newName = prompt('새 반 이름을 입력하세요 (예: 2학기 미적반)');
+        if (newName && newName.trim()) {
+          // 즉시 옵션 추가하고 선택
+          const opt = document.createElement('option');
+          opt.value = newName.trim();
+          opt.textContent = newName.trim();
+          opt.selected = true;
+          sel.insertBefore(opt, sel.lastChild);
+          sel.value = newName.trim();
+        } else {
+          sel.value = '';
+        }
+      }
+    };
+  }
+  async function submitAddEnrollment() {
+    const sourceId  = _aemSourceId;
+    if (!sourceId) return;
+    const academy   = document.getElementById('aemAcademy').value;
+    const className = document.getElementById('aemClass').value;
+    if (!academy || !className) { showToast('학원/반 선택하세요'); return; }
+    if (!confirm('새 반에 추가 등록할까요?\n학원: ' + academy + '\n반: ' + className)) return;
+    try {
+      const res = await fetch('/api/admin-add-enrollment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ sourceStudentId: sourceId, academy: academy, className: className }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ 추가 등록 실패: ' + (data.error || res.status));
+        return;
+      }
+      showToast('✅ ' + data.name + ' — ' + data.academy + ' · ' + data.className + ' 추가 등록 완료');
+      closeAddEnrollmentModal();
+      if (typeof loadStudents === 'function') loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  async function submitEditClass() {
+    const studentId = _ecmStudentId;
+    if (!studentId) return;
+    const academy   = document.getElementById('ecmAcademy').value;
+    const className = document.getElementById('ecmClass').value;
+    if (!academy || !className) { showToast('학원/반 선택하세요'); return; }
+    if (!confirm('학원/반을 변경할까요?\n학원: ' + academy + '\n반: ' + className + '\n\n변경 후엔 옛 반의 영상/자료를 학생이 못 보게 됩니다.')) return;
+    try {
+      const res = await fetch('/api/admin-update-student-class', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ studentId: studentId, academy: academy, className: className }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast('❌ 변경 실패: ' + (data.error || res.status));
+        return;
+      }
+      if (data.noChange) {
+        showToast('변경 사항 없음 (이미 같은 학원/반)');
+      } else {
+        showToast('✅ ' + (data.name || '학생') + ' — ' + data.to.academy + '/' + data.to.className + ' 변경 완료');
+      }
+      closeEditClassModal();
+      if (typeof loadStudents === 'function') loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
+  async function showLastHomework(name) {
+    if (!name) return;
+    showToast('📋 ' + name + ' 지난 숙제 조회 중...');
+    try {
+      const res = await fetch('/api/reports?name=' + encodeURIComponent(name), {
+        headers: { 'Authorization': 'Bearer ' + adminToken }
+      });
+      const data = await res.json();
+      if (!res.ok) { alert('조회 실패: ' + (data.error || res.status)); return; }
+      const reports = (data && data.reports) || [];
+      if (!reports.length) { alert(name + ' 학생: 등록된 수업 리포트가 없습니다.'); return; }
+      const last = reports[0];
+      const hw = (last.homework || '').trim() || '(숙제 내용 없음)';
+      const dateStr = last.date || '(날짜 없음)';
+      alert('📋 ' + name + ' — 지난 회차(' + dateStr + ') 숙제\n\n' + hw);
+    } catch (e) {
+      alert('네트워크 오류: ' + e.message);
+    }
+  }
+</script>
+</body>
+</html>

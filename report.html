@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>수업영상 및 레포트 | 이관우 수학연구소</title>
 <link rel="manifest" href="/manifest.json?v=2">
 <meta name="theme-color" content="#8B1A35">
@@ -13,7 +13,7 @@
   :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
-  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;}
   .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
   .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -353,4 +353,126 @@
         if (v.locked) {
           videoRow = `<div class="video-row">
             <button class="video-watch locked" onclick="event.stopPropagation();unlockVideo('${codeEsc}','${nameEsc}')">
-              <span class="video-watch-play">🔒</span> 코드 입
+              <span class="video-watch-play">🔒</span> 코드 입력 후 시청 →
+            </button>
+          </div>
+          <div class="video-note">🔒 선생님이 알려준 수업코드 필요</div>`;
+        } else {
+          videoRow = `<div class="video-row">
+            <a href="${escapeHtml(v.youtube_url || '#')}" target="_blank" class="video-watch" onclick="event.stopPropagation();logView('${codeEsc}','${nameEsc}')">
+              <span class="video-watch-play"><svg width="9" height="9" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span> 수업영상 시청하기 →
+            </a>
+          </div>
+          <div class="video-note">영상 시청 기록이 선생님께 전달됩니다</div>`;
+        }
+      }
+
+      // 리포트 본문
+      let reportBody = '';
+      if (r) {
+        reportBody = `
+          ${r.content ? `<div class="report-field"><div class="report-label">수업 내용</div><div class="report-val">${escapeHtml(r.content).replace(/\n/g,'<br>')}</div></div>` : ''}
+          ${r.homework ? `<div class="report-field"><div class="report-label">숙제</div><div class="report-val"><span class="hw-badge">HW</span><br>${escapeHtml(r.homework).replace(/\n/g,'<br>')}</div></div>` : ''}
+          ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${escapeHtml(r.notes).replace(/\n/g,'<br>')}</div></div>` : ''}
+        `;
+      } else {
+        reportBody = `<div class="no-report-msg">📋 이 회차의 수업 레포트는 아직 등록되지 않았습니다.</div>`;
+      }
+
+      return `
+        <div class="report-card" id="rc-${absoluteIdx}">
+          <div class="report-card-header" onclick="toggleReport(${absoluteIdx})">
+            <div class="report-card-date">
+              ${showNew ? '<span class="new-badge">NEW</span>' : ''}
+              <span>${escapeHtml(dateStr)} 수업</span>
+              ${iconBadge}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="report-card-school">${escapeHtml(school || classMeta || '')}</span>
+              <span class="report-card-arrow">▾</span>
+            </div>
+          </div>
+          <div class="report-card-body">
+            ${videoRow}
+            ${reportBody}
+          </div>
+        </div>`;
+    }).join('');
+
+    let pagerHtml = '';
+    if (totalPages > 1) {
+      const pageBtns = [];
+      for (let p = 1; p <= totalPages; p++) {
+        pageBtns.push(`<button class="page-btn${p===currentPage?' active':''}" onclick="gotoReportPage(${p})">${p}</button>`);
+      }
+      pagerHtml = `<div class="pagination">
+        <button class="page-btn" onclick="gotoReportPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>
+        ${pageBtns.join('')}
+        <button class="page-btn" onclick="gotoReportPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>
+      </div>`;
+    }
+
+    listEl.innerHTML = cardsHtml + pagerHtml;
+    const firstCard = $('rc-' + start);
+    if (firstCard) firstCard.classList.add('open');
+  }
+
+  function toggleReport(idx) {
+    const el = $('rc-' + idx);
+    if (el) el.classList.toggle('open');
+  }
+
+  // ─── 영상 시청 기록 / 잠금 해제 (video.html에서 가져옴) ───
+  async function logView(code, name){
+    if (!code) return;
+    try {
+      await fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name }) });
+    } catch (_) {}
+  }
+  async function unlockVideo(expectedCode, studentName){
+    const input = prompt('선생님께 받은 수업코드를 입력해주세요\n(예: S2-0520-A7)');
+    if (!input) return;
+    const code = input.trim().toUpperCase();
+    if (code !== (expectedCode || '').toUpperCase()) { alert('수업코드가 일치하지 않습니다.'); return; }
+    try {
+      const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
+      const data = await res.json();
+      if (!res.ok || !data.youtube_url) { alert('영상을 불러오지 못했습니다: ' + (data.error || res.status)); return; }
+      fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name: studentName }) }).catch(() => {});
+      window.open(data.youtube_url, '_blank');
+    } catch (e) { alert('오류: ' + e.message); }
+  }
+  function gotoReportPage(p) {
+    currentPage = p;
+    renderReportPage();
+    const top = $('reportList');
+    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ─── 파일 다운로드 (토큰 + 학생 이름 query) ───
+  async function downloadFile(key) {
+    try {
+      const params = new URLSearchParams({ key, name: selectedStudent.name });
+      const res = await fetch('/api/download-file?' + params, { headers: authHeaders() });
+      if (!res.ok) {
+        let msg = '다운로드 실패 (' + res.status + ')';
+        try { const err = await res.json(); if (err.error) msg = err.error; } catch (_) {}
+        alert(msg);
+        return;
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = key.split('/').pop();
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      alert('다운로드 중 오류: ' + e.message);
+    }
+  }
+</script>
+</body>
+</html>
