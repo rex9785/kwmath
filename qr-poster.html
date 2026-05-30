@@ -71,8 +71,8 @@
     <div>
       <label>가운데 로고</label>
       <select id="qrLogo">
-        <option value="k-box" selected>K 박스 (브랜드)</option>
-        <option value="logo">학원 로고 (세로로고.jpg)</option>
+        <option value="logo" selected>학원 로고 (어플 아이콘)</option>
+        <option value="k-box">K 박스 (텍스트)</option>
         <option value="none">없음</option>
       </select>
     </div>
@@ -113,7 +113,7 @@
   _img.crossOrigin = 'anonymous';
   _img.onload = function() { logoImg = _img; render(); };
   _img.onerror = function() { logoImg = null; };
-  _img.src = '/세로로고.jpg';
+  _img.src = '/icons/icon-512.png';
 
   function render() {
     const url = document.getElementById('qrUrl').value.trim() || 'https://kwmath.co.kr/install';
