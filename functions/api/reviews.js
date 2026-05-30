@@ -10,6 +10,7 @@
 // PATCH  /api/reviews?id=...   admin. { status: '승인'|'거절'|'대기', mainShow?: boolean, memo?: string }
 
 import { requireAuth, fetchStudentsByPhone, normalizePhone } from './_auth.js';
+import { safeError, logError } from './_errors.js';
 
 const REVIEWS_DB = 'cafcab7fffd746d7948daf7c206820bd';
 
@@ -189,7 +190,7 @@ export async function onRequest({ request, env }) {
         }),
       });
       const created = await createRes.json();
-      if (created.object === 'error') return jsonErr(created.message || '후기 등록 실패', 500);
+      if (created.object === 'error') { logError(created); return jsonErr('후기 등록에 실패했습니다.', 500); }
 
       return jsonOk({ ok: true, id: created.id, status: '대기' });
     }
@@ -214,7 +215,7 @@ export async function onRequest({ request, env }) {
         method: 'GET', headers: notionHeaders(env),
       });
       const page = await pageRes.json();
-      if (page.object === 'error') return jsonErr(page.message || '후기를 찾을 수 없습니다.', 404);
+      if (page.object === 'error') { logError(page); return jsonErr('후기를 찾을 수 없습니다.', 404); }
 
       const review = pageToReview(page);
       if (!allow) {
@@ -230,7 +231,7 @@ export async function onRequest({ request, env }) {
         body: JSON.stringify({ archived: true }),
       });
       const archived = await archRes.json();
-      if (archived.object === 'error') return jsonErr(archived.message || '삭제 실패', 500);
+      if (archived.object === 'error') { logError(archived); return jsonErr('삭제에 실패했습니다.', 500); }
 
       return jsonOk({ ok: true });
     }
@@ -269,13 +270,13 @@ export async function onRequest({ request, env }) {
         body: JSON.stringify({ properties: props }),
       });
       const updated = await patchRes.json();
-      if (updated.object === 'error') return jsonErr(updated.message || '수정 실패', 500);
+      if (updated.object === 'error') { logError(updated); return jsonErr('수정에 실패했습니다.', 500); }
 
       return jsonOk({ ok: true });
     }
 
     return jsonErr('지원하지 않는 메소드입니다.', 405);
   } catch (err) {
-    return jsonErr('서버 오류: ' + (err.message || err), 500);
+    return safeError(err, env);
   }
 }
