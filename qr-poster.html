@@ -113,7 +113,7 @@
   _img.crossOrigin = 'anonymous';
   _img.onload = function() { logoImg = _img; render(); };
   _img.onerror = function() { logoImg = null; };
-  _img.src = '/icons/icon-512.png';
+  _img.src = '/icons/qr-center-logo.png';
 
   function render() {
     const url = document.getElementById('qrUrl').value.trim() || 'https://kwmath.co.kr/install';
@@ -133,9 +133,14 @@
   function drawCenterLogo(mode, scale) {
     const ctx = canvas.getContext('2d');
     const size = canvas.width;
+    // 실제로 그려진 QR 모듈 영역의 중심을 찾아서 거기에 로고를 놓는다.
+    // (QRious가 작은 사이즈에서 모듈 반올림 잔여 공간을 우하단에 남기는 문제 회피)
+    const qrBounds = findQrBounds(ctx, size);
+    const cx = (qrBounds.minX + qrBounds.maxX) / 2;
+    const cy = (qrBounds.minY + qrBounds.maxY) / 2;
     const logoSize = Math.round(size * scale);
-    const x = Math.round((size - logoSize) / 2);
-    const y = Math.round((size - logoSize) / 2);
+    const x = Math.round(cx - logoSize / 2);
+    const y = Math.round(cy - logoSize / 2);
     const pad = Math.round(logoSize * 0.12);
     const radius = Math.round(logoSize * 0.18);
     ctx.fillStyle = '#ffffff';
@@ -144,11 +149,32 @@
     if (mode === 'logo' && logoImg) {
       ctx.drawImage(logoImg, x, y, logoSize, logoSize);
     } else {
-      drawKBox(ctx, x, y, size, logoSize);
+      drawKBox(ctx, x, y, logoSize, cx, cy);
     }
   }
 
-  function drawKBox(ctx, x, y, size, logoSize) {
+  function findQrBounds(ctx, size) {
+    // 크림슨 전경(#8B1A35) 픽셀의 bounding box를 찾아 시각 중심 계산
+    const data = ctx.getImageData(0, 0, size, size).data;
+    let minX = size, minY = size, maxX = 0, maxY = 0;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+        // 크림슨 픽셀 검출 (R 100~200, G <80, B 30~100)
+        if (data[i] > 100 && data[i] < 200 && data[i+1] < 80 && data[i+2] > 30 && data[i+2] < 100) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    // 검출 실패 시 캔버스 중심 fallback
+    if (maxX === 0) return { minX: 0, minY: 0, maxX: size, maxY: size };
+    return { minX, minY, maxX, maxY };
+  }
+
+  function drawKBox(ctx, x, y, logoSize, cx, cy) {
     ctx.fillStyle = '#8B1A35';
     roundRect(ctx, x, y, logoSize, logoSize, Math.round(logoSize * 0.22));
     ctx.fill();
@@ -156,7 +182,7 @@
     ctx.font = '900 ' + Math.round(logoSize * 0.62) + 'px "Noto Sans KR", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('K', size / 2, size / 2 + logoSize * 0.02);
+    ctx.fillText('K', cx, cy + logoSize * 0.02);
   }
 
   function roundRect(ctx, x, y, w, h, r) {
