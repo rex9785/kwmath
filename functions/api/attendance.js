@@ -1,41 +1,19 @@
 // /api/attendance
-// 출석 + 숙제 완료율 기록 R2 저장. 학생별 1개 파일.
+// 출석 + 숙제 완료율 — Cloudflare D1 attendance 테이블 (Phase 4 전환, 이전엔 R2 attendance/{name}.json)
+// 학생 명단/인증은 _auth(현재 Notion). 이름 → D1 student_id 변환 후 D1 attendance 사용.
 //
-// 저장 경로: attendance/{학생이름}.json
-// records[date] 는 다음 둘 중 하나:
-//   - string (옛 데이터)            예: "출석"
-//   - object {status, homework?, homework_note?, note?, method?, ...}
-// 응답은 항상 object 로 정규화해서 내려줌.
+// GET ?name=홍길동 [&month=YYYY-MM]  — 특정 학생 기록 (admin 또는 본인/자녀)
+// GET ?all=1                         — 모든 학생 (admin only)
+// POST { name, date, status?, homework?, homework_note?, note? } — 부분 업데이트 (admin only)
+// DELETE { name, date }              — 그날 기록 삭제 (admin only)
 //
-// GET ?name=홍길동                  — 특정 학생의 전체 기록 (admin 또는 본인)
-// GET ?name=홍길동&month=2026-05    — 특정 월만
-// GET ?all=1                        — 모든 학생 (admin only)
-// POST { name, date, status?, homework?, homework_note?, note? } — 부분 업데이트 가능 (admin only)
-// DELETE { name, date }             — 그날 기록 통째로 삭제 (admin only)
-//
-// status: '출석' / '지각' / '결석' / '병결' / '공결'
-// homework: 0~100 (5단계 권장: 0, 25, 50, 75, 100)
+// status: '출석' / '지각' / '결석' / '병결' / '공결'   homework: 0~100
 
 import { requireStudentAccess } from './_auth.js';
+import { getStudentByName, getStudentsByPhone, getAttendance, upsertAttendance, deleteAttendance, listAllAttendance } from './_db.js';
+import { safeError } from './_errors.js';
 
 const VALID_STATUS = ['출석', '지각', '결석', '병결', '공결'];
-
-function normalizeRecord(v) {
-  if (v == null) return null;
-  if (typeof v === 'string') return { status: v };
-  if (typeof v === 'object') return v;
-  return null;
-}
-function normalizeRecords(records) {
-  const out = {};
-  if (records && typeof records === 'object') {
-    for (const [d, v] of Object.entries(records)) {
-      const n = normalizeRecord(v);
-      if (n) out[d] = n;
-    }
-  }
-  return out;
-}
 
 export async function onRequest({ request, env }) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
@@ -44,54 +22,48 @@ export async function onRequest({ request, env }) {
 
   // ── GET ──
   if (request.method === 'GET') {
+    // admin 전체
     if (isAdmin && url.searchParams.get('all') === '1') {
       try {
-        const listed = await env.BUCKET.list({ prefix: 'attendance/', limit: 500 });
-        const out = [];
-        for (const obj of (listed.objects || [])) {
-          try {
-            const o = await env.BUCKET.get(obj.key);
-            if (!o) continue;
-            const rec = JSON.parse(await o.text());
-            rec.records = normalizeRecords(rec.records);
-            out.push(rec);
-          } catch {}
-        }
+        const out = await listAllAttendance(env);
         return Response.json(out);
       } catch (e) {
-        return Response.json({ error: e.message }, { status: 500 });
+        return safeError(e, env, { message: '출결 기록을 불러오지 못했습니다.' });
       }
     }
 
+    // 특정 학생 (admin: ?name / 학생·학부모: 본인·자녀)
     let targetName = (url.searchParams.get('name') || '').trim();
-    if (!isAdmin) {
-      const access = await requireStudentAccess(env, request);
-      if (!access.ok) return access.response;
-      targetName = access.student.name;
+    let studentId = null;
+    try {
+      if (!isAdmin) {
+        const access = await requireStudentAccess(env, request);
+        if (!access.ok) return access.response;
+        targetName = access.student.name;
+        const list = await getStudentsByPhone(env, access.phone);
+        const me = list.find(s => s.name === targetName) || (list.length === 1 ? list[0] : null);
+        studentId = me ? me.id : null;
+      } else {
+        if (!targetName) return Response.json({ error: 'name 필수' }, { status: 400 });
+        const st = await getStudentByName(env, targetName);
+        studentId = st ? st.id : null;
+      }
+    } catch (e) {
+      return safeError(e, env, { message: '출결 기록을 불러오지 못했습니다.' });
     }
     if (!targetName) return Response.json({ error: 'name 필수' }, { status: 400 });
+    if (!studentId) return Response.json({ name: targetName, records: {}, updatedAt: null });
 
+    const month = (url.searchParams.get('month') || '').trim();
     try {
-      const obj = await env.BUCKET.get('attendance/' + encodeURIComponent(targetName) + '.json');
-      if (!obj) return Response.json({ name: targetName, records: {}, updatedAt: null });
-      const rec = JSON.parse(await obj.text());
-      rec.records = normalizeRecords(rec.records);
-
-      const month = (url.searchParams.get('month') || '').trim();
-      if (month) {
-        const filtered = {};
-        for (const [date, r] of Object.entries(rec.records)) {
-          if (date.startsWith(month)) filtered[date] = r;
-        }
-        rec.records = filtered;
-      }
-      return Response.json(rec);
+      const got = await getAttendance(env, studentId, month || undefined);
+      return Response.json({ name: targetName, records: got.records, updatedAt: got.updatedAt });
     } catch (e) {
-      return Response.json({ error: e.message }, { status: 500 });
+      return safeError(e, env, { message: '출결 기록을 불러오지 못했습니다.' });
     }
   }
 
-  // ── POST: 부분 업데이트 (status 또는 homework 등 일부만) — admin only ──
+  // ── POST: 부분 업데이트 (admin only) ──
   if (request.method === 'POST') {
     if (!isAdmin) return Response.json({ error: 'admin 인증 필요' }, { status: 401 });
 
@@ -120,33 +92,18 @@ export async function onRequest({ request, env }) {
     if (!Object.keys(updates).length)
       return Response.json({ error: '업데이트할 필드 없음(status/homework/homework_note/note)' }, { status: 400 });
 
-    const key = 'attendance/' + encodeURIComponent(name) + '.json';
-    let rec = { name, records: {}, updatedAt: '' };
     try {
-      const obj = await env.BUCKET.get(key);
-      if (obj) {
-        const parsed = JSON.parse(await obj.text());
-        if (parsed && typeof parsed === 'object') rec = parsed;
-        if (!rec.records) rec.records = {};
-      }
-    } catch {}
-    rec.records = normalizeRecords(rec.records);
-    rec.name = name;
-
-    const prev = rec.records[date] || {};
-    const merged = { ...prev, ...updates };
-    rec.records[date] = merged;
-    rec.updatedAt = new Date().toISOString();
-
-    try {
-      await env.BUCKET.put(key, JSON.stringify(rec), { httpMetadata: { contentType: 'application/json' } });
-      return Response.json({ ok: true, name, date, record: merged });
+      const st = await getStudentByName(env, name);
+      if (!st) return Response.json({ error: '학생을 D1에서 찾을 수 없습니다. (신규 등록 학생이면 마이그레이션 재실행 필요)' }, { status: 404 });
+      const r = await upsertAttendance(env, st.id, date, updates);
+      if (!r.ok) return safeError(r.error || 'upsertAttendance failed', env, { message: '출결 저장에 실패했습니다.' });
+      return Response.json({ ok: true, name, date, record: r.record });
     } catch (e) {
-      return Response.json({ error: e.message }, { status: 500 });
+      return safeError(e, env, { message: '출결 저장에 실패했습니다.' });
     }
   }
 
-  // ── DELETE: 특정 날짜 기록 삭제 (admin only) ──
+  // ── DELETE: 특정 날짜 삭제 (admin only) ──
   if (request.method === 'DELETE') {
     if (!isAdmin) return Response.json({ error: 'admin 인증 필요' }, { status: 401 });
     let body = {};
@@ -155,21 +112,13 @@ export async function onRequest({ request, env }) {
     const date = (body.date || '').trim();
     if (!name || !date) return Response.json({ error: 'name + date 필수' }, { status: 400 });
 
-    const key = 'attendance/' + encodeURIComponent(name) + '.json';
     try {
-      const obj = await env.BUCKET.get(key);
-      if (!obj) return Response.json({ ok: true, removed: 0 });
-      const rec = JSON.parse(await obj.text());
-      rec.records = normalizeRecords(rec.records);
-      if (rec.records[date]) {
-        delete rec.records[date];
-        rec.updatedAt = new Date().toISOString();
-        await env.BUCKET.put(key, JSON.stringify(rec), { httpMetadata: { contentType: 'application/json' } });
-        return Response.json({ ok: true, removed: 1 });
-      }
-      return Response.json({ ok: true, removed: 0 });
+      const st = await getStudentByName(env, name);
+      if (!st) return Response.json({ ok: true, removed: 0 });
+      const r = await deleteAttendance(env, st.id, date);
+      return Response.json({ ok: true, removed: r.removed || 0 });
     } catch (e) {
-      return Response.json({ error: e.message }, { status: 500 });
+      return safeError(e, env, { message: '출결 삭제에 실패했습니다.' });
     }
   }
 
