@@ -1,13 +1,15 @@
 // /api/study-class
 // 같은 반 학생들의 주간 공부량 통계 + 본인 순위 (익명)
 //
-// GET ?week=YYYY-Www (선택, 미지정 시 이번 주)
-//   학생/학부모 토큰 → 본인(자녀) 반 통계
-//   admin 토큰 + ?academy=X&class=Y → 그 반 전체
-// 
-// 응답: { ok, academy, className, week, students: [{anonName, minutes, isMe}], myMinutes, myRank, classAvg, classTotal }
+// 공부 데이터: Cloudflare D1 study_sessions (Phase 4 전환 — 이전엔 R2 study/{name}.json)
+// 반 명단: Notion 학생 DB (students 묶음 전환 전까지 노션 유지)
+//
+// GET ?week=YYYY-Www (선택)
+//   학생/학부모 토큰 → 본인(자녀) 반 통계 / admin 토큰 + ?academy=X&class=Y → 그 반 전체
 
 import { requireStudentAccess, STUDENTS_DB } from './_auth.js';
+import { getStudentByName, getStudySessions } from './_db.js';
+import { safeError } from './_errors.js';
 
 function ymd(d) {
   const dt = (d instanceof Date) ? d : new Date(d);
@@ -24,14 +26,14 @@ function weekRange(date) {
   return { start: monday, end: sunday };
 }
 
+// 학생 이름 → D1 student_id → 주간 공부 분 합계
 async function loadStudyTotal(env, name, startStr, endStr) {
   try {
-    const obj = await env.BUCKET.get('study/' + encodeURIComponent(name) + '.json');
-    if (!obj) return 0;
-    const rec = JSON.parse(await obj.text());
-    const sessions = Array.isArray(rec.sessions) ? rec.sessions : 0;
+    const st = await getStudentByName(env, name);
+    if (!st) return 0;
+    const sessions = await getStudySessions(env, st.id);
     let sum = 0;
-    for (const s of (rec.sessions || [])) {
+    for (const s of sessions) {
       const d = s.date || ymd(s.startedAt);
       if (d >= startStr && d <= endStr) sum += Number(s.minutes) || 0;
     }
@@ -141,6 +143,6 @@ export async function onRequest({ request, env }) {
       students: studentsOut,
     });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, env, { message: '반 통계를 불러오지 못했습니다.' });
   }
 }

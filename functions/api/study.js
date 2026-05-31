@@ -1,16 +1,16 @@
 // /api/study
-// KW-Study — 학생 자기보고 공부 시간 기록 (Phase 1, 단순화 v2)
+// KW-Study — 학생 자기보고 공부 시간 기록
 //
-// 저장: R2 study/{학생이름}.json
-// 구조:
-//   { name, sessions: [ {id, startedAt, endedAt, minutes, date} ], updatedAt }
+// 저장: Cloudflare D1 study_sessions 테이블 (Phase 4 전환 — 이전엔 R2 study/{name}.json)
+// 인증: requireStudentAccess (_auth, 현재 Notion). 로그인 phone+이름 → D1 student_id.
 //
-// GET (학생/학부모 토큰)
-//   → { ok, name, totalMinutes, today, week, month, all, byDate, recentSessions }
-// POST { startedAt, endedAt, minutes } (학생/학부모 토큰)
-//   → 세션 1회 기록 추가
+// GET (학생/학부모 토큰) → 통계
+//   { ok, name, totalMinutes, today, week, month, all, byDate, recentSessions }
+// POST { startedAt, endedAt, minutes } (학생 본인 토큰만) → 세션 1회 추가
 
 import { requireStudentAccess } from './_auth.js';
+import { getStudentsByPhone, getStudySessions, addStudySession } from './_db.js';
+import { safeError } from './_errors.js';
 
 const MAX_SESSION_MINUTES = 720;   // 한 세션 최대 12시간
 const MAX_DAILY_MINUTES   = 960;   // 하루 누계 최대 16시간 (부정 방지)
@@ -24,27 +24,11 @@ function uuid() {
   return 'ss_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-function loadKey(name) {
-  return 'study/' + encodeURIComponent(name) + '.json';
-}
-
-async function loadRecord(env, name) {
-  try {
-    const obj = await env.BUCKET.get(loadKey(name));
-    if (!obj) return { name, sessions: [], updatedAt: null };
-    const rec = JSON.parse(await obj.text());
-    if (!Array.isArray(rec.sessions)) rec.sessions = [];
-    rec.name = name;
-    return rec;
-  } catch {
-    return { name, sessions: [], updatedAt: null };
-  }
-}
-
-async function saveRecord(env, rec) {
-  await env.BUCKET.put(loadKey(rec.name), JSON.stringify(rec), {
-    httpMetadata: { contentType: 'application/json' },
-  });
+// 로그인 phone + 학생 이름 → D1 student_id (동명이인은 phone으로 구분)
+async function resolveStudentId(env, phone, name) {
+  const list = await getStudentsByPhone(env, phone);
+  const me = list.find(s => s.name === name) || (list.length === 1 ? list[0] : null);
+  return me ? me.id : null;
 }
 
 function aggregateStats(sessions) {
@@ -78,17 +62,29 @@ export async function onRequest({ request, env }) {
   if (!access.ok) return access.response;
   const studentName = access.student.name;
 
+  let studentId;
+  try {
+    studentId = await resolveStudentId(env, access.phone, studentName);
+  } catch (e) {
+    return safeError(e, env, { message: '공부 기록을 불러오지 못했습니다.' });
+  }
+
   if (request.method === 'GET') {
-    const rec = await loadRecord(env, studentName);
-    const agg = aggregateStats(rec.sessions);
-    const recent = [...rec.sessions]
+    let sessions = [];
+    try {
+      sessions = studentId ? await getStudySessions(env, studentId) : [];
+    } catch (e) {
+      return safeError(e, env, { message: '공부 기록을 불러오지 못했습니다.' });
+    }
+    const agg = aggregateStats(sessions);
+    const recent = [...sessions]
       .sort((a,b) => (b.startedAt || '').localeCompare(a.startedAt || ''))
       .slice(0, 20);
     return Response.json({
       ok: true,
       name: studentName,
       role: access.student.role,
-      sessionsCount: rec.sessions.length,
+      sessionsCount: sessions.length,
       totalMinutes: agg.all,
       today: agg.today,
       week: agg.week,
@@ -104,6 +100,10 @@ export async function onRequest({ request, env }) {
     if (access.student.role !== 'student') {
       return Response.json({ error: '학생 본인 계정에서만 공부 세션을 기록할 수 있습니다.' }, { status: 403 });
     }
+    if (!studentId) {
+      return Response.json({ error: '학생 정보를 찾을 수 없습니다. 관리자에게 문의하세요.' }, { status: 404 });
+    }
+
     let body = {};
     try { body = await request.json(); } catch {}
 
@@ -123,10 +123,16 @@ export async function onRequest({ request, env }) {
     if (minutes > elapsedMin + 1)
       return Response.json({ error: 'minutes가 경과 시간보다 큼' }, { status: 400 });
 
-    const rec = await loadRecord(env, studentName);
     const date = ymd(new Date(ts));
 
-    const todayBefore = rec.sessions
+    let sessions = [];
+    try {
+      sessions = await getStudySessions(env, studentId);
+    } catch (e) {
+      return safeError(e, env, { message: '공부 기록 저장에 실패했습니다.' });
+    }
+
+    const todayBefore = sessions
       .filter(s => (s.date || ymd(s.startedAt)) === date)
       .reduce((sum, s) => sum + (Number(s.minutes) || 0), 0);
     if (todayBefore + minutes > MAX_DAILY_MINUTES)
@@ -139,9 +145,8 @@ export async function onRequest({ request, env }) {
       minutes,
       date,
     };
-    rec.sessions.push(session);
-    rec.updatedAt = new Date().toISOString();
-    await saveRecord(env, rec);
+    const r = await addStudySession(env, studentId, session);
+    if (!r.ok) return safeError(r.error || 'addStudySession failed', env, { message: '공부 기록 저장에 실패했습니다.' });
 
     return Response.json({ ok: true, session, todayTotal: todayBefore + minutes });
   }
