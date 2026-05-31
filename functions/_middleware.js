@@ -3,6 +3,11 @@
 // 그 외(인증·admin·학생정보·출결·리포트·영상·파일·쓰기 API)는 kwmath.co.kr origin만 허용.
 // ※ 홈페이지/PWA는 same-origin이라 CORS 검사를 안 받음 → 정상 동작에 영향 없음.
 //    MathOS는 Python 로컬앱이라 CORS 무관(브라우저 전용 규칙).
+//
+// + 관리자 세션 번역: admin.html이 보낸 서명 세션 토큰(adm_)을 검증해서
+//   다운스트림 endpoint엔 기존 Authorization: Bearer <ADMIN_PASSWORD>로 바꿔 전달한다.
+//   → admin endpoint 31개와 admin.html 모두 무수정. 비번 원본은 클라이언트에 안 남음.
+import { verifyAdminSession, isAdminSessionToken, readCookie } from './api/_admin.js';
 
 const PRIMARY_ORIGIN = 'https://kwmath.co.kr';
 
@@ -36,7 +41,30 @@ export async function onRequest(context) {
     });
   }
 
-  const response = await context.next();
+  // 관리자 세션 토큰(adm_) → 다운스트림엔 Bearer ADMIN_PASSWORD로 번역.
+  // 학생/공개 요청(다른 Bearer 또는 무인증)은 절대 건드리지 않음(권한 상승 방지).
+  let forwardRequest = null;
+  try {
+    const env = context.env;
+    if (env && env.ADMIN_PASSWORD && new URL(context.request.url).pathname.startsWith('/api/')) {
+      const authz = context.request.headers.get('Authorization') || '';
+      const bearer = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
+      let ok = false;
+      if (isAdminSessionToken(bearer)) {
+        ok = await verifyAdminSession(env, bearer);                 // admin.html이 보낸 adm_ 토큰
+      } else if (!authz) {
+        const ck = readCookie(context.request, 'admin_session');     // 쿠키 전용 경로(미래)
+        if (isAdminSessionToken(ck)) ok = await verifyAdminSession(env, ck);
+      }
+      if (ok) {
+        const h = new Headers(context.request.headers);
+        h.set('Authorization', 'Bearer ' + env.ADMIN_PASSWORD);
+        forwardRequest = new Request(context.request, { headers: h });
+      }
+    }
+  } catch (_) {}
+
+  const response = forwardRequest ? await context.next(forwardRequest) : await context.next();
   const newResponse = new Response(response.body, response);
   newResponse.headers.set('Access-Control-Allow-Origin', acao);
   return newResponse;
