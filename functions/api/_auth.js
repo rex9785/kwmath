@@ -109,148 +109,72 @@ export function bearerFromRequest(request) {
 //   학부모 휴대폰 / 학생 휴대폰 둘 중 어디에 있어도 매칭
 export async function fetchStudentsByPhone(env, phone) {
   if (!phone) return [];
-  const res = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.NOTION_TOKEN}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      filter: {
-        or: [
-          { property: '학부모 휴대폰', rich_text: { equals: phone } },
-          { property: '학생 연락처',   rich_text: { equals: phone } },
-        ],
-      },
-      page_size: 20,
-    }),
-  });
-  const data = await res.json();
-  if (data.object === 'error') return [];
-  const rt   = (p, k) => (p[k]?.rich_text || [])[0]?.plain_text || '';
-  const sel  = (p, k) => p[k]?.select?.name || '';
-  const ttl  = (p, k) => (p[k]?.title || [])[0]?.plain_text || '';
-  return (data.results || []).filter(p => !p.archived && !p.in_trash).map(p => {
-    const props = p.properties || {};
-    const parentPhone  = rt(props, '학부모 휴대폰');
-    const studentPhone = rt(props, '학생 연락처');
-    return {
-      id: p.id,
-      name: ttl(props, '이름'),
-      school: rt(props, '학교'),
-      grade: sel(props, '학년'),
-      academy: sel(props, '학원'),
-      className: sel(props, '반'),
-      // 매쓰플랫 alias는 admin 전용 — portal 응답에서 제외 (admin은 /api/students에서 받음)
-      approvalStatus: sel(props, '승인 상태'),
-      // 이 휴대폰이 학부모/학생 중 어느 쪽으로 매칭됐는지
-      // 두 번호가 같으면(=부모님 안 계셔서 학생이 자기 번호를 양쪽에 입력) 학생 본인으로 인식
-      role: (phone === studentPhone)
-        ? 'student'
-        : (phone === parentPhone ? 'parent' : 'other'),
-      parentPhone, studentPhone,
-    };
-  });
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM students WHERE parent_phone = ? OR student_phone = ? ORDER BY id'
+  ).bind(phone, phone).all();
+  return (results || []).map(r => ({
+    id: r.id,
+    name: r.name || '',
+    school: r.school || '',
+    grade: r.grade || '',
+    academy: r.academy || '',
+    className: r.class_name || '',
+    approvalStatus: r.approval_status || '',
+    role: (phone === r.student_phone) ? 'student'
+        : (phone === r.parent_phone ? 'parent' : 'other'),
+    parentPhone: r.parent_phone || '',
+    studentPhone: r.student_phone || '',
+  }));
 }
 
-// ── 계정 DB에서 휴대폰으로 계정 조회 ──
+// ── 계정 조회 (D1 accounts, phone = PK) ──
 export async function findAccountByPhone(env, phone) {
   if (!phone) return null;
-  const res = await fetch(`https://api.notion.com/v1/databases/${ACCOUNTS_DB}/query`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.NOTION_TOKEN}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      filter: { property: '휴대폰', title: { equals: phone } },
-      page_size: 1,
-    }),
-  });
-  const data = await res.json();
-  if (data.object === 'error') return null;
-  const page = (data.results || []).find(p => !p.archived && !p.in_trash);
-  if (!page) return null;
-  const p = page.properties || {};
-  const rt = (k) => (p[k]?.rich_text || [])[0]?.plain_text || '';
+  const r = await env.DB.prepare(
+    'SELECT phone, password_hash, salt, must_change_pw FROM accounts WHERE phone = ?'
+  ).bind(phone).first();
+  if (!r) return null;
   return {
-    id: page.id,
-    phone,
-    hash: rt('비밀번호 해시'),
-    salt: rt('salt'),
-    mustChangePassword: p['변경 필요']?.checkbox === true,
+    id: r.phone,                 // D1은 phone이 키 (update/touch가 이걸 받음)
+    phone: r.phone,
+    hash: r.password_hash || '',
+    salt: r.salt || '',
+    mustChangePassword: r.must_change_pw === 1,
   };
 }
 
-// ── 계정 신규 생성 ──
+// ── 계정 신규 생성 (D1, upsert) ──
 export async function createAccount(env, phone, password, mustChangePassword = true, note = '') {
   const { hash, salt } = await hashPassword(password);
-  const res = await fetch('https://api.notion.com/v1/pages', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.NOTION_TOKEN}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      parent: { database_id: ACCOUNTS_DB },
-      properties: {
-        '휴대폰':       { title:     [{ text: { content: phone } }] },
-        '비밀번호 해시': { rich_text: [{ text: { content: hash } }] },
-        'salt':         { rich_text: [{ text: { content: salt } }] },
-        '변경 필요':    { checkbox: !!mustChangePassword },
-        '비고':         { rich_text: [{ text: { content: note || '' } }] },
-      },
-    }),
-  });
-  const data = await res.json();
-  if (data.object === 'error') return { ok: false, error: data.message };
-  return { ok: true, id: data.id };
-}
-
-// ── 계정 비밀번호 업데이트 ──
-export async function updateAccountPassword(env, accountPageId, newPassword) {
-  const { hash, salt } = await hashPassword(newPassword);
-  const res = await fetch(`https://api.notion.com/v1/pages/${accountPageId}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${env.NOTION_TOKEN}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      properties: {
-        '비밀번호 해시': { rich_text: [{ text: { content: hash } }] },
-        'salt':         { rich_text: [{ text: { content: salt } }] },
-        '변경 필요':    { checkbox: false },
-      },
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    return { ok: false, error: err.message || 'Notion 수정 실패' };
-  }
-  return { ok: true };
-}
-
-// ── 마지막 로그인 시각 갱신 ──
-export async function touchLastLogin(env, accountPageId) {
   try {
-    await fetch(`https://api.notion.com/v1/pages/${accountPageId}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${env.NOTION_TOKEN}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        properties: {
-          '마지막 로그인': { date: { start: new Date().toISOString() } },
-        },
-      }),
-    });
+    await env.DB.prepare(
+      'INSERT INTO accounts (phone, password_hash, salt, must_change_pw, note) VALUES (?,?,?,?,?) ' +
+      'ON CONFLICT(phone) DO UPDATE SET password_hash=excluded.password_hash, salt=excluded.salt, ' +
+      'must_change_pw=excluded.must_change_pw, note=excluded.note'
+    ).bind(phone, hash, salt, mustChangePassword ? 1 : 0, note || '').run();
+    return { ok: true, id: phone };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── 계정 비밀번호 업데이트 (D1, phone 기준) ──
+export async function updateAccountPassword(env, phoneOrId, newPassword) {
+  const { hash, salt } = await hashPassword(newPassword);
+  try {
+    await env.DB.prepare('UPDATE accounts SET password_hash=?, salt=?, must_change_pw=0 WHERE phone=?')
+      .bind(hash, salt, phoneOrId).run();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── 마지막 로그인 시각 갱신 (D1, phone 기준, 비치명적) ──
+export async function touchLastLogin(env, phoneOrId) {
+  try {
+    await env.DB.prepare('UPDATE accounts SET last_login=? WHERE phone=?')
+      .bind(new Date().toISOString(), phoneOrId).run();
   } catch (_) { /* 비치명적 */ }
 }
 
