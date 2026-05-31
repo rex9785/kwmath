@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 // POST /api/save-video-code
 // MathOS에서 수업 영상 코드를 R2에 저장
 export async function onRequest({ request, env }) {
@@ -42,6 +43,6 @@ export async function onRequest({ request, env }) {
     });
     return Response.json({ ok: true, code });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }

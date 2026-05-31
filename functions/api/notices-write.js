@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 import { fetchStudentsByPhone } from './_auth.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
@@ -129,7 +130,7 @@ export async function onRequest({ request, env }) {
       body: JSON.stringify({ parent: { database_id: DB }, properties }),
     });
     const data = await res.json();
-    if (data.object === 'error') return Response.json({ error: data.message }, { status: 500 });
+    if (data.object === 'error') return safeError(data, null, { message: '공지 저장에 실패했습니다.' });
 
     // 즉시 발송이면 바로 dispatch
     let pushResult = null;
@@ -165,7 +166,7 @@ export async function onRequest({ request, env }) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return Response.json({ error: err.message || 'Notion 수정 실패' }, { status: res.status });
+      return safeError(err, null, { message: '공지 수정에 실패했습니다.' });
     }
     return Response.json({ ok: true });
   }
@@ -181,7 +182,7 @@ export async function onRequest({ request, env }) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return Response.json({ error: err.message || '삭제 실패' }, { status: res.status });
+      return safeError(err, null, { message: '공지 삭제에 실패했습니다.' });
     }
     return Response.json({ ok: true });
   }

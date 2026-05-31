@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 // /api/push-subscribe
 // 브라우저 푸쉬 구독 정보 저장/해제.
 // portal 페이지가 결정한 userId(이메일이든, 학생ID든, 휴대폰이든) 기준으로 묶음.
@@ -60,7 +61,7 @@ async function handleSubscribe(request, env) {
     });
     return Response.json({ ok: true, deviceCount: record.subs.length });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }
 
@@ -112,6 +113,6 @@ async function handleUnsubscribe(request, env) {
     }
     return Response.json({ ok: true, removed, remaining: record.subs.length });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }

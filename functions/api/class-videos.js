@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 // GET /api/class-videos
 //   Authorization: Bearer <userToken>   (학부모/학생 로그인 토큰)
 //   ?name=홍길동  ← 자녀 여러 명일 때만 필요. 한 명이면 생략 OK
@@ -91,6 +92,6 @@ export async function onRequest({ request, env }) {
     });
 
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }

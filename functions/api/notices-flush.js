@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 // /api/notices-flush
 // 예약 발송 시각이 도래한 미발송 공지를 찾아 푸쉬 발송
 // 인증:
@@ -63,7 +64,7 @@ export async function onRequest({ request, env }) {
   });
   const data = await queryRes.json();
   if (data.object === 'error') {
-    return Response.json({ error: data.message }, { status: 500 });
+    return safeError(data, null, { message: '발송 처리에 실패했습니다.' });
   }
 
   const rt   = (p, k) => ((p[k]?.rich_text || [])[0]?.plain_text || '').trim();

@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 // POST /api/video-delete  (admin only)
 // 영상 코드 R2 객체 삭제 — admin.html 영상 관리 탭의 🗑 삭제 버튼용
 // body: { code }
@@ -38,6 +39,6 @@ export async function onRequest({ request, env }) {
       },
     });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }

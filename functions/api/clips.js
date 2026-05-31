@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 const DB = '9784fd34c91543c7b2c4cca4db1911aa';
 
 export async function onRequest({ env }) {
@@ -18,6 +19,6 @@ export async function onRequest({ env }) {
     }));
     return Response.json(clips);
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }

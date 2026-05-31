@@ -7,6 +7,7 @@
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://t1.kakaocdn.net https://developers.kakao.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://www.instagram.com https://www.facebook.com; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'
 
 # HTML 페이지 — 캐시는 저장하되 매번 변경 여부 체크 (변경 없으면 304, 빠름)
 /*.html

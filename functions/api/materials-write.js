@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 const DB = '34f134c4b2324685a62357c27c0aa919';
 
 export async function onRequest({ request, env }) {
@@ -27,6 +28,6 @@ export async function onRequest({ request, env }) {
     body: JSON.stringify({ parent: { database_id: DB }, properties }),
   });
   const data = await res.json();
-  if (!res.ok) return Response.json({ error: data.message || '노션 저장 실패' }, { status: 500 });
+  if (!res.ok) return safeError(data, null, { message: '자료 저장에 실패했습니다.' });
   return Response.json({ success: true, pageId: data.id });
 }

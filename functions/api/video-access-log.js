@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 // GET /api/video-access-log?password=XXX
 // 모든 수업코드와 접근 로그를 관리자에게 반환
 
@@ -42,6 +43,6 @@ export async function onRequest({ request, env }) {
 
     return Response.json({ ok: true, codes: results });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }

@@ -1,0 +1,15 @@
+# kwmath.co.kr — 관우수학
+User-agent: *
+Disallow: /api/
+Disallow: /admin.html
+Disallow: /portal.html
+Disallow: /me.html
+Disallow: /report.html
+Disallow: /attendance.html
+Disallow: /study.html
+Disallow: /test-results.html
+Disallow: /class.html
+Disallow: /video.html
+Disallow: /qr-poster.html
+
+Sitemap: https://kwmath.co.kr/sitemap.xml

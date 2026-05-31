@@ -1,3 +1,4 @@
+import { safeError } from './_errors.js';
 // GET /api/notices
 // - 인증 없이 호출: 전체 대상 공지만 반환 (메인 홈피용)
 // - Authorization: Bearer <userToken>: 그 학생/학부모에게 해당하는 공지만 (전체 + 학원 + 반 + 개인)
@@ -139,6 +140,6 @@ export async function onRequest(context) {
 
     return Response.json(allNotices.filter(n => n.targetType === '전체' || !n.targetType));
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 }
