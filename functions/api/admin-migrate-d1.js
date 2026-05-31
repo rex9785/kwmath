@@ -41,6 +41,11 @@ const chk   = (p, k) => !!(p[k] && p[k].checkbox === true);
 const dat   = (p, k) => (p[k] && p[k].date && p[k].date.start) || '';
 
 export async function onRequest({ request, env }) {
+  // ⚠️ D1 컷오버 완료(2026-05-31) — 이 endpoint는 비활성화되었습니다.
+  // 재실행하면 D1을 비우고 노션(이제 stale)으로 덮어써 컷오버 이후 데이터가 소실됩니다.
+  // 정말 다시 써야 하면 바로 아래 return 한 줄만 제거하세요.
+  return Response.json({ error: '마이그레이션은 D1 컷오버 후 비활성화되었습니다. (실수 방지용)', disabled: true }, { status: 403 });
+
   if (request.method !== 'POST') return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) return Response.json({ error: '인증 필요' }, { status: 401 });
