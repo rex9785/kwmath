@@ -114,7 +114,7 @@ export async function onRequest({ request, env }) {
           name, school: rt(p, '학교'), grade: sel(p, '학년'),
           parent_last4: rt(p, '학부모 연락처 끝4자리'), student_phone: rt(p, '학생 연락처'),
           parent_phone: rt(p, '학부모 휴대폰'), parent_relation: sel(p, '학부모 관계'),
-          academy: sel(p, '학원'), class_name: sel(p, '반'), approval_status: sel(p, '승인 상태') || '대기중',
+          academy: sel(p, '학원'), class_name: sel(p, '반'), approval_status: sel(p, '승인 상태') || '승인',
           personal_key: rt(p, '개인키'), mathflat_name: rt(p, '매쓰플랫 이름'),
           cur_math_grade: sel(p, '현재 수학 등급'), school_math_grade: sel(p, '내신 수학 등급'),
           mock_math_grade: sel(p, '모의고사 수학 등급'), mock_math_raw: num(p, '모의고사 수학 원점수'),
