@@ -87,7 +87,7 @@
 
 <!-- 카카오 플로팅 -->
 <div class="kakao-float">
-  <a href="http://pf.kakao.com/_lIbJG" target="_blank" title="카카오채널 문의">
+  <a href="https://pf.kakao.com/_lIbJG" target="_blank" rel="noopener noreferrer" title="카카오채널 문의">
     <svg width="26" height="26" viewBox="0 0 24 24" fill="#3C1E1E">
       <path d="M12 3C7.03 3 3 6.36 3 10.5c0 2.69 1.7 5.05 4.26 6.4L6.3 20.25c-.07.22.14.42.35.3L11.1 17.9c.3.03.6.05.9.05 4.97 0 9-3.36 9-7.45S16.97 3 12 3z"/>
     </svg>
@@ -112,6 +112,7 @@ function setFilter(cat, btn) {
   renderFiles(cat ? allFiles.filter(f => f.category === cat) : allFiles);
 }
 
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function renderFiles(files) {
   const grid = document.getElementById('fileGrid');
   if (!files.length) {
@@ -121,15 +122,16 @@ function renderFiles(files) {
   grid.innerHTML = files.map(f => `
     <div class="file-card">
       <div class="file-icon">${getFileIcon(f.fileName)}</div>
-      <div class="file-title">${f.title || f.fileName}</div>
+      <div class="file-title">${esc(f.title || f.fileName)}</div>
       <div class="file-meta">
-        ${f.category ? `<span class="file-cat">${f.category}</span>` : ''}
-        <span>${f.fileSize || ''}</span>
-        <span>${f.uploadDate ? f.uploadDate.replace(/-/g, '.') : ''}</span>
+        ${f.category ? `<span class="file-cat">${esc(f.category)}</span>` : ''}
+        <span>${esc(f.fileSize || '')}</span>
+        <span>${f.uploadDate ? esc(f.uploadDate.replace(/-/g, '.')) : ''}</span>
       </div>
-      <button class="file-dl-btn" onclick="downloadFile('${f.r2Key}')">⬇ 다운로드</button>
+      <button class="file-dl-btn" data-key="${esc(f.r2Key)}">⬇ 다운로드</button>
     </div>
   `).join('');
+  grid.querySelectorAll('.file-dl-btn').forEach(function(b){ b.addEventListener('click', function(){ downloadFile(b.getAttribute('data-key')); }); });
 }
 
 async function loadFiles() {

@@ -152,18 +152,19 @@
       document.getElementById('loading').style.display = 'none';
       document.getElementById('content').style.display = 'block';
     } catch (e) {
-      document.getElementById('loading').innerHTML = '오류: ' + e.message;
+      document.getElementById('loading').textContent = '오류: ' + e.message;
     }
   }
 
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function renderStudentBar(idx) {
     const s = students[idx];
     const role = s.role === 'student' ? '학생' : '학부모';
     document.getElementById('studentInfo').innerHTML =
-      s.name + ' 학생' + (s.school ? ' <span class="meta">' + s.school + (s.grade ? ' · ' + s.grade : '') + (s.className ? ' / ' + s.className : '') + '</span>' : '');
+      esc(s.name) + ' 학생' + (s.school ? ' <span class="meta">' + esc(s.school) + (s.grade ? ' · ' + esc(s.grade) : '') + (s.className ? ' / ' + esc(s.className) : '') + '</span>' : '');
     const sel = document.getElementById('childSelect');
     if (students.length > 1) {
-      sel.innerHTML = students.map((st, i) => '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + st.name + (st.className ? ' (' + st.className + ')' : '') + '</option>').join('');
+      sel.innerHTML = students.map((st, i) => '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + esc(st.name) + (st.className ? ' (' + esc(st.className) + ')' : '') + '</option>').join('');
       sel.style.display = 'inline-block';
     }
   }
@@ -186,7 +187,7 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + (data.error || '불러오기 실패') + '</div>';
+        list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + esc(data.error || '불러오기 실패') + '</div>';
         return;
       }
       if (!Array.isArray(data) || data.length === 0) {
@@ -198,10 +199,10 @@
       list.innerHTML = data.map(f => {
         const date = f.lastModified ? new Date(f.lastModified).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }) : '';
         const dlUrl = '/api/download-file?key=' + encodeURIComponent(f.key) + '&name=' + encodeURIComponent(selected.name);
-        return '<div class="pdf-item"><div class="pdf-info"><div class="pdf-name">' + f.displayName + '</div><div class="pdf-meta">' + date + ' · ' + f.sizeLabel + '</div></div><a class="pdf-dl-btn" href="' + dlUrl + '" target="_blank">📥 보기</a></div>';
+        return '<div class="pdf-item"><div class="pdf-info"><div class="pdf-name">' + esc(f.displayName) + '</div><div class="pdf-meta">' + date + ' · ' + esc(f.sizeLabel) + '</div></div><a class="pdf-dl-btn" href="' + dlUrl + '" target="_blank" rel="noopener noreferrer">📥 보기</a></div>';
       }).join('');
     } catch (e) {
-      list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + e.message + '</div>';
+      list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + esc(e.message) + '</div>';
     }
   }
 

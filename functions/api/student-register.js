@@ -26,6 +26,9 @@ export async function onRequest({ request, env }) {
   } = body;
 
   if (!name || !grade) return Response.json({ error: '이름과 학년은 필수입니다.' }, { status: 400 });
+  // 이름 살균 — HTML 위험문자(< > " ') 제거. 저장형 XSS 방지: admin 화면 onclick 등 모든 렌더 사이트 보호.
+  const safeName = String(name).replace(/[<>"']/g, '').trim().slice(0, 60);
+  if (!safeName) return Response.json({ error: '이름에 사용할 수 없는 문자가 포함되어 있습니다.' }, { status: 400 });
   const requiredExtras = { mathMockGrade, korMockGrade, engMockGrade, schoolMathGrade, advanceProgress, weakness, dreamUniv };
   for (const [k, v] of Object.entries(requiredExtras)) {
     if (!v || (typeof v === 'string' && !v.trim())) {
@@ -55,7 +58,7 @@ export async function onRequest({ request, env }) {
   const personalKey = generateKey();
 
   const r = await createStudent(env, {
-    name, school, grade,
+    name: safeName, school, grade,
     parentPhone4: phone4,
     studentPhone: normalizePhone(studentPhone) || studentPhone || '',
     parentPhone:  normalizePhone(parentPhone)  || parentPhone  || '',

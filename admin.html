@@ -841,7 +841,7 @@
       const cls = clsSel.value;
       if (!acad || !cls) { stdSel.innerHTML = '<option value="">학생 선택</option>'; return; }
       const ss = (allStudents || []).filter(s => s.academy === acad && s.className === cls).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-      stdSel.innerHTML = '<option value="">학생 선택</option>' + ss.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+      stdSel.innerHTML = '<option value="">학생 선택</option>' + ss.map(s => '<option value="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + '</option>').join('');
     };
   }
 
@@ -1183,7 +1183,7 @@
     const students = (allStudents || []).filter(s => s.academy === acad && s.className === cls);
     if (!students.length) { sel.innerHTML = '<option value="">해당 반에 학생 없음</option>'; return; }
     students.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-    sel.innerHTML = '<option value="">학생 선택</option>' + students.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+    sel.innerHTML = '<option value="">학생 선택</option>' + students.map(s => '<option value="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + '</option>').join('');
   }
 
   // ── 자료실: 단일 파일 업로드 (FormData → Cloudflare Worker → R2) ──
@@ -1377,7 +1377,7 @@
   let _classOptionsCache = null;  // { academies, classes, counts } from /api/class-options
   async function loadClassOptionsFromServer() {
     try {
-      const res = await fetch('/api/class-options');
+      const res = await fetch('/api/class-options', { headers: { 'Authorization': 'Bearer ' + adminToken } });
       const data = await res.json();
       if (data && Array.isArray(data.academies) && data.classes) {
         _classOptionsCache = data;
@@ -1535,7 +1535,7 @@
     const selectedStudents = (allStudents || []).filter(s => ids.includes(s.id));
     document.getElementById('stmCount').textContent = selectedStudents.length;
     // 선택 학생 미리보기
-    const preview = selectedStudents.map(s => '• ' + (s.name || '?') + ' (' + (s.academy || '') + (s.className ? ' · ' + s.className : '') + ')').join('<br>');
+    const preview = selectedStudents.map(s => '• ' + escapeHtml(s.name || '?') + ' (' + escapeHtml(s.academy || '') + (s.className ? ' · ' + escapeHtml(s.className) : '') + ')').join('<br>');
     document.getElementById('stmSelectedPreview').innerHTML = preview;
     // 학원/반 옵션 채우기 (동적)
     const acadSel = document.getElementById('stmAcademy');

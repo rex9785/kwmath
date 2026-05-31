@@ -15,6 +15,13 @@ export async function onRequest({ request, env }) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   const isAdmin = env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
 
+  // 🔒 내부 전용 프리픽스 — download-file로 절대 노출 금지 (admin 제외).
+  //    로그인 토큰·푸쉬구독·영상코드·라이브상태 등 운영 데이터. 프론트는 이 프리픽스를 받지 않음.
+  const INTERNAL_PREFIXES = ['auth/', 'video-codes/', 'push-subs/', 'study-live/'];
+  if (!isAdmin && INTERNAL_PREFIXES.some((p) => key.startsWith(p))) {
+    return Response.json({ error: '접근 권한이 없습니다.' }, { status: 403 });
+  }
+
   // 보호 폴더 접근 시 토큰 + 학생 매칭 검증
   if (!isAdmin && (key.startsWith('reports/') || key.startsWith('class/'))) {
     const auth = await requireAuth(env, request);

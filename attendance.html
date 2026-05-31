@@ -161,13 +161,14 @@
     }
   }
 
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function renderStudentBar(idx) {
     const s = students[idx];
     document.getElementById('studentInfo').innerHTML =
-      s.name + ' 학생' + (s.school ? ' <span class="meta">' + s.school + (s.grade ? ' · ' + s.grade : '') + (s.className ? ' / ' + s.className : '') + '</span>' : '');
+      esc(s.name) + ' 학생' + (s.school ? ' <span class="meta">' + esc(s.school) + (s.grade ? ' · ' + esc(s.grade) : '') + (s.className ? ' / ' + esc(s.className) : '') + '</span>' : '');
     const sel = document.getElementById('childSelect');
     if (students.length > 1) {
-      sel.innerHTML = students.map(function(st, i) { return '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + st.name + '</option>'; }).join('');
+      sel.innerHTML = students.map(function(st, i) { return '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + esc(st.name) + '</option>'; }).join('');
       sel.style.display = 'inline-block';
     }
   }
