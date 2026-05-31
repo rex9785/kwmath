@@ -1,22 +1,18 @@
-// 개인 키로 학생 인증 → 반 정보 반환
-const STUDENTS_DB = '559465b73e2f4b76b7df441fd0058bfb';
+// POST /api/class-auth — 개인 키로 학생 인증 → 반 정보 (Cloudflare D1, 이전엔 Notion)
+import { safeError } from './_errors.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
-  const { key } = await request.json();
-  if (!key?.trim()) return Response.json({ error: '키를 입력해주세요' }, { status: 400 });
+  let body = {};
+  try { body = await request.json(); } catch {}
+  const key = (body.key || '').trim();
+  if (!key) return Response.json({ error: '키를 입력해주세요' }, { status: 400 });
 
-  const res = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filter: { property: '개인키', rich_text: { equals: key.trim() } } }),
-  });
-  const data = await res.json();
-  if (!data.results?.length) return Response.json({ error: '등록되지 않은 키입니다' }, { status: 401 });
-
-  const student = data.results[0];
-  const name = student.properties['이름']?.title?.[0]?.plain_text || '';
-  const className = student.properties['반']?.select?.name || '';
-
-  return Response.json({ ok: true, name, className });
+  try {
+    const st = await env.DB.prepare('SELECT name, class_name FROM students WHERE personal_key = ? LIMIT 1').bind(key).first();
+    if (!st) return Response.json({ error: '등록되지 않은 키입니다' }, { status: 401 });
+    return Response.json({ ok: true, name: st.name || '', className: st.class_name || '' });
+  } catch (e) {
+    return safeError(e, env, { message: '인증에 실패했습니다.' });
+  }
 }

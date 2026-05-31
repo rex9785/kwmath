@@ -19,35 +19,27 @@ export async function collectTargetPhones(env, targetType, targetValue) {
         .filter(Boolean);
     } catch { return []; }
   }
-  // 학원/반/개인 — Notion 학생 DB에서 필터
-  let filter = null;
+  // 학원/반/개인 — D1 students에서 추출
+  let sql = '', binds = [];
   if (targetType === '학원') {
-    filter = { property: '학원', select: { equals: targetValue } };
+    sql = 'SELECT parent_phone, student_phone FROM students WHERE academy = ?';
+    binds = [targetValue];
   } else if (targetType === '반') {
-    // targetValue 형식: "학원/반"
-    const [acad, cls] = (targetValue || '').split('/');
-    filter = { and: [
-      { property: '학원', select: { equals: acad } },
-      { property: '반',   select: { equals: cls } },
-    ]};
+    const parts = (targetValue || '').split('/');
+    sql = 'SELECT parent_phone, student_phone FROM students WHERE academy = ? AND class_name = ?';
+    binds = [parts[0] || '', parts[1] || ''];
   } else if (targetType === '개인') {
-    filter = { property: '이름', title: { equals: targetValue } };
+    sql = 'SELECT parent_phone, student_phone FROM students WHERE name = ?';
+    binds = [targetValue];
+  } else {
+    return [];
   }
   try {
-    const res = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filter, page_size: 100 }),
-    });
-    const data = await res.json();
-    const rt = (p, k) => ((p[k]?.rich_text || [])[0]?.plain_text || '').trim();
+    const { results } = await env.DB.prepare(sql).bind(...binds).all();
     const phones = new Set();
-    for (const page of (data.results || [])) {
-      if (page.archived || page.in_trash) continue;
-      const pp = rt(page.properties, '학부모 휴대폰');
-      const sp = rt(page.properties, '학생 연락처');
-      if (pp) phones.add(pp);
-      if (sp) phones.add(sp);
+    for (const r of (results || [])) {
+      if (r.parent_phone) phones.add(r.parent_phone);
+      if (r.student_phone) phones.add(r.student_phone);
     }
     return [...phones];
   } catch { return []; }

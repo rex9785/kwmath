@@ -1,3 +1,4 @@
+import { listStudents } from './_db.js';
 // /api/class-options
 //   GET  — 공개 (누구나 호출). R2의 학원/반 옵션 + 실제 학생 데이터에서 사용 중인 옵션 합집합 반환
 //   POST — admin only. body: { action: 'add-class'|'delete-class'|'add-academy'|'delete-academy', academy, className? }
@@ -42,19 +43,14 @@ async function saveOptions(env, data) {
 }
 
 // 학생 데이터에서 실제 사용 중인 학원/반 추출 (active만)
+// 학생 데이터(D1)에서 실제 사용 중인 학원/반 추출
 async function getUsedFromStudents(env) {
-  const used = { academies: new Set(), classes: {}, counts: {} }; // counts: "학원/반" → 학생 수
+  const used = { academies: new Set(), classes: {}, counts: {} };
   try {
-    const res = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page_size: 100 }),
-    });
-    const data = await res.json();
-    for (const page of (data.results || [])) {
-      if (page.archived || page.in_trash) continue;
-      const acad = page.properties?.['학원']?.select?.name || '';
-      const cls  = page.properties?.['반']?.select?.name || '';
+    const students = await listStudents(env);
+    for (const s of students) {
+      const acad = s.academy || '';
+      const cls  = s.className || '';
       if (acad) {
         used.academies.add(acad);
         if (!used.classes[acad]) used.classes[acad] = new Set();
@@ -69,7 +65,6 @@ async function getUsedFromStudents(env) {
   return used;
 }
 
-// 저장된 옵션 + 학생 데이터에서 사용 중인 옵션 합집합
 function mergeOptions(saved, used) {
   const result = { academies: [], classes: {}, counts: {} };
   const allAcademies = new Set([...(saved.academies || []), ...used.academies]);

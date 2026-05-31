@@ -44,30 +44,15 @@ async function loadStudyTotal(env, name, startStr, endStr) {
 }
 
 async function listClassmates(env, academy, className) {
-  // Notion 학생 DB 조회 — 같은 academy + className
-  const res = await fetch(`https://api.notion.com/v1/databases/${STUDENTS_DB}/query`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.NOTION_TOKEN}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      filter: {
-        and: [
-          { property: '학원', select: { equals: academy } },
-          { property: '반',   select: { equals: className } },
-        ],
-      },
-      page_size: 100,
-    }),
-  });
-  const data = await res.json();
-  if (data.object === 'error') return [];
-  return (data.results || []).filter(p => !p.archived && !p.in_trash).map(p => {
-    const ttl = (p.properties?.['이름']?.title || [])[0]?.plain_text || '';
-    return { name: ttl };
-  }).filter(s => s.name);
+  // 같은 academy + className 학생 명단 (Cloudflare D1)
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT name FROM students WHERE academy = ? AND class_name = ?'
+    ).bind(academy, className).all();
+    return (results || []).map(r => ({ name: r.name })).filter(s => s.name);
+  } catch {
+    return [];
+  }
 }
 
 export async function onRequest({ request, env }) {
