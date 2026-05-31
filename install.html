@@ -18,7 +18,7 @@
   :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
-  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:8px;position:sticky;top:0;z-index:50;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px 20px;display:flex;align-items:center;justify-content:center;gap:8px;position:sticky;top:0;z-index:50;}
   .topbar-logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;color:var(--primary);border-radius:6px;font-weight:900;font-size:0.85rem;}
   .topbar-title{font-size:1rem;font-weight:900;}
 
