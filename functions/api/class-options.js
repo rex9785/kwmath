@@ -113,6 +113,11 @@ export async function onRequest({ request, env }) {
     // 학생 데이터에서 사용 중인 학원/반을 R2 saved에 자동 흡수 (한 번 등록되면 학생 0명이 돼도 남음)
     await syncStudentClassesToSaved(env, saved, used);
     const merged = mergeOptions(saved, used);
+    // 🔒 인원 수(counts)는 admin 전용 — 비로그인 공개 노출 차단.
+    //    학원/반 "이름"은 등록 폼 드롭다운에 필요해서 공개 유지.
+    if (!isAdmin(request, env)) {
+      delete merged.counts;
+    }
     return Response.json(merged);
   }
 
