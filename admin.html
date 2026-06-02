@@ -210,8 +210,26 @@
   </div>
 
   <div class="dash-body">
-    <!-- 탭 -->
-    <div class="tabs">
+    <!-- 카드 메뉴 (포털식 홈) -->
+    <style>
+      #adminMenu{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:8px;}
+      .admin-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:18px 16px;font-family:inherit;cursor:pointer;text-align:left;font-size:1.7rem;box-shadow:0 2px 10px rgba(139,26,53,.05);transition:transform .1s;}
+      .admin-card b{font-size:0.98rem;font-weight:800;color:var(--text);margin-top:6px;}
+      .admin-card span{font-size:0.74rem;color:var(--text-light);font-weight:500;}
+      .admin-card:active{transform:scale(.98);}
+    </style>
+    <div id="adminMenu">
+      <button type="button" class="admin-card" onclick="openSection('notices')">📢<b>공지사항 관리</b><span>공지 작성·수정</span></button>
+      <button type="button" class="admin-card" onclick="openSection('reports')">📋<b>리포트 조회</b><span>학생 리포트</span></button>
+      <button type="button" class="admin-card" onclick="openSection('students')">👨‍🎓<b>학생 목록</b><span>등록·승인·반 변경</span></button>
+      <button type="button" class="admin-card" onclick="openSection('attendance')">📅<b>출결/숙제</b><span>출석·숙제 관리</span></button>
+      <button type="button" class="admin-card" onclick="openSection('files')">📁<b>자료실 관리</b><span>파일 업로드·삭제</span></button>
+      <button type="button" class="admin-card" onclick="openSection('videos')">📺<b>영상 관리</b><span>수업 영상</span></button>
+    </div>
+    <button type="button" id="adminBackBtn" onclick="showMenu()" style="display:none;margin-bottom:14px;background:#fff;border:1.5px solid var(--border);color:var(--primary);padding:9px 16px;border-radius:10px;font-weight:800;font-family:inherit;cursor:pointer;">← 메뉴</button>
+
+    <!-- 탭 바 (카드 메뉴로 대체 — 숨김, switchTab 재사용용으로 유지) -->
+    <div class="tabs" style="display:none;">
       <button class="tab-btn active" onclick="switchTab('notices', this)">📢 공지사항 관리</button>
       <button class="tab-btn" onclick="switchTab('reports', this)">📋 리포트 조회</button>
       <button class="tab-btn" onclick="switchTab('students', this)">👨‍🎓 학생 목록</button>
@@ -221,7 +239,7 @@
     </div>
 
     <!-- 공지사항 탭 -->
-    <div class="tab-panel active" id="tab-notices">
+    <div class="tab-panel" id="tab-notices">
       <div class="notice-form">
         <h3>+ 새 공지사항 등록</h3>
         <div class="form-row-inline">
@@ -674,14 +692,29 @@
   function switchTab(name, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'notices') loadAdminNotices();
     if (name === 'reports') loadAllReports();
     if (name === 'students') loadStudents();
     if (name === 'attendance') loadAttendanceTab();
     if (name === 'files') loadFiles();
     if (name === 'videos') loadVideos();
       }
+
+  // ── 카드 메뉴 ↔ 섹션 전환 ──
+  function openSection(name) {
+    switchTab(name, null);
+    document.getElementById('adminMenu').style.display = 'none';
+    document.getElementById('adminBackBtn').style.display = '';
+    window.scrollTo(0, 0);
+  }
+  function showMenu() {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('adminMenu').style.display = '';
+    document.getElementById('adminBackBtn').style.display = 'none';
+    window.scrollTo(0, 0);
+  }
 
   // ─────────────── 수강 후기 관리 ───────────────
 
