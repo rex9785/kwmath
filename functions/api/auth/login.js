@@ -7,6 +7,10 @@ import {
   findAccountByPhone, fetchStudentsByPhone, jsonError,
 } from '../_auth.js';
 
+// 포털 '관리자' 카드 노출 허용 번호 (me.js와 동일하게 유지)
+const ADMIN_PHONES = ['01041149785'];
+const onlyDigits = (p) => String(p || '').replace(/\D/g, '');
+
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return jsonError('POST만 허용', 405);
 
@@ -62,5 +66,6 @@ export async function onRequest({ request, env }) {
     mustChangePassword: !!account.mustChangePassword,
     phone,
     students: approvedStudents,  // 승인된 학생만 반환
+    isAdmin: ADMIN_PHONES.includes(onlyDigits(phone)),
   });
 }

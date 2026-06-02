@@ -229,6 +229,11 @@
         <span class="feat-title">수강 후기</span>
         <span class="feat-desc">한 줄 후기 작성·조회</span>
       </a>
+      <a href="/admin" class="feat-btn" data-feat="admin" id="adminFeatBtn" style="display:none;grid-column:1/-1;background:#2A4A8C;border-color:#2A4A8C;">
+        <span class="feat-icon">🔧</span>
+        <span class="feat-title" style="color:#fff;">관리자</span>
+        <span class="feat-desc" style="color:rgba(255,255,255,.85);">관우T 전용 · 학생·자료·공지 관리</span>
+      </a>
     </div>
 
     <!-- 어플 설치 안내 -->
@@ -438,6 +443,7 @@
       localStorage.setItem(PHONE_KEY, currentPhone);
 
       enterMain(data.mustChangePassword);
+      { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
     } catch (e) {
       showErr('loginErr', '서버 통신 오류: ' + (e.message || '알 수 없는 오류'));
     } finally {
@@ -739,6 +745,7 @@
       currentPhone = data.phone || savedPhone || '';
       currentStudents = Array.isArray(data.students) ? data.students : [];
       enterMain(data.mustChangePassword);
+      { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
     } catch (e) {
       currentToken = savedToken;
       currentPhone = savedPhone || '';

@@ -7,6 +7,10 @@ import {
   requireAuth, findAccountByPhone, fetchStudentsByPhone, jsonError,
 } from '../_auth.js';
 
+// 포털 '관리자' 카드 노출 허용 번호 — 이 계정으로 포털 로그인 시에만 관리자 진입 카드가 보임
+const ADMIN_PHONES = ['01041149785'];
+const onlyDigits = (p) => String(p || '').replace(/\D/g, '');
+
 export async function onRequest({ request, env }) {
   if (request.method !== 'GET') return jsonError('GET만 허용', 405);
 
@@ -37,5 +41,6 @@ export async function onRequest({ request, env }) {
     phone: auth.phone,
     mustChangePassword: !!account.mustChangePassword,
     students: approvedStudents,
+    isAdmin: ADMIN_PHONES.includes(onlyDigits(auth.phone)),
   });
 }
