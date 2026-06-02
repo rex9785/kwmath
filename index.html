@@ -286,13 +286,31 @@
       <li><a href="#program">수업소개</a></li>
       <li><a href="#timetable">시간표</a></li>
       <li><a href="#notice">공지사항</a></li>
-      <li><a href="#video">맛보기강의</a></li>
+      <li><a href="#video">샘플강의</a></li>
       <li><a href="/materials">자료실</a></li>
       <li><a href="/portal" class="nav-cta">포털 로그인</a></li>
     </ul>
   </div>
 </nav>
 
+<!-- ===== 섹션 순서 재배치 (flex order — 소스 이동 없이 보이는 순서만) ===== -->
+<style>
+  .reorder-wrap{display:flex;flex-direction:column;}
+  .reorder-wrap > #home{order:1}
+  .reorder-wrap > #why{order:2}
+  .reorder-wrap > #features{order:3}
+  .reorder-wrap > #program{order:4}
+  .reorder-wrap > .panorama{order:5}
+  .reorder-wrap > #reviews{order:6}
+  .reorder-wrap > #clips{order:7}
+  .reorder-wrap > #video{order:8}
+  .reorder-wrap > #openclass{order:9}
+  .reorder-wrap > #timetable{order:10}
+  .reorder-wrap > #notice{order:11}
+  .reorder-wrap > #faq{order:12}
+  .reorder-wrap > #contact{order:13}
+</style>
+<div class="reorder-wrap">
 <!-- HERO -->
 <section class="hero" id="home">
   <div class="hero-inner">
@@ -302,7 +320,7 @@
       <p class="hero-sub">수학이 어렵다고 느껴지는 것은 생소하기 때문입니다.<br>반복적인 학습은 생소함을 익숙함으로 바꾸어주고<br>익숙함은 곧 자신감과 성적향상으로 이어지게 됩니다.</p>
       <p class="hero-emphasis">결국, 수학은 경험하고 반복하는 것이 중요합니다.</p>
       <div class="hero-btns">
-        <a href="#video" class="btn-primary">🎬 맛보기 강의 보기</a>
+        <a href="#video" class="btn-primary">🎬 샘플 강의 보기</a>
         <a href="#contact" class="btn-outline">📩 수업 문의하기</a>
       </div>
     </div>
@@ -706,7 +724,7 @@
   <div class="section-inner">
     <div class="section-tag">PREVIEW</div>
     <div class="section-divider"></div>
-    <h2 class="section-title">맛보기 강의</h2>
+    <h2 class="section-title">샘플 강의</h2>
     <p class="section-desc">직접 강의를 확인해보세요. 이관우 선생님의 수업 방식을 미리 경험할 수 있습니다.</p>
     <div class="video-grid">
       <div class="video-wrap">
@@ -736,6 +754,37 @@
         </div>
         <a href="https://www.youtube.com/@kwa.noo.math" target="_blank" class="btn-primary" style="text-align:center;margin-top:4px;">유튜브에서 더 보기 →</a>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- OPEN CLASS — 설명회·공개강의 (유튜브) -->
+<style>
+  #openclass .openclass-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:8px;}
+  #openclass .oc-card{display:block;text-decoration:none;color:inherit;}
+  #openclass .oc-thumb{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.12);}
+  #openclass .oc-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s;}
+  #openclass .oc-card:hover .oc-thumb img{transform:scale(1.04);}
+  #openclass .oc-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2.6rem;color:#fff;background:rgba(0,0,0,.28);}
+  #openclass .oc-title{margin-top:12px;font-weight:700;font-size:0.98rem;color:var(--text);text-align:center;line-height:1.4;}
+  @media (max-width:640px){ #openclass .openclass-grid{grid-template-columns:1fr;} }
+</style>
+<section id="openclass">
+  <div class="section-inner">
+    <div class="section-tag">OPEN CLASS</div>
+    <div class="section-divider"></div>
+    <h2 class="section-title">설명회 · 공개강의</h2>
+    <p class="section-desc">반별 강의 소개와 공개강의 영상을 직접 확인해보세요. (썸네일 클릭 → 유튜브에서 재생)</p>
+    <div class="openclass-grid">
+      <!-- 커스텀 썸네일 받으면 아래 img src만 교체 (현재는 유튜브 자동 썸네일) -->
+      <a class="oc-card" href="https://youtu.be/JPwttHAYSjQ" target="_blank" rel="noopener noreferrer">
+        <div class="oc-thumb"><img src="https://img.youtube.com/vi/JPwttHAYSjQ/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/JPwttHAYSjQ/hqdefault.jpg';" alt="세정학원 고1 시동반 강의 소개"><span class="oc-play">▶</span></div>
+        <div class="oc-title">세정학원 고1 시동반 강의 소개</div>
+      </a>
+      <a class="oc-card" href="https://youtu.be/HCLGDC8C6G0" target="_blank" rel="noopener noreferrer">
+        <div class="oc-thumb"><img src="https://img.youtube.com/vi/HCLGDC8C6G0/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/HCLGDC8C6G0/hqdefault.jpg';" alt="공통수학2 선행반"><span class="oc-play">▶</span></div>
+        <div class="oc-title">공통수학2 선행반</div>
+      </a>
     </div>
   </div>
 </section>
@@ -926,6 +975,7 @@
     </div>
   </div>
 </section>
+</div><!-- /reorder-wrap -->
 
 <!-- 카카오 플로팅 버튼 -->
 <div class="kakao-float">
