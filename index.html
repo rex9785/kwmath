@@ -287,6 +287,7 @@
       <li><a href="#timetable">시간표</a></li>
       <li><a href="#notice">공지사항</a></li>
       <li><a href="#video">샘플강의</a></li>
+      <li><a href="/lectures">공개강의</a></li>
       <li><a href="/materials">자료실</a></li>
       <li><a href="/portal" class="nav-cta">포털 로그인</a></li>
     </ul>
@@ -775,7 +776,7 @@
     <div class="section-divider"></div>
     <h2 class="section-title">설명회 · 공개강의</h2>
     <p class="section-desc">반별 강의 소개와 공개강의 영상을 직접 확인해보세요. (썸네일 클릭 → 유튜브에서 재생)</p>
-    <div class="openclass-grid">
+    <div class="openclass-grid" id="ocGrid">
       <!-- 커스텀 썸네일 받으면 아래 img src만 교체 (현재는 유튜브 자동 썸네일) -->
       <a class="oc-card" href="https://youtu.be/JPwttHAYSjQ" target="_blank" rel="noopener noreferrer">
         <div class="oc-thumb"><img src="https://img.youtube.com/vi/JPwttHAYSjQ/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/JPwttHAYSjQ/hqdefault.jpg';" alt="세정학원 고1 시동반 강의 소개"><span class="oc-play">▶</span></div>
@@ -786,7 +787,30 @@
         <div class="oc-title">공통수학2 선행반</div>
       </a>
     </div>
+    <div style="text-align:center;margin-top:28px;">
+      <a href="/lectures" class="btn-primary" style="display:inline-block;">📺 공개강의·설명회 전체 보기 →</a>
+    </div>
   </div>
+  <script>
+  /* 설명회/공개강의 최신 영상 자동 표시 (YouTube Data API 연동 시).
+     /api/yt 가 configured=false 이거나 영상이 없으면 위 기본 카드를 그대로 유지. */
+  (function(){
+    function esc(s){return String(s||'').replace(/[&<>]/g,function(c){return c==='&'?'&amp;':c==='<'?'&lt;':'&gt;';});}
+    fetch('/api/yt').then(function(r){return r.ok?r.json():null;}).then(function(d){
+      if(!d||!d.configured) return;
+      var grid=document.getElementById('ocGrid'); if(!grid) return;
+      var items=[]; if(d.latestBriefing) items.push(d.latestBriefing);
+      (d.openclass||[]).forEach(function(v){ if(items.length<3 && !items.some(function(x){return x.videoId===v.videoId;})) items.push(v); });
+      if(!items.length) return;
+      grid.innerHTML=items.slice(0,3).map(function(v){
+        var t=v.thumb||('https://img.youtube.com/vi/'+v.videoId+'/maxresdefault.jpg');
+        return '<a class="oc-card" href="https://youtu.be/'+v.videoId+'" target="_blank" rel="noopener noreferrer">'
+          +'<div class="oc-thumb"><img src="'+t+'" onerror="this.onerror=null;this.src=\'https://img.youtube.com/vi/'+v.videoId+'/hqdefault.jpg\';" alt=""><span class="oc-play">▶</span></div>'
+          +'<div class="oc-title">'+esc(v.title)+'</div></a>';
+      }).join('');
+    }).catch(function(){});
+  })();
+  </script>
 </section>
 
 <!-- REVIEWS -->

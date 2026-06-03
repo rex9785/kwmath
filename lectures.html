@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공개강의 · 설명회 아카이브 | 이관우 수학연구소</title>
+<meta name="description" content="이관우 수학연구소(LKW math LAB)의 설명회·공개강의 영상 아카이브">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F7;--border:#EDE0E1;}
+  html{scroll-behavior:smooth;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg);word-break:keep-all;overflow-wrap:break-word;}
+  a{color:inherit;}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 5%;}
+  .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:62px;}
+  .nav-logo img{height:36px;width:auto;object-fit:contain;display:block;}
+  .nav-links{display:flex;gap:1.4rem;list-style:none;align-items:center;}
+  .nav-links a{text-decoration:none;color:var(--text-light);font-size:0.86rem;font-weight:600;letter-spacing:-0.2px;}
+  .nav-links a:hover{color:var(--primary);}
+  .nav-cta{background:var(--primary);color:#fff!important;padding:8px 15px;border-radius:8px;font-weight:700!important;font-size:0.82rem!important;}
+
+  /* HEADER */
+  .page-head{background:linear-gradient(135deg,#F9ECED 0%,#FFF 60%,#FDF5F0 100%);padding:64px 5% 48px;text-align:center;}
+  .page-head .tag{font-size:0.75rem;font-weight:700;color:var(--primary);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+  .page-head h1{font-size:2.2rem;font-weight:900;letter-spacing:-1px;line-height:1.3;margin-bottom:12px;}
+  .page-head p{font-size:0.95rem;color:var(--text-light);line-height:1.8;max-width:620px;margin:0 auto;}
+
+  /* CONTENT */
+  main{max-width:1100px;margin:0 auto;padding:48px 5% 90px;}
+  .vid-section{margin-bottom:56px;scroll-margin-top:80px;}
+  .vid-section h2{font-size:1.5rem;font-weight:900;letter-spacing:-0.5px;margin-bottom:6px;}
+  .vid-section .sub{font-size:0.88rem;color:var(--text-light);margin-bottom:22px;}
+  .vid-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px;}
+  .vid-card{display:block;border:none;background:none;padding:0;text-align:left;cursor:pointer;font-family:inherit;width:100%;}
+  .vid-thumb{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000;box-shadow:0 6px 20px rgba(0,0,0,.12);}
+  .vid-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s;}
+  .vid-card:hover .vid-thumb img{transform:scale(1.05);}
+  .vid-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2.4rem;color:#fff;background:rgba(0,0,0,.26);transition:background .2s;}
+  .vid-card:hover .vid-play{background:rgba(134,38,51,.42);}
+  .vid-title{margin-top:12px;font-weight:700;font-size:0.96rem;line-height:1.4;}
+  .vid-date{margin-top:4px;font-size:0.8rem;color:var(--text-light);}
+  .state{padding:38px 0;text-align:center;color:var(--text-light);font-size:0.92rem;border:1px dashed var(--border);border-radius:14px;}
+  .skel{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px;}
+  .skel > div{aspect-ratio:16/9;border-radius:14px;background:linear-gradient(90deg,#f2eaea,#faf5f5,#f2eaea);background-size:200% 100%;animation:sh 1.2s infinite;}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+  /* MODAL */
+  .yt-modal{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .yt-modal[hidden]{display:none;}
+  .yt-modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.78);}
+  .yt-modal-box{position:relative;width:min(960px,100%);}
+  .yt-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .yt-frame iframe{width:100%;height:100%;border:0;}
+  .yt-close{position:absolute;top:-44px;right:0;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;line-height:1;}
+
+  footer{background:#1a1416;color:#cbb3b6;text-align:center;padding:28px 5%;font-size:0.82rem;line-height:1.8;}
+  footer a{color:#e9c9cd;}
+
+  @media (max-width:560px){ .page-head h1{font-size:1.7rem;} .nav-links{gap:0.9rem;} .nav-links a{font-size:0.8rem;} }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="가로로고.jpg" alt="이관우 수학연구소"></a>
+    <ul class="nav-links">
+      <li><a href="/#video">샘플강의</a></li>
+      <li><a href="/#timetable">시간표</a></li>
+      <li><a href="/">홈으로</a></li>
+      <li><a href="/portal" class="nav-cta">포털 로그인</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="tag">ARCHIVE</div>
+  <h1>공개강의 · 설명회</h1>
+  <p>이관우 수학연구소의 설명회와 공개강의 영상을 모았습니다.<br>썸네일을 누르면 이 페이지에서 바로 재생됩니다.</p>
+</header>
+
+<main>
+  <section class="vid-section" id="sec-briefing">
+    <h2>📢 설명회</h2>
+    <div class="sub">학원·반 설명회 영상입니다.</div>
+    <div class="vid-grid" id="briefingGrid"></div>
+  </section>
+
+  <section class="vid-section" id="sec-openclass">
+    <h2>🎬 공개강의</h2>
+    <div class="sub">반별 소개와 공개강의 영상입니다.</div>
+    <div class="vid-grid" id="openclassGrid"></div>
+  </section>
+</main>
+
+<div class="yt-modal" id="ytModal" hidden>
+  <div class="yt-modal-bg" data-close></div>
+  <div class="yt-modal-box">
+    <button class="yt-close" data-close aria-label="닫기">&#10005;</button>
+    <div class="yt-frame"><iframe id="ytFrame" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe></div>
+  </div>
+</div>
+
+<footer>
+  &copy; <span id="yr"></span> 이관우 수학연구소 · LKW math LAB<br>
+  서울 강남구 삼성로57길 35, 2층 ·
+  <a href="https://www.youtube.com/@kwa.noo.math" target="_blank" rel="noopener">유튜브 채널</a>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+
+  // 폴백: 아직 API 키/재생목록 미설정 시 보여줄 기본 공개강의 영상
+  var FALLBACK_OPENCLASS = [
+    { videoId:'JPwttHAYSjQ', title:'세정학원 고1 시동반 강의 소개', publishedAt:'' },
+    { videoId:'HCLGDC8C6G0', title:'공통수학2 선행반', publishedAt:'' }
+  ];
+
+  function fmtDate(iso){
+    if(!iso) return '';
+    var d = new Date(iso); if(isNaN(d.getTime())) return '';
+    return d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0');
+  }
+  function thumbUrl(v){
+    return v.thumb || ('https://img.youtube.com/vi/' + v.videoId + '/maxresdefault.jpg');
+  }
+  function makeCard(v){
+    var btn = document.createElement('button');
+    btn.className = 'vid-card'; btn.type = 'button';
+    var thumb = document.createElement('div'); thumb.className = 'vid-thumb';
+    var img = document.createElement('img'); img.loading = 'lazy'; img.alt = v.title || ''; img.src = thumbUrl(v);
+    img.onerror = function(){ this.onerror = null; this.src = 'https://img.youtube.com/vi/' + v.videoId + '/hqdefault.jpg'; };
+    var play = document.createElement('span'); play.className = 'vid-play'; play.textContent = '▶';
+    thumb.appendChild(img); thumb.appendChild(play);
+    var title = document.createElement('div'); title.className = 'vid-title'; title.textContent = v.title || '';
+    btn.appendChild(thumb); btn.appendChild(title);
+    var dt = fmtDate(v.publishedAt);
+    if(dt){ var dd = document.createElement('div'); dd.className = 'vid-date'; dd.textContent = dt; btn.appendChild(dd); }
+    btn.addEventListener('click', function(){ openModal(v.videoId); });
+    return btn;
+  }
+  function renderGrid(el, items, emptyMsg){
+    el.innerHTML = '';
+    if(!items || !items.length){ el.innerHTML = '<div class="state">' + emptyMsg + '</div>'; return; }
+    items.forEach(function(v){ el.appendChild(makeCard(v)); });
+  }
+
+  // 모달 플레이어
+  var modal = document.getElementById('ytModal');
+  var frame = document.getElementById('ytFrame');
+  function openModal(id){
+    frame.src = 'https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0';
+    modal.hidden = false; document.body.style.overflow = 'hidden';
+  }
+  function closeModal(){ modal.hidden = true; frame.src = ''; document.body.style.overflow = ''; }
+  modal.addEventListener('click', function(e){ if(e.target.hasAttribute('data-close')) closeModal(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !modal.hidden) closeModal(); });
+
+  // 로딩 스켈레톤
+  function skel(el, n){ var h = ''; for(var i=0;i<n;i++) h += '<div></div>'; el.innerHTML = '<div class="skel">' + h + '</div>'; }
+  var bg = document.getElementById('briefingGrid'), og = document.getElementById('openclassGrid');
+  skel(bg, 3); skel(og, 3);
+
+  fetch('/api/yt')
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d){ renderGrid(bg, [], '영상을 불러오지 못했습니다. 잠시 후 새로고침 해주세요.'); renderGrid(og, FALLBACK_OPENCLASS, ''); return; }
+      renderGrid(bg, d.briefing, '아직 등록된 설명회 영상이 없습니다.');
+      var oc = (d.openclass && d.openclass.length) ? d.openclass : FALLBACK_OPENCLASS;
+      renderGrid(og, oc, '아직 등록된 공개강의가 없습니다.');
+    })
+    .catch(function(){
+      renderGrid(bg, [], '영상을 불러오지 못했습니다. 잠시 후 새로고침 해주세요.');
+      renderGrid(og, FALLBACK_OPENCLASS, '');
+    });
+</script>
+</body>
+</html>
