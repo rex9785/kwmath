@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>이관우 수학연구소 | LKW math LAB</title>
+<meta name="description" content="대치동 이관우 수학연구소(LKW math LAB) — '익숙함의 위대함'. 이유를 가르치는 수업, 4단계 학습 시스템, 주간 리포트로 성적 향상을 만듭니다.">
+<link rel="canonical" href="https://kwmath.co.kr/">
+<link rel="icon" href="세로로고.jpg">
+<link rel="apple-touch-icon" href="세로로고.jpg">
+<meta name="theme-color" content="#862633">
+<!-- Open Graph (카카오톡/페이스북 공유 미리보기) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="이관우 수학연구소">
+<meta property="og:title" content="이관우 수학연구소 | LKW math LAB">
+<meta property="og:description" content="대치동 · 이유를 가르치는 수학 수업. 4단계 학습 시스템과 주간 리포트로 성적 향상.">
+<meta property="og:url" content="https://kwmath.co.kr/">
+<meta property="og:image" content="https://kwmath.co.kr/세로로고.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="이관우 수학연구소 | LKW math LAB">
+<meta name="twitter:description" content="대치동 · 이유를 가르치는 수학 수업. 4단계 학습 시스템과 주간 리포트.">
+<meta name="twitter:image" content="https://kwmath.co.kr/세로로고.jpg">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -720,7 +736,7 @@
   </div>
 </section>
 
-<!-- VIDEO — 맛보기 강의 -->
+<!-- VIDEO — 샘플 강의 -->
 <section id="video">
   <div class="section-inner">
     <div class="section-tag">PREVIEW</div>
@@ -729,7 +745,7 @@
     <p class="section-desc">직접 강의를 확인해보세요. 이관우 선생님의 수업 방식을 미리 경험할 수 있습니다.</p>
     <div class="video-grid">
       <div class="video-wrap">
-        <iframe src="https://www.youtube.com/embed/a7rV8xMRfMs" allowfullscreen title="이관우 수학 맛보기 강의"></iframe>
+        <iframe src="https://www.youtube.com/embed/a7rV8xMRfMs" allowfullscreen title="이관우 수학 샘플 강의"></iframe>
       </div>
       <div class="video-info">
         <div class="video-feature">
@@ -801,9 +817,10 @@
       var grid=document.getElementById('ocGrid'); if(!grid) return;
       var items=[]; if(d.latestBriefing) items.push(d.latestBriefing);
       (d.openclass||[]).forEach(function(v){ if(items.length<3 && !items.some(function(x){return x.videoId===v.videoId;})) items.push(v); });
+      items=items.filter(function(v){return v&&/^[A-Za-z0-9_-]{11}$/.test(v.videoId);});
       if(!items.length) return;
       grid.innerHTML=items.slice(0,3).map(function(v){
-        var t=v.thumb||('https://img.youtube.com/vi/'+v.videoId+'/maxresdefault.jpg');
+        var t=(v.thumb&&/^https:\/\//.test(v.thumb))?v.thumb:('https://img.youtube.com/vi/'+v.videoId+'/maxresdefault.jpg');
         return '<a class="oc-card" href="https://youtu.be/'+v.videoId+'" target="_blank" rel="noopener noreferrer">'
           +'<div class="oc-thumb"><img src="'+t+'" onerror="this.onerror=null;this.src=\'https://img.youtube.com/vi/'+v.videoId+'/hqdefault.jpg\';" alt=""><span class="oc-play">▶</span></div>'
           +'<div class="oc-title">'+esc(v.title)+'</div></a>';
@@ -881,7 +898,7 @@
 
     <!-- 후기 작성 안내 CTA -->
     <div style="text-align:center;margin-top:30px;">
-      <a href="/portal" style="display:inline-block;background:var(--primary,#8B1A35);color:#fff;text-decoration:none;padding:13px 28px;border-radius:11px;font-size:0.93rem;font-weight:800;box-shadow:0 4px 14px rgba(139,26,53,0.18);">
+      <a href="/portal" style="display:inline-block;background:var(--primary,#862633);color:#fff;text-decoration:none;padding:13px 28px;border-radius:11px;font-size:0.93rem;font-weight:800;box-shadow:0 4px 14px rgba(134,38,51,0.18);">
         📝 수강 후기 작성하기 (포털 로그인)
       </a>
       <div style="font-size:0.78rem;color:#777;margin-top:8px;">기존 학생·학부모님은 포털에서 후기를 남기실 수 있습니다.</div>
@@ -1104,11 +1121,12 @@ const FAQ_DATA = [
       grid.innerHTML = '<div style="text-align:center;color:var(--text-light);padding:24px;font-size:0.9rem;">등록된 시간표가 없습니다.</div>';
       return;
     }
+    const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     grid.innerHTML = data.map(c=>{
       const isSoon = (c.memo||'').includes('7월') || (c.school||'').includes('세정');
       // 학원 라벨 — '기타'는 표시하지 않음
       const schoolLabel = (c.school && c.school !== '기타') ? c.school : '';
-      const locParts = [schoolLabel, c.target].filter(Boolean).join(' · ');
+      const locParts = [schoolLabel, c.target].filter(Boolean).map(esc).join(' · ');
       // 시간 필드는 슬롯 단위로 멀티라인 가능. 형식: "요일|시간|부제(선택)"
       // 한 슬롯만 있으면 기존 한 줄 구조, 여러 슬롯이면 각각 row.
       const timeStr = (c.time||'').trim();
@@ -1123,14 +1141,14 @@ const FAQ_DATA = [
           const time = parts[1] || '';
           const sub = parts[2] || '';
           return `<div class="tt-row">
-            <div class="tt-day">${day}</div>
-            <div class="tt-times">${time}${sub?`<span class="tt-sub">${sub}</span>`:''}</div>
+            <div class="tt-day">${esc(day)}</div>
+            <div class="tt-times">${esc(time)}${sub?`<span class="tt-sub">${esc(sub)}</span>`:''}</div>
           </div>`;
         }).join('');
       } else {
         rowsHtml = `<div class="tt-row">
-          <div class="tt-day">${(c.days||[]).join('·')||'-'}</div>
-          <div class="tt-times">${timeStr}</div>
+          <div class="tt-day">${esc((c.days||[]).join('·')||'-')}</div>
+          <div class="tt-times">${esc(timeStr)}</div>
         </div>`;
       }
       return `
@@ -1138,12 +1156,12 @@ const FAQ_DATA = [
         <div class="tt-header">
           <span class="tt-badge ${isSoon?'soon':''}">${isSoon?'7월 오픈':'운영중'}</span>
           <div>
-            <div class="tt-name">${c.name}</div>
+            <div class="tt-name">${esc(c.name)}</div>
             ${locParts?`<div class="tt-loc">${locParts}</div>`:''}
           </div>
         </div>
         ${rowsHtml}
-        ${c.memo?`<div class="tt-note">${c.memo}</div>`:''}
+        ${c.memo?`<div class="tt-note">${esc(c.memo)}</div>`:''}
       </div>`;
     }).join('');
   } catch(e) {
