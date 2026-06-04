@@ -1251,7 +1251,7 @@
     formData.append('folder', folder);
     formData.append('password', adminToken);
 
-    const res = await fetch('/api/upload-file', { method: 'POST', body: formData });
+    const res = await fetch('/api/upload-file', { method: 'POST', headers: { 'Authorization': 'Bearer ' + adminToken }, body: formData });
     if (!res.ok) throw new Error('업로드 실패');
     const { key, fileSize } = await res.json();
 
@@ -1338,7 +1338,7 @@
       list.innerHTML = files.map(f => `
         <div class="report-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <div>
-            <div style="font-weight:700;font-size:0.9rem;">${f.displayName}</div>
+            <div style="font-weight:700;font-size:0.9rem;">${escapeHtml(f.displayName)}</div>
             <div style="font-size:0.78rem;color:var(--text-light);">${f.sizeLabel || f.size || ''} ${f.lastModified ? '· '+new Date(f.lastModified).toLocaleDateString('ko-KR') : ''}</div>
           </div>
           <div style="display:flex;gap:8px;">

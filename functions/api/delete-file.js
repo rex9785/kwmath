@@ -9,6 +9,11 @@ export async function onRequest({ request, env }) {
   const { key } = await request.json();
   if (!key) return Response.json({ error: 'key 필요' }, { status: 400 });
 
+  // 경로 보호: auth/·video-codes/·push-subs/ 등 운영 경로 및 상위경로(..) 삭제 차단
+  const keyRoot = String(key).replace(/^\/+/, '').split('/')[0];
+  if (String(key).includes('..') || ['auth', 'video-codes', 'push-subs', 'tokens'].includes(keyRoot))
+    return Response.json({ error: '허용되지 않은 경로입니다.' }, { status: 403 });
+
   await env.BUCKET.delete(key);
 
   // 공개 자료(materials/)는 Notion 자료 DB 항목도 함께 제거 (homepage가 Notion을 읽으므로)
