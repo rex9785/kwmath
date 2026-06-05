@@ -43,6 +43,7 @@ function aggregateStats(sessions) {
 
   const byDate = {};
   let todayM = 0, weekM = 0, monthM = 0, allM = 0;
+  let weekAwayCount = 0, weekAwayMs = 0;
 
   for (const s of sessions) {
     const m = Number(s.minutes) || 0;
@@ -51,10 +52,16 @@ function aggregateStats(sessions) {
     byDate[d] = (byDate[d] || 0) + m;
     allM += m;
     if (d === today) todayM += m;
-    if (d >= monday)  weekM += m;
+    if (d >= monday) {
+      weekM += m;
+      weekAwayCount += Number(s.awayCount) || 0;
+      weekAwayMs    += Number(s.awayMs) || 0;
+    }
     if (d.startsWith(monthStr)) monthM += m;
   }
-  return { byDate, today: todayM, week: weekM, month: monthM, all: allM };
+  const weekMs = weekM * 60000;
+  const focusPct = weekMs > 0 ? Math.max(0, Math.min(100, Math.round((weekMs - weekAwayMs) / weekMs * 100))) : 100;
+  return { byDate, today: todayM, week: weekM, month: monthM, all: allM, weekAwayCount, focusPct };
 }
 
 export async function onRequest({ request, env }) {
@@ -91,6 +98,8 @@ export async function onRequest({ request, env }) {
       month: agg.month,
       all: agg.all,
       byDate: agg.byDate,
+      weekAwayCount: agg.weekAwayCount,
+      focusPct: agg.focusPct,
       recentSessions: recent,
     });
   }
@@ -138,12 +147,16 @@ export async function onRequest({ request, env }) {
     if (todayBefore + minutes > MAX_DAILY_MINUTES)
       return Response.json({ error: '하루 누계가 ' + MAX_DAILY_MINUTES + '분을 초과합니다' }, { status: 400 });
 
+    const awayCount = Math.max(0, Math.round(Number(body.awayCount) || 0));
+    const awayMs    = Math.max(0, Math.round(Number(body.awayMs) || 0));
     const session = {
       id: uuid(),
       startedAt: new Date(ts).toISOString(),
       endedAt:   new Date(te).toISOString(),
       minutes,
       date,
+      awayCount,
+      awayMs,
     };
     const r = await addStudySession(env, studentId, session);
     if (!r.ok) return safeError(r.error || 'addStudySession failed', env, { message: '공부 기록 저장에 실패했습니다.' });

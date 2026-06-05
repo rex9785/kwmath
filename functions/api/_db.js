@@ -333,19 +333,38 @@ export async function listAllAttendance(env) {
 
 // ════════════ KW-Study ════════════
 export async function getStudySessions(env, studentId) {
-  const { results } = await env.DB.prepare(
-    'SELECT id, started_at, ended_at, minutes, date FROM study_sessions WHERE student_id=? ORDER BY started_at DESC'
-  ).bind(studentId).all();
+  let results;
+  try {
+    ({ results } = await env.DB.prepare(
+      'SELECT id, started_at, ended_at, minutes, date, away_count, away_ms FROM study_sessions WHERE student_id=? ORDER BY started_at DESC'
+    ).bind(studentId).all());
+  } catch (_) {
+    // away_count/away_ms 컬럼이 아직 없으면(마이그레이션 전) 기존 컬럼만 조회
+    ({ results } = await env.DB.prepare(
+      'SELECT id, started_at, ended_at, minutes, date FROM study_sessions WHERE student_id=? ORDER BY started_at DESC'
+    ).bind(studentId).all());
+  }
   return (results || []).map(r => ({
     id: r.id, startedAt: r.started_at, endedAt: r.ended_at, minutes: r.minutes, date: r.date,
+    awayCount: Number(r.away_count) || 0, awayMs: Number(r.away_ms) || 0,
   }));
 }
 
 export async function addStudySession(env, studentId, session) {
+  const ac = Math.max(0, Math.round(Number(session.awayCount) || 0));
+  const am = Math.max(0, Math.round(Number(session.awayMs) || 0));
   try {
     await env.DB.prepare(
-      'INSERT INTO study_sessions (id, student_id, started_at, ended_at, minutes, date) VALUES (?,?,?,?,?,?)'
-    ).bind(session.id, studentId, session.startedAt, session.endedAt, session.minutes, session.date).run();
+      'INSERT INTO study_sessions (id, student_id, started_at, ended_at, minutes, date, away_count, away_ms) VALUES (?,?,?,?,?,?,?,?)'
+    ).bind(session.id, studentId, session.startedAt, session.endedAt, session.minutes, session.date, ac, am).run();
     return { ok: true };
-  } catch (e) { return { ok: false, error: e.message }; }
+  } catch (e) {
+    // away 컬럼이 없으면(마이그레이션 전) 기존 컬럼만으로 저장 — 이탈은 미저장이지만 앱은 정상
+    try {
+      await env.DB.prepare(
+        'INSERT INTO study_sessions (id, student_id, started_at, ended_at, minutes, date) VALUES (?,?,?,?,?,?)'
+      ).bind(session.id, studentId, session.startedAt, session.endedAt, session.minutes, session.date).run();
+      return { ok: true };
+    } catch (e2) { return { ok: false, error: e2.message }; }
+  }
 }

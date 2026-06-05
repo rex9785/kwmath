@@ -187,6 +187,8 @@
       <div class="stat-box"><div class="stat-num" id="monthMin">0분</div><div class="stat-label">이번 달</div></div>
     </div>
 
+    <div id="focusInfo" style="display:none;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.86rem;text-align:center;"></div>
+
     <div id="startBtnWrap"><button class="big-btn" onclick="startStudy()"><span class="ic">📚</span> 공부 시작하기</button>
     <div style="height:18px;"></div></div>
 
@@ -230,7 +232,7 @@
     <button class="timer-btn" id="tmPauseBtn" onclick="togglePause()">⏸ 일시정지</button>
     <button class="timer-btn end" onclick="endStudy()">⏹ 공부 끝</button>
   </div>
-  <div class="timer-tip">화면 꺼도, 폰 잠가도 시간은 계속 흘러요.<br>배터리 소모 거의 없어요.</div>
+  <div class="timer-tip">⏱ 화면을 꺼도 공부 시간은 계속 흘러요.<br>🚪 단, <b>화면을 끄거나 다른 앱을 켜면 '이탈'로 기록</b>돼요. 집중하려면 이 화면을 켜둔 채로 두세요.</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -417,10 +419,27 @@
     subEl.textContent = subText;
   }
 
+  // 본인 집중도(이탈) 표시 — 경쟁 아닌 자각용. weekAwayCount 없으면(서버/마이그레이션 전) 숨김.
+  function renderFocus() {
+    const el = document.getElementById('focusInfo');
+    if (!el) return;
+    const wk = Number(stats.weekAwayCount);
+    if (!Number.isFinite(wk) || (stats.week || 0) <= 0) { el.style.display = 'none'; return; }
+    const focus = Number.isFinite(Number(stats.focusPct)) ? Number(stats.focusPct) : null;
+    let badge = '';
+    if (wk === 0) badge = ' · <b style="color:#1a7a4a;">🏅 노이탈 집중왕</b>';
+    else if (focus != null && focus >= 90) badge = ' · <b style="color:#1a7a4a;">🎯 집중 우수</b>';
+    el.style.display = 'block';
+    el.innerHTML = '이번 주 이탈 <b>' + wk + '회</b>'
+      + (focus != null ? ' · 집중도 <b>' + focus + '%</b>' : '')
+      + badge;
+  }
+
   function renderAll() {
     document.getElementById('todayMin').textContent = fmtMin(stats.today);
     document.getElementById('weekMin').textContent  = fmtMin(stats.week);
     document.getElementById('monthMin').textContent = fmtMin(stats.month);
+    renderFocus();
     const childName = (currentChild && currentChild.name) || '';
     if (isParentView) {
       if (stats.today > 0) {
@@ -687,7 +706,7 @@
       if (!res.ok || !data.ok) { showToast('❌ 저장 실패: ' + (data.error || res.status)); return; }
       clearActive(); stopTick();
       document.getElementById('timerScreen').classList.remove('show');
-      showToast('🎉 ' + fmtMin(minutes) + ' 기록 완료' + ((Number(a.awayCount) || 0) ? ' · 이탈 ' + a.awayCount + '회' : ''));
+      showToast('🎉 ' + fmtMin(minutes) + ' 기록 완료' + ((Number(a.awayCount) || 0) ? ' · 이탈 ' + a.awayCount + '회' : ' · 🎯 이탈 0회 집중 세션!'));
       loadStats();
     } catch (e) { showToast('네트워크 오류: ' + e.message); }
   }
