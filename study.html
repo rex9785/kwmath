@@ -225,6 +225,7 @@
 <div class="timer-screen" id="timerScreen">
   <div class="timer-display" id="tmDisplay">00:00:00</div>
   <div class="timer-status" id="tmStatus">📚 공부 중</div>
+  <div class="timer-away" id="tmAway" style="margin-top:6px;font-size:0.92rem;font-weight:700;color:#c0392b;min-height:1.2em;"></div>
   <div class="timer-btns">
     <button class="timer-btn" id="tmPauseBtn" onclick="togglePause()">⏸ 일시정지</button>
     <button class="timer-btn end" onclick="endStudy()">⏹ 공부 끝</button>
@@ -611,7 +612,7 @@
       return;
     }
     if (loadActive()) { enterTimerScreen(); return; }
-    const a = { startedAt: new Date().toISOString(), pausedTotalMs: 0, lastPauseAt: null };
+    const a = { startedAt: new Date().toISOString(), pausedTotalMs: 0, lastPauseAt: null, awayCount: 0, awayMs: 0, awayAt: null };
     saveActive(a);
     enterTimerScreen();
   }
@@ -642,6 +643,12 @@
     else { status.textContent = '📚 공부 중'; status.classList.remove('paused'); }
     const pb = document.getElementById('tmPauseBtn');
     pb.textContent = a.lastPauseAt ? '▶ 다시 시작' : '⏸ 일시정지';
+    const away = document.getElementById('tmAway');
+    if (away) {
+      const c = Number(a.awayCount) || 0;
+      const awMin = Math.round((Number(a.awayMs) || 0) / 60000);
+      away.textContent = c ? ('🚪 이탈 ' + c + '회' + (awMin >= 1 ? ' · ' + awMin + '분' : '')) : '';
+    }
   }
 
   function togglePause() {
@@ -674,13 +681,13 @@
       const res = await fetch('/api/study', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ startedAt: a.startedAt, endedAt: new Date(endTs).toISOString(), minutes: minutes })
+        body: JSON.stringify({ startedAt: a.startedAt, endedAt: new Date(endTs).toISOString(), minutes: minutes, awayCount: Number(a.awayCount) || 0, awayMs: Number(a.awayMs) || 0 })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) { showToast('❌ 저장 실패: ' + (data.error || res.status)); return; }
       clearActive(); stopTick();
       document.getElementById('timerScreen').classList.remove('show');
-      showToast('🎉 ' + fmtMin(minutes) + ' 기록 완료');
+      showToast('🎉 ' + fmtMin(minutes) + ' 기록 완료' + ((Number(a.awayCount) || 0) ? ' · 이탈 ' + a.awayCount + '회' : ''));
       loadStats();
     } catch (e) { showToast('네트워크 오류: ' + e.message); }
   }
@@ -695,8 +702,29 @@
       showToast('24시간 이상 방치된 세션을 자동 폐기했어요');
       return;
     }
+    if (a.awayAt) { a.awayAt = null; saveActive(a); }  // 앱 종료로 끊긴 이탈 상태 정리
     enterTimerScreen();
   }
+
+  // ─── 이탈 카운팅 (세션 진행 중 앱/화면을 벗어나면 횟수 집계) ───
+  // ⚠️ 웹은 '화면 끔'과 '앱 전환'을 구분 못 함 → 화면 끔도 이탈로 잡힘. 막지 않고 횟수만 기록.
+  document.addEventListener('visibilitychange', function () {
+    const a = loadActive();
+    if (!a || a.lastPauseAt) return;        // 진행 중인(일시정지 아닌) 세션일 때만
+    if (document.hidden) {
+      a.awayAt = Date.now();
+      saveActive(a);
+    } else if (a.awayAt) {
+      const dur = Date.now() - a.awayAt;
+      a.awayAt = null;
+      if (dur >= 2000) {                    // 2초 미만 깜빡임은 무시
+        a.awayCount = (Number(a.awayCount) || 0) + 1;
+        a.awayMs = (Number(a.awayMs) || 0) + dur;
+      }
+      saveActive(a);
+      updateTimerLabels();
+    }
+  });
 
   // ─── 같이 공부 (라이브) ───
   let _liveTimer = null;
