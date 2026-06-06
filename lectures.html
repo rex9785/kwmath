@@ -112,8 +112,8 @@
 <script>
   document.getElementById('yr').textContent = new Date().getFullYear();
 
-  // 폴백: 아직 API 키/재생목록 미설정 시 보여줄 기본 공개강의 영상
-  var FALLBACK_OPENCLASS = [
+  // 폴백: 아직 API 키/재생목록 미설정 시 보여줄 기본 설명회 영상
+  var FALLBACK_BRIEFING = [
     { videoId:'JPwttHAYSjQ', title:'세정학원 고1 시동반 강의 소개', publishedAt:'' },
     { videoId:'HCLGDC8C6G0', title:'공통수학2 선행반', publishedAt:'' }
   ];
@@ -166,14 +166,14 @@
   fetch('/api/yt')
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){
-      if(!d){ renderGrid(bg, [], '영상을 불러오지 못했습니다. 잠시 후 새로고침 해주세요.'); renderGrid(og, FALLBACK_OPENCLASS, ''); return; }
-      renderGrid(bg, d.briefing, '아직 등록된 설명회 영상이 없습니다.');
-      var oc = (d.openclass && d.openclass.length) ? d.openclass : FALLBACK_OPENCLASS;
-      renderGrid(og, oc, '아직 등록된 공개강의가 없습니다.');
+      if(!d){ renderGrid(bg, FALLBACK_BRIEFING, ''); renderGrid(og, [], '아직 등록된 공개강의가 없습니다.'); return; }
+      var bf = (d.briefing && d.briefing.length) ? d.briefing : FALLBACK_BRIEFING;
+      renderGrid(bg, bf, '아직 등록된 설명회 영상이 없습니다.');
+      renderGrid(og, d.openclass || [], '아직 등록된 공개강의가 없습니다.');
     })
     .catch(function(){
-      renderGrid(bg, [], '영상을 불러오지 못했습니다. 잠시 후 새로고침 해주세요.');
-      renderGrid(og, FALLBACK_OPENCLASS, '');
+      renderGrid(bg, FALLBACK_BRIEFING, '');
+      renderGrid(og, [], '아직 등록된 공개강의가 없습니다.');
     });
 </script>
 </body>
