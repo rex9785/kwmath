@@ -2292,8 +2292,11 @@
   function renderVideos(videos) {
     const list = document.getElementById("videoList");
     if (!videos.length) { list.innerHTML = "<div class=\"empty\">조건에 맞는 영상이 없습니다.</div>"; return; }
+    // 반 목록: 다른 화면들과 동일하게 자동 추출(학생 데이터)에서 가져오고, 현재 반은 항상 포함
+    const dynClassMap = (typeof getAllClassOptionsByAcademy === "function") ? getAllClassOptionsByAcademy() : {};
     list.innerHTML = videos.map(v => {
-      const classOpts = (CLASS_OPTIONS_BY_ACADEMY[v.school] || []);
+      let classOpts = (dynClassMap[v.school] || CLASS_OPTIONS_BY_ACADEMY[v.school] || []).slice();
+      if (v.class_name && !classOpts.includes(v.class_name)) classOpts = [v.class_name, ...classOpts];
       const opts = classOpts.map(c => `<option value="${c}" ${c===v.class_name?"selected":""}>${c}</option>`).join("");
       const lockBtn = v.require_code
         ? `<button class="del-btn" style="border-color:#2ecc71;color:#2ecc71;" onclick="toggleVideoLock(\x27${v.code}\x27, false)">🔓 해제</button>`
