@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>방문 통계 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:760px; margin:0 auto; padding:max(20px,env(safe-area-inset-top,20px)) 18px 48px; }
+  .top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+  h1{ font-size:1.35rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.84rem; margin-bottom:22px; }
+  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:8px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 12px; text-align:center; }
+  .card .lbl{ font-size:0.8rem; color:var(--muted); margin-bottom:8px; }
+  .card .big{ font-size:1.7rem; font-weight:800; color:var(--primary); line-height:1.05; }
+  .card .sm{ font-size:0.74rem; color:var(--muted); margin-top:5px; }
+  .section-title{ font-weight:700; margin:22px 0 10px; font-size:1rem; }
+  .bars{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .bar-row{ display:flex; align-items:center; gap:10px; margin:5px 0; font-size:0.8rem; }
+  .bar-date{ width:54px; color:var(--muted); flex-shrink:0; }
+  .bar-track{ flex:1; background:var(--primary-light); border-radius:6px; height:18px; overflow:hidden; }
+  .bar-fill{ background:var(--primary); height:100%; border-radius:6px; min-width:2px; }
+  .bar-val{ width:44px; text-align:right; flex-shrink:0; font-weight:600; }
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:28px 20px; text-align:center; color:var(--muted); line-height:1.6; }
+  .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:48px auto; text-align:center; }
+  .login input{ width:100%; padding:11px; border:1px solid var(--border); border-radius:10px; margin:12px 0; font-size:1rem; }
+  button{ background:var(--primary); color:#fff; border:none; border-radius:10px; padding:10px 18px; font-weight:700; cursor:pointer; font-size:0.92rem; }
+  .note{ font-size:0.78rem; color:var(--muted); margin-top:18px; line-height:1.55; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>📊 방문 통계</h1>
+      <div class="sub">이관우 수학연구소 · Cloudflare Web Analytics</div>
+    </div>
+    <button id="reloadBtn" onclick="load()" style="display:none;">새로고침</button>
+  </div>
+  <div id="content"><div class="msg">불러오는 중…</div></div>
+  <div class="note" id="note"></div>
+</div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+
+  function $(id){ return document.getElementById(id); }
+  function fmt(n){ return (n || 0).toLocaleString('ko-KR'); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function showLogin(err){
+    $('reloadBtn').style.display = 'none';
+    $('note').innerHTML = '';
+    $('content').innerHTML =
+      '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>' +
+      '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">' +
+      (err ? '<div style="color:#c0392b;font-size:0.8rem;margin-bottom:8px;">' + esc(err) + '</div>' : '') +
+      '<button onclick="doLogin()">확인</button></div>';
+    var p = $('pw'); if (p) p.focus();
+  }
+  function doLogin(){
+    token = ($('pw').value || '').trim();
+    if (!token) return;
+    sessionStorage.setItem('kwmath_admin_pw', token);
+    load();
+  }
+
+  async function load(){
+    $('content').innerHTML = '<div class="msg">불러오는 중…</div>';
+    var headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    var r;
+    try { r = await fetch('/api/admin-analytics', { headers: headers, credentials: 'same-origin' }); }
+    catch (e) { $('content').innerHTML = '<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; return; }
+    if (r.status === 401) {
+      sessionStorage.removeItem('kwmath_admin_pw');
+      var had = token; token = null;
+      showLogin(had ? '비밀번호가 틀렸습니다' : '');
+      return;
+    }
+    var d = await r.json().catch(function(){ return null; });
+    if (!d) { $('content').innerHTML = '<div class="msg">응답 오류</div>'; return; }
+    render(d);
+  }
+
+  function card(lbl, v){
+    v = v || {};
+    return '<div class="card"><div class="lbl">' + lbl + '</div>' +
+      '<div class="big">' + fmt(v.visits) + '</div>' +
+      '<div class="sm">방문 · 페이지뷰 ' + fmt(v.views) + '</div></div>';
+  }
+
+  function render(d){
+    $('reloadBtn').style.display = '';
+    if (d.configured === false) {
+      $('content').innerHTML = '<div class="msg">Cloudflare API 토큰(<b>CF_ANALYTICS_TOKEN</b>)이 아직 등록되지 않았어요.<br>환경변수 등록 후 재배포하면 표시됩니다.</div>';
+      return;
+    }
+    if (d.error) {
+      $('content').innerHTML = '<div class="msg">조회 오류: ' + esc(d.error) +
+        (d.detail ? '<br><small>' + esc(JSON.stringify(d.detail)) + '</small>' : '') + '</div>';
+      return;
+    }
+    var html = '<div class="cards">' + card('오늘', d.today) + card('최근 7일', d.week) + card('최근 30일', d.month) + '</div>';
+    var daily = (d.daily || []).slice(-30);
+    if (daily.length) {
+      var max = Math.max.apply(null, daily.map(function(x){ return x.visits || 0; }).concat([1]));
+      html += '<div class="section-title">일별 방문 (최근 ' + daily.length + '일)</div><div class="bars">';
+      daily.forEach(function(x){
+        var w = Math.round((x.visits || 0) / max * 100);
+        html += '<div class="bar-row"><span class="bar-date">' + esc((x.date || '').slice(5)) + '</span>' +
+          '<span class="bar-track"><span class="bar-fill" style="width:' + w + '%"></span></span>' +
+          '<span class="bar-val">' + fmt(x.visits) + '</span></div>';
+      });
+      html += '</div>';
+    }
+    $('content').innerHTML = html;
+    $('note').innerHTML = '방문(Visits)=고유 방문 세션, 페이지뷰=총 열람 수. 데이터는 Web Analytics를 켠 시점부터 집계되고, 실시간이 아니라 몇 분 지연될 수 있어요.' +
+      (d.updatedAt ? '<br>업데이트: ' + esc(d.updatedAt.replace('T', ' ').slice(0, 16)) : '');
+  }
+
+  load();
+</script>
+</body>
+</html>
