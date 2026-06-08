@@ -128,7 +128,7 @@
     var y=new Date().getFullYear();
     return '<div class="card"><b style="font-size:0.9rem;" id="formTitle">➕ '+tab+' 성적 추가</b>'+
       '<div style="display:flex;gap:8px;margin-top:10px;">'+
-        '<div style="flex:1;"><label class="fl">학년</label><select id="fGrade"><option value="">-</option><option>고1</option><option>고2</option><option>고3</option><option>중3</option></select></div>'+
+        '<div style="flex:1;"><label class="fl">학년 <span style="color:#c0392b;">*</span></label><select id="fGrade" onchange="syncLabels()"><option value="">선택</option><option>고1</option><option>고2</option><option>고3</option><option>중3</option></select></div>'+
         '<div style="width:84px;"><label class="fl">연도</label><input type="number" id="fYear" value="'+y+'"></div>'+
       '</div>'+
       '<div style="margin-top:8px;"><label class="fl">시기</label><select id="fLabel"></select></div>'+
@@ -142,7 +142,17 @@
         '<span id="fMsg" style="font-size:0.78rem;"></span>'+
       '</div></div>';
   }
-  function syncLabels(){ var sel=$('fLabel'); if(!sel) return; var keep=sel.value; sel.innerHTML=(LABELS[tab]||[]).map(function(l){ return '<option'+(l===keep?' selected':'')+'>'+esc(l)+'</option>'; }).join(''); }
+  function syncLabels(){
+    var sel=$('fLabel'); if(!sel) return;
+    var g=$('fGrade')?$('fGrade').value:'';
+    var keep=sel.value;
+    var used={};
+    scores.forEach(function(s){ if(s.examType===tab && (s.gradeLevel||'')===g && s.id!==editingId) used[s.label]=1; });
+    var opts=(LABELS[tab]||[]).filter(function(l){ return !used[l]; });
+    if(!g){ sel.innerHTML=(LABELS[tab]||[]).map(function(l){ return '<option'+(l===keep?' selected':'')+'>'+esc(l)+'</option>'; }).join(''); return; }
+    if(!opts.length){ sel.innerHTML='<option value="">(이 학년은 모두 입력됨)</option>'; return; }
+    sel.innerHTML=opts.map(function(l){ return '<option'+(l===keep?' selected':'')+'>'+esc(l)+'</option>'; }).join('');
+  }
 
   function editRow(id){
     var s=scores.find(function(x){ return x.id===id; }); if(!s) return;
@@ -165,6 +175,8 @@
   }
   async function submitScore(){
     var gradeLevel=$('fGrade').value, year=$('fYear').value, label=$('fLabel').value, raw=$('fRaw').value, gr=$('fGr').value, msg=$('fMsg');
+    if(!gradeLevel){ if(msg){msg.className='err';msg.textContent='학년을 먼저 선택해주세요.';} return; }
+    if(!label){ if(msg){msg.className='err';msg.textContent='이 학년의 시기를 선택해주세요.';} return; }
     if(raw==='' && gr===''){ if(msg){msg.className='err';msg.textContent='원점수나 등급을 입력해주세요.';} return; }
     var payload={ name:student.name, examType:tab, gradeLevel:gradeLevel, label:label, sortKey:sortKey(year,label),
       rawScore:(raw===''?null:Number(raw)), grade:(gr===''?null:Number(gr)) };

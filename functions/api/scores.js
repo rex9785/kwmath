@@ -104,6 +104,8 @@ export async function onRequest({ request, env }) {
       return Response.json({ error: "examType은 '내신' 또는 '모의' 여야 합니다." }, { status: 400 });
     const label = (body.label || '').trim();
     if (!label) return Response.json({ error: '시기(label)는 필수입니다.' }, { status: 400 });
+    const gradeLevel = (body.gradeLevel || '').trim();
+    if (!gradeLevel) return Response.json({ error: '학년을 선택해주세요.' }, { status: 400 });
 
     const rawScore = intOrNull(body.rawScore);
     if (rawScore !== null && (rawScore < 0 || rawScore > 100))
@@ -114,13 +116,17 @@ export async function onRequest({ request, env }) {
     if (rawScore === null && grade === null)
       return Response.json({ error: '원점수 또는 등급 중 하나는 입력해주세요.' }, { status: 400 });
 
-    const gradeLevel = (body.gradeLevel || '').trim();
     const sortKey = (body.sortKey || '').trim();
     const examDate = (body.examDate || '').trim();
     const memo = (body.memo || '').trim();
     const now = new Date().toISOString();
 
     try {
+      // 같은 학생·유형·학년·시기 중복 방지 (수정 시 자기 자신은 제외)
+      const dupSql = 'SELECT id FROM exam_scores WHERE student_id=? AND exam_type=? AND grade_level=? AND label=?' + (body.id ? ' AND id<>?' : '');
+      const dupBind = body.id ? [r.id, examType, gradeLevel, label, body.id] : [r.id, examType, gradeLevel, label];
+      const dup = await env.DB.prepare(dupSql).bind(...dupBind).first();
+      if (dup) return Response.json({ error: '이미 입력된 시험이에요. (같은 학년·시기) 기존 항목을 수정해주세요.' }, { status: 409 });
       if (body.id) {
         const ex = await env.DB.prepare('SELECT student_id FROM exam_scores WHERE id=?').bind(body.id).first();
         if (!ex) return Response.json({ error: '수정할 성적을 찾을 수 없습니다.' }, { status: 404 });
