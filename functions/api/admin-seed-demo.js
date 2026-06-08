@@ -67,6 +67,22 @@ export async function onRequest({ request, env }) {
       log.student = 'created id=' + sid;
     }
 
+    // 2.5) 첫 시도 때 잘못 만들어진 '심사데모학생' 잔재가 있으면 정리 (선택된 학생 sid는 제외)
+    try {
+      const strays = await env.DB.prepare('SELECT id FROM students WHERE (student_phone=? OR parent_phone=?) AND name=? AND id<>?')
+        .bind(DEMO_PHONE, DEMO_PHONE, DEMO_NAME, sid).all();
+      let cleaned = 0;
+      for (const row of (strays.results || [])) {
+        await env.DB.prepare('DELETE FROM study_sessions WHERE student_id=?').bind(row.id).run();
+        await env.DB.prepare('DELETE FROM attendance WHERE student_id=?').bind(row.id).run();
+        await env.DB.prepare('DELETE FROM exam_scores WHERE student_id=?').bind(row.id).run();
+        await env.DB.prepare('DELETE FROM students WHERE id=?').bind(row.id).run();
+        cleaned++;
+      }
+      if (demoName !== DEMO_NAME) await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(DEMO_NAME).run();
+      log.cleanedStrays = cleaned;
+    } catch (e) { log.cleanedStrays = 'err:' + (e && e.message); }
+
     // 3) 데모 학생의 기존 샘플 정리 (데모 범위만)
     await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(demoName).run();
     await env.DB.prepare('DELETE FROM attendance WHERE student_id=?').bind(sid).run();
