@@ -40,14 +40,16 @@ export async function onRequest({ request, env }) {
     const acc = await createAccount(env, DEMO_PHONE, DEMO_PW, false, '[심사용 데모 계정]');
     log.account = acc.ok ? 'ok' : ('fail: ' + acc.error);
 
-    // 2) 데모 학생 (있으면 재사용, 없으면 생성) — 실제 학생과 안 겹치게 고유 이름 사용
-    let sid;
-    const existing = await env.DB.prepare('SELECT id FROM students WHERE student_phone=? AND name=?')
-      .bind(DEMO_PHONE, DEMO_NAME).first();
+    // 2) 데모 학생 — 계정(010-1234-1234)이 기본으로 보는 학생(가장 낮은 id)을 그대로 사용.
+    //    없을 때만 새로 만든다. (중복 학생을 만들어 데이터가 다른 학생에 들어가던 문제 방지)
+    let sid, demoName;
+    const existing = await env.DB.prepare('SELECT id, name FROM students WHERE student_phone=? OR parent_phone=? ORDER BY id LIMIT 1')
+      .bind(DEMO_PHONE, DEMO_PHONE).first();
     if (existing) {
       sid = existing.id;
+      demoName = existing.name || DEMO_NAME;
       await setApprovalStatus(env, sid, '승인');
-      log.student = 'reused id=' + sid;
+      log.student = 'reused id=' + sid + ' name=' + demoName;
     } else {
       const c = await createStudent(env, {
         name: DEMO_NAME, school: '데모고등학교', grade: '고2',
@@ -61,11 +63,12 @@ export async function onRequest({ request, env }) {
       });
       if (!c.ok) return Response.json({ error: '데모 학생 생성 실패: ' + c.error }, { status: 500 });
       sid = c.id;
+      demoName = DEMO_NAME;
       log.student = 'created id=' + sid;
     }
 
     // 3) 데모 학생의 기존 샘플 정리 (데모 범위만)
-    await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(DEMO_NAME).run();
+    await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(demoName).run();
     await env.DB.prepare('DELETE FROM attendance WHERE student_id=?').bind(sid).run();
     await env.DB.prepare('DELETE FROM study_sessions WHERE student_id=?').bind(sid).run();
     await env.DB.prepare('DELETE FROM exam_scores WHERE student_id=?').bind(sid).run();
@@ -82,8 +85,8 @@ export async function onRequest({ request, env }) {
       const dt = new Date(now); dt.setUTCDate(dt.getUTCDate() - rp.d);
       const date = ymd(dt);
       const res = await createReport(env, {
-        studentName: DEMO_NAME, phone4: '1234',
-        title: DEMO_NAME + ' - ' + date + ' 수업 리포트',
+        studentName: demoName, phone4: '1234',
+        title: demoName + ' - ' + date + ' 수업 리포트',
         date, content: rp.content, homework: rp.homework, notes: rp.notes, school: '대치동 정규반',
       });
       if (res.ok) rCnt++;
