@@ -711,6 +711,7 @@
     switchTab(name, null);
     document.getElementById('adminMenu').style.display = 'none';
     document.getElementById('adminBackBtn').style.display = '';
+    if (name === 'files') togglePhoneInput();   // 자료실 열 때 기본 분류에 맞춰 학원/반 칸 표시
     if (!(history.state && history.state.adminSection)) {
       history.pushState({ adminSection: true }, '');
     }

@@ -122,13 +122,15 @@ export async function onRequest({ request, env }) {
     }
     log.attendance = aCnt;
 
-    // 6) KW스터디 세션 5개
+    // 6) KW스터디 세션 — 오늘·이번주 포함(반 랭킹에서 꼴등 안 보이게)
+    const sOffsets = [0, 1, 3, 5, 8];   // 오늘 · 어제 · 이번주 포함
+    const sMins    = [45, 58, 66, 74, 82];
     let sCnt = 0;
-    for (let i = 0; i < 5; i++) {
-      const dt = new Date(now); dt.setUTCDate(dt.getUTCDate() - (i * 3 + 1));
+    for (let i = 0; i < sOffsets.length; i++) {
+      const dt = new Date(now); dt.setUTCDate(dt.getUTCDate() - sOffsets[i]);
       const date = ymd(dt);
-      const start = new Date(dt); start.setUTCHours(18, 0, 0, 0);
-      const mins = 50 + i * 8;
+      const start = new Date(dt); start.setUTCHours(13, 0, 0, 0);
+      const mins = sMins[i];
       const end = new Date(start.getTime() + mins * 60000);
       const res = await addStudySession(env, sid, {
         id: 'demo-' + date + '-' + i, startedAt: start.toISOString(), endedAt: end.toISOString(),
