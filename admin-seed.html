@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>데모 데이터 채우기 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ok:#1d7a44; --err:#c0392b; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:560px; margin:0 auto; padding:max(20px,env(safe-area-inset-top,20px)) 18px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; }
+  h1{ font-size:1.3rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.84rem; margin-bottom:20px; }
+  a.back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:20px 18px; margin-bottom:14px; }
+  .desc{ font-size:0.9rem; line-height:1.7; color:#444; margin-bottom:16px; }
+  .desc b{ color:var(--primary); }
+  button{ width:100%; background:var(--primary); color:#fff; border:none; border-radius:11px; padding:15px; font-weight:800; cursor:pointer; font-size:1.02rem; font-family:inherit; }
+  button:disabled{ opacity:0.55; cursor:default; }
+  .result{ margin-top:16px; font-size:0.92rem; line-height:1.7; }
+  .result.ok{ color:var(--ok); } .result.err{ color:var(--err); }
+  table{ width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  td{ border-bottom:1px solid var(--border); padding:7px 4px; }
+  td:first-child{ color:var(--muted); width:42%; }
+  td:last-child{ font-weight:700; text-align:right; }
+  .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:40px auto; text-align:center; }
+  .login input{ width:100%; padding:11px; border:1px solid var(--border); border-radius:10px; margin:12px 0; font-size:1rem; }
+  .note{ font-size:0.8rem; color:var(--muted); margin-top:14px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>🧪 데모 데이터 채우기</h1><div class="sub">앱 심사용 데모 계정에 샘플 데이터 자동 입력</div></div>
+    <a class="back" href="/admin">← 관리자</a>
+  </div>
+  <div id="content">
+    <div class="card">
+      <div class="desc">데모 계정 <b>010-1234-1234 / 5677</b>에 연결된 학생에게<br>리포트·출결·KW스터디·시험성적을 한 번에 채웁니다.<br>(재실행 안전 · 실제 학생 데이터는 안 건드림)</div>
+      <button id="go" onclick="run()">데모 데이터 채우기</button>
+      <div id="result" class="result"></div>
+    </div>
+    <div class="note">버튼을 누르면 결과가 바로 아래 표시돼요. 끝나면 <b>010-1234-1234 / 5677</b>로 앱(또는 /portal)에 로그인해 확인하세요.</div>
+  </div>
+</div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function showLogin(err){
+    $('content').innerHTML =
+      '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>'+
+      '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">'+
+      (err?'<div style="color:#c0392b;font-size:0.8rem;margin-bottom:8px;">'+esc(err)+'</div>':'')+
+      '<button onclick="doLogin()" style="width:auto;padding:10px 20px;">확인</button></div>';
+    var p=$('pw'); if(p) p.focus();
+  }
+  function doLogin(){ token=($('pw').value||'').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw',token); location.reload(); }
+
+  async function run(){
+    var btn=$('go'), res=$('result');
+    btn.disabled=true; btn.textContent='채우는 중…'; res.className='result'; res.textContent='';
+    var headers={'Content-Type':'application/json'};
+    if(token) headers['Authorization']='Bearer '+token;
+    var r;
+    try { r=await fetch('/api/admin-seed-demo',{method:'POST',headers:headers,credentials:'same-origin'}); }
+    catch(e){ btn.disabled=false; btn.textContent='다시 시도'; res.className='result err'; res.textContent='네트워크 오류. 다시 시도해 주세요.'; return; }
+    if(r.status===401){ sessionStorage.removeItem('kwmath_admin_pw'); token=null; showLogin('비밀번호가 필요합니다'); return; }
+    var d=await r.json().catch(function(){ return null; });
+    btn.disabled=false; btn.textContent='다시 채우기';
+    if(!d){ res.className='result err'; res.textContent='응답 오류'; return; }
+    if(d.error){ res.className='result err'; res.innerHTML='❌ 실패: '+esc(d.error)+(d.detail?'<br><small>'+esc(JSON.stringify(d.detail))+'</small>':''); return; }
+    var x=d.detail||{};
+    res.className='result ok';
+    res.innerHTML='✅ 완료! 데모 계정에 데이터를 채웠어요.'+
+      '<table>'+
+      '<tr><td>계정(010-1234-1234)</td><td>'+esc(x.account||'-')+'</td></tr>'+
+      '<tr><td>학생</td><td>'+esc(x.student||'-')+'</td></tr>'+
+      '<tr><td>정리된 잔재</td><td>'+esc(x.cleanedStrays!=null?x.cleanedStrays:'-')+'</td></tr>'+
+      '<tr><td>리포트</td><td>'+esc(x.reports!=null?x.reports+'개':'-')+'</td></tr>'+
+      '<tr><td>출결</td><td>'+esc(x.attendance!=null?x.attendance+'일':'-')+'</td></tr>'+
+      '<tr><td>KW스터디</td><td>'+esc(x.study!=null?x.study+'회':'-')+'</td></tr>'+
+      '<tr><td>시험성적</td><td>'+esc(x.scores!=null?x.scores+'개':'-')+'</td></tr>'+
+      '</table>'+
+      '<div style="color:#555;font-size:0.84rem;margin-top:12px;">이제 010-1234-1234 / 5677 로 로그인해 확인하세요. (숫자가 0이면 알려주세요 — 바로 고칠게요)</div>';
+  }
+</script>
+</body>
+</html>
