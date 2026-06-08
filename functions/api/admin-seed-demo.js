@@ -115,9 +115,10 @@ export async function onRequest({ request, env }) {
     for (let back = 26; back >= 0; back--) {
       const dt = new Date(now); dt.setUTCDate(dt.getUTCDate() - back);
       if (!dayset[dt.getUTCDay()]) continue;
-      const hw = 80 + ((back * 7) % 21); // 80~100 사이 변동
+      const hwBuckets = [100, 75, 100, 100, 50, 75, 100, 75]; // 숙제 완료율은 0/25/50/75/100 버킷만
+      const hw = hwBuckets[back % hwBuckets.length];
       const status = (back === 12) ? '지각' : '출석';
-      const res = await upsertAttendance(env, sid, ymd(dt), { status, homework: Math.min(100, hw), method: '대면' });
+      const res = await upsertAttendance(env, sid, ymd(dt), { status, homework: hw, method: '대면' });
       if (res.ok) aCnt++;
     }
     log.attendance = aCnt;

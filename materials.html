@@ -98,6 +98,8 @@
 <script>
 let currentCategory = '';
 let allFiles = [];
+const TOKEN_KEY = 'kwmath_portal_token', SEL_KEY = 'kwmath_selected_student';
+let myStudentName = '';
 
 function getFileIcon(fileName) {
   const ext = (fileName || '').split('.').pop().toLowerCase();
@@ -134,22 +136,83 @@ function renderFiles(files) {
   grid.querySelectorAll('.file-dl-btn').forEach(function(b){ b.addEventListener('click', function(){ downloadFile(b.getAttribute('data-key')); }); });
 }
 
-async function loadFiles() {
+// list-files.js 항목 → 카드 형식으로 매핑
+function fromClassEntry(e) {
+  return {
+    title: e.displayName || e.name,
+    fileName: e.displayName || e.name,
+    r2Key: e.key,
+    category: '수업자료',
+    fileSize: e.sizeLabel || '',
+    uploadDate: e.lastModified ? String(e.lastModified).slice(0, 10) : '',
+  };
+}
+
+// 로그인한 학생의 '반 전용' R2 자료(class/{학원}_{반}/) 로드
+async function loadClassFiles(token) {
+  try {
+    const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    const me = await meRes.json();
+    if (!meRes.ok || !me.ok || !Array.isArray(me.students) || !me.students.length) return [];
+    let sel = null; try { sel = JSON.parse(sessionStorage.getItem(SEL_KEY)); } catch(_) {}
+    const student = (sel && me.students.find(s => s.id === sel.id || s.name === sel.name)) || me.students[0];
+    if (!student || !student.academy || !student.className) return [];
+    myStudentName = student.name || '';
+    const folder = 'class/' + student.academy + '_' + student.className;
+    const r = await fetch('/api/list-files?folder=' + encodeURIComponent(folder) + '&name=' + encodeURIComponent(student.name), { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!r.ok) return [];
+    const arr = await r.json();
+    return Array.isArray(arr) ? arr.map(fromClassEntry) : [];
+  } catch(e) { return []; }
+}
+
+// 공개 자료(materials/) 로드
+async function loadPublicFiles() {
   try {
     const res = await fetch('/api/materials');
-    allFiles = await res.json();
-    if (!Array.isArray(allFiles)) allFiles = [];
-    renderFiles(allFiles);
-  } catch(e) {
-    document.getElementById('fileGrid').innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">⚠️</div><p>자료를 불러올 수 없습니다.<br>잠시 후 다시 시도해주세요.</p></div>`;
+    const arr = await res.json();
+    return Array.isArray(arr) ? arr : [];
+  } catch(e) { return []; }
+}
+
+async function loadFiles() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const [pub, cls] = await Promise.all([
+    loadPublicFiles(),
+    token ? loadClassFiles(token) : Promise.resolve([]),
+  ]);
+  // 반 전용 자료 먼저, 그다음 공개 자료. r2Key로 중복 제거
+  const seen = new Set();
+  allFiles = [];
+  for (const f of cls.concat(pub)) {
+    const k = f.r2Key || (f.title + '|' + f.uploadDate);
+    if (seen.has(k)) continue;
+    seen.add(k); allFiles.push(f);
   }
+  renderFiles(allFiles);
 }
 
 function downloadFile(r2Key) {
   if (!r2Key) return;
-  // R2 download-file 함수가 Content-Disposition: attachment 헤더로 응답하므로
-  // 단순히 URL 이동만 시키면 브라우저가 자동으로 다운로드 처리
-  window.location.href = `/api/download-file?key=${encodeURIComponent(r2Key)}`;
+  const token = localStorage.getItem(TOKEN_KEY);
+  const isProtected = r2Key.indexOf('class/') === 0 || r2Key.indexOf('reports/') === 0;
+  let url = `/api/download-file?key=${encodeURIComponent(r2Key)}`;
+  if (isProtected && myStudentName) url += `&name=${encodeURIComponent(myStudentName)}`;
+  // 공개 자료는 단순 이동(브라우저가 attachment 헤더로 자동 다운로드)
+  if (!isProtected) { window.location.href = url; return; }
+  // 반 전용·리포트 자료는 Authorization 헤더가 필요 → fetch 후 blob 다운로드
+  fetch(url, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} })
+    .then(r => { if (!r.ok) throw new Error('다운로드 권한이 없습니다.'); return r.blob().then(b => ({ b, r })); })
+    .then(({ b, r }) => {
+      const cd = r.headers.get('Content-Disposition') || '';
+      const m = cd.match(/filename\*=UTF-8''([^;]+)/);
+      const fname = (m ? decodeURIComponent(m[1]) : '') || r2Key.split('/').pop();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b); a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    })
+    .catch(err => alert(err.message || '다운로드에 실패했습니다.'));
 }
 
 loadFiles();

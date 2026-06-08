@@ -58,7 +58,8 @@ export async function onRequest({ request, env }) {
       }
     } else if (folder.startsWith('class/')) {
       const classKey = folder.slice('class/'.length).split('/')[0];
-      const expected = (student.school || '') + '_' + (student.className || '');
+      // 업로드 폴더는 class/{학원}_{반}/ 구조 → 학원(academy)으로 비교 (학교 school 아님)
+      const expected = (student.academy || '') + '_' + (student.className || '');
       if (classKey !== expected) {
         return Response.json({ error: '다른 반의 자료에 접근할 수 없습니다.' }, { status: 403 });
       }
