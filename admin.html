@@ -2430,7 +2430,9 @@
   function updateCsClassOptions() {
     const acad = document.getElementById("csAcademy").value;
     const sel  = document.getElementById("csClass");
-    sel.innerHTML = "<option value=\"\">선택하세요</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
+    const dyn = (typeof getAllClassOptionsByAcademy === 'function') ? getAllClassOptionsByAcademy() : {};
+    const opts = (dyn[acad] || CLASS_OPTIONS_BY_ACADEMY[acad] || []);
+    sel.innerHTML = "<option value=\"\">" + (opts.length ? "반 선택" : "이 학원에 등록된 반이 없습니다") + "</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
   }
 
   // ──── 학생 카드 빠른 출석 체크 (토글) ────
