@@ -152,9 +152,10 @@
     if (!selectedStudent) return;
     $('content').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>정보를 불러오는 중...</p></div>';
     try {
-      const [dRes, rRes] = await Promise.all([
+      const [dRes, rRes, sRes] = await Promise.all([
         fetch('/api/me-detail?id=' + encodeURIComponent(selectedStudent.id), { headers: authHeaders() }),
         fetch('/api/reports?name=' + encodeURIComponent(selectedStudent.name), { headers: authHeaders() }),
+        fetch('/api/scores?name=' + encodeURIComponent(selectedStudent.name), { headers: authHeaders() }),
       ]);
       const dData = await dRes.json();
       if (!dRes.ok || !dData.ok) {
@@ -167,6 +168,8 @@
         const reports = Array.isArray(rData) ? rData : (rData.reports || []);
         latestReport = reports[0] || null;
       } catch (_) {}
+      try { const sData = await sRes.json(); curScores = (sData && sData.scores) || []; } catch (_) { curScores = []; }
+      curStudentDetail = dData.student; curLatestReport = latestReport;
       renderMyInfo(dData.student, latestReport);
     } catch (e) {
       $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
@@ -303,7 +306,135 @@
         <div class="muted" style="margin-top:10px;font-size:0.76rem;">변경이 필요하면 관우T께 문의해주세요.</div>
       </div>` : '';
 
-    $('content').innerHTML = heroHtml + hwHtml + basicHtml + gradeHtml + goalHtml + contactHtml;
+    $('content').innerHTML = heroHtml + hwHtml + basicHtml + gradeHtml + scoreCardHtml() + goalHtml + contactHtml;
+    syncMeLabels();
+  }
+
+  // ───────── 시험 성적 (수학) ─────────
+  var curScores = [], curStudentDetail = null, curLatestReport = null;
+  var editingScoreId = null, scoreMetric = 'raw';
+  var SC_LABELS = { '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
+                    '모의':['3월','4월','5월','6월','7월','9월','10월','11월(수능)'] };
+  var SC_MONTH = { '1학기 중간':'04','1학기 기말':'07','2학기 중간':'10','2학기 기말':'12',
+                   '3월':'03','4월':'04','5월':'05','6월':'06','7월':'07','9월':'09','10월':'10','11월(수능)':'11' };
+  function scSortKey(y,l){ return (y||'')+'-'+(SC_MONTH[l]||'99'); }
+  function inp(id,extra){ return 'padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.88rem;'+(extra||''); }
+
+  function scoreCardHtml(){
+    var chart = scChartSVG(curScores, scoreMetric);
+    function tg(m,t){ return '<button type="button" onclick="setScoreMetric(\''+m+'\')" style="border:none;padding:5px 11px;font-family:inherit;cursor:pointer;font-size:0.74rem;'+(scoreMetric===m?'background:var(--primary);color:#fff;':'background:#fff;color:var(--text-light);')+'">'+t+'</button>'; }
+    var toggle = '<span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'+tg('raw','원점수')+tg('grade','등급')+'</span>';
+    var rows = curScores.map(function(s){
+      var tag = s.examType==='모의' ? '<span style="color:#1f6f78;font-weight:700;">모의</span>' : '<span style="color:var(--primary);font-weight:700;">내신</span>';
+      var when = (s.gradeLevel?escapeHtml(s.gradeLevel)+' ':'')+escapeHtml(s.label);
+      var val = (s.rawScore!=null?s.rawScore+'점':'')+(s.rawScore!=null&&s.grade!=null?' · ':'')+(s.grade!=null?s.grade+'등급':'');
+      return '<div class="info-row"><span class="info-key">'+tag+' '+when+'</span><span class="info-val">'+escapeHtml(val)+
+        ' <button type="button" onclick="editScore('+s.id+')" style="border:none;background:none;color:var(--primary);font-size:0.72rem;cursor:pointer;font-family:inherit;">수정</button>'+
+        '<button type="button" onclick="deleteMyScore('+s.id+')" style="border:none;background:none;color:#b23b3b;font-size:0.72rem;cursor:pointer;font-family:inherit;">삭제</button></span></div>';
+    }).join('');
+    var listHtml = curScores.length ? rows : '<div class="muted">아직 입력된 시험 성적이 없어요. 아래에서 추가해보세요.</div>';
+    var y = new Date().getFullYear();
+    var form =
+      '<div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px;">'+
+      '<div id="scFormTitle" style="font-size:0.78rem;font-weight:800;color:var(--primary);margin-bottom:8px;">➕ 성적 추가</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+        '<select id="scType" onchange="syncMeLabels()" style="flex:1;min-width:88px;'+inp()+'"><option value="내신">내신</option><option value="모의">모의</option></select>'+
+        '<select id="scGrade" style="flex:1;min-width:78px;'+inp()+'"><option value="">학년</option><option>고1</option><option>고2</option><option>고3</option><option>중3</option></select>'+
+        '<input type="number" id="scYear" value="'+y+'" style="width:76px;'+inp()+'">'+
+      '</div>'+
+      '<div style="margin-top:8px;"><select id="scLabel" style="width:100%;'+inp()+'"></select></div>'+
+      '<div style="display:flex;gap:8px;margin-top:8px;">'+
+        '<input type="number" id="scRaw" min="0" max="100" placeholder="원점수 0~100" style="flex:1;'+inp()+'">'+
+        '<input type="number" id="scGr" min="1" max="9" placeholder="등급 1~9" style="flex:1;'+inp()+'">'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;">'+
+        '<button type="button" id="scSubmit" onclick="submitMyScore()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-family:inherit;cursor:pointer;">추가</button>'+
+        '<button type="button" id="scCancel" onclick="resetScoreForm()" style="display:none;background:#fff;color:var(--primary);border:1px solid var(--primary);border-radius:8px;padding:9px 14px;font-weight:700;font-family:inherit;cursor:pointer;">취소</button>'+
+        '<span id="scMsg" style="font-size:0.76rem;"></span>'+
+      '</div></div>';
+    return '<div class="card"><div class="card-label" style="display:flex;justify-content:space-between;align-items:center;text-transform:none;">📈 시험 성적 (수학)'+toggle+'</div>'+
+      '<div style="overflow-x:auto;margin:6px -4px 8px;">'+chart+'</div>'+ listHtml + form + '</div>';
+  }
+
+  function syncMeLabels(){
+    var t = $('scType') ? $('scType').value : '내신';
+    var sel = $('scLabel'); if(!sel) return;
+    var keep = sel.value;
+    sel.innerHTML = (SC_LABELS[t]||[]).map(function(l){ return '<option'+(l===keep?' selected':'')+'>'+escapeHtml(l)+'</option>'; }).join('');
+  }
+  function setScoreMetric(m){ scoreMetric=m; renderMyInfo(curStudentDetail, curLatestReport); }
+
+  function editScore(id){
+    var s = curScores.find(function(x){ return x.id===id; }); if(!s) return;
+    editingScoreId = id;
+    if($('scType')){ $('scType').value=s.examType||'내신'; syncMeLabels(); }
+    if($('scGrade')) $('scGrade').value=s.gradeLevel||'';
+    if($('scYear') && s.sortKey && s.sortKey.indexOf('-')>0) $('scYear').value=s.sortKey.split('-')[0];
+    if($('scLabel')) $('scLabel').value=s.label||'';
+    if($('scRaw')) $('scRaw').value=(s.rawScore!=null?s.rawScore:'');
+    if($('scGr')) $('scGr').value=(s.grade!=null?s.grade:'');
+    if($('scFormTitle')) $('scFormTitle').textContent='✏️ 성적 수정';
+    if($('scSubmit')) $('scSubmit').textContent='수정 저장';
+    if($('scCancel')) $('scCancel').style.display='';
+  }
+  function resetScoreForm(){
+    editingScoreId=null;
+    if($('scRaw')) $('scRaw').value=''; if($('scGr')) $('scGr').value='';
+    if($('scFormTitle')) $('scFormTitle').textContent='➕ 성적 추가';
+    if($('scSubmit')) $('scSubmit').textContent='추가';
+    if($('scCancel')) $('scCancel').style.display='none';
+    if($('scMsg')) $('scMsg').textContent='';
+  }
+  async function reloadScores(){
+    try{
+      var r = await fetch('/api/scores?name='+encodeURIComponent(selectedStudent.name), { headers: authHeaders() });
+      var d = await r.json(); curScores = (d && d.scores) || [];
+    }catch(_){}
+    renderMyInfo(curStudentDetail, curLatestReport);
+  }
+  async function submitMyScore(){
+    var type=$('scType').value, gradeLevel=$('scGrade').value, year=$('scYear').value, label=$('scLabel').value;
+    var raw=$('scRaw').value, gr=$('scGr').value, msg=$('scMsg');
+    if(raw==='' && gr===''){ if(msg){msg.style.color='#c0392b';msg.textContent='원점수나 등급을 입력해주세요.';} return; }
+    var payload={ name:selectedStudent.name, examType:type, gradeLevel:gradeLevel, label:label, sortKey:scSortKey(year,label),
+      rawScore:(raw===''?null:Number(raw)), grade:(gr===''?null:Number(gr)) };
+    if(editingScoreId) payload.id=editingScoreId;
+    if(msg){msg.style.color='var(--text-light)';msg.textContent='저장 중…';}
+    try{
+      var r = await fetch('/api/scores?name='+encodeURIComponent(selectedStudent.name), { method:'POST', headers:Object.assign({'Content-Type':'application/json'}, authHeaders()), body:JSON.stringify(payload) });
+      var d = await r.json();
+      if(!r.ok || d.error){ if(msg){msg.style.color='#c0392b';msg.textContent=d.error||'저장 실패';} return; }
+      editingScoreId=null; reloadScores();
+    }catch(e){ if(msg){msg.style.color='#c0392b';msg.textContent='네트워크 오류';} }
+  }
+  async function deleteMyScore(id){
+    if(!confirm('이 성적을 삭제할까요?')) return;
+    try{
+      var r = await fetch('/api/scores?name='+encodeURIComponent(selectedStudent.name), { method:'DELETE', headers:Object.assign({'Content-Type':'application/json'}, authHeaders()), body:JSON.stringify({ id:id, name:selectedStudent.name }) });
+      await r.json(); reloadScores();
+    }catch(e){}
+  }
+  function scChartSVG(scores, m){
+    var pts = scores.filter(function(s){ return m==='raw'? s.rawScore!=null : s.grade!=null; });
+    if(!pts.length) return '<div class="muted" style="text-align:center;padding:18px;">표시할 데이터가 없어요.</div>';
+    var W=Math.max(300, pts.length*60+44), H=210, pad={l:30,r:12,t:16,b:48};
+    var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b, n=pts.length;
+    function xF(i){ return pad.l+(n===1? iw/2 : iw*i/(n-1)); }
+    var ticks = m==='raw'?[0,50,100]:[1,5,9];
+    function yF(v){ return m==='raw'? pad.t+ih*(1-v/100) : pad.t+ih*((v-1)/8); }
+    var val=function(p){ return m==='raw'?p.rawScore:p.grade; };
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" font-family="Noto Sans KR,sans-serif">';
+    ticks.forEach(function(t){ var y=yF(t); s+='<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#EFE6E7"/>'; s+='<text x="'+(pad.l-5)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="#aaa">'+t+'</text>'; });
+    var d=''; pts.forEach(function(p,i){ d+=(i?'L':'M')+xF(i)+' '+yF(val(p))+' '; });
+    s+='<path d="'+d+'" fill="none" stroke="#8B1A35" stroke-width="2"/>';
+    pts.forEach(function(p,i){ var cx=xF(i), cy=yF(val(p)), mock=p.examType==='모의';
+      s+='<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+(mock?'#1f6f78':'#8B1A35')+'"/>';
+      s+='<text x="'+cx+'" y="'+(cy-8)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#444">'+val(p)+'</text>';
+      var lab=(p.label||'').replace('(수능)','수능');
+      s+='<text x="'+cx+'" y="'+(H-28)+'" text-anchor="middle" font-size="9" fill="#888">'+escapeHtml(lab)+'</text>';
+      if(p.gradeLevel) s+='<text x="'+cx+'" y="'+(H-15)+'" text-anchor="middle" font-size="8.5" fill="#bbb">'+escapeHtml(p.gradeLevel)+'</text>';
+    });
+    s+='</svg>'; return s;
   }
 
   document.addEventListener('DOMContentLoaded', init);
