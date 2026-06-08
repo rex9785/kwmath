@@ -312,7 +312,7 @@
 
   // ───────── 시험 성적 (수학) ─────────
   var curScores = [], curStudentDetail = null, curLatestReport = null;
-  var editingScoreId = null, scoreMetric = 'raw';
+  var editingScoreId = null, scoreMetric = 'raw', scoreTab = '내신';
   var SC_LABELS = { '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
                     '모의':['3월','4월','5월','6월','7월','9월','10월','11월(수능)'] };
   var SC_MONTH = { '1학기 중간':'04','1학기 기말':'07','2학기 중간':'10','2학기 기말':'12',
@@ -320,40 +320,29 @@
   function scSortKey(y,l){ return (y||'')+'-'+(SC_MONTH[l]||'99'); }
   function inp(id,extra){ return 'padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.88rem;'+(extra||''); }
 
+  function fmtScore(s){
+    if(s.rawScore!=null && s.grade!=null) return s.rawScore+'('+s.grade+')';
+    if(s.rawScore!=null) return ''+s.rawScore;
+    if(s.grade!=null) return '('+s.grade+'등급)';
+    return '-';
+  }
+  function setScoreTab(t){ scoreTab=t; renderMyInfo(curStudentDetail, curLatestReport); }
   function scoreCardHtml(){
-    var chart = scChartSVG(curScores, scoreMetric);
-    function tg(m,t){ return '<button type="button" onclick="setScoreMetric(\''+m+'\')" style="border:none;padding:5px 11px;font-family:inherit;cursor:pointer;font-size:0.74rem;'+(scoreMetric===m?'background:var(--primary);color:#fff;':'background:#fff;color:var(--text-light);')+'">'+t+'</button>'; }
-    var toggle = '<span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'+tg('raw','원점수')+tg('grade','등급')+'</span>';
-    var rows = curScores.map(function(s){
-      var tag = s.examType==='모의' ? '<span style="color:#1f6f78;font-weight:700;">모의</span>' : '<span style="color:var(--primary);font-weight:700;">내신</span>';
-      var when = (s.gradeLevel?escapeHtml(s.gradeLevel)+' ':'')+escapeHtml(s.label);
-      var val = (s.rawScore!=null?s.rawScore+'점':'')+(s.rawScore!=null&&s.grade!=null?' · ':'')+(s.grade!=null?s.grade+'등급':'');
-      return '<div class="info-row"><span class="info-key">'+tag+' '+when+'</span><span class="info-val">'+escapeHtml(val)+
-        ' <button type="button" onclick="editScore('+s.id+')" style="border:none;background:none;color:var(--primary);font-size:0.72rem;cursor:pointer;font-family:inherit;">수정</button>'+
-        '<button type="button" onclick="deleteMyScore('+s.id+')" style="border:none;background:none;color:#b23b3b;font-size:0.72rem;cursor:pointer;font-family:inherit;">삭제</button></span></div>';
-    }).join('');
-    var listHtml = curScores.length ? rows : '<div class="muted">아직 입력된 시험 성적이 없어요. 아래에서 추가해보세요.</div>';
-    var y = new Date().getFullYear();
-    var form =
-      '<div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px;">'+
-      '<div id="scFormTitle" style="font-size:0.78rem;font-weight:800;color:var(--primary);margin-bottom:8px;">➕ 성적 추가</div>'+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
-        '<select id="scType" onchange="syncMeLabels()" style="flex:1;min-width:88px;'+inp()+'"><option value="내신">내신</option><option value="모의">모의</option></select>'+
-        '<select id="scGrade" style="flex:1;min-width:78px;'+inp()+'"><option value="">학년</option><option>고1</option><option>고2</option><option>고3</option><option>중3</option></select>'+
-        '<input type="number" id="scYear" value="'+y+'" style="width:76px;'+inp()+'">'+
-      '</div>'+
-      '<div style="margin-top:8px;"><select id="scLabel" style="width:100%;'+inp()+'"></select></div>'+
-      '<div style="display:flex;gap:8px;margin-top:8px;">'+
-        '<input type="number" id="scRaw" min="0" max="100" placeholder="원점수 0~100" style="flex:1;'+inp()+'">'+
-        '<input type="number" id="scGr" min="1" max="9" placeholder="등급 1~9" style="flex:1;'+inp()+'">'+
-      '</div>'+
-      '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;">'+
-        '<button type="button" id="scSubmit" onclick="submitMyScore()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-family:inherit;cursor:pointer;">추가</button>'+
-        '<button type="button" id="scCancel" onclick="resetScoreForm()" style="display:none;background:#fff;color:var(--primary);border:1px solid var(--primary);border-radius:8px;padding:9px 14px;font-weight:700;font-family:inherit;cursor:pointer;">취소</button>'+
-        '<span id="scMsg" style="font-size:0.76rem;"></span>'+
-      '</div></div>';
-    return '<div class="card"><div class="card-label" style="display:flex;justify-content:space-between;align-items:center;text-transform:none;">📈 시험 성적 (수학)'+toggle+'</div>'+
-      '<div style="overflow-x:auto;margin:6px -4px 8px;">'+chart+'</div>'+ listHtml + form + '</div>';
+    var data = curScores.filter(function(s){ return s.examType===scoreTab; });
+    function tabBtn(t){ var on = scoreTab===t; var bg = on ? (t==='모의'?'background:#1f6f78;color:#fff;border:1px solid #1f6f78;':'background:var(--primary);color:#fff;border:1px solid var(--primary);') : 'background:#fff;color:var(--text-light);border:1px solid var(--border);';
+      return '<button type="button" onclick="setScoreTab(\''+t+'\')" style="padding:6px 15px;font-family:inherit;cursor:pointer;font-size:0.82rem;font-weight:700;border-radius:8px;'+bg+'">'+(t==='모의'?'모의고사':t)+'</button>'; }
+    function mBtn(m,t){ return '<button type="button" onclick="setScoreMetric(\''+m+'\')" style="border:none;padding:4px 10px;font-family:inherit;cursor:pointer;font-size:0.72rem;'+(scoreMetric===m?'background:var(--primary);color:#fff;':'background:#fff;color:var(--text-light);')+'">'+t+'</button>'; }
+    var tabs = '<span style="display:inline-flex;gap:6px;">'+tabBtn('내신')+tabBtn('모의')+'</span>';
+    var metricToggle = '<span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">'+mBtn('raw','원점수')+mBtn('grade','등급')+'</span>';
+    var latest = data.length ? data[data.length-1] : null;
+    var latestTxt = latest ? ((latest.gradeLevel?latest.gradeLevel+' ':'')+latest.label+' · '+fmtScore(latest)) : '아직 없음';
+    return '<div class="card">'+
+      '<div class="card-label" style="text-transform:none;margin-bottom:10px;">📈 시험 성적 (수학)</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+tabs+metricToggle+'</div>'+
+      '<div style="overflow-x:auto;margin:0 -4px 8px;">'+scChartSVG(data, scoreMetric)+'</div>'+
+      '<div class="muted" style="font-size:0.8rem;">최근: '+escapeHtml(latestTxt)+'</div>'+
+      '<a href="/my-scores" style="display:block;margin-top:10px;text-align:center;background:var(--primary-light);color:var(--primary);font-weight:700;font-size:0.85rem;padding:11px;border-radius:10px;text-decoration:none;">📊 성적 전체 보기 · 입력하기 →</a>'+
+      '</div>';
   }
 
   function syncMeLabels(){

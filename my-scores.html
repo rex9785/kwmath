@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>시험 성적 | 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=2">
+<meta name="theme-color" content="#8B1A35">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;--mock:#1f6f78;--mock-light:#E3F1F2;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;}
+  .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;display:flex;align-items:center;gap:8px;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;text-decoration:none;}
+  .page{max-width:560px;margin:0 auto;padding:18px 16px 70px;}
+  .child-bar{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .child-bar label{font-size:0.78rem;font-weight:700;color:var(--text-light);}
+  .child-bar select{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.86rem;font-family:inherit;font-weight:600;}
+  .card{background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px;margin-bottom:12px;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;}
+  .tabs button{flex:1;background:#fff;color:var(--text-light);border:1.5px solid var(--border);border-radius:11px;padding:11px;font-size:0.95rem;font-weight:700;font-family:inherit;cursor:pointer;}
+  .tabs button.on.naesin{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .tabs button.on.mock{background:var(--mock);border-color:var(--mock);color:#fff;}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .seg button{background:#fff;color:var(--text-light);border:none;padding:5px 12px;font-size:0.76rem;font-family:inherit;cursor:pointer;}
+  .seg button.on{background:var(--primary);color:#fff;}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dashed var(--border);font-size:0.9rem;}
+  .row:last-child{border-bottom:none;}
+  .row .k{color:var(--text-light);font-weight:600;font-size:0.84rem;}
+  .row .v{font-weight:800;}
+  select,input[type=number]{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;outline:none;}
+  select:focus,input:focus{border-color:var(--primary);}
+  .fl{font-size:0.72rem;color:var(--text-light);font-weight:700;margin-bottom:3px;display:block;}
+  .btn{background:var(--primary);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-weight:700;font-family:inherit;cursor:pointer;font-size:0.9rem;}
+  .btn.ghost{background:#fff;color:var(--primary);border:1px solid var(--primary);}
+  .mini{border:none;background:none;font-size:0.72rem;cursor:pointer;font-family:inherit;}
+  .muted{color:var(--text-light);font-size:0.84rem;}
+  .msg{text-align:center;padding:36px 18px;color:var(--text-light);}
+  .err{color:#c0392b;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="topbar-title">📈 시험 성적</span>
+  <a href="/me" class="topbar-btn">← 내 정보</a>
+</div>
+<div class="page">
+  <div id="childBar" class="child-bar" style="display:none;"><label>자녀 선택</label><select id="childSelect" onchange="onChild()"></select></div>
+  <div id="content"><div class="msg">⏳ 불러오는 중…</div></div>
+</div>
+<script>
+  var TOKEN_KEY='kwmath_portal_token', SEL_KEY='kwmath_selected_student';
+  var token='', students=[], student=null, scores=[], tab='내신', metric='raw', editingId=null;
+
+  var LABELS={ '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
+               '모의':['3월','4월','5월','6월','7월','9월','10월','11월(수능)'] };
+  var MONTH={ '1학기 중간':'04','1학기 기말':'07','2학기 중간':'10','2학기 기말':'12',
+              '3월':'03','4월':'04','5월':'05','6월':'06','7월':'07','9월':'09','10월':'10','11월(수능)':'11' };
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function authHeaders(){ return { 'Authorization':'Bearer '+token }; }
+  function sortKey(y,l){ return (y||'')+'-'+(MONTH[l]||'99'); }
+  function fmtScore(s){
+    if(s.rawScore!=null && s.grade!=null) return s.rawScore+'('+s.grade+')';
+    if(s.rawScore!=null) return ''+s.rawScore;
+    if(s.grade!=null) return '('+s.grade+'등급)';
+    return '-';
+  }
+
+  async function init(){
+    token = localStorage.getItem(TOKEN_KEY);
+    if(!token){ location.replace('/portal'); return; }
+    try{
+      var r = await fetch('/api/auth/me', { headers:authHeaders() });
+      var d = await r.json();
+      if(!r.ok || !d.ok){ localStorage.removeItem(TOKEN_KEY); location.replace('/portal'); return; }
+      students = Array.isArray(d.students)? d.students : [];
+      if(!students.length){ $('content').innerHTML='<div class="msg">연결된 학생이 없습니다.</div>'; return; }
+      var saved=null; try{ saved=JSON.parse(sessionStorage.getItem(SEL_KEY)); }catch(_){}
+      student = (saved && students.find(function(s){ return s.id===saved.id || s.name===saved.name; })) || students[0];
+      sessionStorage.setItem(SEL_KEY, JSON.stringify(student));
+      if(students.length>1){
+        $('childBar').style.display='flex';
+        $('childSelect').innerHTML = students.map(function(s,i){ return '<option value="'+i+'"'+(s.id===student.id?' selected':'')+'>'+esc(s.name)+'</option>'; }).join('');
+      }
+      loadScores();
+    }catch(e){ $('content').innerHTML='<div class="msg">로그인 정보를 확인할 수 없습니다.</div>'; }
+  }
+  function onChild(){ student=students[parseInt($('childSelect').value,10)||0]; sessionStorage.setItem(SEL_KEY,JSON.stringify(student)); editingId=null; loadScores(); }
+
+  async function loadScores(){
+    $('content').innerHTML='<div class="msg">🔍 성적 불러오는 중…</div>';
+    try{
+      var r = await fetch('/api/scores?name='+encodeURIComponent(student.name), { headers:authHeaders() });
+      var d = await r.json(); scores=(d && d.scores)||[]; renderPanel();
+    }catch(e){ $('content').innerHTML='<div class="msg">성적을 불러오지 못했습니다.</div>'; }
+  }
+
+  function switchTab(t){ tab=t; editingId=null; renderPanel(); }
+  function setMetric(m){ metric=m; renderPanel(); }
+
+  function renderPanel(){
+    var data = scores.filter(function(s){ return s.examType===tab; });
+    var tabRow='<div class="tabs">'+
+      '<button class="'+(tab==='내신'?'on naesin':'')+'" onclick="switchTab(\'내신\')">내신</button>'+
+      '<button class="'+(tab==='모의'?'on mock':'')+'" onclick="switchTab(\'모의\')">모의고사</button></div>';
+    var chart='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
+      '<b style="font-size:0.9rem;">📊 '+tab+' 추이</b>'+
+      '<span class="seg"><button class="'+(metric==='raw'?'on':'')+'" onclick="setMetric(\'raw\')">원점수</button>'+
+      '<button class="'+(metric==='grade'?'on':'')+'" onclick="setMetric(\'grade\')">등급</button></span></div>'+
+      '<div style="overflow-x:auto;margin:0 -4px;">'+chartSVG(data,metric)+'</div></div>';
+    var rows=data.map(function(s){
+      var when=(s.gradeLevel?esc(s.gradeLevel)+' ':'')+esc(s.label);
+      return '<div class="row"><span class="k">'+when+'</span><span class="v">'+esc(fmtScore(s))+
+        ' <button class="mini" style="color:var(--primary);" onclick="editRow('+s.id+')">수정</button>'+
+        '<button class="mini" style="color:#b23b3b;" onclick="delRow('+s.id+')">삭제</button></span></div>';
+    }).join('');
+    var list='<div class="card"><b style="font-size:0.9rem;">📋 '+tab+' 목록</b>'+
+      (data.length? '<div style="margin-top:6px;">'+rows+'</div><div class="muted" style="margin-top:8px;font-size:0.74rem;">표기: 원점수(등급) — 예) 80(2)</div>'
+        : '<div class="muted" style="margin-top:8px;">아직 입력된 '+tab+' 성적이 없어요. 아래에서 추가하세요.</div>')+'</div>';
+    $('content').innerHTML = tabRow + chart + list + formCard();
+    syncLabels();
+  }
+  function formCard(){
+    var y=new Date().getFullYear();
+    return '<div class="card"><b style="font-size:0.9rem;" id="formTitle">➕ '+tab+' 성적 추가</b>'+
+      '<div style="display:flex;gap:8px;margin-top:10px;">'+
+        '<div style="flex:1;"><label class="fl">학년</label><select id="fGrade"><option value="">-</option><option>고1</option><option>고2</option><option>고3</option><option>중3</option></select></div>'+
+        '<div style="width:84px;"><label class="fl">연도</label><input type="number" id="fYear" value="'+y+'"></div>'+
+      '</div>'+
+      '<div style="margin-top:8px;"><label class="fl">시기</label><select id="fLabel"></select></div>'+
+      '<div style="display:flex;gap:8px;margin-top:8px;">'+
+        '<div style="flex:1;"><label class="fl">원점수 (0~100)</label><input type="number" id="fRaw" min="0" max="100" placeholder="예: 80"></div>'+
+        '<div style="flex:1;"><label class="fl">등급 (1~9)</label><input type="number" id="fGr" min="1" max="9" placeholder="예: 2"></div>'+
+      '</div>'+
+      '<div style="margin-top:12px;display:flex;gap:8px;align-items:center;">'+
+        '<button class="btn" id="fSubmit" onclick="submitScore()">추가</button>'+
+        '<button class="btn ghost" id="fCancel" style="display:none;" onclick="resetForm()">취소</button>'+
+        '<span id="fMsg" style="font-size:0.78rem;"></span>'+
+      '</div></div>';
+  }
+  function syncLabels(){ var sel=$('fLabel'); if(!sel) return; var keep=sel.value; sel.innerHTML=(LABELS[tab]||[]).map(function(l){ return '<option'+(l===keep?' selected':'')+'>'+esc(l)+'</option>'; }).join(''); }
+
+  function editRow(id){
+    var s=scores.find(function(x){ return x.id===id; }); if(!s) return;
+    if(s.examType!==tab) tab=s.examType;
+    editingId=id; renderPanel();
+    $('fGrade').value=s.gradeLevel||'';
+    if(s.sortKey && s.sortKey.indexOf('-')>0) $('fYear').value=s.sortKey.split('-')[0];
+    syncLabels(); $('fLabel').value=s.label||'';
+    $('fRaw').value=(s.rawScore!=null?s.rawScore:''); $('fGr').value=(s.grade!=null?s.grade:'');
+    $('formTitle').textContent='✏️ '+tab+' 성적 수정'; $('fSubmit').textContent='수정 저장'; $('fCancel').style.display='';
+    window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+  }
+  function resetForm(){
+    editingId=null;
+    if($('fRaw'))$('fRaw').value=''; if($('fGr'))$('fGr').value='';
+    if($('formTitle'))$('formTitle').textContent='➕ '+tab+' 성적 추가';
+    if($('fSubmit'))$('fSubmit').textContent='추가';
+    if($('fCancel'))$('fCancel').style.display='none';
+    if($('fMsg'))$('fMsg').textContent='';
+  }
+  async function submitScore(){
+    var gradeLevel=$('fGrade').value, year=$('fYear').value, label=$('fLabel').value, raw=$('fRaw').value, gr=$('fGr').value, msg=$('fMsg');
+    if(raw==='' && gr===''){ if(msg){msg.className='err';msg.textContent='원점수나 등급을 입력해주세요.';} return; }
+    var payload={ name:student.name, examType:tab, gradeLevel:gradeLevel, label:label, sortKey:sortKey(year,label),
+      rawScore:(raw===''?null:Number(raw)), grade:(gr===''?null:Number(gr)) };
+    if(editingId) payload.id=editingId;
+    if(msg){msg.className='';msg.textContent='저장 중…';}
+    try{
+      var r=await fetch('/api/scores?name='+encodeURIComponent(student.name), { method:'POST', headers:Object.assign({'Content-Type':'application/json'}, authHeaders()), body:JSON.stringify(payload) });
+      var d=await r.json();
+      if(!r.ok || d.error){ if(msg){msg.className='err';msg.textContent=d.error||'저장 실패';} return; }
+      resetForm(); loadScores();
+    }catch(e){ if(msg){msg.className='err';msg.textContent='네트워크 오류';} }
+  }
+  async function delRow(id){
+    if(!confirm('이 성적을 삭제할까요?')) return;
+    try{
+      var r=await fetch('/api/scores?name='+encodeURIComponent(student.name), { method:'DELETE', headers:Object.assign({'Content-Type':'application/json'}, authHeaders()), body:JSON.stringify({ id:id, name:student.name }) });
+      await r.json(); loadScores();
+    }catch(e){}
+  }
+
+  function chartSVG(data,m){
+    var pts=data.filter(function(s){ return m==='raw'? s.rawScore!=null : s.grade!=null; });
+    if(!pts.length) return '<div class="muted" style="text-align:center;padding:20px;">표시할 데이터가 없어요.</div>';
+    var color = tab==='모의' ? '#1f6f78' : '#8B1A35';
+    var W=Math.max(300, pts.length*62+46), H=215, pad={l:30,r:12,t:16,b:50};
+    var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b, n=pts.length;
+    function xF(i){ return pad.l+(n===1? iw/2 : iw*i/(n-1)); }
+    var ticks=m==='raw'?[0,50,100]:[1,5,9];
+    function yF(v){ return m==='raw'? pad.t+ih*(1-v/100) : pad.t+ih*((v-1)/8); }
+    var val=function(p){ return m==='raw'?p.rawScore:p.grade; };
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" font-family="Noto Sans KR,sans-serif">';
+    ticks.forEach(function(t){ var y=yF(t); s+='<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#EFE6E7"/>'; s+='<text x="'+(pad.l-5)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="#aaa">'+t+'</text>'; });
+    var d=''; pts.forEach(function(p,i){ d+=(i?'L':'M')+xF(i)+' '+yF(val(p))+' '; });
+    s+='<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2"/>';
+    pts.forEach(function(p,i){ var cx=xF(i), cy=yF(val(p));
+      s+='<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+color+'"/>';
+      s+='<text x="'+cx+'" y="'+(cy-8)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#444">'+val(p)+'</text>';
+      var lab=(p.label||'').replace('(수능)','수능');
+      s+='<text x="'+cx+'" y="'+(H-28)+'" text-anchor="middle" font-size="9" fill="#888">'+esc(lab)+'</text>';
+      if(p.gradeLevel) s+='<text x="'+cx+'" y="'+(H-15)+'" text-anchor="middle" font-size="8.5" fill="#bbb">'+esc(p.gradeLevel)+'</text>';
+    });
+    s+='</svg>'; return s;
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
