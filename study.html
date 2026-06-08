@@ -481,7 +481,7 @@
     const max = Math.max(60, ...data.map(x => x.min));  // 최소 1시간 스케일 (작은 값도 보이게)
 
     const W = 600, H = 170;
-    const padL = 28, padR = 8, padT = 8, padB = 30;
+    const padL = 28, padR = 8, padT = 20, padB = 30;
     const chartW = W - padL - padR;
     const chartH = H - padT - padB;
     const barW = chartW / data.length * 0.7;
@@ -539,7 +539,7 @@
     const max = Math.max(180, ...weeks.map(x => x.min));
 
     const W = 600, H = 170;
-    const padL = 36, padR = 8, padT = 8, padB = 30;
+    const padL = 36, padR = 8, padT = 20, padB = 30;
     const chartW = W - padL - padR;
     const chartH = H - padT - padB;
     const barW = chartW / weeks.length * 0.6;
