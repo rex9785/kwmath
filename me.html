@@ -306,7 +306,16 @@
         <div class="muted" style="margin-top:10px;font-size:0.76rem;">변경이 필요하면 관우T께 문의해주세요.</div>
       </div>` : '';
 
-    $('content').innerHTML = heroHtml + hwHtml + basicHtml + gradeHtml + scoreCardHtml() + goalHtml + contactHtml;
+    // ── 계정 (로그아웃 / 회원 탈퇴) ──
+    const dangerHtml = `
+      <div class="card" style="border:1px solid #f0c9c9;">
+        <div class="card-label" style="color:#b23b3b;">⚙️ 계정</div>
+        <button type="button" onclick="logoutMe()" style="width:100%;padding:11px;margin-bottom:8px;border:1px solid var(--border);background:#fff;color:var(--text);border-radius:10px;font-family:inherit;font-size:0.9rem;font-weight:700;cursor:pointer;">로그아웃</button>
+        <button type="button" onclick="deleteMyAccount()" style="width:100%;padding:11px;border:1px solid #d98a8a;background:#fff;color:#b23b3b;border-radius:10px;font-family:inherit;font-size:0.9rem;font-weight:700;cursor:pointer;">회원 탈퇴 (계정·데이터 삭제)</button>
+        <div class="muted" style="margin-top:9px;font-size:0.74rem;line-height:1.6;">회원 탈퇴 시 계정과 모든 학습 기록(수업 리포트·출결·공부 기록·시험 성적)이 영구 삭제되며 되돌릴 수 없습니다.</div>
+      </div>`;
+
+    $('content').innerHTML = heroHtml + hwHtml + basicHtml + gradeHtml + scoreCardHtml() + goalHtml + contactHtml + dangerHtml;
     syncMeLabels();
   }
 
@@ -424,6 +433,24 @@
       if(p.gradeLevel) s+='<text x="'+cx+'" y="'+(H-15)+'" text-anchor="middle" font-size="8.5" fill="#bbb">'+escapeHtml(p.gradeLevel)+'</text>';
     });
     s+='</svg>'; return s;
+  }
+
+  function logoutMe(){
+    try{ localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(SEL_KEY); }catch(_){ }
+    location.href='/portal';
+  }
+  async function deleteMyAccount(){
+    if(!confirm('정말 회원 탈퇴할까요?\n계정과 모든 학습 기록(리포트·출결·공부·성적)이 영구 삭제되며 되돌릴 수 없습니다.')) return;
+    var typed = prompt('탈퇴를 확인하려면 "삭제" 를 입력하세요.');
+    if(typed !== '삭제'){ alert('취소되었습니다.'); return; }
+    try{
+      var r = await fetch('/api/account-delete', { method:'POST', headers:Object.assign({'Content-Type':'application/json'}, authHeaders()), body:JSON.stringify({ confirm:'삭제' }) });
+      var d = await r.json();
+      if(!r.ok || !d.ok){ alert((d && d.error) || '탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.'); return; }
+      alert('회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.');
+      try{ localStorage.removeItem(TOKEN_KEY); sessionStorage.clear(); }catch(_){ }
+      location.href='/portal';
+    }catch(e){ alert('네트워크 오류로 탈퇴에 실패했습니다.'); }
   }
 
   document.addEventListener('DOMContentLoaded', init);
