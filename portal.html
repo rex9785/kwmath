@@ -304,6 +304,8 @@
   .notice-item .nt-date{font-size:0.7rem;color:var(--text-light);}
   .notice-item .nt-content{font-size:0.78rem;color:var(--text-light);margin-top:6px;line-height:1.5;display:none;padding-left:4px;}
   .notice-item.open .nt-content{display:block;}
+  .notice-item .nt-imgs{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;}
+  .notice-item .nt-imgs img{height:260px;width:auto;border-radius:12px;border:1px solid #E8D9B8;box-shadow:0 3px 12px rgba(0,0,0,0.1);flex-shrink:0;}
   .notice-item .nt-chevron{font-size:0.7rem;color:#854F0B;opacity:0.5;transition:transform .15s;display:inline-block;}
   .notice-item.open .nt-chevron{transform:rotate(180deg);opacity:1;}
 
@@ -808,7 +810,11 @@
       const renderOne = (n) => {
         const badge = n.badge || '공지';
         const dateShort = (n.date || '').slice(5).replace('-', '/');
-        const contentText = n.content ? esc(n.content).replace(/\n/g, '<br>') : '<span style="color:#999;">(추가 내용 없음)</span>';
+        const imgs = Array.isArray(n.images) ? n.images : [];
+        const imgSrc = (s) => /^(https?:|\/)/.test(s) ? s : ('/api/notice-image?key=' + encodeURIComponent(s));
+        const imgsHtml = imgs.length ? '<div class="nt-imgs">' + imgs.map(s => '<img src="' + esc(imgSrc(s)) + '" alt="공지 이미지" loading="lazy">').join('') + '</div>' : '';
+        const hasContent = !!(n.content && n.content.trim());
+        const contentText = hasContent ? esc(n.content).replace(/\n/g, '<br>') : (imgs.length ? '' : '<span style="color:#999;">(추가 내용 없음)</span>');
         return '<div class="notice-item" onclick="this.classList.toggle(\'open\')">'
           + '<div class="nt-head">'
           + '<span class="nt-badge ' + esc(badge) + '">' + esc(badge) + '</span>'
@@ -816,7 +822,7 @@
           + '<span class="nt-date">' + esc(dateShort) + '</span>'
           + '<span class="nt-chevron">▼</span>'
           + '</div>'
-          + '<div class="nt-content">' + contentText + '</div>'
+          + '<div class="nt-content">' + contentText + imgsHtml + '</div>'
           + '</div>';
       };
       // 초기엔 최신 1개만 + 더보기 버튼 (나머지 있으면)

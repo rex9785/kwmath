@@ -93,7 +93,10 @@ export async function onRequest({ request, env }) {
 
   if (request.method === 'POST') {
     const body = await request.json();
-    const { title, badge, content, targetType, targetValue, pushMode, scheduledAt } = body;
+    const { title, badge, content, targetType, targetValue, pushMode, scheduledAt, images } = body;
+    const imgList = Array.isArray(images)
+      ? images.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim())
+      : [];
     // pushMode: 'none' | 'immediate' | 'scheduled'  (구버전 호환: sendPush=true → 'immediate')
     let mode = (pushMode || '').toString();
     if (!mode) mode = body.sendPush ? 'immediate' : 'none';
@@ -117,6 +120,9 @@ export async function onRequest({ request, env }) {
       '대상 값':   { rich_text: [{ text: { content: tv } }] },
       '푸쉬 발송됨': { checkbox: false },
     };
+    if (imgList.length) {
+      properties['이미지'] = { rich_text: [{ text: { content: imgList.join(',').slice(0, 1900) } }] };
+    }
     if (mode === 'scheduled') {
       let iso;
       try { iso = new Date(scheduledAt).toISOString(); }
@@ -151,12 +157,16 @@ export async function onRequest({ request, env }) {
 
   if (request.method === 'PATCH') {
     const body = await request.json();
-    const { pageId, title, badge, content, targetType, targetValue } = body;
+    const { pageId, title, badge, content, targetType, targetValue, images } = body;
     if (!pageId) return Response.json({ error: 'pageId 필요' }, { status: 400 });
     const properties = {};
     if (typeof title       === 'string') properties['제목']      = { title:     [{ text: { content: title } }] };
     if (typeof badge       === 'string') properties['뱃지']      = { select:    { name: badge } };
     if (typeof content     === 'string') properties['내용']      = { rich_text: [{ text: { content } }] };
+    if (Array.isArray(images)) {
+      const il = images.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim());
+      properties['이미지'] = { rich_text: [{ text: { content: il.join(',').slice(0, 1900) } }] };
+    }
     if (typeof targetType  === 'string') properties['대상 유형'] = { select:    { name: targetType } };
     if (typeof targetValue === 'string') properties['대상 값']   = { rich_text: [{ text: { content: targetValue } }] };
     const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {

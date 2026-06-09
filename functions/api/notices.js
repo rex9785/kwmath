@@ -113,6 +113,7 @@ export async function onRequest(context) {
       date: p.properties['날짜']?.date?.start || '',
       badge: p.properties['뱃지']?.select?.name || '공지',
       content: joinText(p.properties['내용']?.rich_text),
+      images: joinText(p.properties['이미지']?.rich_text).split(',').map(s => s.trim()).filter(Boolean),
       targetType: p.properties['대상 유형']?.select?.name || '전체',
       targetValue: joinText(p.properties['대상 값']?.rich_text),
       scheduledAt: p.properties['예약 발송 시각']?.date?.start || '',

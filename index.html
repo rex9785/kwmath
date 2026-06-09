@@ -143,6 +143,9 @@
   .notice-item.open .notice-arrow{transform:rotate(180deg);}
   .notice-content{width:100%;margin-top:6px;padding-top:14px;border-top:1px solid var(--border);font-size:0.86rem;line-height:1.85;color:var(--text);white-space:pre-line;display:none;}
   .notice-item.open .notice-content{display:block;}
+  .notice-imgs{display:flex;gap:12px;margin-top:14px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;}
+  .notice-imgs img{height:360px;width:auto;border-radius:16px;border:1px solid var(--border);box-shadow:0 6px 20px rgba(0,0,0,0.12);flex-shrink:0;background:#faf7f7;}
+  @media (max-width:600px){.notice-imgs img{height:300px;}}
   .notice-more{margin-top:16px;text-align:right;}
 
   /* TIMETABLE — 시간표 */
@@ -199,6 +202,22 @@
   .form-row textarea{resize:vertical;min-height:100px;}
   .form-submit{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;}
   .form-submit:hover{background:var(--primary-mid);}
+
+  /* 문의 전송 안내 모달 (제출 후) */
+  .send-overlay{position:fixed;inset:0;z-index:1000;background:rgba(30,12,15,0.55);display:none;align-items:center;justify-content:center;padding:20px;}
+  .send-overlay.show{display:flex;}
+  .send-card{background:#fff;border-radius:18px;max-width:380px;width:100%;padding:30px 26px 26px;box-shadow:0 18px 50px rgba(0,0,0,0.3);text-align:center;animation:sendPop .2s ease;}
+  @keyframes sendPop{from{transform:translateY(12px) scale(.97);opacity:0;}to{transform:none;opacity:1;}}
+  .send-card .ic{width:54px;height:54px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 14px;}
+  .send-card h3{font-size:1.12rem;font-weight:800;color:var(--text);margin-bottom:8px;}
+  .send-card p{font-size:0.86rem;color:var(--text-light);line-height:1.7;margin-bottom:18px;}
+  .send-card .send-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:11px;font-size:0.93rem;font-weight:700;text-decoration:none;cursor:pointer;border:none;font-family:inherit;margin-top:9px;transition:all .15s;}
+  .send-btn.kakao{background:#FEE500;color:#3C1E1E;}
+  .send-btn.kakao:hover{filter:brightness(0.96);}
+  .send-btn.mail{background:var(--bg2);color:var(--primary);border:1px solid var(--border);}
+  .send-btn.mail:hover{background:var(--primary-light);}
+  .send-card .send-close{margin-top:14px;background:none;border:none;color:var(--text-light);font-size:0.8rem;cursor:pointer;font-family:inherit;text-decoration:underline;}
+  .send-card .copied-tag{display:inline-block;background:#E9F7EF;color:#1d7a44;font-size:0.74rem;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:14px;}
 
   /* FOOTER */
   footer{background:#1a0a0f;color:#9A7A82;padding:36px 5%;text-align:center;}
@@ -988,7 +1007,7 @@
           <div class="contact-icon">💬</div>
           <div>
             <div class="contact-label">카카오채널</div>
-            <div class="contact-val"><a href="http://pf.kakao.com/_lIbJG" target="_blank" style="color:var(--primary);text-decoration:none;">이관우 수학연구소 → 친구 추가</a></div>
+            <div class="contact-val"><a href="https://pf.kakao.com/_lIbJG" target="_blank" style="color:var(--primary);text-decoration:none;">이관우 수학연구소 → 친구 추가</a></div>
           </div>
         </div>
       </div>
@@ -1011,7 +1030,7 @@
           <textarea id="cMsg" placeholder="현재 수학 성적이나 고민, 원하시는 수업 방식을 자유롭게 적어주세요."></textarea>
         </div>
         <button type="submit" class="form-submit">문의 보내기</button>
-        <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;">* 문의는 카카오톡 채널로 자동 연결됩니다.</p>
+        <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;">* ‘문의 보내기’를 누르면 내용이 자동 복사되고, 카카오톡 또는 이메일로 바로 전송할 수 있어요.</p>
       </form>
     </div>
   </div>
@@ -1020,7 +1039,7 @@
 
 <!-- 카카오 플로팅 버튼 -->
 <div class="kakao-float">
-  <a href="http://pf.kakao.com/_lIbJG" target="_blank" aria-label="카카오톡 문의">
+  <a href="https://pf.kakao.com/_lIbJG" target="_blank" aria-label="카카오톡 문의">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C6.477 3 2 6.477 2 10.8c0 2.74 1.79 5.14 4.5 6.55-.18.66-.66 2.4-.76 2.78-.12.47.17.46.36.34.15-.1 2.36-1.6 3.32-2.25.85.12 1.73.18 2.58.18 5.523 0 10-3.477 10-7.6S17.523 3 12 3z" fill="#1A1A1A"/></svg>
   </a>
   <span class="kakao-label">카톡문의</span>
@@ -1085,19 +1104,23 @@ const FAQ_DATA = [
     }
     const escapeHtml = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     const renderContent = s => escapeHtml(s).replace(/(?:<br\s*\/?>|\r?\n)/gi, '\n');
+    const imgSrc = s => /^(https?:|\/)/.test(s) ? s : ('/api/notice-image?key=' + encodeURIComponent(s));
     list.innerHTML = data.slice(0,6).map((n,i)=>{
       const hasContent = (n.content||'').trim();
+      const imgs = Array.isArray(n.images) ? n.images : [];
+      const expandable = hasContent || imgs.length;
+      const imgsHtml = imgs.length ? `<div class="notice-imgs">${imgs.map(s=>`<img src="${escapeHtml(imgSrc(s))}" alt="공지 이미지" loading="lazy">`).join('')}</div>` : '';
       const badgeText = (n.badge||'공지').toUpperCase();
       const isEnd = badgeText.includes('마감') || (n.title||'').includes('마감');
       const isNew = badgeText === 'NEW';
       const badgeCls = isEnd ? 'end' : (isNew ? 'new' : '');
       return `
-      <div class="notice-item ${hasContent?'clickable':''}">
+      <div class="notice-item ${expandable?'clickable':''}">
         <span class="notice-badge ${badgeCls}">${escapeHtml(n.badge || '공지')}</span>
         <div class="notice-title">${escapeHtml(n.title)}</div>
         <div class="notice-date">${escapeHtml(n.date)}</div>
-        ${hasContent?'<span class="notice-arrow">▼</span>':''}
-        ${hasContent?`<div class="notice-content">${renderContent(n.content)}</div>`:''}
+        ${expandable?'<span class="notice-arrow">▼</span>':''}
+        ${expandable?`<div class="notice-content">${renderContent(n.content)}${imgsHtml}</div>`:''}
       </div>`;
     }).join('');
     // 이벤트 위임 — 카드 어디를 클릭해도 토글
@@ -1192,14 +1215,54 @@ const FAQ_DATA = [
   }
 })();
 
-/* ===== 문의폼 → 카카오 채널로 이동 ===== */
+/* ===== 문의폼 → 내용 자동 복사 후 카카오톡/이메일로 전송 ===== */
 (function(){
   const f = document.getElementById('contactForm');
   if (!f) return;
+  const KAKAO_CHAT = 'https://pf.kakao.com/_lIbJG/chat';
+  const MAIL_TO = 'rex9785@gmail.com';
+
+  // 안내 모달 1회 생성
+  const ov = document.createElement('div');
+  ov.className = 'send-overlay';
+  ov.innerHTML =
+    '<div class="send-card" role="dialog" aria-modal="true">' +
+      '<div class="ic">💬</div>' +
+      '<span class="copied-tag">✓ 문의 내용이 복사됐어요</span>' +
+      '<h3>어떻게 보낼까요?</h3>' +
+      '<p>카카오톡 채팅창이 열리면 <b>길게 눌러 ‘붙여넣기’</b> 한 번이면 전송돼요.<br>이메일은 내용이 자동으로 채워진 채 열립니다.</p>' +
+      '<a class="send-btn kakao" id="sendKakao" target="_blank" rel="noopener">💛 카카오톡으로 보내기</a>' +
+      '<a class="send-btn mail" id="sendMail">✉️ 이메일로 보내기 (자동 작성)</a>' +
+      '<button type="button" class="send-close" id="sendClose">닫기</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  const closeOv = () => ov.classList.remove('show');
+  ov.addEventListener('click', e => { if (e.target === ov) closeOv(); });
+  ov.querySelector('#sendClose').addEventListener('click', closeOv);
+
   f.addEventListener('submit', e => {
     e.preventDefault();
-    alert('카카오 채널로 이동합니다. 채팅창에 위 내용을 붙여넣어 보내주세요.');
-    window.open('http://pf.kakao.com/_lIbJG', '_blank');
+    const v = id => (document.getElementById(id)?.value || '').trim();
+    const name = v('cName'), phone = v('cPhone'), grade = v('cGrade'), msg = v('cMsg');
+    const text =
+      '[수업 문의]\n' +
+      '• 성함: ' + (name || '-') + '\n' +
+      '• 연락처: ' + (phone || '-') + '\n' +
+      '• 학년/학교: ' + (grade || '-') + '\n' +
+      '• 문의 내용: ' + (msg || '-');
+
+    // 클립보드 자동 복사 (best-effort)
+    try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (_) {}
+
+    // 카카오: 채팅 바로 열기 / 이메일: 제목·본문 자동 채움
+    ov.querySelector('#sendKakao').href = KAKAO_CHAT;
+    ov.querySelector('#sendMail').href =
+      'mailto:' + MAIL_TO +
+      '?subject=' + encodeURIComponent('[홈페이지 문의] ' + (name || '') + '님') +
+      '&body=' + encodeURIComponent(text);
+    ov.querySelector('#sendMail').addEventListener('click', closeOv, { once: true });
+
+    ov.classList.add('show');
   });
 })();
 </script>

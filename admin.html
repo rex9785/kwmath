@@ -264,6 +264,12 @@
           <label>내용 (선택)</label>
           <textarea id="newContent" placeholder="공지 내용을 입력하세요 (선택사항)"></textarea>
         </div>
+        <div class="form-row">
+          <label>📷 사진 (선택 · 여러 장 가능)</label>
+          <input id="newImages" type="file" accept="image/*" multiple onchange="previewNoticeImages(this)">
+          <div id="newImagesPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+          <small style="color:#888;display:block;margin-top:4px;">앱 출시 안내처럼 사진을 올리면 홈페이지·포털 공지에 함께 표시됩니다.</small>
+        </div>
         <div class="form-row-inline">
           <div class="form-row">
             <label>대상</label>
@@ -936,6 +942,19 @@
     }
   }
 
+  function previewNoticeImages(input) {
+    const box = document.getElementById('newImagesPreview');
+    if (!box) return;
+    box.innerHTML = '';
+    const files = input && input.files ? Array.from(input.files) : [];
+    files.forEach(f => {
+      const im = document.createElement('img');
+      im.src = URL.createObjectURL(f);
+      im.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);';
+      box.appendChild(im);
+    });
+  }
+
   async function addNotice() {
     const title = document.getElementById('newTitle').value.trim();
     const badge = document.getElementById('newBadge').value;
@@ -968,11 +987,30 @@
     }
 
     try {
+      // 첨부 사진 업로드 (R2 notices/ 폴더) → 키 수집
+      const imgInput = document.getElementById('newImages');
+      const files = imgInput && imgInput.files ? Array.from(imgInput.files) : [];
+      const imageKeys = [];
+      if (files.length) showToast('사진 업로드 중…');
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('folder', 'notices');
+        const up = await fetch('/api/upload-file', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + adminToken },
+          body: fd,
+        });
+        const ud = await up.json().catch(() => ({}));
+        if (up.ok && ud.ok && ud.key) imageKeys.push(ud.key);
+        else { showToast('❌ 사진 업로드 실패: ' + (ud.error || '오류')); return; }
+      }
       const res = await fetch('/api/notices-write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
         body: JSON.stringify({
           title, badge, content, targetType, targetValue,
+          images: imageKeys,
           pushMode,
           scheduledAt: pushMode === 'scheduled' ? new Date(scheduledAtRaw).toISOString() : null,
         }),
@@ -996,6 +1034,7 @@
       if (r) { r.checked = true; updatePushModeUI(); }
       document.getElementById('newTitle').value = '';
       document.getElementById('newContent').value = '';
+      if (imgInput) { imgInput.value = ''; const pv = document.getElementById('newImagesPreview'); if (pv) pv.innerHTML = ''; }
       loadAdminNotices();
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
