@@ -4,6 +4,7 @@
 //   via='admin' : 관리자 퇴원 처리분 / via='app' : 앱 자가탈퇴분(앱에선 삭제됨, 기록만 보존)
 // 인증: Authorization: Bearer <ADMIN_PASSWORD>  (admin-scores.html과 동일 방식)
 // ───────────────────────────────────────────────────────────
+// 배포 push 테스트 — 2026-06-11 (확인용 한 줄, 지워도 됨)
 import { ensureArchiveTable } from './_outcomes.js';
 
 export async function onRequest({ request, env }) {
