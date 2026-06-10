@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>퇴원생 성과 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --mock:#1f6f78; --mock-light:#E3F1F2; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:1000px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:4px; }
+  h1{ font-size:1.3rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.82rem; margin-bottom:14px; }
+  a.back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; }
+  .bar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .count{ font-weight:800; font-size:1.0rem; }
+  .count b{ color:var(--primary); }
+  .search{ position:relative; }
+  .search input{ width:240px; max-width:60vw; padding:9px 32px 9px 12px; border:1px solid var(--border); border-radius:9px; font-size:0.9rem; font-family:inherit; outline:none; background:#fff; }
+  .search input:focus{ border-color:var(--primary); }
+  .search .ic{ position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:0.9rem; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:0; overflow:hidden; }
+  table{ width:100%; border-collapse:collapse; font-size:0.9rem; }
+  th{ background:var(--primary-light); color:var(--primary); text-align:left; padding:11px 12px; font-weight:700; font-size:0.82rem; white-space:nowrap; }
+  td{ border-bottom:1px solid var(--border); padding:11px 12px; vertical-align:middle; }
+  tr.main:hover{ background:#FCFAFA; }
+  .badge{ display:inline-block; background:#F1E4E6; color:var(--primary); border-radius:6px; padding:2px 8px; font-size:0.76rem; font-weight:700; }
+  .gr{ font-weight:700; }
+  .nm{ font-weight:700; }
+  .sum{ color:#444; }
+  .sum .up{ color:#1f8a4c; font-weight:700; }
+  .muted{ color:var(--muted); }
+  button.mini{ background:#fff; color:var(--primary); border:1px solid var(--primary); border-radius:7px; padding:5px 11px; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  button.mini:hover{ background:var(--primary-light); }
+  .detail{ background:#FBF8F8; }
+  .detail td{ padding:0; border-bottom:1px solid var(--border); }
+  .detail-inner{ padding:14px 16px; }
+  .grp{ margin-bottom:12px; }
+  .grp:last-child{ margin-bottom:0; }
+  .grp h4{ margin:0 0 6px; font-size:0.86rem; }
+  .grp h4.naesin{ color:var(--primary); }
+  .grp h4.mock{ color:var(--mock); }
+  .stbl{ width:100%; border-collapse:collapse; font-size:0.84rem; }
+  .stbl th{ background:#fff; border-bottom:1px solid var(--border); color:var(--muted); padding:5px 8px; font-size:0.74rem; }
+  .stbl td{ border-bottom:1px dashed var(--border); padding:5px 8px; }
+  .pill{ font-weight:800; }
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
+  .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:50px auto; text-align:center; }
+  .login input{ width:100%; margin:12px 0; padding:9px 10px; border:1px solid var(--border); border-radius:9px; font-size:0.95rem; font-family:inherit; }
+  .login button{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 16px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .err{ color:#c0392b; font-size:0.8rem; margin-bottom:8px; }
+  .note{ font-size:0.74rem; color:var(--muted); margin-top:14px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>📤 퇴원생 성과</h1><div class="sub">탈퇴·퇴원한 학생의 익명 성적 기록 (이름 가림 · 전화번호 미보관)</div></div>
+    <a class="back" href="/admin">← 관리자</a>
+  </div>
+  <div id="content"><div class="msg">불러오는 중…</div></div>
+  <div class="note" id="footnote" style="display:none;">
+    ※ 이름은 가운데를 가렸고(예: 김*환) 전화번호·연락처는 저장하지 않습니다. 학생이 탈퇴/퇴원하는 시점에 자동으로 한 줄씩 쌓입니다.<br>
+    ※ 마스킹 이름+학교+성적은 법적으로 '가명정보'라 내부(관리자) 참고용으로만 쓰고, 실명 공개·홍보 활용 시에는 별도 동의(미성년은 보호자 동의)가 필요합니다.
+  </div>
+</div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  var rows = [], openId = null, q = '';
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function fmtYM(iso){
+    if(!iso) return '-';
+    var d = new Date(iso); if(isNaN(d)) return '-';
+    return d.getFullYear()+'.'+('0'+(d.getMonth()+1)).slice(-2);
+  }
+  function months(a,b){
+    if(!a||!b) return null;
+    var d1=new Date(a), d2=new Date(b); if(isNaN(d1)||isNaN(d2)) return null;
+    var m=(d2.getFullYear()-d1.getFullYear())*12+(d2.getMonth()-d1.getMonth());
+    return m<=0?null:m;
+  }
+  function period(o){
+    var s=fmtYM(o.enrolled_at), e=fmtYM(o.left_at), m=months(o.enrolled_at,o.left_at);
+    return s+' ~ '+e+(m?(' <span class="muted">(약 '+m+'개월)</span>'):'');
+  }
+  function fmtScore(s){
+    if(s.rawScore!=null && s.grade!=null) return s.rawScore+'<span class="muted">('+s.grade+')</span>';
+    if(s.rawScore!=null) return ''+s.rawScore;
+    if(s.grade!=null) return '('+s.grade+'등급)';
+    return '-';
+  }
+  function parseScores(o){
+    try{ var a=JSON.parse(o.scores_json||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; }
+  }
+
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); var had=token; token=null; showLogin(had?'비밀번호가 틀렸습니다':''); throw new Error('401'); }
+    return r;
+  }
+  function showLogin(err){
+    $('footnote').style.display='none';
+    $('content').innerHTML =
+      '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>'+
+      '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">'+
+      (err?'<div class="err">'+esc(err)+'</div>':'')+
+      '<button onclick="doLogin()">확인</button></div>';
+    var p=$('pw'); if(p) p.focus();
+  }
+  function doLogin(){ token=($('pw').value||'').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw',token); boot(); }
+
+  async function boot(){
+    $('content').innerHTML = '<div class="msg">퇴원생 성과 불러오는 중…</div>';
+    try{
+      var r = await api('/api/outcomes?t='+Date.now());
+      var data = await r.json();
+      rows = (data && data.outcomes) || [];
+      // 최근 퇴원 순(left_at desc)
+      rows.sort(function(a,b){ return String(b.left_at||'').localeCompare(String(a.left_at||'')); });
+      render();
+    }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
+  }
+
+  function filtered(){
+    var s=(q||'').trim();
+    if(!s) return rows;
+    return rows.filter(function(o){ return String(o.name_masked||'').indexOf(s)>-1 || String(o.school||'').indexOf(s)>-1; });
+  }
+
+  function render(){
+    $('footnote').style.display='block';
+    var list = filtered();
+    var head =
+      '<div class="bar">'+
+        '<div class="count">퇴원생 <b>'+list.length+'</b>명'+(q?(' <span class="muted">/ 전체 '+rows.length+'</span>'):'')+'</div>'+
+        '<div class="search"><input id="q" type="text" placeholder="이름·학교 검색" value="'+esc(q)+'" oninput="onSearch(this.value)"><span class="ic">🔍</span></div>'+
+      '</div>';
+
+    if(!rows.length){ $('content').innerHTML = head + '<div class="msg">아직 쌓인 퇴원생 성과가 없습니다.<br><span class="muted">학생이 탈퇴/퇴원하면 이 목록에 자동으로 추가됩니다.</span></div>'; wireSearch(); return; }
+
+    var body = list.map(function(o){
+      var sc = o.score_count||0;
+      var sum = o.summary ? esc(o.summary).replace(/→/g,'<span class="up">→</span>') : '<span class="muted">성적 기록 없음</span>';
+      var main =
+        '<tr class="main">'+
+          '<td class="gr">'+esc(o.grade_level||'-')+'</td>'+
+          '<td><span class="badge">퇴원</span></td>'+
+          '<td class="nm">'+esc(o.name_masked||'-')+'</td>'+
+          '<td>'+esc(o.school||'-')+'</td>'+
+          '<td class="muted" style="white-space:nowrap;">'+period(o)+'</td>'+
+          '<td class="sum">'+sum+' <span class="muted">('+sc+'개)</span></td>'+
+          '<td><button class="mini" onclick="toggle('+o.id+')">'+(openId===o.id?'닫기':'상세보기')+'</button></td>'+
+        '</tr>';
+      var detail = '';
+      if(openId===o.id){
+        detail = '<tr class="detail"><td colspan="7"><div class="detail-inner">'+ detailHtml(o) +'</div></td></tr>';
+      }
+      return main + detail;
+    }).join('');
+
+    $('content').innerHTML = head +
+      '<div class="card"><table>'+
+        '<thead><tr><th>학년</th><th>상태</th><th>학생 이름</th><th>학교</th><th>수강기간</th><th>성적 변화</th><th>상세</th></tr></thead>'+
+        '<tbody>'+body+'</tbody>'+
+      '</table></div>';
+    wireSearch();
+  }
+
+  function detailHtml(o){
+    var scores = parseScores(o);
+    if(!scores.length) return '<div class="muted">입력된 성적이 없습니다.</div>';
+    function group(type, cls){
+      var g = scores.filter(function(s){ return s.examType===type; });
+      if(!g.length) return '';
+      var trs = g.map(function(s){
+        return '<tr><td>'+esc(s.gradeLevel||'-')+'</td><td>'+esc(s.label||'-')+'</td>'+
+               '<td class="pill">'+fmtScore(s)+'</td><td class="muted">'+esc(s.examDate||'')+'</td></tr>';
+      }).join('');
+      return '<div class="grp"><h4 class="'+cls+'">'+type+' <span class="muted" style="font-weight:400;">('+g.length+')</span></h4>'+
+        '<table class="stbl"><thead><tr><th>학년</th><th>시기</th><th>원점수(등급)</th><th>날짜</th></tr></thead><tbody>'+trs+'</tbody></table></div>';
+    }
+    return group('내신','naesin') + group('모의','mock');
+  }
+
+  function toggle(id){ openId = (openId===id? null : id); render(); }
+  function onSearch(v){ q=v; render(); }
+  function wireSearch(){ var el=$('q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+
+  if(token) boot(); else showLogin('');
+</script>
+</body>
+</html>
