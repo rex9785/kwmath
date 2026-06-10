@@ -11,7 +11,7 @@
 // ───────────────────────────────────────────────────────────
 import { requireAuth, revokeToken } from './_auth.js';
 import { safeError } from './_errors.js';
-import { snapshotOutcome } from './_outcomes.js';
+import { snapshotArchive } from './_outcomes.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용됩니다.' }, { status: 405 });
@@ -30,17 +30,17 @@ export async function onRequest({ request, env }) {
 
   try {
     const { results: studs } = await env.DB.prepare(
-      'SELECT id, name, school, grade, created_at FROM students WHERE parent_phone = ? OR student_phone = ?'
+      'SELECT id, name, school, grade, created_at, parent_phone, student_phone FROM students WHERE parent_phone = ? OR student_phone = ?'
     ).bind(phone, phone).all();
 
     const names = new Set();
     for (const s of (studs || [])) {
       if (s.name) names.add(s.name);
-      // ── 삭제 직전: 익명 성과 한 줄만 따로 보존(개인정보 아님) ──
+      // ── 앱(포털)에서는 아래에서 전부 삭제하되, 그 전에 관리자 아카이브에는 전체 기록 보존(via='app') ──
       try {
-        const snap = await snapshotOutcome(env, s);
+        const snap = await snapshotArchive(env, s, 'app');
         if (snap.ok) result.outcomes_saved += 1;
-      } catch (e) { /* 성과 보존 실패는 삭제를 막지 않음 */ }
+      } catch (e) { /* 보존 실패는 삭제를 막지 않음 */ }
       try {
         const d = await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(s.id).run();
         result.attendance_deleted += (d.meta && d.meta.changes) || 0;
