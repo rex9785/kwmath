@@ -3,6 +3,7 @@
 //       { studentId } enrollment-only (그 레코드만 + 그 출결/공부)
 // 안전장치: 계정은 같은 번호를 쓰는 다른 학생이 남아있으면 보존(형제 로그인 보호).
 import { safeError } from './_errors.js';
+import { snapshotOutcome } from './_outcomes.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용' }, { status: 405 });
@@ -18,17 +19,21 @@ export async function onRequest({ request, env }) {
   const enrollmentOnly = !!studentIdRaw && !name;
 
   const result = { name: name || '', studentId: studentIdRaw || '', enrollmentOnly,
-    students_archived: 0, reports_archived: 0, accounts_archived: 0, files_deleted: 0, errors: [] };
+    students_archived: 0, reports_archived: 0, accounts_archived: 0, files_deleted: 0,
+    scores_deleted: 0, outcomes_saved: 0, errors: [] };
 
   try {
     if (enrollmentOnly) {
       const id = Number(studentIdRaw);
       if (!Number.isFinite(id)) return Response.json({ error: 'studentId 형식 오류' }, { status: 400 });
-      const st = await env.DB.prepare('SELECT name FROM students WHERE id = ?').bind(id).first();
+      const st = await env.DB.prepare('SELECT id, name, school, grade, created_at FROM students WHERE id = ?').bind(id).first();
       if (!st) return Response.json({ error: '학생을 찾을 수 없습니다' }, { status: 404 });
       result.name = st.name || '';
+      // 삭제 직전: 익명 성과 한 줄만 따로 보존
+      try { const snap = await snapshotOutcome(env, st); if (snap.ok) result.outcomes_saved += 1; } catch (e) {}
       await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(id).run();
       await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(id).run();
+      try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(id).run(); result.scores_deleted += (sd.meta && sd.meta.changes) || 0; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
       const d = await env.DB.prepare('DELETE FROM students WHERE id = ?').bind(id).run();
       result.students_archived = (d.meta && d.meta.changes) || 0;
       return Response.json({ ok: true, ...result });
@@ -37,13 +42,19 @@ export async function onRequest({ request, env }) {
     // 전체 퇴원 (이름 기준)
     const phones = new Set();
     const { results: studs } = await env.DB.prepare(
-      'SELECT id, parent_phone, student_phone FROM students WHERE name = ?'
+      'SELECT id, parent_phone, student_phone, school, grade, created_at FROM students WHERE name = ?'
     ).bind(name).all();
     for (const s of (studs || [])) {
       if (s.parent_phone) phones.add(s.parent_phone);
       if (s.student_phone) phones.add(s.student_phone);
+      // 삭제 직전: 익명 성과 한 줄만 따로 보존
+      try {
+        const snap = await snapshotOutcome(env, { id: s.id, name, school: s.school, grade: s.grade, created_at: s.created_at });
+        if (snap.ok) result.outcomes_saved += 1;
+      } catch (e) {}
       await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(s.id).run();
       await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(s.id).run();
+      try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(s.id).run(); result.scores_deleted += (sd.meta && sd.meta.changes) || 0; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
       const d = await env.DB.prepare('DELETE FROM students WHERE id = ?').bind(s.id).run();
       result.students_archived += (d.meta && d.meta.changes) || 0;
     }

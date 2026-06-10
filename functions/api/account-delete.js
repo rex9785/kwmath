@@ -11,6 +11,7 @@
 // ───────────────────────────────────────────────────────────
 import { requireAuth, revokeToken } from './_auth.js';
 import { safeError } from './_errors.js';
+import { snapshotOutcome } from './_outcomes.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용됩니다.' }, { status: 405 });
@@ -23,17 +24,23 @@ export async function onRequest({ request, env }) {
     phone,
     students_deleted: 0, attendance_deleted: 0, study_deleted: 0,
     scores_deleted: 0, reports_deleted: 0, files_deleted: 0, account_deleted: 0,
+    outcomes_saved: 0,
     errors: [],
   };
 
   try {
     const { results: studs } = await env.DB.prepare(
-      'SELECT id, name FROM students WHERE parent_phone = ? OR student_phone = ?'
+      'SELECT id, name, school, grade, created_at FROM students WHERE parent_phone = ? OR student_phone = ?'
     ).bind(phone, phone).all();
 
     const names = new Set();
     for (const s of (studs || [])) {
       if (s.name) names.add(s.name);
+      // ── 삭제 직전: 익명 성과 한 줄만 따로 보존(개인정보 아님) ──
+      try {
+        const snap = await snapshotOutcome(env, s);
+        if (snap.ok) result.outcomes_saved += 1;
+      } catch (e) { /* 성과 보존 실패는 삭제를 막지 않음 */ }
       try {
         const d = await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(s.id).run();
         result.attendance_deleted += (d.meta && d.meta.changes) || 0;
