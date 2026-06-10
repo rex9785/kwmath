@@ -212,10 +212,10 @@
   .send-card h3{font-size:1.12rem;font-weight:800;color:var(--text);margin-bottom:8px;}
   .send-card p{font-size:0.86rem;color:var(--text-light);line-height:1.7;margin-bottom:18px;}
   .send-card .send-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:11px;font-size:0.93rem;font-weight:700;text-decoration:none;cursor:pointer;border:none;font-family:inherit;margin-top:9px;transition:all .15s;}
+  .send-btn.mail{background:var(--primary);color:#fff;box-shadow:0 4px 14px rgba(134,38,51,0.25);}
+  .send-btn.mail:hover{background:var(--primary-mid);}
   .send-btn.kakao{background:#FEE500;color:#3C1E1E;}
   .send-btn.kakao:hover{filter:brightness(0.96);}
-  .send-btn.mail{background:var(--bg2);color:var(--primary);border:1px solid var(--border);}
-  .send-btn.mail:hover{background:var(--primary-light);}
   .send-card .send-close{margin-top:14px;background:none;border:none;color:var(--text-light);font-size:0.8rem;cursor:pointer;font-family:inherit;text-decoration:underline;}
   .send-card .copied-tag{display:inline-block;background:#E9F7EF;color:#1d7a44;font-size:0.74rem;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:14px;}
 
@@ -1030,7 +1030,7 @@
           <textarea id="cMsg" placeholder="현재 수학 성적이나 고민, 원하시는 수업 방식을 자유롭게 적어주세요."></textarea>
         </div>
         <button type="submit" class="form-submit">문의 보내기</button>
-        <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;">* ‘문의 보내기’를 누르면 내용이 자동 복사되고, 카카오톡 또는 이메일로 바로 전송할 수 있어요.</p>
+        <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;">* ‘문의 보내기’를 누르면 메일 앱이 내용이 채워진 채로 열려요. 보내기만 누르면 전송됩니다. (카카오톡으로도 가능)</p>
       </form>
     </div>
   </div>
@@ -1220,19 +1220,18 @@ const FAQ_DATA = [
   const f = document.getElementById('contactForm');
   if (!f) return;
   const KAKAO_CHAT = 'https://pf.kakao.com/_lIbJG/chat';
-  const MAIL_TO = 'rex9785@gmail.com';
+  const MAIL_TO = 'kwanoomath@gmail.com';
 
   // 안내 모달 1회 생성
   const ov = document.createElement('div');
   ov.className = 'send-overlay';
   ov.innerHTML =
     '<div class="send-card" role="dialog" aria-modal="true">' +
-      '<div class="ic">💬</div>' +
-      '<span class="copied-tag">✓ 문의 내용이 복사됐어요</span>' +
-      '<h3>어떻게 보낼까요?</h3>' +
-      '<p>카카오톡 채팅창이 열리면 <b>길게 눌러 ‘붙여넣기’</b> 한 번이면 전송돼요.<br>이메일은 내용이 자동으로 채워진 채 열립니다.</p>' +
-      '<a class="send-btn kakao" id="sendKakao" target="_blank" rel="noopener">💛 카카오톡으로 보내기</a>' +
-      '<a class="send-btn mail" id="sendMail">✉️ 이메일로 보내기 (자동 작성)</a>' +
+      '<div class="ic">✉️</div>' +
+      '<h3>문의 보내기</h3>' +
+      '<p><b>‘메일 앱 열어 보내기’</b>를 누르면 받는사람·제목·내용이 모두 채워진 채로 메일 앱이 열려요. <b>보내기</b>만 누르면 끝입니다!</p>' +
+      '<a class="send-btn mail" id="sendMail">✉️ 메일 앱 열어 보내기</a>' +
+      '<a class="send-btn kakao" id="sendKakao" target="_blank" rel="noopener">💛 카카오톡으로 보내기 (내용 복사됨)</a>' +
       '<button type="button" class="send-close" id="sendClose">닫기</button>' +
     '</div>';
   document.body.appendChild(ov);
