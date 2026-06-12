@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>질문 관리 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ai:#1f6f78; --ai-light:#E3F1F2; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:4px; }
+  h1{ font-size:1.3rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.82rem; margin-bottom:14px; }
+  a.back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; }
+  .bar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .count{ font-weight:800; font-size:1.0rem; }
+  .count b{ color:var(--primary); }
+  .tabs{ display:flex; gap:6px; background:#fff; border:1px solid var(--border); border-radius:10px; padding:4px; }
+  .tabs button{ border:none; background:transparent; padding:8px 16px; border-radius:7px; font-weight:700; font-size:0.84rem; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .tabs button.active{ background:var(--primary); color:#fff; }
+  .tabs button .n{ font-size:0.72rem; opacity:.85; }
+
+  .card{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:15px 16px; margin-bottom:11px; box-shadow:0 2px 8px rgba(134,38,51,0.04); }
+  .card.pending{ border-left:4px solid #E0A100; }
+  .chead{ display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+  .nm{ font-weight:800; font-size:0.9rem; }
+  .meta{ font-size:0.72rem; color:var(--muted); margin-left:auto; }
+  .badge{ display:inline-block; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .b-ai{ background:var(--ai-light); color:var(--ai); }
+  .b-teacher{ background:var(--primary-light); color:var(--primary); }
+  .b-priv{ background:#F0E9D8; color:#8A6D1B; }
+  .b-pending{ background:#FFF7E0; color:#B07A00; }
+  .b-done{ background:#E5F5E8; color:#1F7A33; }
+  .qtitle{ font-weight:800; font-size:0.92rem; margin-bottom:3px; }
+  .qbody{ font-size:0.9rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:var(--ink); }
+
+  .ans{ margin-top:11px; background:var(--bg); border-radius:9px; padding:11px 13px; border-left:3px solid var(--ai); }
+  .ans.teacher{ border-left-color:var(--primary); }
+  .ans .lab{ font-size:0.74rem; font-weight:800; color:var(--ai); margin-bottom:4px; }
+  .ans.teacher .lab{ color:var(--primary); }
+  .ans .txt{ font-size:0.86rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
+
+  .composer{ margin-top:11px; }
+  .composer textarea{ width:100%; min-height:90px; padding:10px 12px; border:1.5px solid var(--border); border-radius:9px; font-size:0.88rem; font-family:inherit; line-height:1.6; resize:vertical; outline:none; }
+  .composer textarea:focus{ border-color:var(--primary); }
+  .crow{ display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  .byseg{ display:flex; gap:4px; background:#F2EDEE; border-radius:8px; padding:3px; }
+  .byseg button{ border:none; background:transparent; padding:6px 12px; border-radius:6px; font-size:0.78rem; font-weight:700; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .byseg button.active{ background:#fff; color:var(--primary); box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  .spacer{ flex:1; }
+  button.send{ background:var(--primary); color:#fff; border:none; border-radius:8px; padding:8px 18px; font-size:0.84rem; font-weight:800; cursor:pointer; font-family:inherit; }
+  button.send:hover{ background:#6f1f2b; }
+  button.send:disabled{ opacity:.55; cursor:not-allowed; }
+  button.mini{ background:#fff; color:var(--muted); border:1px solid var(--border); border-radius:7px; padding:5px 11px; font-size:0.76rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  button.mini:hover{ border-color:var(--primary); color:var(--primary); }
+  button.mini.danger:hover{ border-color:#c0392b; color:#c0392b; }
+  .editlink{ font-size:0.76rem; color:var(--primary); font-weight:700; cursor:pointer; margin-top:8px; display:inline-block; }
+
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
+  .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:50px auto; text-align:center; }
+  .login input{ width:100%; margin:12px 0; padding:9px 10px; border:1px solid var(--border); border-radius:9px; font-size:0.95rem; font-family:inherit; }
+  .login button{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 16px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .err{ color:#c0392b; font-size:0.8rem; margin-bottom:8px; }
+  .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
+  .toast.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>💬 질문 관리</h1><div class="sub">학생 질문에 선생님·조교가 답변 (관리자 전용)</div></div>
+    <a class="back" href="/admin">← 관리자</a>
+  </div>
+  <div id="content"><div class="msg">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  var rows = [], tab = 'pending', byChoice = {};
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
+  function fmtDate(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return esc(iso); return (d.getMonth()+1)+'/'+d.getDate()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); var had=token; token=null; showLogin(had?'비밀번호가 틀렸습니다':''); throw new Error('401'); }
+    return r;
+  }
+  function showLogin(err){
+    $('content').innerHTML =
+      '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>'+
+      '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">'+
+      (err?'<div class="err">'+esc(err)+'</div>':'')+
+      '<button onclick="doLogin()">확인</button></div>';
+    var p=$('pw'); if(p) p.focus();
+  }
+  function doLogin(){ token=($('pw').value||'').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw',token); boot(); }
+
+  async function boot(){
+    $('content').innerHTML = '<div class="msg">질문 불러오는 중…</div>';
+    try{
+      var r = await api('/api/qna?admin=1&t='+Date.now());
+      var data = await r.json();
+      rows = (data && data.questions) || [];
+      render();
+    }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
+  }
+
+  function setTab(t){ tab=t; render(); }
+
+  function render(){
+    var pending = rows.filter(function(q){ return q.status==='pending'; });
+    var list = (tab==='pending') ? pending : rows;
+    var head =
+      '<div class="bar">'+
+        '<div class="count">'+(tab==='pending'?'미답변 ':'전체 ')+'<b>'+list.length+'</b>개</div>'+
+        '<div class="tabs">'+
+          '<button class="'+(tab==='pending'?'active':'')+'" onclick="setTab(\'pending\')">미답변 <span class="n">'+pending.length+'</span></button>'+
+          '<button class="'+(tab==='all'?'active':'')+'" onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
+        '</div>'+
+      '</div>';
+
+    if(!list.length){
+      var empty = tab==='pending' ? '미답변 질문이 없어요. 👍' : '아직 질문이 없습니다.';
+      $('content').innerHTML = head + '<div class="msg">'+empty+'</div>';
+      return;
+    }
+    $('content').innerHTML = head + list.map(cardHtml).join('');
+  }
+
+  function cardHtml(q){
+    var modeBadge = q.mode==='ai' ? '<span class="badge b-ai">🤖 AI</span>' : '<span class="badge b-teacher">🧑‍🏫 선생님요청</span>';
+    var privBadge = q.isPrivate ? '<span class="badge b-priv">🔒 비밀</span>' : '';
+    var statBadge = q.status==='pending' ? '<span class="badge b-pending">미답변</span>' : '<span class="badge b-done">답변완료</span>';
+    var titleHtml = q.title ? '<div class="qtitle">'+esc(q.title)+'</div>' : '';
+
+    var ansHtml = '';
+    if (q.answer){
+      var isAi = (q.answeredBy==='AI');
+      ansHtml = '<div class="ans'+(isAi?'':' teacher')+'">'+
+        '<div class="lab">'+(isAi?'🤖 AI 답변':'👨‍🏫 '+esc(q.answeredBy||'선생님')+' 답변')+'</div>'+
+        '<div class="txt">'+esc(q.answer)+'</div></div>';
+    }
+
+    // 답변 작성/수정 영역 (미답변이면 펼침, 답변완료면 '수정' 링크)
+    var composerOpen = (q.status==='pending');
+    var by = byChoice[q.id] || '선생님';
+    var composer =
+      '<div class="composer" id="comp_'+q.id+'" style="'+(composerOpen?'':'display:none;')+'">'+
+        '<textarea id="ans_'+q.id+'" placeholder="답변을 입력하세요. (학생에게 그대로 보여요)">'+esc(q.answeredBy && q.answeredBy!=='AI' ? q.answer : '')+'</textarea>'+
+        '<div class="crow">'+
+          '<div class="byseg">'+
+            '<button class="'+(by==='선생님'?'active':'')+'" onclick="setBy('+q.id+',\'선생님\')">선생님</button>'+
+            '<button class="'+(by==='조교'?'active':'')+'" onclick="setBy('+q.id+',\'조교\')">조교</button>'+
+          '</div>'+
+          '<div class="spacer"></div>'+
+          '<button class="mini danger" onclick="delQ('+q.id+')">삭제</button>'+
+          '<button class="send" onclick="sendAns('+q.id+')">'+(q.status==='pending'?'답변 등록':'답변 수정')+'</button>'+
+        '</div>'+
+      '</div>';
+    var editLink = (!composerOpen)
+      ? '<span class="editlink" onclick="openComp('+q.id+')">✏️ 답변 수정 / 다시 답변</span>'
+      : '';
+
+    return '<div class="card'+(q.status==='pending'?' pending':'')+'">'+
+      '<div class="chead">'+
+        '<span class="nm">'+esc(q.authorName||'학생')+'</span>'+
+        modeBadge + privBadge + statBadge +
+        '<span class="meta">'+fmtDate(q.createdAt)+'</span>'+
+      '</div>'+
+      titleHtml +
+      '<div class="qbody">'+esc(q.question)+'</div>'+
+      ansHtml + editLink + composer +
+    '</div>';
+  }
+
+  function setBy(id, v){ byChoice[id]=v; render(); }
+  function openComp(id){ var c=$('comp_'+id); if(c) c.style.display='block'; }
+
+  async function sendAns(id){
+    var ta = $('ans_'+id); if(!ta) return;
+    var answer = (ta.value||'').trim();
+    if(!answer){ showToast('답변 내용을 입력하세요.'); ta.focus(); return; }
+    var by = byChoice[id] || '선생님';
+    var btn = ta.closest('.composer').querySelector('.send');
+    if(btn){ btn.disabled=true; btn.textContent='등록 중…'; }
+    try{
+      var r = await api('/api/qna?id='+encodeURIComponent(id), {
+        method:'PATCH', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ answer: answer, answeredBy: by })
+      });
+      var data = await r.json();
+      if(!r.ok){ showToast(data.error||'등록 실패'); if(btn){btn.disabled=false;btn.textContent='답변 등록';} return; }
+      showToast('✅ 답변이 등록됐어요.');
+      boot();
+    }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
+  }
+
+  async function delQ(id){
+    if(!confirm('이 질문을 삭제할까요? (되돌릴 수 없어요)')) return;
+    try{
+      var r = await api('/api/qna?id='+encodeURIComponent(id), { method:'DELETE' });
+      var data = await r.json();
+      if(!r.ok){ showToast(data.error||'삭제 실패'); return; }
+      showToast('삭제했어요.');
+      boot();
+    }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
+  }
+
+  if(token) boot(); else showLogin('');
+</script>
+</body>
+</html>

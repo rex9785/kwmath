@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>질문방 | 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=3">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;--ai:#1f6f78;--ai-light:#E3F1F2;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.26);}
+
+  .page{max-width:640px;margin:0 auto;padding:24px 18px 80px;}
+  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:10px;text-transform:uppercase;}
+  .section{margin-bottom:24px;}
+
+  /* 작성 폼 */
+  .form-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .form-card h2{font-size:1rem;font-weight:800;color:var(--text);margin-bottom:4px;}
+  .form-card .sub{font-size:0.78rem;color:var(--text-light);margin-bottom:14px;line-height:1.55;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:0.78rem;font-weight:700;color:var(--text-light);margin-bottom:5px;}
+  .field input[type=text], .field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.9rem;font-family:inherit;background:#fff;outline:none;color:var(--text);}
+  .field textarea{min-height:110px;resize:vertical;line-height:1.6;}
+  .field input:focus, .field textarea:focus{border-color:var(--primary);}
+  .field .hint{font-size:0.72rem;color:var(--text-light);margin-top:4px;}
+
+  .mode-row{display:flex;gap:8px;}
+  .mode-btn{flex:1;padding:12px 8px;border:1.5px solid var(--border);background:#fff;border-radius:11px;cursor:pointer;font-family:inherit;text-align:center;transition:all .12s;}
+  .mode-btn .m-emoji{font-size:1.3rem;display:block;margin-bottom:2px;}
+  .mode-btn .m-title{font-size:0.86rem;font-weight:800;color:var(--text);}
+  .mode-btn .m-desc{font-size:0.68rem;color:var(--text-light);margin-top:1px;}
+  .mode-btn.active[data-mode=ai]{border-color:var(--ai);background:var(--ai-light);}
+  .mode-btn.active[data-mode=ai] .m-title{color:var(--ai);}
+  .mode-btn.active[data-mode=teacher]{border-color:var(--primary);background:var(--primary-light);}
+  .mode-btn.active[data-mode=teacher] .m-title{color:var(--primary);}
+  .mode-btn.disabled{opacity:.5;cursor:not-allowed;}
+
+  .ai-quota{font-size:0.74rem;font-weight:700;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--ai-light);color:var(--ai);display:flex;align-items:center;gap:6px;}
+  .ai-quota.empty{background:#FBE5E9;color:var(--primary);}
+
+  .priv-toggle{display:flex;align-items:center;gap:8px;margin-top:6px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;user-select:none;}
+  .priv-toggle.on{border-color:var(--primary);background:var(--primary-light);}
+  .priv-toggle .box{width:20px;height:20px;border:2px solid var(--border);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:#fff;}
+  .priv-toggle.on .box{background:var(--primary);border-color:var(--primary);}
+  .priv-toggle .t{font-size:0.84rem;font-weight:700;color:var(--text);}
+  .priv-toggle .d{font-size:0.72rem;color:var(--text-light);}
+
+  .btn-primary{background:var(--primary);color:#fff;border:none;padding:13px 18px;border-radius:11px;font-size:0.92rem;font-weight:800;cursor:pointer;font-family:inherit;width:100%;margin-top:6px;transition:background .15s;}
+  .btn-primary:hover{background:var(--primary-mid);}
+  .btn-primary:disabled{opacity:0.6;cursor:not-allowed;}
+  .btn-primary.ai{background:var(--ai);}
+  .btn-primary.ai:hover{background:#185860;}
+  .err-msg{color:#B02347;font-size:0.82rem;font-weight:600;margin-top:8px;min-height:18px;}
+
+  .tab-row{display:flex;gap:6px;margin-bottom:14px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:4px;}
+  .tab-btn{flex:1;background:transparent;border:none;padding:9px 10px;border-radius:7px;font-size:0.84rem;font-weight:700;cursor:pointer;color:var(--text-light);font-family:inherit;}
+  .tab-btn.active{background:var(--primary);color:#fff;}
+
+  /* 질문 카드 */
+  .q-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(139,26,53,0.04);}
+  .q-head{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+  .q-author{font-size:0.84rem;font-weight:800;color:var(--text);}
+  .q-meta{font-size:0.72rem;color:var(--text-light);margin-left:auto;}
+  .badge{display:inline-block;font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:10px;}
+  .b-ai{background:var(--ai-light);color:var(--ai);}
+  .b-teacher{background:var(--primary-light);color:var(--primary);}
+  .b-priv{background:#F0E9D8;color:#8A6D1B;}
+  .b-mine{background:#E5F0FB;color:#2A5C9C;}
+  .b-pending{background:#FFF7E0;color:#B07A00;}
+  .q-title{font-size:0.92rem;font-weight:800;margin-bottom:4px;}
+  .q-body{font-size:0.9rem;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-word;}
+
+  .answer{margin-top:12px;border-radius:10px;padding:12px 14px;background:var(--bg2);border-left:4px solid var(--ai);}
+  .answer.teacher{border-left-color:var(--primary);}
+  .answer .a-label{font-size:0.74rem;font-weight:800;color:var(--ai);margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+  .answer.teacher .a-label{color:var(--primary);}
+  .answer .a-body{font-size:0.88rem;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;}
+  .answer-pending{margin-top:10px;font-size:0.8rem;color:#B07A00;background:#FFF7E0;padding:9px 12px;border-radius:9px;font-weight:600;display:flex;align-items:center;gap:6px;}
+
+  .q-actions{margin-top:10px;display:flex;gap:6px;justify-content:flex-end;}
+  .btn-mini{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:5px 11px;border-radius:7px;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:inherit;}
+  .btn-mini:hover{border-color:var(--primary);color:var(--primary);}
+
+  .state-box{text-align:center;padding:36px 24px;color:var(--text-light);}
+  .state-box .state-icon{font-size:2rem;margin-bottom:10px;}
+  .state-box p{font-size:0.85rem;line-height:1.7;}
+
+  .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:11px 18px;border-radius:9px;font-size:0.84rem;font-weight:600;z-index:100;display:none;max-width:90%;text-align:center;line-height:1.5;}
+  .toast.show{display:block;animation:slideUp .25s ease-out;}
+  @keyframes slideUp{from{opacity:0;transform:translate(-50%,8px);}to{opacity:1;transform:translate(-50%,0);}}
+
+  /* AI 답변 생성 오버레이 */
+  .ai-loading{position:fixed;inset:0;background:rgba(20,8,12,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:24px;}
+  .ai-loading.show{display:flex;}
+  .ai-loading .box{background:#fff;border-radius:16px;padding:28px 30px;text-align:center;max-width:300px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+  .ai-loading .spin{width:42px;height:42px;border:4px solid var(--ai-light);border-top-color:var(--ai);border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .ai-loading .t{font-size:0.92rem;font-weight:800;color:var(--ai);}
+  .ai-loading .s{font-size:0.76rem;color:var(--text-light);margin-top:5px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
+    <span>💬 질문방</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+
+  <!-- 작성 폼 -->
+  <div class="section">
+    <div class="section-label">질문하기</div>
+    <div class="form-card">
+      <h2>모르는 문제, 물어보세요 🙋</h2>
+      <div class="sub">AI 조교에게 바로 물어보거나, 선생님·조교에게 직접 질문할 수 있어요.</div>
+
+      <div class="field">
+        <label>질문 방식</label>
+        <div class="mode-row">
+          <div class="mode-btn active" data-mode="ai" id="modeAi" onclick="setMode('ai')">
+            <span class="m-emoji">🤖</span>
+            <span class="m-title">AI에게 질문</span>
+            <span class="m-desc">즉시 풀이 답변</span>
+          </div>
+          <div class="mode-btn" data-mode="teacher" id="modeTeacher" onclick="setMode('teacher')">
+            <span class="m-emoji">🧑‍🏫</span>
+            <span class="m-title">선생님·조교</span>
+            <span class="m-desc">직접 답변해 드려요</span>
+          </div>
+        </div>
+        <div class="ai-quota" id="aiQuota">⏳ 오늘 AI 질문 사용량 확인 중…</div>
+      </div>
+
+      <div class="field">
+        <label>제목 <span style="font-weight:400;color:var(--text-light);">(선택)</span></label>
+        <input id="qTitle" type="text" maxlength="80" placeholder="예: 미분 기본 개념 질문">
+      </div>
+
+      <div class="field">
+        <label>질문 내용 <span style="color:var(--primary);">*</span></label>
+        <textarea id="qBody" maxlength="1200" placeholder="궁금한 문제나 개념을 적어주세요. (예: 합성함수 미분이 왜 이렇게 되나요? f(x)=...)"></textarea>
+        <div class="hint" id="charCount">0 / 1200</div>
+      </div>
+
+      <div class="field">
+        <div class="priv-toggle" id="privToggle" onclick="togglePrivate()">
+          <div class="box" id="privBox"></div>
+          <div>
+            <div class="t">🔒 비밀글로 작성</div>
+            <div class="d">나와 선생님·조교만 볼 수 있어요 (다른 학생에게 안 보임)</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-primary ai" id="submitBtn" onclick="submitQuestion()">🤖 AI에게 질문하기</button>
+      <div class="err-msg" id="errMsg"></div>
+    </div>
+  </div>
+
+  <!-- 탭 -->
+  <div class="section">
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabRoom" onclick="switchTab('room')">💬 질문방</button>
+      <button class="tab-btn" id="tabMine" onclick="switchTab('mine')">📌 내 질문</button>
+    </div>
+
+    <div id="roomSection">
+      <div class="section-label">전체 질문 (공개)</div>
+      <div id="roomList"></div>
+    </div>
+
+    <div id="mineSection" style="display:none;">
+      <div class="section-label">내가 올린 질문</div>
+      <div id="mineList"></div>
+    </div>
+  </div>
+
+  <!-- 안내 -->
+  <div style="text-align:center;font-size:0.74rem;color:var(--text-light);margin-top:18px;line-height:1.65;">
+    🤖 AI 답변은 참고용이에요. 풀이가 이상하면 선생님·조교에게 다시 질문해 주세요.<br>
+    부적절한 질문·내용은 관리자가 삭제할 수 있습니다.
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="ai-loading" id="aiLoading">
+  <div class="box">
+    <div class="spin"></div>
+    <div class="t">🤖 AI가 풀이 중…</div>
+    <div class="s">잠시만 기다려 주세요</div>
+  </div>
+</div>
+
+<script>
+  // ─────────────── 인증 가드 (portal과 동일 키) ───────────────
+  const TOKEN_KEY = 'kwmath_portal_token';
+  let token = '';
+  try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+  if (!token) { location.replace('/portal?next=/qna'); }
+
+  // 자녀 선택(여러 자녀 학부모) — 포털에서 저장해둔 선택 학생 이름을 쿼리로 넘김
+  let selectedName = '';
+  try {
+    const s = sessionStorage.getItem('kwmath_selected_student');
+    if (s) { const o = JSON.parse(s); selectedName = (o && o.name) || ''; }
+  } catch (e) {}
+  function nameQ(prefix) { return selectedName ? (prefix + 'name=' + encodeURIComponent(selectedName)) : ''; }
+
+  let mode = 'ai';
+  let isPrivate = false;
+  let aiRemaining = null, aiDailyLimit = 3;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function showToast(msg, ms){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'), ms||2600); }
+  function fmtDate(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d.getTime())) return ''; const now=new Date(); const sameDay=d.toDateString()===now.toDateString(); if(sameDay) return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); return (d.getMonth()+1)+'.'+d.getDate(); }
+
+  // ── 모드 선택 ──
+  function setMode(m){
+    if (m === 'ai' && aiRemaining === 0) { showToast('오늘 AI 질문을 모두 사용했어요. 선생님·조교에게 질문해 주세요.', 3200); return; }
+    mode = m;
+    $('modeAi').classList.toggle('active', m==='ai');
+    $('modeTeacher').classList.toggle('active', m==='teacher');
+    const btn = $('submitBtn');
+    if (m==='ai'){ btn.classList.add('ai'); btn.textContent='🤖 AI에게 질문하기'; }
+    else { btn.classList.remove('ai'); btn.textContent='🧑‍🏫 선생님·조교에게 질문하기'; }
+  }
+  function togglePrivate(){
+    isPrivate = !isPrivate;
+    $('privToggle').classList.toggle('on', isPrivate);
+    $('privBox').textContent = isPrivate ? '✓' : '';
+  }
+
+  $('qBody').addEventListener('input', e => { $('charCount').textContent = e.target.value.length + ' / 1200'; });
+
+  function renderQuota(){
+    const q = $('aiQuota');
+    if (aiRemaining === null){ q.textContent='⏳ 오늘 AI 질문 사용량 확인 중…'; return; }
+    if (aiRemaining <= 0){
+      q.classList.add('empty');
+      q.innerHTML = '🤖 오늘 AI 질문을 모두 사용했어요 ('+aiDailyLimit+'/'+aiDailyLimit+') · 내일 다시 또는 선생님께';
+      $('modeAi').classList.add('disabled');
+      if (mode==='ai') setMode('teacher');
+    } else {
+      q.classList.remove('empty');
+      q.innerHTML = '🤖 오늘 AI 질문 <b>'+aiRemaining+'개</b> 남음 <span style="opacity:.7;font-weight:600;">(하루 '+aiDailyLimit+'개)</span>';
+      $('modeAi').classList.remove('disabled');
+    }
+  }
+
+  // ── 질문 제출 ──
+  async function submitQuestion(){
+    const errBox = $('errMsg'); errBox.textContent='';
+    const title = $('qTitle').value.trim();
+    const question = $('qBody').value.trim();
+    if (!question){ errBox.textContent='질문 내용을 입력해주세요.'; return; }
+    if (question.length < 4){ errBox.textContent='질문을 조금 더 자세히 적어주세요.'; return; }
+
+    const btn = $('submitBtn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    const aiMode = (mode === 'ai');
+    if (aiMode) $('aiLoading').classList.add('show');
+    else btn.textContent = '등록 중…';
+
+    try {
+      const res = await fetch('/api/qna' + (nameQ('?') ? ('?'+nameQ('')) : ''), {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+        body: JSON.stringify({ mode, isPrivate, title, question }),
+      });
+      const data = await res.json();
+      if (!res.ok){ errBox.textContent = data.error || '등록 실패'; return; }
+
+      // 입력 초기화
+      $('qTitle').value=''; $('qBody').value=''; $('charCount').textContent='0 / 1200';
+      if (isPrivate) togglePrivate();
+
+      // 사용량 갱신
+      if (typeof data.aiRemaining === 'number') aiRemaining = data.aiRemaining;
+      if (typeof data.aiDailyLimit === 'number') aiDailyLimit = data.aiDailyLimit;
+      renderQuota();
+
+      if (data.aiFailed){ showToast(data.message || 'AI 답변 실패 → 선생님께 전달됐어요.', 3600); switchTab('mine'); }
+      else if (data.status === 'answered'){ showToast('🤖 AI 답변이 도착했어요!'); switchTab('mine'); }
+      else { showToast('질문이 등록됐어요. 선생님·조교가 답변하면 여기에 표시돼요.', 3200); switchTab('mine'); }
+      loadMine(); loadRoom();
+    } catch(e){
+      errBox.textContent = '네트워크 오류: ' + e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = origText;
+      $('aiLoading').classList.remove('show');
+    }
+  }
+
+  // ── 카드 렌더 ──
+  function cardHtml(q){
+    const modeBadge = q.mode === 'ai'
+      ? '<span class="badge b-ai">🤖 AI</span>'
+      : '<span class="badge b-teacher">🧑‍🏫 선생님</span>';
+    const privBadge = q.isPrivate ? '<span class="badge b-priv">🔒 비밀</span>' : '';
+    const mineBadge = q.mine ? '<span class="badge b-mine">내 질문</span>' : '';
+    const pendBadge = q.status === 'pending' ? '<span class="badge b-pending">답변 대기</span>' : '';
+
+    let answerHtml = '';
+    if (q.answer){
+      const isAi = (q.answeredBy === 'AI');
+      const label = isAi ? '🤖 AI 답변' : ('👨‍🏫 ' + esc(q.answeredBy||'선생님') + ' 답변');
+      answerHtml = '<div class="answer'+(isAi?'':' teacher')+'">'+
+        '<div class="a-label">'+label+'</div>'+
+        '<div class="a-body">'+esc(q.answer)+'</div></div>';
+    } else if (q.status === 'pending'){
+      answerHtml = '<div class="answer-pending">⏳ 선생님·조교의 답변을 기다리는 중이에요.</div>';
+    }
+
+    const titleHtml = q.title ? '<div class="q-title">'+esc(q.title)+'</div>' : '';
+    const delBtn = q.mine ? '<div class="q-actions"><button class="btn-mini" onclick="delQuestion('+q.id+')">삭제</button></div>' : '';
+
+    return '<div class="q-card">'+
+      '<div class="q-head">'+
+        '<span class="q-author">'+esc(q.authorName||'익명')+'</span>'+
+        modeBadge + privBadge + mineBadge + pendBadge +
+        '<span class="q-meta">'+fmtDate(q.createdAt)+'</span>'+
+      '</div>'+
+      titleHtml +
+      '<div class="q-body">'+esc(q.question)+'</div>'+
+      answerHtml + delBtn +
+    '</div>';
+  }
+
+  function switchTab(tab){
+    $('tabRoom').classList.toggle('active', tab==='room');
+    $('tabMine').classList.toggle('active', tab==='mine');
+    $('roomSection').style.display = tab==='room' ? 'block' : 'none';
+    $('mineSection').style.display = tab==='mine' ? 'block' : 'none';
+    if (tab==='mine') loadMine(); else loadRoom();
+  }
+
+  async function loadRoom(){
+    const box = $('roomList');
+    box.innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
+    try {
+      const res = await fetch('/api/qna' + (nameQ('?') ? ('?'+nameQ('')) : ''), { headers:{ 'Authorization':'Bearer '+token } });
+      const data = await res.json();
+      if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
+      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||3; renderQuota(); }
+      const list = data.questions || [];
+      if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">💬</div><p>아직 질문이 없어요.<br>첫 질문을 남겨보세요!</p></div>'; return; }
+      box.innerHTML = list.map(cardHtml).join('');
+    } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
+  }
+
+  async function loadMine(){
+    const box = $('mineList');
+    box.innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
+    try {
+      const res = await fetch('/api/qna?mine=1' + (nameQ('&') ? ('&'+nameQ('')) : ''), { headers:{ 'Authorization':'Bearer '+token } });
+      const data = await res.json();
+      if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
+      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||3; renderQuota(); }
+      const list = data.questions || [];
+      if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>아직 올린 질문이 없어요.</p></div>'; return; }
+      box.innerHTML = list.map(cardHtml).join('');
+    } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
+  }
+
+  async function delQuestion(id){
+    if (!confirm('이 질문을 삭제할까요?')) return;
+    try {
+      const res = await fetch('/api/qna?id='+encodeURIComponent(id) + (nameQ('&') ? ('&'+nameQ('')) : ''), {
+        method:'DELETE', headers:{ 'Authorization':'Bearer '+token }
+      });
+      const data = await res.json();
+      if (!res.ok){ showToast(data.error||'삭제 실패'); return; }
+      showToast('삭제했어요.');
+      loadMine(); loadRoom();
+    } catch(e){ showToast('네트워크 오류: '+e.message); }
+  }
+
+  // 초기 로드
+  loadRoom();
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
+</script>
+</body>
+</html>
