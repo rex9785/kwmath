@@ -63,11 +63,26 @@ export async function onRequest({ request, env }) {
       fileName: p.properties['파일명']?.rich_text?.[0]?.plain_text || '',
       r2Key: p.properties['R2키']?.rich_text?.[0]?.plain_text || '',
       category: p.properties['카테고리']?.select?.name || '',
+      className: p.properties['반']?.select?.name || '',
       fileSize: p.properties['파일크기']?.rich_text?.[0]?.plain_text || '',
       uploadDate: p.properties['업로드일']?.date?.start || '',
       isPublic: p.properties['공개']?.checkbox || false,
     }));
-    return Response.json(files);
+
+    // 🔒 방어적 필터 — 반 전용·리포트는 이 엔드포인트로 절대 공개 노출 금지.
+    //   · 반 자료(class/ 또는 '반' 지정)는 /api/list-files 로 "로그인 + 학원·반 일치" 학생에게만.
+    //   · 학생 리포트(reports/)는 공개 모드에서 제외(사적 모드에선 phone4 일치자에게만 의미).
+    //   설령 옛 데이터가 실수로 '공개=true'로 돼 있어도 여기로는 안 새어나가게 이중 차단.
+    const safe = files.filter(f => {
+      const k = String(f.r2Key || '');
+      if (k.startsWith('class/')) return false;            // 반 전용은 항상 제외
+      if (!phone4) {
+        if (k.startsWith('reports/')) return false;         // 공개 목록엔 리포트 제외
+        if (f.className) return false;                       // '반' 지정된 자료 제외
+      }
+      return true;
+    });
+    return Response.json(safe);
   } catch (e) {
     return safeError(e, env, { message: '자료를 불러오지 못했습니다.' });
   }
