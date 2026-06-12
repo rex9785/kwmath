@@ -26,6 +26,18 @@ function weekRange(date) {
   return { start: monday, end: sunday };
 }
 
+// 기간별 범위 (day=오늘 / week=월~일 / month=1일~말일)
+function rangeFor(period, date) {
+  const d = new Date(date); d.setHours(0,0,0,0);
+  if (period === 'day')   return { start: d, end: d };
+  if (period === 'month') {
+    const start = new Date(d.getFullYear(), d.getMonth(), 1);
+    const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return { start, end };
+  }
+  return weekRange(d);  // 기본 week
+}
+
 // 학생 이름 → D1 student_id → 주간 공부 분 합계
 async function loadStudyTotal(env, name, startStr, endStr) {
   try {
@@ -80,10 +92,11 @@ export async function onRequest({ request, env }) {
     }
   }
 
-  // 주간 범위
+  // 기간 범위 (period=day|week|month, 기본 week)
+  const period = (url.searchParams.get('period') || 'week').trim();
   const weekParam = (url.searchParams.get('week') || '').trim();
   const ref = weekParam ? new Date(weekParam) : new Date();
-  const { start, end } = weekRange(ref);
+  const { start, end } = rangeFor(period, ref);
   const startStr = ymd(start);
   const endStr   = ymd(end);
 
@@ -117,7 +130,7 @@ export async function onRequest({ request, env }) {
 
     return Response.json({
       ok: true,
-      academy, className,
+      academy, className, period,
       weekStart: startStr, weekEnd: endStr,
       classSize: results.length,
       classTotal: total,

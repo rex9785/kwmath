@@ -118,6 +118,46 @@
 
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.86rem;opacity:0;transition:opacity .25s;z-index:9999;pointer-events:none;}
   .toast.show{opacity:1;}
+
+  /* 목표 */
+  .goal-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;}
+  .goal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .goal-head h2{font-size:0.92rem;font-weight:800;}
+  .goal-edit{background:var(--primary-light);color:var(--primary);border:none;padding:6px 12px;border-radius:8px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .goal-bar{height:14px;background:var(--g0);border-radius:8px;overflow:hidden;}
+  .goal-fill{height:100%;background:linear-gradient(90deg,var(--primary-mid),var(--primary));border-radius:8px;transition:width .4s;}
+  .goal-meta{display:flex;justify-content:space-between;font-size:0.79rem;color:var(--text-light);margin-top:6px;}
+  .goal-meta b{color:var(--primary);}
+  .goal-done{color:#1a7a4a;font-weight:800;}
+  /* 디데이 */
+  .dday-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);}
+  .dday-row:first-child{border-top:none;}
+  .dday-badge{background:var(--primary);color:#fff;font-weight:900;font-size:0.84rem;padding:5px 9px;border-radius:9px;min-width:60px;text-align:center;}
+  .dday-badge.past{background:#9CA3AF;}
+  .dday-label{flex:1;font-size:0.86rem;font-weight:600;}
+  .dday-date{font-size:0.74rem;color:var(--text-light);}
+  .dday-del{background:none;border:none;color:#c0392b;cursor:pointer;font-size:0.95rem;padding:2px 6px;}
+  /* 메달 도감 */
+  .medal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .medal{text-align:center;padding:10px 4px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);}
+  .medal.locked{opacity:0.36;filter:grayscale(0.85);}
+  .medal .mi{font-size:1.65rem;line-height:1.1;}
+  .medal .mt{font-size:0.66rem;font-weight:700;margin-top:4px;color:var(--text);}
+  .medal .md{font-size:0.6rem;color:var(--text-light);margin-top:1px;}
+  /* 랭킹 기간 탭 */
+  .rank-tabs{display:flex;gap:4px;background:#fff;border:1px solid var(--border);border-radius:9px;padding:3px;margin-bottom:10px;}
+  .rank-tab{flex:1;border:none;background:transparent;padding:6px;border-radius:6px;font-size:0.78rem;font-weight:700;color:var(--text-light);cursor:pointer;font-family:inherit;}
+  .rank-tab.active{background:var(--primary);color:#fff;}
+  /* 공용 모달 */
+  .kw-modal{position:fixed;inset:0;background:rgba(20,8,12,0.55);display:none;align-items:center;justify-content:center;z-index:300;padding:24px;}
+  .kw-modal.show{display:flex;}
+  .kw-modal .box{background:#fff;border-radius:16px;padding:22px;max-width:380px;width:100%;}
+  .kw-modal h3{font-size:1rem;font-weight:800;margin-bottom:12px;color:var(--primary);}
+  .kw-modal input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.9rem;font-family:inherit;margin-bottom:8px;}
+  .kw-modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
+  .kw-modal .acts button{padding:9px 16px;border-radius:9px;font-weight:700;font-family:inherit;cursor:pointer;border:none;font-size:0.85rem;}
+  .kw-modal .cancel{background:#eee;color:#555;}
+  .kw-modal .ok{background:var(--primary);color:#fff;}
 </style>
 </head>
 <body>
@@ -156,6 +196,15 @@
       <div class="streak-icon" id="streakIcon">🌱</div>
     </div>
 
+    <!-- 개인 디데이 -->
+    <div id="ddayCard" class="card" style="display:none;">
+      <div class="goal-head">
+        <h2>📌 내 디데이</h2>
+        <button class="goal-edit" id="ddayManageBtn" onclick="openDdayModal()">＋ 관리</button>
+      </div>
+      <div id="ddayList"></div>
+    </div>
+
     <div id="liveCard" class="live-card" style="display:none;">
       <span class="live-dot" id="liveDot"></span>
       <div class="live-text" id="liveText">
@@ -165,7 +214,12 @@
     </div>
 
     <div id="classStatsCard" class="class-stats" style="display:none;">
-      <h3>🏆 이번 주 우리 반 (익명)</h3>
+      <h3 id="csTitle">🏆 이번 주 우리 반 (익명)</h3>
+      <div class="rank-tabs" id="rankTabs" style="display:none;">
+        <button class="rank-tab" id="rankTabDay" onclick="setRankPeriod('day')">오늘</button>
+        <button class="rank-tab active" id="rankTabWeek" onclick="setRankPeriod('week')">이번 주</button>
+        <button class="rank-tab" id="rankTabMonth" onclick="setRankPeriod('month')">이번 달</button>
+      </div>
       <div class="row"><span>반 평균</span><span><b id="csAvg">—</b></span></div>
       <div class="row"><span>반 누계</span><span><b id="csTotal">—</b></span></div>
       <div class="myrank" id="csMyRank" style="display:none;">
@@ -185,6 +239,15 @@
       <div class="stat-box"><div class="stat-num" id="todayMin">0분</div><div class="stat-label">오늘</div></div>
       <div class="stat-box"><div class="stat-num" id="weekMin">0분</div><div class="stat-label">이번 주</div></div>
       <div class="stat-box"><div class="stat-num" id="monthMin">0분</div><div class="stat-label">이번 달</div></div>
+    </div>
+
+    <!-- 주간 목표 -->
+    <div id="goalCard" class="goal-card" style="display:none;">
+      <div class="goal-head">
+        <h2>🎯 이번 주 목표</h2>
+        <button class="goal-edit" id="goalEditBtn" onclick="editGoal()">목표 설정</button>
+      </div>
+      <div id="goalBody"></div>
     </div>
 
     <div id="focusInfo" style="display:none;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.86rem;text-align:center;"></div>
@@ -216,6 +279,11 @@
       </div>
     </div>
 
+    <div class="card" id="medalCard" style="display:none;">
+      <h2>🏅 메달 도감 <span id="medalCount" style="font-weight:600;color:var(--text-light);font-size:0.78rem;"></span></h2>
+      <div class="medal-grid" id="medalGrid"></div>
+    </div>
+
     <div class="card">
       <h2>📝 최근 공부 세션</h2>
       <div id="sessList" class="sess-list"></div>
@@ -235,11 +303,28 @@
   <div class="timer-tip">⏱ 화면을 꺼도 공부 시간은 계속 흘러요.<br>🚪 단, <b>화면을 끄거나 다른 앱을 켜면 '이탈'로 기록</b>돼요. 집중하려면 이 화면을 켜둔 채로 두세요.</div>
 </div>
 
+<!-- 디데이 관리 모달 -->
+<div class="kw-modal" id="ddayModal">
+  <div class="box">
+    <h3>📌 디데이 추가</h3>
+    <input type="text" id="ddayLabelInput" maxlength="20" placeholder="이름 (예: 6월 모평, 기말고사)">
+    <input type="date" id="ddayDateInput">
+    <div id="ddayModalList" style="margin-top:6px;"></div>
+    <div class="acts">
+      <button class="cancel" onclick="closeDdayModal()">닫기</button>
+      <button class="ok" onclick="addDday()">추가</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
   const TOKEN_KEY = 'kwmath_portal_token';
   const ACTIVE_KEY = 'kwmath_kwstudy_active_v2';
+  // ⚠️ KW-Study 신기능(목표·디데이·메달·랭킹탭) 노출 플래그 — 앱 심사 중 숨김.
+  //    심사 통과 후 true로 바꾸고 배포하면 즉시 노출. (study.js의 STUDY_NUDGE_ENABLED도 같이 true)
+  const KWSTUDY_NEW_ENABLED = false;
   let token = '';
   try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch(e){}
   if (!token) { location.replace('/portal?next=/study'); }
@@ -355,6 +440,7 @@
         return;
       }
       stats = data;
+      await loadPrefs();
       renderAll();
     } catch (e) {
       document.getElementById('loading').textContent = '오류: ' + e.message;
@@ -463,6 +549,13 @@
     renderWeeklyChart();
     renderJandi();
     renderRecent();
+    if (KWSTUDY_NEW_ENABLED) {
+      ['goalCard','ddayCard','medalCard'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=''; });
+      var _rt=document.getElementById('rankTabs'); if(_rt) _rt.style.display='flex';
+    }
+    renderGoal();
+    renderDdays();
+    renderMedals();
     refreshLive();
     refreshClassStats();
   }
@@ -615,7 +708,7 @@
     } catch { return null; }
   }
   function saveActive(a) { try { localStorage.setItem(ACTIVE_KEY, JSON.stringify(a)); } catch {} }
-  function clearActive() { try { localStorage.removeItem(ACTIVE_KEY); } catch {} }
+  function clearActive() { try { localStorage.removeItem(ACTIVE_KEY); } catch {} releaseWakeLock(); }
 
   function elapsedMs(a) {
     if (!a) return 0;
@@ -640,6 +733,7 @@
     document.getElementById('timerScreen').classList.add('show');
     updateTimerLabels();
     startTick();
+    requestWakeLock();
   }
 
   function startTick() {
@@ -681,6 +775,7 @@
     }
     saveActive(a);
     updateTimerLabels();
+    if (a.lastPauseAt) releaseWakeLock(); else requestWakeLock();
   }
 
   async function endStudy() {
@@ -749,11 +844,13 @@
   let _liveTimer = null;
   async function refreshClassStats() {
     try {
-      const res = await fetch('/api/study-class', { headers: { 'Authorization': 'Bearer ' + token } });
+      const res = await fetch('/api/study-class?period=' + rankPeriod, { headers: { 'Authorization': 'Bearer ' + token } });
       const data = await res.json();
       if (!res.ok || !data.ok) return;
       const card = document.getElementById('classStatsCard');
       if (!card) return;
+      const _pl = { day:'오늘', week:'이번 주', month:'이번 달' }[rankPeriod] || '이번 주';
+      const _ct = document.getElementById('csTitle'); if (_ct) _ct.textContent = '🏆 ' + _pl + ' 우리 반 (익명)';
       if (!data.classSize || data.classSize <= 1) {
         // 반에 본인만 있으면 의미 없음
         card.style.display = 'none';
@@ -852,6 +949,186 @@
 
   // 페이지 진입 시 라이브 1번 + 30초마다 갱신
   setInterval(refreshLive, 30 * 1000);
+
+  // ════════ 목표 · 디데이 · 메달 · 랭킹기간 · 화면꺼짐방지 ════════
+  let prefs = { weeklyGoal: 0, dailyGoal: 0, ddays: [] };
+  let rankPeriod = 'week';
+  let wakeLock = null;
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  async function loadPrefs() {
+    try {
+      const res = await fetch('/api/study-prefs?name=' + encodeURIComponent(currentChild.name), { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await res.json();
+      if (res.ok && d.ok) { prefs = { weeklyGoal: d.weeklyGoal||0, dailyGoal: d.dailyGoal||0, ddays: Array.isArray(d.ddays)?d.ddays:[] }; return; }
+    } catch (e) {}
+    prefs = { weeklyGoal: 0, dailyGoal: 0, ddays: [] };
+  }
+  async function savePrefs(patch) {
+    try {
+      const res = await fetch('/api/study-prefs?name=' + encodeURIComponent(currentChild.name), {
+        method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+        body: JSON.stringify(patch)
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) { showToast(d.error || '저장 실패'); return false; }
+      prefs = { weeklyGoal: d.weeklyGoal||0, dailyGoal: d.dailyGoal||0, ddays: Array.isArray(d.ddays)?d.ddays:[] };
+      return true;
+    } catch (e) { showToast('네트워크 오류'); return false; }
+  }
+
+  // ── 목표 ──
+  function renderGoal() {
+    const card = document.getElementById('goalCard');
+    const body = document.getElementById('goalBody');
+    const editBtn = document.getElementById('goalEditBtn');
+    if (!card || !body) return;
+    if (editBtn) editBtn.style.display = isParentView ? 'none' : '';
+    const goal = prefs.weeklyGoal || 0;
+    const wk = Number(stats.week) || 0;
+    if (!goal) {
+      body.innerHTML = '<div style="font-size:0.84rem;color:var(--text-light);">아직 목표가 없어요.' + (isParentView ? '' : ' <b style="color:var(--primary);">목표 설정</b>으로 이번 주 목표를 정해보세요.') + '</div>';
+      return;
+    }
+    const pct = Math.min(100, Math.round(wk / goal * 100));
+    const done = wk >= goal;
+    const remain = Math.max(0, goal - wk);
+    body.innerHTML =
+      '<div class="goal-bar"><div class="goal-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="goal-meta"><span>' + fmtMin(wk) + ' / ' + fmtMin(goal) + '</span>' +
+      '<span class="' + (done ? 'goal-done' : '') + '">' + (done ? '🎉 목표 달성!' : '달성 ' + pct + '% · ' + fmtMin(remain) + ' 남음') + '</span></div>';
+  }
+  function editGoal() {
+    if (isParentView) return;
+    const cur = prefs.weeklyGoal ? (prefs.weeklyGoal / 60) : '';
+    const raw = prompt('이번 주 목표 공부시간을 시간 단위로 입력하세요.\n(예: 20 → 주 20시간 / 0 입력 시 해제)', cur);
+    if (raw === null) return;
+    const h = Number(raw);
+    if (!Number.isFinite(h) || h < 0) { showToast('숫자로 입력해주세요'); return; }
+    savePrefs({ weeklyGoal: Math.round(h * 60) }).then(function(ok){ if (ok) { renderGoal(); renderMedals(); showToast(h > 0 ? ('목표 주 ' + h + '시간으로 설정!') : '목표를 해제했어요'); } });
+  }
+
+  // ── 디데이 ──
+  function ddayDiff(dateStr) {
+    const t = new Date(); t.setHours(0,0,0,0);
+    const d = new Date(dateStr + 'T00:00:00');
+    return Math.ceil((d - t) / 86400000);
+  }
+  function ddayLabel(diff) { return diff === 0 ? 'D-DAY' : (diff > 0 ? 'D-' + diff : 'D+' + (-diff)); }
+  function renderDdays() {
+    const card = document.getElementById('ddayCard');
+    const list = document.getElementById('ddayList');
+    const mng = document.getElementById('ddayManageBtn');
+    if (!card || !list) return;
+    if (mng) mng.style.display = isParentView ? 'none' : '';
+    const items = (prefs.ddays || []).slice().sort(function(a,b){ return ddayDiff(a.date) - ddayDiff(b.date); });
+    if (!items.length) {
+      list.innerHTML = '<div style="font-size:0.83rem;color:var(--text-light);">' + (isParentView ? '등록된 디데이가 없어요.' : '＋ 관리에서 시험일을 추가해보세요. (예: 6월 모평)') + '</div>';
+      return;
+    }
+    list.innerHTML = items.map(function(it){
+      const diff = ddayDiff(it.date);
+      return '<div class="dday-row"><span class="dday-badge' + (diff < 0 ? ' past' : '') + '">' + ddayLabel(diff) + '</span>' +
+        '<span class="dday-label">' + esc(it.label || '시험') + '</span>' +
+        '<span class="dday-date">' + esc(it.date.slice(5).replace('-','/')) + '</span></div>';
+    }).join('');
+  }
+  function openDdayModal() {
+    if (isParentView) return;
+    document.getElementById('ddayLabelInput').value = '';
+    document.getElementById('ddayDateInput').value = '';
+    renderDdayModalList();
+    document.getElementById('ddayModal').classList.add('show');
+  }
+  function closeDdayModal() { document.getElementById('ddayModal').classList.remove('show'); }
+  function renderDdayModalList() {
+    const box = document.getElementById('ddayModalList');
+    const items = (prefs.ddays || []).slice().sort(function(a,b){ return ddayDiff(a.date) - ddayDiff(b.date); });
+    if (!items.length) { box.innerHTML = '<div style="font-size:0.78rem;color:var(--text-light);">아직 없음</div>'; return; }
+    box.innerHTML = items.map(function(it, i){
+      return '<div class="dday-row"><span class="dday-badge">' + ddayLabel(ddayDiff(it.date)) + '</span>' +
+        '<span class="dday-label">' + esc(it.label || '시험') + '</span>' +
+        '<button class="dday-del" onclick="removeDday(' + i + ')">✕</button></div>';
+    }).join('');
+  }
+  async function addDday() {
+    const label = document.getElementById('ddayLabelInput').value.trim();
+    const date = document.getElementById('ddayDateInput').value;
+    if (!date) { showToast('날짜를 선택해주세요'); return; }
+    const next = (prefs.ddays || []).slice();
+    if (next.length >= 10) { showToast('디데이는 최대 10개까지'); return; }
+    next.push({ label: label || '시험', date: date });
+    const ok = await savePrefs({ ddays: next });
+    if (ok) { document.getElementById('ddayLabelInput').value = ''; document.getElementById('ddayDateInput').value = ''; renderDdays(); renderDdayModalList(); showToast('디데이 추가!'); }
+  }
+  async function removeDday(i) {
+    const sorted = (prefs.ddays || []).slice().sort(function(a,b){ return ddayDiff(a.date) - ddayDiff(b.date); });
+    sorted.splice(i, 1);
+    const ok = await savePrefs({ ddays: sorted });
+    if (ok) { renderDdays(); renderDdayModalList(); }
+  }
+
+  // ── 메달 도감 ──
+  function renderMedals() {
+    const grid = document.getElementById('medalGrid');
+    if (!grid) return;
+    const totalH = (Number(stats.all) || 0) / 60;
+    const streak = calcStreak(stats.byDate || {});
+    const wk = Number(stats.week) || 0;
+    const goal = prefs.weeklyGoal || 0;
+    const focus0 = Number(stats.weekAwayCount) === 0 && wk > 0;
+    let dayMax = 0; const bd = stats.byDate || {}; for (const k in bd) dayMax = Math.max(dayMax, bd[k]);
+    const medals = [
+      { i:'🌱', t:'첫 공부', d:'1시간',  on: totalH >= 1 },
+      { i:'📗', t:'10시간',  d:'누적',    on: totalH >= 10 },
+      { i:'📘', t:'50시간',  d:'누적',    on: totalH >= 50 },
+      { i:'📚', t:'100시간', d:'누적',    on: totalH >= 100 },
+      { i:'🏛️', t:'300시간', d:'누적',    on: totalH >= 300 },
+      { i:'🔥', t:'5일 연속', d:'스트릭',  on: streak >= 5 },
+      { i:'⭐', t:'10일 연속', d:'스트릭', on: streak >= 10 },
+      { i:'🎯', t:'30일 연속', d:'스트릭', on: streak >= 30 },
+      { i:'🏆', t:'100일 연속', d:'스트릭', on: streak >= 100 },
+      { i:'☀️', t:'하루 4시간', d:'집중',  on: dayMax >= 240 },
+      { i:'🌙', t:'하루 8시간', d:'몰입',  on: dayMax >= 480 },
+      { i:'✅', t:'목표 달성', d:'주간목표', on: goal > 0 && wk >= goal },
+    ];
+    const got = medals.filter(function(m){ return m.on; }).length;
+    const cnt = document.getElementById('medalCount'); if (cnt) cnt.textContent = '(' + got + '/' + medals.length + ')';
+    grid.innerHTML = medals.map(function(m){
+      return '<div class="medal' + (m.on ? '' : ' locked') + '"><div class="mi">' + m.i + '</div><div class="mt">' + m.t + '</div><div class="md">' + m.d + '</div></div>';
+    }).join('');
+  }
+
+  // ── 랭킹 기간 (오늘/이번 주/이번 달) ──
+  function setRankPeriod(p) {
+    rankPeriod = p;
+    ['day','week','month'].forEach(function(x){
+      const el = document.getElementById('rankTab' + x.charAt(0).toUpperCase() + x.slice(1));
+      if (el) el.classList.toggle('active', x === p);
+    });
+    refreshClassStats();
+  }
+
+  // ── 화면 꺼짐 방지 (Wake Lock) ──
+  async function requestWakeLock() {
+    try {
+      if (('wakeLock' in navigator) && !wakeLock && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', function(){ wakeLock = null; });
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  async function releaseWakeLock() {
+    try { if (wakeLock) { await wakeLock.release(); } } catch (e) {} finally { wakeLock = null; }
+  }
+  // 화면이 다시 보이고 공부 중(일시정지 아님)이면 Wake Lock 재획득
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState !== 'visible') return;
+    const a = loadActive();
+    const shown = document.getElementById('timerScreen').classList.contains('show');
+    if (a && !a.lastPauseAt && shown) requestWakeLock();
+  });
 
   loadStats().then(checkResume);
   ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
