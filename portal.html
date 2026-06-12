@@ -229,7 +229,8 @@
         <span class="feat-title">수강 후기</span>
         <span class="feat-desc">한 줄 후기 작성·조회</span>
       </a>
-      <a href="/qna" class="feat-btn" data-feat="qna">
+      <!-- ⚠️ 질문방: 심사 중 숨김. 심사 통과 후 아래 QNA_ENABLED=true 로 바꾸고 배포하면 즉시 노출됨 -->
+      <a href="/qna" class="feat-btn" data-feat="qna" id="qnaFeatBtn" style="display:none;">
         <span class="feat-icon">💬</span>
         <span class="feat-title">질문방</span>
         <span class="feat-desc">AI·선생님께 수학 질문</span>
@@ -325,6 +326,11 @@
 </style>
 
 <script>
+  // ════════ 기능 플래그 ════════
+  // ⚠️ 질문방(질의응답): 앱 심사 중 숨김. 심사 통과하면 false → true 로 바꾸고 배포 → 즉시 노출.
+  //    (qna.html 상단의 QNA_ENABLED 도 같이 true 로 바꿔야 함)
+  const QNA_ENABLED = false;
+
   // ════════ 상태 ════════
   const TOKEN_KEY = 'kwmath_portal_token';
   const PHONE_KEY = 'kwmath_portal_phone';
@@ -465,6 +471,7 @@
     renderChildSelect();
     updatePushButton();
     showInstallHintIfNeeded();
+    if (QNA_ENABLED) { const _q = document.getElementById('qnaFeatBtn'); if (_q) _q.style.display = ''; }
     if (mustChangePassword) {
       openPasswordModal(true);
     }

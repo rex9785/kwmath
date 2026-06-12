@@ -192,7 +192,8 @@
   <!-- 안내 -->
   <div style="text-align:center;font-size:0.74rem;color:var(--text-light);margin-top:18px;line-height:1.65;">
     🤖 AI 답변은 참고용이에요. 풀이가 이상하면 선생님·조교에게 다시 질문해 주세요.<br>
-    부적절한 질문·내용은 관리자가 삭제할 수 있습니다.
+    부적절한 질문·내용은 관리자가 삭제할 수 있습니다.<br>
+    신고·문의: <a href="mailto:rex9785@gmail.com" style="color:var(--primary);font-weight:700;text-decoration:none;">rex9785@gmail.com</a>
   </div>
 
 </div>
@@ -212,6 +213,11 @@
   let token = '';
   try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
   if (!token) { location.replace('/portal?next=/qna'); }
+
+  // ⚠️ 앱 심사 중 질문방 비활성화. 심사 통과 후 true 로 바꾸고 배포하면 즉시 활성화.
+  //    (portal.html 상단의 QNA_ENABLED 도 같이 true 로)
+  const QNA_ENABLED = false;
+  if (!QNA_ENABLED) { location.replace('/portal'); }
 
   // 자녀 선택(여러 자녀 학부모) — 포털에서 저장해둔 선택 학생 이름을 쿼리로 넘김
   let selectedName = '';
