@@ -1266,5 +1266,51 @@ const FAQ_DATA = [
 })();
 </script>
 
+<!-- ===== 수강신청 팝업 (이관우수학 → 세정 반포) ===== -->
+<style>
+  .kwap-ovl{position:fixed;inset:0;z-index:100000;background:rgba(20,8,10,0.62);display:none;align-items:center;justify-content:center;padding:20px;}
+  .kwap-ovl.show{display:flex;}
+  .kwap-card{width:340px;max-width:92vw;background:#fff;border-radius:18px;overflow:hidden;position:relative;box-shadow:0 18px 50px rgba(0,0,0,0.4);}
+  .kwap-x{position:absolute;top:8px;right:8px;z-index:5;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,0.85);color:#1C2536;font-size:22px;line-height:1;cursor:pointer;}
+  .kwap-card>img{width:100%;display:block;}
+  .kwap-cta{padding:14px 16px 16px;}
+  .kwap-sub{font-size:12px;color:#6b645e;text-align:center;margin-bottom:10px;}
+  .kwap-apply{display:block;width:100%;border:none;background:#8B1A2B;color:#fff;font-size:16px;font-weight:700;padding:14px;border-radius:10px;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;}
+  .kwap-apply:hover{background:#6E1622;}
+  .kwap-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
+  .kwap-foot label{font-size:12px;color:#8a847e;display:flex;align-items:center;gap:6px;cursor:pointer;}
+  .kwap-foot button{font-size:12px;color:#8a847e;background:none;border:none;cursor:pointer;}
+  .kwap-reopen{position:fixed;bottom:18px;right:18px;z-index:99999;background:#1C2536;color:#fff;border:none;border-radius:24px;padding:11px 18px;font-size:14px;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,0.28);display:none;}
+</style>
+<div class="kwap-ovl" id="kwapOvl">
+  <div class="kwap-card">
+    <button class="kwap-x" id="kwapX" aria-label="닫기">&times;</button>
+    <img src="수강신청_포스터.jpg" alt="이관우 수학 · 수강신청 안내 — 관점을 바꾸는 수학, 우상향으로 가는 실력">
+    <div class="kwap-cta">
+      <div class="kwap-sub">반포 세정학원 · 고1 여름방학 · 수학</div>
+      <a class="kwap-apply" href="https://banpo.sejungedu.com/schedule/timetable?co=%EA%B3%A01&amp;ct=%EC%97%AC%EB%A6%84%EB%B0%A9%ED%95%99&amp;th=%EC%88%98%ED%95%99#%EC%9D%B4%EA%B4%80%EC%9A%B0" target="_blank" rel="noopener">수강신청하기 →</a>
+      <div class="kwap-foot">
+        <label><input type="checkbox" id="kwapDnd"> 오늘 하루 보지 않기</label>
+        <button id="kwapClose">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+<button class="kwap-reopen" id="kwapReopen">📝 수강신청</button>
+<script>
+(function(){
+  var ovl=document.getElementById('kwapOvl'),reopen=document.getElementById('kwapReopen'),dnd=document.getElementById('kwapDnd');
+  var KEY='kwmath_apply_popup_hide_until';
+  function today(){return new Date().toISOString().slice(0,10);}
+  function kwOpen(){ovl.classList.add('show');reopen.style.display='none';}
+  function kwClose(){ovl.classList.remove('show');reopen.style.display='block';if(dnd&&dnd.checked){try{localStorage.setItem(KEY,today());}catch(e){}}}
+  document.getElementById('kwapX').onclick=kwClose;
+  document.getElementById('kwapClose').onclick=kwClose;
+  reopen.onclick=kwOpen;
+  ovl.addEventListener('click',function(e){if(e.target===ovl)kwClose();});
+  var hidden=false;try{hidden=(localStorage.getItem(KEY)===today());}catch(e){}
+  if(hidden){reopen.style.display='block';}else{setTimeout(kwOpen,600);}
+})();
+</script>
 </body>
 </html>
