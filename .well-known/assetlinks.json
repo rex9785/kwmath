@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "kr.co.kwmath.app",
+      "sha256_cert_fingerprints": [
+        "44:A1:09:B0:C9:B9:5F:7F:E0:0A:CB:92:CA:FB:6D:FE:58:CE:BA:C1:CE:2D:41:D6:01:AA:56:1D:47:D2:36:8C",
+        "5D:FE:77:33:01:9C:5B:0D:BC:CD:7C:20:54:7C:5C:DB:86:01:96:95:C6:4D:84:DD:09:99:58:23:A9:FA:3A:7D"
+      ]
+    }
+  }
+]
