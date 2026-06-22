@@ -8,7 +8,7 @@
 //  GET  /api/qna?admin=1        admin. 전체 (status=pending 필터 가능)
 //  POST /api/qna                토큰. 질문 작성
 //       body: { mode:'ai'|'teacher', isPrivate?:bool, title?:string, question:string, image?:dataURL }
-//       - mode='ai'      : 하루 제한(기본 5개) 내에서 Gemini 즉시 답변 → status='answered'
+//       - mode='ai'      : 하루 제한(기본 10개) 내에서 Gemini 즉시 답변 → status='answered'
 //       - mode='teacher' : 선생님/조교 답변 대기 → status='pending'
 //       - image          : "data:image/jpeg;base64,..." 형태(선택). 첨부 시 Gemini가 사진을 읽고 답변.
 //                          사진만 올려도(질문 글 없이) 질문 가능. 사진은 image 컬럼에 저장돼 본인/관리자만 봄.
@@ -16,12 +16,12 @@
 //  DELETE /api/qna?id=...       본인 질문(또는 admin) 삭제
 //
 //  ⚙️ 환경변수: GEMINI_API_KEY(필수, AI 답변용) ·
-//     GEMINI_MODEL(선택, 기본 gemini-2.5-flash) · QNA_AI_DAILY_LIMIT(선택, 기본 5)
+//     GEMINI_MODEL(선택, 기본 gemini-2.5-flash) · QNA_AI_DAILY_LIMIT(선택, 기본 10)
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-const DEFAULT_DAILY_LIMIT = 5;   // 6/23 3→5 상향(학생 수 적어 토큰 비용 영향 미미)
+const DEFAULT_DAILY_LIMIT = 10;  // 6/23 3→5→10 상향(학생 수 적어 토큰 비용 영향 미미, 나중에 조정 가능)
 const MAX_Q_LEN = 1200;     // 질문 글자 제한
 const MAX_A_LEN = 8000;     // 저장 답변 글자 제한
 const MAX_IMG_B64 = 2_600_000;  // 첨부 사진 base64 최대 길이(약 1.9MB 바이너리). 클라이언트가 리사이즈해 보내므로 보통 그 한참 아래.

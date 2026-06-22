@@ -179,7 +179,6 @@
           <div class="tg-ex">✅ "이 문장이 무슨 뜻인지 <b>해석이 안 돼요</b>: …"</div>
           <div class="tg-ex">✅ "저는 <b>□□라고 생각</b>했는데 답이 왜 ◇◇인가요?"</div>
           <div class="tg-bad">🚫 "이 문제 모르겠어요"처럼만 적으면, 어디를 도와드릴지 알기 어려워요. 어디까지 했고 어디서 막혔는지 적어주세요!</div>
-          <button type="button" class="tg-fill" onclick="fillTemplate()">📝 질문 양식 자동으로 넣기</button>
         </div>
       </div>
 
@@ -283,13 +282,20 @@
 
   let mode = 'ai';
   let isPrivate = false;
-  let aiRemaining = null, aiDailyLimit = 5;
+  let aiRemaining = null, aiDailyLimit = 10;
   let attachedImage = null;   // 첨부 사진(data URL) — 리사이즈 후 저장
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function showToast(msg, ms){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'), ms||2600); }
   function fmtDate(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d.getTime())) return ''; const now=new Date(); const sameDay=d.toDateString()===now.toDateString(); if(sameDay) return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); return (d.getMonth()+1)+'.'+d.getDate(); }
+
+  // ── 선생님·조교 질문 기본 양식(모드 전환 시 자동으로 채워짐) ──
+  const TEACHER_TPL = '▷ 어디까지 했나요: \n▷ 어디서 막혔나요: \n▷ 가장 궁금한 점: ';
+  // 양식이 그대로(미작성)인지 — 각 항목 라벨을 지웠을 때 남는 내용이 없으면 미작성으로 봄
+  function isTplUntouched(){
+    return $('qBody').value.replace(/▷[^\n:]*:/g, '').trim() === '';
+  }
 
   // ── 모드 선택 ──
   function setMode(m){
@@ -302,24 +308,19 @@
     else { btn.classList.remove('ai'); btn.textContent='🧑‍🏫 선생님·조교에게 질문하기'; }
     // 선생님 모드일 때만 '구체적으로 질문하기' 가이드 표시
     $('teacherGuideField').style.display = (m==='teacher') ? 'block' : 'none';
+    // 선생님 모드로 오면 기본 양식 자동 표시(입력칸이 비어있을 때만), AI 모드로 가면 미작성 양식은 비움
+    const ta = $('qBody');
+    if (m==='teacher'){
+      if (!ta.value.trim()) ta.value = TEACHER_TPL;
+    } else if (isTplUntouched()){
+      ta.value = '';
+    }
+    $('charCount').textContent = ta.value.length + ' / 1200';
   }
   function togglePrivate(){
     isPrivate = !isPrivate;
     $('privToggle').classList.toggle('on', isPrivate);
     $('privBox').textContent = isPrivate ? '✓' : '';
-  }
-
-  // ── 선생님 질문 양식 자동 삽입 ──
-  function fillTemplate(){
-    const ta = $('qBody');
-    const tpl = '▷ 어디까지 했나요: \n▷ 어디서 막혔나요: \n▷ 가장 궁금한 점: ';
-    if (ta.value.trim() && !confirm('지금 적은 내용을 지우고 양식을 넣을까요?')) return;
-    ta.value = tpl;
-    $('charCount').textContent = ta.value.length + ' / 1200';
-    ta.focus();
-    // 첫 칸 끝으로 커서 이동
-    const pos = tpl.indexOf('\n');
-    try { ta.setSelectionRange(pos, pos); } catch(e){}
   }
 
   // ── 사진 첨부: 선택 → 클라이언트 리사이즈 → 미리보기 ──
@@ -400,6 +401,10 @@
     // 사진이 있으면 글이 짧거나 없어도 OK. 둘 다 없을 때만 막음.
     if (!question && !attachedImage){ errBox.textContent='질문 내용을 입력하거나 사진을 올려주세요.'; return; }
     if (!attachedImage && question.length < 4){ errBox.textContent='질문을 조금 더 자세히 적어주세요.'; return; }
+    // 선생님 모드: 기본 양식만 있고 실제 내용이 비어 있으면 막기
+    if (mode==='teacher' && !attachedImage && isTplUntouched()){
+      errBox.textContent='양식의 각 항목(어디까지 했는지, 어디서 막혔는지 등)에 내용을 채워 주세요.'; return;
+    }
 
     const btn = $('submitBtn');
     const origText = btn.textContent;
@@ -417,8 +422,10 @@
       const data = await res.json();
       if (!res.ok){ errBox.textContent = data.error || '등록 실패'; return; }
 
-      // 입력 초기화
-      $('qTitle').value=''; $('qBody').value=''; $('charCount').textContent='0 / 1200';
+      // 입력 초기화 (선생님 모드면 기본 양식을 다시 채워둠)
+      $('qTitle').value='';
+      $('qBody').value = (mode==='teacher') ? TEACHER_TPL : '';
+      $('charCount').textContent = $('qBody').value.length + ' / 1200';
       removePhoto();
       if (isPrivate) togglePrivate();
 
@@ -491,7 +498,7 @@
       const res = await fetch('/api/qna' + (nameQ('?') ? ('?'+nameQ('')) : ''), { headers:{ 'Authorization':'Bearer '+token } });
       const data = await res.json();
       if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
-      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||5; renderQuota(); }
+      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||10; renderQuota(); }
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">💬</div><p>아직 질문이 없어요.<br>첫 질문을 남겨보세요!</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
@@ -505,7 +512,7 @@
       const res = await fetch('/api/qna?mine=1' + (nameQ('&') ? ('&'+nameQ('')) : ''), { headers:{ 'Authorization':'Bearer '+token } });
       const data = await res.json();
       if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
-      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||5; renderQuota(); }
+      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||10; renderQuota(); }
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>아직 올린 질문이 없어요.</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
