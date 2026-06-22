@@ -324,7 +324,7 @@
   const ACTIVE_KEY = 'kwmath_kwstudy_active_v2';
   // ⚠️ KW-Study 신기능(목표·디데이·메달·랭킹탭) 노출 플래그 — 앱 심사 중 숨김.
   //    심사 통과 후 true로 바꾸고 배포하면 즉시 노출. (study.js의 STUDY_NUDGE_ENABLED도 같이 true)
-  const KWSTUDY_NEW_ENABLED = false;
+  const KWSTUDY_NEW_ENABLED = true;
   let token = '';
   try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch(e){}
   if (!token) { location.replace('/portal?next=/study'); }

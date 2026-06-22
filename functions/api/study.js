@@ -16,7 +16,7 @@ import { sendPushToUsers } from './_push.js';
 const MAX_SESSION_MINUTES = 720;   // 한 세션 최대 12시간
 const MAX_DAILY_MINUTES   = 960;   // 하루 누계 최대 16시간 (부정 방지)
 // ⚠️ 추월 푸시 넛지 — 앱 심사 중 OFF. 심사 통과 후 true로 바꾸고 배포. (study.html KWSTUDY_NEW_ENABLED도 같이 true)
-const STUDY_NUDGE_ENABLED = false;
+const STUDY_NUDGE_ENABLED = true;
 
 function ymd(d) {
   const dt = (d instanceof Date) ? d : new Date(d);

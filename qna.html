@@ -216,7 +216,7 @@
 
   // ⚠️ 앱 심사 중 질문방 비활성화. 심사 통과 후 true 로 바꾸고 배포하면 즉시 활성화.
   //    (portal.html 상단의 QNA_ENABLED 도 같이 true 로)
-  const QNA_ENABLED = false;
+  const QNA_ENABLED = true;
   if (!QNA_ENABLED) { location.replace('/portal'); }
 
   // 자녀 선택(여러 자녀 학부모) — 포털에서 저장해둔 선택 학생 이름을 쿼리로 넘김
