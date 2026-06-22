@@ -34,6 +34,8 @@
   .b-done{ background:#E5F5E8; color:#1F7A33; }
   .qtitle{ font-weight:800; font-size:0.92rem; margin-bottom:3px; }
   .qbody{ font-size:0.9rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:var(--ink); }
+  .qphoto{ margin-top:9px; }
+  .qphoto img{ max-width:100%; max-height:360px; border-radius:9px; border:1px solid var(--border); cursor:zoom-in; display:block; }
 
   .ans{ margin-top:11px; background:var(--bg); border-radius:9px; padding:11px 13px; border-left:3px solid var(--ai); }
   .ans.teacher{ border-left-color:var(--primary); }
@@ -139,6 +141,7 @@
     var privBadge = q.isPrivate ? '<span class="badge b-priv">🔒 비밀</span>' : '';
     var statBadge = q.status==='pending' ? '<span class="badge b-pending">미답변</span>' : '<span class="badge b-done">답변완료</span>';
     var titleHtml = q.title ? '<div class="qtitle">'+esc(q.title)+'</div>' : '';
+    var photoHtml = q.image ? '<div class="qphoto"><img src="'+esc(q.image)+'" alt="첨부 사진" onclick="window.open(this.src,\'_blank\')"></div>' : '';
 
     var ansHtml = '';
     if (q.answer){
@@ -176,6 +179,7 @@
       '</div>'+
       titleHtml +
       '<div class="qbody">'+esc(q.question)+'</div>'+
+      photoHtml +
       ansHtml + editLink + composer +
     '</div>';
   }

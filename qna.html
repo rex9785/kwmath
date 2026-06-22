@@ -107,6 +107,32 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   .ai-loading .t{font-size:0.92rem;font-weight:800;color:var(--ai);}
   .ai-loading .s{font-size:0.76rem;color:var(--text-light);margin-top:5px;}
+
+  /* 사진 첨부 */
+  .photo-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border:1.5px dashed var(--ai);background:var(--ai-light);color:var(--ai);border-radius:11px;font-size:0.88rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .photo-btn:active{transform:scale(0.99);}
+  .photo-preview{position:relative;margin-top:4px;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;background:#000;}
+  .photo-preview img{display:block;width:100%;max-height:280px;object-fit:contain;background:#000;}
+  .photo-remove{position:absolute;top:8px;right:8px;background:rgba(20,8,12,0.78);color:#fff;border:none;border-radius:8px;padding:6px 11px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .photo-busy{font-size:0.76rem;color:var(--ai);font-weight:700;margin-top:6px;display:flex;align-items:center;gap:6px;}
+
+  /* 질문 카드 첨부 사진 */
+  .q-photo{margin-top:10px;}
+  .q-photo img{max-width:100%;max-height:340px;border-radius:10px;border:1px solid var(--border);cursor:zoom-in;display:block;}
+
+  /* 선생님 질문 가이드 */
+  .teacher-guide{margin-top:6px;background:#FFFBF3;border:1px solid #F0E2C0;border-radius:12px;padding:13px 14px;}
+  .teacher-guide .tg-title{font-size:0.82rem;font-weight:800;color:#8A6D1B;margin-bottom:9px;}
+  .teacher-guide .tg-ex{font-size:0.8rem;line-height:1.5;color:var(--text);background:#fff;border:1px solid #F0E2C0;border-radius:8px;padding:7px 10px;margin-bottom:6px;}
+  .teacher-guide .tg-bad{font-size:0.77rem;line-height:1.5;color:#9A6A00;margin-top:8px;background:#FBF1DD;border-radius:8px;padding:7px 10px;}
+  .teacher-guide .tg-fill{margin-top:10px;width:100%;background:#fff;border:1.5px solid var(--primary);color:var(--primary);border-radius:9px;padding:10px;font-size:0.82rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .teacher-guide .tg-fill:active{transform:scale(0.99);}
+
+  /* 사진 라이트박스 */
+  .lightbox{position:fixed;inset:0;background:rgba(10,4,6,0.92);display:none;align-items:center;justify-content:center;z-index:300;padding:18px;}
+  .lightbox.show{display:flex;}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:8px;}
+  .lightbox .lb-close{position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:16px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.35);color:#fff;width:40px;height:40px;border-radius:50%;font-size:1.1rem;cursor:pointer;font-family:inherit;}
 </style>
 </head>
 <body>
@@ -145,6 +171,18 @@
         <div class="ai-quota" id="aiQuota">⏳ 오늘 AI 질문 사용량 확인 중…</div>
       </div>
 
+      <!-- 선생님·조교 모드 안내: 구체적으로 질문하도록 가이드 -->
+      <div class="field" id="teacherGuideField" style="display:none;">
+        <div class="teacher-guide" id="teacherGuide">
+          <div class="tg-title">💡 이렇게 질문하면 답변이 훨씬 빨라요</div>
+          <div class="tg-ex">✅ "<b>○○까지는 풀었는데</b>, <b>△△ 단계에서 막혔어요</b>"</div>
+          <div class="tg-ex">✅ "이 문장이 무슨 뜻인지 <b>해석이 안 돼요</b>: …"</div>
+          <div class="tg-ex">✅ "저는 <b>□□라고 생각</b>했는데 답이 왜 ◇◇인가요?"</div>
+          <div class="tg-bad">🚫 "이 문제 모르겠어요"처럼만 적으면, 어디를 도와드릴지 알기 어려워요. 어디까지 했고 어디서 막혔는지 적어주세요!</div>
+          <button type="button" class="tg-fill" onclick="fillTemplate()">📝 질문 양식 자동으로 넣기</button>
+        </div>
+      </div>
+
       <div class="field">
         <label>제목 <span style="font-weight:400;color:var(--text-light);">(선택)</span></label>
         <input id="qTitle" type="text" maxlength="80" placeholder="예: 미분 기본 개념 질문">
@@ -154,6 +192,18 @@
         <label>질문 내용 <span style="color:var(--primary);">*</span></label>
         <textarea id="qBody" maxlength="1200" placeholder="궁금한 문제나 개념을 적어주세요. (예: 합성함수 미분이 왜 이렇게 되나요? f(x)=...)"></textarea>
         <div class="hint" id="charCount">0 / 1200</div>
+      </div>
+
+      <!-- 사진 첨부 (문제 사진을 찍어 올리면 AI가 읽고 풀어줘요) -->
+      <div class="field">
+        <label>📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span></label>
+        <input type="file" id="photoInput" accept="image/*" style="display:none;">
+        <button type="button" class="photo-btn" id="photoBtn" onclick="document.getElementById('photoInput').click()">📷 사진 찍기 / 앨범에서 고르기</button>
+        <div class="photo-busy" id="photoBusy" style="display:none;">⏳ 사진 준비 중…</div>
+        <div class="photo-preview" id="photoPreview" style="display:none;">
+          <img id="photoPreviewImg" alt="첨부한 사진">
+          <button type="button" class="photo-remove" onclick="removePhoto()">✕ 빼기</button>
+        </div>
       </div>
 
       <div class="field">
@@ -199,6 +249,10 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="lightbox" id="lightbox" onclick="closePhoto()">
+  <button class="lb-close" type="button" onclick="closePhoto()">✕</button>
+  <img id="lightboxImg" alt="첨부 사진 크게 보기">
+</div>
 <div class="ai-loading" id="aiLoading">
   <div class="box">
     <div class="spin"></div>
@@ -229,7 +283,8 @@
 
   let mode = 'ai';
   let isPrivate = false;
-  let aiRemaining = null, aiDailyLimit = 3;
+  let aiRemaining = null, aiDailyLimit = 5;
+  let attachedImage = null;   // 첨부 사진(data URL) — 리사이즈 후 저장
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -245,12 +300,80 @@
     const btn = $('submitBtn');
     if (m==='ai'){ btn.classList.add('ai'); btn.textContent='🤖 AI에게 질문하기'; }
     else { btn.classList.remove('ai'); btn.textContent='🧑‍🏫 선생님·조교에게 질문하기'; }
+    // 선생님 모드일 때만 '구체적으로 질문하기' 가이드 표시
+    $('teacherGuideField').style.display = (m==='teacher') ? 'block' : 'none';
   }
   function togglePrivate(){
     isPrivate = !isPrivate;
     $('privToggle').classList.toggle('on', isPrivate);
     $('privBox').textContent = isPrivate ? '✓' : '';
   }
+
+  // ── 선생님 질문 양식 자동 삽입 ──
+  function fillTemplate(){
+    const ta = $('qBody');
+    const tpl = '▷ 어디까지 했나요: \n▷ 어디서 막혔나요: \n▷ 가장 궁금한 점: ';
+    if (ta.value.trim() && !confirm('지금 적은 내용을 지우고 양식을 넣을까요?')) return;
+    ta.value = tpl;
+    $('charCount').textContent = ta.value.length + ' / 1200';
+    ta.focus();
+    // 첫 칸 끝으로 커서 이동
+    const pos = tpl.indexOf('\n');
+    try { ta.setSelectionRange(pos, pos); } catch(e){}
+  }
+
+  // ── 사진 첨부: 선택 → 클라이언트 리사이즈 → 미리보기 ──
+  $('photoInput').addEventListener('change', handlePhoto);
+  async function handlePhoto(e){
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';               // 같은 파일 다시 선택 가능하게
+    if (!file) return;
+    if (!/^image\//.test(file.type || '')){ showToast('이미지 파일만 올릴 수 있어요.'); return; }
+    $('photoBusy').style.display = 'flex';
+    try {
+      attachedImage = await resizeImage(file, 1280, 0.72);
+      $('photoPreviewImg').src = attachedImage;
+      $('photoPreview').style.display = 'block';
+      $('photoBtn').style.display = 'none';
+    } catch (err) {
+      attachedImage = null;
+      showToast('사진을 불러오지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      $('photoBusy').style.display = 'none';
+    }
+  }
+  function removePhoto(){
+    attachedImage = null;
+    $('photoPreview').style.display = 'none';
+    $('photoPreviewImg').src = '';
+    $('photoBtn').style.display = 'flex';
+  }
+  // 사진 긴 변을 maxEdge 이하로 줄이고 JPEG로 압축 → 용량/전송 절감
+  function resizeImage(file, maxEdge, quality){
+    return new Promise(function(resolve, reject){
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (!w || !h){ reject(new Error('no size')); return; }
+        const longest = Math.max(w, h);
+        if (longest > maxEdge){ const s = maxEdge / longest; w = Math.round(w*s); h = Math.round(h*s); }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);   // 투명 PNG → 흰 배경
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('img load fail')); };
+      img.src = url;
+    });
+  }
+
+  // ── 사진 라이트박스(크게 보기) ──
+  function openPhoto(src){ $('lightboxImg').src = src; $('lightbox').classList.add('show'); }
+  function closePhoto(){ $('lightbox').classList.remove('show'); $('lightboxImg').src = ''; }
 
   $('qBody').addEventListener('input', e => { $('charCount').textContent = e.target.value.length + ' / 1200'; });
 
@@ -274,8 +397,9 @@
     const errBox = $('errMsg'); errBox.textContent='';
     const title = $('qTitle').value.trim();
     const question = $('qBody').value.trim();
-    if (!question){ errBox.textContent='질문 내용을 입력해주세요.'; return; }
-    if (question.length < 4){ errBox.textContent='질문을 조금 더 자세히 적어주세요.'; return; }
+    // 사진이 있으면 글이 짧거나 없어도 OK. 둘 다 없을 때만 막음.
+    if (!question && !attachedImage){ errBox.textContent='질문 내용을 입력하거나 사진을 올려주세요.'; return; }
+    if (!attachedImage && question.length < 4){ errBox.textContent='질문을 조금 더 자세히 적어주세요.'; return; }
 
     const btn = $('submitBtn');
     const origText = btn.textContent;
@@ -288,13 +412,14 @@
       const res = await fetch('/api/qna' + (nameQ('?') ? ('?'+nameQ('')) : ''), {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
-        body: JSON.stringify({ mode, isPrivate, title, question }),
+        body: JSON.stringify({ mode, isPrivate, title, question, image: attachedImage || undefined }),
       });
       const data = await res.json();
       if (!res.ok){ errBox.textContent = data.error || '등록 실패'; return; }
 
       // 입력 초기화
       $('qTitle').value=''; $('qBody').value=''; $('charCount').textContent='0 / 1200';
+      removePhoto();
       if (isPrivate) togglePrivate();
 
       // 사용량 갱신
@@ -335,6 +460,7 @@
     }
 
     const titleHtml = q.title ? '<div class="q-title">'+esc(q.title)+'</div>' : '';
+    const photoHtml = q.image ? '<div class="q-photo"><img src="'+esc(q.image)+'" alt="첨부 사진" loading="lazy" onclick="openPhoto(this.src)"></div>' : '';
     const delBtn = q.mine ? '<div class="q-actions"><button class="btn-mini" onclick="delQuestion('+q.id+')">삭제</button></div>' : '';
 
     return '<div class="q-card">'+
@@ -345,6 +471,7 @@
       '</div>'+
       titleHtml +
       '<div class="q-body">'+esc(q.question)+'</div>'+
+      photoHtml +
       answerHtml + delBtn +
     '</div>';
   }
@@ -364,7 +491,7 @@
       const res = await fetch('/api/qna' + (nameQ('?') ? ('?'+nameQ('')) : ''), { headers:{ 'Authorization':'Bearer '+token } });
       const data = await res.json();
       if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
-      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||3; renderQuota(); }
+      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||5; renderQuota(); }
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">💬</div><p>아직 질문이 없어요.<br>첫 질문을 남겨보세요!</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
@@ -378,7 +505,7 @@
       const res = await fetch('/api/qna?mine=1' + (nameQ('&') ? ('&'+nameQ('')) : ''), { headers:{ 'Authorization':'Bearer '+token } });
       const data = await res.json();
       if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
-      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||3; renderQuota(); }
+      if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||5; renderQuota(); }
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>아직 올린 질문이 없어요.</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
