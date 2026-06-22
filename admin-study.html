@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>공부 랭킹 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --gold:#C8A33B; --gold-bg:#FBF4DF; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:4px; }
+  h1{ font-size:1.3rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.82rem; margin-bottom:14px; }
+  a.back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; }
+
+  .controls{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:14px; margin-bottom:14px; box-shadow:0 2px 8px rgba(134,38,51,0.04); }
+  .ctl-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .ctl-row label{ width:42px; font-size:0.82rem; font-weight:800; color:var(--primary); flex:none; }
+  .ctl-row select{ flex:1; padding:9px 11px; border:1.5px solid var(--border); border-radius:9px; font-size:0.9rem; font-family:inherit; background:#fff; outline:none; }
+  .ctl-row select:focus{ border-color:var(--primary); }
+  .seg{ display:flex; gap:5px; background:#F2EDEE; border-radius:9px; padding:4px; }
+  .seg button{ flex:1; border:none; background:transparent; padding:8px 0; border-radius:7px; font-size:0.82rem; font-weight:700; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .seg button.active{ background:var(--primary); color:#fff; }
+
+  .note{ font-size:0.76rem; color:#6f1f2b; background:var(--primary-light); border-radius:8px; padding:8px 11px; margin-bottom:14px; line-height:1.55; }
+
+  .summary{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .stat{ flex:1; min-width:90px; background:#fff; border:1px solid var(--border); border-radius:11px; padding:10px 12px; text-align:center; }
+  .stat .v{ font-size:1.0rem; font-weight:800; color:var(--primary); }
+  .stat .l{ font-size:0.72rem; color:var(--muted); margin-top:2px; }
+
+  .champion{ background:var(--gold-bg); border:1.5px solid var(--gold); border-radius:14px; padding:15px 16px; margin-bottom:14px; display:flex; align-items:center; gap:13px; }
+  .champion .medal{ font-size:2.1rem; line-height:1; }
+  .champion .cname{ font-size:1.15rem; font-weight:800; color:#7a5a12; word-break:break-all; }
+  .champion .cmin{ font-size:0.84rem; color:#9a7a2a; margin-top:2px; }
+  .champion .tag{ margin-left:auto; background:var(--gold); color:#fff; font-size:0.74rem; font-weight:800; padding:5px 11px; border-radius:20px; white-space:nowrap; flex:none; }
+
+  .rank{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:11px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; }
+  .rank.top1{ border:1.5px solid var(--gold); background:var(--gold-bg); }
+  .rank .pos{ width:34px; flex:none; text-align:center; font-size:1.0rem; font-weight:800; color:var(--muted); }
+  .rank.top1 .pos, .rank.top2 .pos, .rank.top3 .pos{ font-size:1.3rem; }
+  .rank .info{ flex:1; min-width:0; }
+  .rank .rname{ font-size:0.95rem; font-weight:800; word-break:break-all; }
+  .rank .bar{ height:6px; background:#EFE7E8; border-radius:4px; margin-top:6px; overflow:hidden; }
+  .rank .bar > i{ display:block; height:100%; background:var(--primary); border-radius:4px; }
+  .rank.top1 .bar > i{ background:var(--gold); }
+  .rank .mins{ flex:none; font-size:0.9rem; font-weight:800; color:var(--primary); white-space:nowrap; }
+  .rank.zero .mins{ color:var(--muted); }
+  .tiewarn{ font-size:0.74rem; color:#b07a00; background:#FFF7E0; border-radius:8px; padding:8px 11px; margin-bottom:12px; font-weight:700; line-height:1.5; }
+
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
+  .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:50px auto; text-align:center; }
+  .login input{ width:100%; margin:12px 0; padding:9px 10px; border:1px solid var(--border); border-radius:9px; font-size:0.95rem; font-family:inherit; }
+  .login button{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 16px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .err{ color:#c0392b; font-size:0.8rem; margin-bottom:8px; }
+  .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
+  .toast.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>🏆 공부 랭킹</h1><div class="sub">반별 공부시간 순위 · 실명 조회 (관리자 전용)</div></div>
+    <a class="back" href="/admin">← 관리자</a>
+  </div>
+  <div id="content"><div class="msg">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  var options = { academies: [], classes: {}, counts: {} };
+  var period = 'week';
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
+  function fmtMin(m){ m=Number(m)||0; if(m<=0) return '0분'; var h=Math.floor(m/60), mm=m%60; if(h&&mm) return h+'시간 '+mm+'분'; if(h) return h+'시간'; return mm+'분'; }
+
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); var had=token; token=null; showLogin(had?'비밀번호가 틀렸습니다':''); throw new Error('401'); }
+    return r;
+  }
+  function showLogin(err){
+    $('content').innerHTML =
+      '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>'+
+      '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">'+
+      (err?'<div class="err">'+esc(err)+'</div>':'')+
+      '<button onclick="doLogin()">확인</button></div>';
+    var p=$('pw'); if(p) p.focus();
+  }
+  function doLogin(){ token=($('pw').value||'').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw',token); boot(); }
+
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){} }
+
+  async function boot(){
+    $('content').innerHTML = '<div class="msg">반 목록 불러오는 중…</div>';
+    try{
+      var r = await api('/api/class-options?t='+Date.now());
+      var data = await r.json();
+      options.academies = (data && data.academies) || [];
+      options.classes = (data && data.classes) || {};
+      options.counts = (data && data.counts) || {};
+      period = lsGet('kwstudy_period') || 'week';
+      renderShell();
+    }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
+  }
+
+  function renderShell(){
+    if(!options.academies.length){
+      $('content').innerHTML = '<div class="msg">등록된 학원/반이 없습니다.</div>';
+      return;
+    }
+    var savedAcad = lsGet('kwstudy_academy');
+    var acad = options.academies.indexOf(savedAcad)>=0 ? savedAcad : options.academies[0];
+    var acadOpts = options.academies.map(function(a){ return '<option value="'+esc(a)+'"'+(a===acad?' selected':'')+'>'+esc(a)+'</option>'; }).join('');
+    $('content').innerHTML =
+      '<div class="controls">'+
+        '<div class="ctl-row"><label>학원</label><select id="academySel" onchange="onAcademy()">'+acadOpts+'</select></div>'+
+        '<div class="ctl-row"><label>반</label><select id="classSel" onchange="onClass()"></select></div>'+
+        '<div class="seg" id="periodSeg">'+
+          '<button data-p="day" onclick="setPeriod(\'day\')">오늘</button>'+
+          '<button data-p="week" onclick="setPeriod(\'week\')">이번 주</button>'+
+          '<button data-p="month" onclick="setPeriod(\'month\')">이번 달</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="note">📌 학생 화면에서는 순위가 <b>익명(친구 1, 친구 2 …)</b>으로 보여요. 이 페이지는 관리자만 실명을 볼 수 있습니다.</div>'+
+      '<div id="result"><div class="msg">반을 선택하면 순위가 나와요.</div></div>';
+    syncPeriodSeg();
+    fillClasses(acad);
+  }
+
+  function syncPeriodSeg(){
+    var seg=$('periodSeg'); if(!seg) return;
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
+      b.classList.toggle('active', b.getAttribute('data-p')===period);
+    });
+  }
+  function setPeriod(p){ period=p; lsSet('kwstudy_period',p); syncPeriodSeg(); loadRanking(); }
+
+  function fillClasses(acad){
+    var sel=$('classSel'); if(!sel) return;
+    var list = options.classes[acad] || [];
+    if(!list.length){ sel.innerHTML='<option value="">(반 없음)</option>'; $('result').innerHTML='<div class="msg">이 학원에 등록된 반이 없습니다.</div>'; return; }
+    var savedCls = lsGet('kwstudy_class');
+    var cls = list.indexOf(savedCls)>=0 ? savedCls : list[0];
+    sel.innerHTML = list.map(function(c){
+      var n = options.counts[acad+'/'+c];
+      var lab = c + (n? ' ('+n+'명)' : '');
+      return '<option value="'+esc(c)+'"'+(c===cls?' selected':'')+'>'+esc(lab)+'</option>';
+    }).join('');
+    loadRanking();
+  }
+  function onAcademy(){ var a=$('academySel').value; lsSet('kwstudy_academy',a); fillClasses(a); }
+  function onClass(){ lsSet('kwstudy_class',$('classSel').value); loadRanking(); }
+
+  async function loadRanking(){
+    var acad=$('academySel') && $('academySel').value;
+    var cls=$('classSel') && $('classSel').value;
+    if(!acad || !cls){ return; }
+    $('result').innerHTML = '<div class="msg">순위 불러오는 중…</div>';
+    try{
+      var r = await api('/api/study-class?academy='+encodeURIComponent(acad)+'&class='+encodeURIComponent(cls)+'&period='+period+'&t='+Date.now());
+      var data = await r.json();
+      if(!r.ok){ $('result').innerHTML='<div class="msg">'+esc((data&&data.error)||'불러오기 실패')+'</div>'; return; }
+      renderRanking(data);
+    }catch(e){ if(String(e.message)!=='401') $('result').innerHTML='<div class="msg">네트워크 오류</div>'; }
+  }
+
+  function periodLabel(p){ return p==='day'?'오늘':(p==='month'?'이번 달':'이번 주'); }
+
+  function renderRanking(data){
+    var students = (data.students||[]);
+    if(!students.length){
+      $('result').innerHTML='<div class="msg">이 반에 등록된 학생이 없어요.</div>';
+      return;
+    }
+    var max = students.reduce(function(m,s){ return Math.max(m, Number(s.minutes)||0); }, 0);
+    var top = students[0];
+    var hasStudy = max > 0;
+    var tie = students.length>1 && (Number(students[1].minutes)||0)===(Number(top.minutes)||0) && (Number(top.minutes)||0)>0;
+
+    var summary =
+      '<div class="summary">'+
+        '<div class="stat"><div class="v">'+students.length+'명</div><div class="l">반 인원</div></div>'+
+        '<div class="stat"><div class="v">'+fmtMin(data.classAvg)+'</div><div class="l">평균</div></div>'+
+        '<div class="stat"><div class="v">'+fmtMin(data.classTotal)+'</div><div class="l">'+periodLabel(data.period)+' 합계</div></div>'+
+      '</div>';
+
+    var champion = '';
+    if(hasStudy){
+      champion =
+        '<div class="champion">'+
+          '<div class="medal">🥇</div>'+
+          '<div><div class="cname">'+esc(top.name||top.anonName||'-')+'</div>'+
+          '<div class="cmin">'+periodLabel(data.period)+' '+fmtMin(top.minutes)+' · 1위</div></div>'+
+          '<div class="tag">🎁 상품 대상</div>'+
+        '</div>';
+    }
+
+    var tieWarn = tie ? '<div class="tiewarn">⚠️ 1위와 2위의 공부시간이 같습니다(공동 1위). 상품 지급 시 확인해 주세요.</div>' : '';
+
+    var rowsHtml = students.map(function(s){
+      var pos = s.rank;
+      var medal = pos===1?'🥇':(pos===2?'🥈':(pos===3?'🥉':String(pos)));
+      var mins = Number(s.minutes)||0;
+      var pct = max>0 ? Math.round(mins/max*100) : 0;
+      var rowClass = 'rank';
+      if(pos===1) rowClass='rank top1';
+      else if(pos===2) rowClass='rank top2';
+      else if(pos===3) rowClass='rank top3';
+      if(mins<=0) rowClass+=' zero';
+      return '<div class="'+rowClass+'">'+
+        '<div class="pos">'+medal+'</div>'+
+        '<div class="info"><div class="rname">'+esc(s.name||s.anonName||'-')+'</div>'+
+          '<div class="bar"><i style="width:'+pct+'%"></i></div></div>'+
+        '<div class="mins">'+fmtMin(mins)+'</div>'+
+      '</div>';
+    }).join('');
+
+    var range = (data.weekStart && data.weekEnd)
+      ? '<div class="sub" style="margin:-4px 0 12px;">기간: '+esc(data.weekStart)+' ~ '+esc(data.weekEnd)+'</div>'
+      : '';
+
+    $('result').innerHTML = range + summary + champion + tieWarn + rowsHtml;
+  }
+
+  if(token) boot(); else showLogin('');
+</script>
+</body>
+</html>
