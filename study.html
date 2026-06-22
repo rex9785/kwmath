@@ -104,6 +104,7 @@
   /* 타이머 오버레이 */
   .timer-screen{position:fixed;inset:0;background:#1a0a0f;color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px;z-index:200;}
   .timer-screen.show{display:flex;}
+  .timer-clock{position:absolute;top:max(16px,env(safe-area-inset-top,16px));right:18px;font-size:0.92rem;color:#8a8a8a;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:0.5px;}
   .timer-display{font-size:5rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-2px;margin-bottom:8px;line-height:1;}
   .timer-status{font-size:0.95rem;color:#aaa;margin-bottom:40px;font-weight:600;}
   .timer-status.paused{color:#FFC107;}
@@ -293,6 +294,7 @@
 
 <!-- ============ 타이머 풀스크린 ============ -->
 <div class="timer-screen" id="timerScreen">
+  <div class="timer-clock" id="tmClock">--:--</div>
   <div class="timer-display" id="tmDisplay">00:00:00</div>
   <div class="timer-status" id="tmStatus">📚 공부 중</div>
   <div class="timer-away" id="tmAway" style="margin-top:6px;font-size:0.92rem;font-weight:700;color:#c0392b;min-height:1.2em;"></div>
@@ -300,7 +302,7 @@
     <button class="timer-btn" id="tmPauseBtn" onclick="togglePause()">⏸ 일시정지</button>
     <button class="timer-btn end" onclick="endStudy()">⏹ 공부 끝</button>
   </div>
-  <div class="timer-tip">⏱ 화면을 꺼도 공부 시간은 계속 흘러요.<br>🚪 단, <b>화면을 끄거나 다른 앱을 켜면 '이탈'로 기록</b>돼요. 집중하려면 이 화면을 켜둔 채로 두세요.</div>
+  <div class="timer-tip">⏸ 이 화면을 벗어나거나 다른 앱을 켜면 <b>공부 시간이 자동으로 멈추고 '이탈'로 기록</b>돼요.<br>돌아오면 이어서 측정되니, 집중하려면 이 화면을 켜둔 채로 두세요.</div>
 </div>
 
 <!-- 디데이 관리 모달 -->
@@ -762,6 +764,11 @@
       const awMin = Math.round((Number(a.awayMs) || 0) / 60000);
       away.textContent = c ? ('🚪 이탈 ' + c + '회' + (awMin >= 1 ? ' · ' + awMin + '분' : '')) : '';
     }
+    const clk = document.getElementById('tmClock');
+    if (clk) {
+      const now = new Date();
+      clk.textContent = '🕐 ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    }
   }
 
   function togglePause() {
@@ -816,7 +823,16 @@
       showToast('24시간 이상 방치된 세션을 자동 폐기했어요');
       return;
     }
-    if (a.awayAt) { a.awayAt = null; saveActive(a); }  // 앱 종료로 끊긴 이탈 상태 정리
+    if (a.awayAt) {  // 이탈 중 앱이 종료됐다 다시 들어옴 → 비운 시간 제외 + 이탈 기록
+      const dur = Date.now() - a.awayAt;
+      a.awayAt = null;
+      if (dur >= 2000) {
+        a.pausedTotalMs = (Number(a.pausedTotalMs) || 0) + dur;  // 자리 비운 시간은 공부시간에서 제외
+        a.awayCount = (Number(a.awayCount) || 0) + 1;
+        a.awayMs = (Number(a.awayMs) || 0) + dur;
+      }
+      saveActive(a);
+    }
     enterTimerScreen();
   }
 
@@ -831,7 +847,8 @@
     } else if (a.awayAt) {
       const dur = Date.now() - a.awayAt;
       a.awayAt = null;
-      if (dur >= 2000) {                    // 2초 미만 깜빡임은 무시
+      if (dur >= 2000) {                    // 2초 이상 벗어나면: 공부시간 멈춤 + 이탈 기록
+        a.pausedTotalMs = (Number(a.pausedTotalMs) || 0) + dur;  // 자리 비운 시간은 공부시간에서 제외
         a.awayCount = (Number(a.awayCount) || 0) + 1;
         a.awayMs = (Number(a.awayMs) || 0) + dur;
       }
