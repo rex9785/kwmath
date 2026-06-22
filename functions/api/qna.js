@@ -98,7 +98,10 @@ async function askGemini(env, question, studentMeta) {
   const body = {
     systemInstruction: { parts: [{ text: sys }] },
     contents: [{ role: 'user', parts: [{ text: String(question).slice(0, MAX_Q_LEN) }] }],
-    generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 1200 },
+    // 6/23: 2.5 Flash는 '사고(thinking)' 토큰이 maxOutputTokens에서 같이 차감됨.
+    // 기존 1200이면 어려운 문제에서 사고가 예산을 다 먹어 답이 잘리거나 빈 응답이 됨.
+    // → 사고예산(2048)을 명시 + 출력상한을 4096으로 올려 풀이가 안 잘리게 함.
+    generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 2048 } },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
