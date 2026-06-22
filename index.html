@@ -364,8 +364,8 @@
         <div style="font-size:0.8rem;font-weight:700;color:var(--primary);margin-bottom:9px;">📱 이관우 수학연구소 앱 출시</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <a href="https://play.google.com/store/apps/details?id=kr.co.kwmath.app" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;">🤖 Google Play에서 받기</a>
-          <!-- iOS App Store: 직링크(apps.apple.com/app/idXXXXXXXXXX) 확보 후 href 채우고 주석 해제 -->
-          <!-- <a href="https://apps.apple.com/app/idXXXXXXXXXX" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;">🍎 App Store에서 받기</a> -->
+          <!-- ⚠️ 임시: 앱스토어 '검색' 링크. 정확한 직링크(apps.apple.com/kr/app/id…) 확보되면 href만 교체하세요. -->
+          <a href="https://apps.apple.com/kr/search?term=이관우%20수학연구소" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;">🍎 App Store에서 받기</a>
         </div>
       </div>
     </div>
@@ -1347,6 +1347,58 @@ const FAQ_DATA = [
   ovl.addEventListener('click',function(e){if(e.target===ovl)cl();});
 })();
 </script>
+
+<!-- ===== 📱 앱 출시 팝업 (2026-06) ===== -->
+<style>
+  /* 앱 출시 카드 = 모달 아님. 기존 수강신청 팝업 '옆/아래'에 떠 있는 독립 카드 */
+  .kwapapp-card{position:fixed;z-index:100001;left:18px;bottom:18px;width:300px;max-width:calc(100vw - 36px);background:#fff;border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,0.34);text-align:center;padding:22px 18px 16px;box-sizing:border-box;display:none;}
+  .kwapapp-card.show{display:block;}
+  .kwapapp-x{position:absolute;top:7px;right:7px;width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,0.06);color:#1C2536;font-size:20px;line-height:1;cursor:pointer;}
+  .kwapapp-logo{width:78px;height:78px;object-fit:contain;margin:2px auto 11px;display:block;}
+  .kwapapp-title{font-size:1.04rem;font-weight:800;color:#1C2536;margin-bottom:5px;}
+  .kwapapp-sub{font-size:0.8rem;color:#6b645e;margin-bottom:14px;line-height:1.5;}
+  .kwapapp-btns{display:flex;flex-direction:column;gap:8px;}
+  .kwapapp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;border-radius:10px;font-weight:700;font-size:0.88rem;text-decoration:none;background:#111;color:#fff;box-sizing:border-box;}
+  .kwapapp-foot{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:14px;}
+  .kwapapp-foot label{font-size:11px;color:#8a847e;display:flex;align-items:center;gap:5px;cursor:pointer;}
+  .kwapapp-foot button{font-size:11px;color:#8a847e;background:none;border:none;cursor:pointer;}
+  .kwapapp-reopen{position:fixed;left:18px;bottom:18px;z-index:99998;background:#8B1A2B;color:#fff;border:none;border-radius:24px;padding:11px 18px;font-size:14px;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,0.28);display:none;}
+  @media (max-width:560px){
+    .kwapapp-card{left:50%;transform:translateX(-50%);width:320px;bottom:14px;}
+    .kwapapp-reopen{left:50%;transform:translateX(-50%);}
+  }
+</style>
+<div class="kwapapp-card" id="kwapappCard">
+  <button class="kwapapp-x" id="kwapappX" aria-label="닫기">&times;</button>
+  <img class="kwapapp-logo" src="어플로고-removebg-preview.png" alt="이관우 수학연구소 앱 로고">
+  <div class="kwapapp-title">📱 앱 출시!</div>
+  <div class="kwapapp-sub">이관우 수학연구소 앱으로<br>리포트 · 질문방 · KW-Study를 더 편하게.</div>
+  <div class="kwapapp-btns">
+    <a class="kwapapp-btn" href="https://play.google.com/store/apps/details?id=kr.co.kwmath.app" target="_blank" rel="noopener">🤖 Google Play</a>
+    <!-- ⚠️ 임시: 앱스토어 검색 링크. 정확한 직링크(apps.apple.com/kr/app/id…) 확보되면 href만 교체 -->
+    <a class="kwapapp-btn" href="https://apps.apple.com/kr/search?term=이관우%20수학연구소" target="_blank" rel="noopener">🍎 App Store</a>
+  </div>
+  <div class="kwapapp-foot">
+    <label><input type="checkbox" id="kwapappDnd"> 오늘 하루 보지 않기</label>
+    <button id="kwapappClose">닫기</button>
+  </div>
+</div>
+<button class="kwapapp-reopen" id="kwapappReopen">📱 앱 설치</button>
+<script>
+(function(){
+  var card=document.getElementById('kwapappCard'),reopen=document.getElementById('kwapappReopen'),dnd=document.getElementById('kwapappDnd');
+  var KEY='kwmath_apppopup_hide_until';
+  function today(){return new Date().toISOString().slice(0,10);}
+  function op(){card.classList.add('show');reopen.style.display='none';}
+  function cl(){card.classList.remove('show');reopen.style.display='block';if(dnd&&dnd.checked){try{localStorage.setItem(KEY,today());}catch(e){}}}
+  document.getElementById('kwapappX').onclick=cl;
+  document.getElementById('kwapappClose').onclick=cl;
+  reopen.onclick=op;
+  var hidden=false;try{hidden=(localStorage.getItem(KEY)===today());}catch(e){}
+  if(hidden){reopen.style.display='block';}else{setTimeout(op,900);}
+})();
+</script>
+
 <script>
 (function(){
   var ovl=document.getElementById('kwapOvl'),reopen=document.getElementById('kwapReopen'),dnd=document.getElementById('kwapDnd');

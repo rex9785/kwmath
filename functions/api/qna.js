@@ -14,12 +14,12 @@
 //  DELETE /api/qna?id=...       본인 질문(또는 admin) 삭제
 //
 //  ⚙️ 환경변수: GEMINI_API_KEY(필수, AI 답변용) ·
-//     GEMINI_MODEL(선택, 기본 gemini-2.5-flash) · QNA_AI_DAILY_LIMIT(선택, 기본 3)
+//     GEMINI_MODEL(선택, 기본 gemini-2.5-flash) · QNA_AI_DAILY_LIMIT(선택, 기본 5)
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-const DEFAULT_DAILY_LIMIT = 3;
+const DEFAULT_DAILY_LIMIT = 5;   // 6/23 3→5 상향(학생 수 적어 토큰 비용 영향 미미)
 const MAX_Q_LEN = 1200;     // 질문 글자 제한
 const MAX_A_LEN = 8000;     // 저장 답변 글자 제한
 
