@@ -389,7 +389,8 @@
           <span id="classManagerToggle" style="color:#3949AB;font-size:0.88rem;font-weight:700;">▶ 펼치기</span>
         </div>
         <div id="classManagerBody" style="display:none;margin-top:12px;border-top:1px solid #d8e0ec;padding-top:12px;">
-          <div style="font-size:0.78rem;color:#666;margin-bottom:10px;">학생 0명인 반에만 삭제 버튼이 활성화됩니다. 새 반 추가는 [시즌 전환] / [➕ 다른 반] 모달에서 "새 반 만들기"로 가능합니다.</div>
+          <div style="font-size:0.78rem;color:#666;margin-bottom:10px;">➕ 버튼으로 학원·반을 바로 추가할 수 있어요. 학생 0명인 반/학원만 삭제됩니다. (학생을 새 반에 넣는 건 [➕ 다른 반] / [시즌 전환] 모달을 쓰세요.)</div>
+          <button onclick="addAcademyPrompt()" style="background:#3949AB;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:0.84rem;font-weight:700;cursor:pointer;margin-bottom:10px;">➕ 새 학원 추가</button>
           <div id="classManagerList"><div class="empty">불러오는 중...</div></div>
         </div>
       </div>
@@ -1553,7 +1554,10 @@
       html += `<div style="background:#fff;border:1px solid #e0e6ef;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <strong style="color:#3949AB;">${esc(acad)} <span style="font-size:0.78rem;color:#888;font-weight:normal;">(학생 ${acadStudents}명)</span></strong>
-          <button class="del-btn" ${canDeleteAcad ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteAcademy('${esc(acad).replace(/'/g,'\\x27')}')" title="${canDeleteAcad ? '학원 삭제' : '학생 있어서 삭제 불가'}">🗑 학원 삭제</button>
+          <div style="display:flex;gap:6px;">
+            <button onclick="addClassPrompt('${esc(acad).replace(/'/g,'\\x27')}')" style="background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;">➕ 반 추가</button>
+            <button class="del-btn" ${canDeleteAcad ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteAcademy('${esc(acad).replace(/'/g,'\\x27')}')" title="${canDeleteAcad ? '학원 삭제' : '학생 있어서 삭제 불가'}">🗑 학원 삭제</button>
+          </div>
         </div>`;
       if (!classes.length) {
         html += '<div style="color:#999;font-size:0.82rem;padding:4px 8px;">반 없음</div>';
@@ -1612,6 +1616,42 @@
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }
+  }
+
+  // ➕ 새 학원 추가 (반 관리 패널)
+  async function addAcademyPrompt() {
+    const name = (prompt('추가할 학원 이름을 입력하세요. (예: 그릿에듀)') || '').trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'add-academy', academy: name }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '추가 실패')); return; }
+      showToast('✅ [' + name + '] 학원 추가됨');
+      await loadClassOptionsFromServer();
+      renderClassManager();
+    } catch (e) { showToast('네트워크 오류: ' + e.message); }
+  }
+
+  // ➕ 반 추가 (반 관리 패널, 학원별)
+  async function addClassPrompt(academy) {
+    const name = (prompt('[' + academy + ']에 추가할 반 이름을 입력하세요. (예: 미적분2반)') || '').trim();
+    if (!name) return;
+    try {
+      const res = await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'add-class', academy: academy, className: name }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '추가 실패')); return; }
+      showToast('✅ [' + academy + ' · ' + name + '] 반 추가됨');
+      await loadClassOptionsFromServer();
+      renderClassManager();
+    } catch (e) { showToast('네트워크 오류: ' + e.message); }
   }
 
   // 새 반/학원 추가 시 서버에 등록 (시즌 전환 마법사 등에서 호출)

@@ -1,7 +1,7 @@
 // POST /api/admin-seed-demo  (admin only)
 // ───────────────────────────────────────────────────────────
 // 앱 심사용 데모 계정에 샘플 데이터를 채운다. (리뷰어가 빈 화면을 보지 않도록)
-//  - 계정: 010-1234-1234 / 비번 5677  (must_change_pw=0)
+//  - 계정: 010-1234-1234 / 비번 1234  (must_change_pw=0)
 //  - 학생: '심사데모학생' (student_phone=010-1234-1234, 승인됨)
 //  - 리포트·출결·KW스터디·시험성적까지 채움
 //
@@ -15,7 +15,7 @@ import { createAccount } from './_auth.js';
 import { createStudent, setApprovalStatus, createReport, upsertAttendance, addStudySession } from './_db.js';
 
 const DEMO_PHONE = '010-1234-1234';
-const DEMO_PW = '5677';
+const DEMO_PW = '1234';
 const DEMO_NAME = '심사데모학생';
 
 function ymd(d) {
@@ -164,7 +164,7 @@ export async function onRequest({ request, env }) {
 
     return Response.json({
       ok: true,
-      message: '데모 데이터 채움 완료. 010-1234-1234 / 5677 로 로그인해 확인하세요.',
+      message: '데모 데이터 채움 완료. 010-1234-1234 / 1234 로 로그인해 확인하세요.',
       studentId: String(sid), detail: log,
     });
   } catch (e) {

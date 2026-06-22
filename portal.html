@@ -256,8 +256,8 @@
     <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:14px;font-size:0.82rem;color:var(--text-light);flex-wrap:wrap;">
       <a href="#" onclick="event.preventDefault();doLogout()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">로그아웃</a>
       <span style="color:var(--border);">|</span>
-      <a id="pwChangeLink" href="#" onclick="event.preventDefault();openPasswordModal()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">비밀번호 변경</a>
-      <span id="pwChangeSep" style="color:var(--border);">|</span>
+      <a href="#" onclick="event.preventDefault();openPasswordModal()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">비밀번호 변경</a>
+      <span style="color:var(--border);">|</span>
       <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔔 알림 설정</a>
     </div>
 
@@ -510,11 +510,6 @@
       $('welcomeMsg').textContent = '환영합니다 👋';
     }
     $('welcomePhone').textContent = '📱 ' + currentPhone;
-    // 데모 계정은 비밀번호 변경 링크 숨김
-    const isDemo = (currentPhone === DEMO_PHONE);
-    const pwLink = $('pwChangeLink'), pwSep = $('pwChangeSep');
-    if (pwLink) pwLink.style.display = isDemo ? 'none' : '';
-    if (pwSep) pwSep.style.display = isDemo ? 'none' : '';
     renderDdays();
   }
 
@@ -572,7 +567,7 @@
 
   function openPasswordModal(forced) {
     if (currentPhone === DEMO_PHONE) {
-      showToast('데모 계정은 비밀번호를 변경할 수 없습니다.');
+      showToast('이 계정은 데모 계정으로 비밀번호를 변경하실 수 없습니다.');
       return;
     }
     pwModalForced = !!forced;
