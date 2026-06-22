@@ -13,6 +13,11 @@ export async function onRequest({ request, env }) {
   const auth = await requireAuth(env, request);
   if (!auth.ok) return auth.response;
 
+  // 데모 계정은 비밀번호 변경 불가 (여러 사람에게 배포되는 공용 계정 보호)
+  if (auth.phone === '010-1234-1234') {
+    return jsonError('데모 계정은 비밀번호를 변경할 수 없습니다.', 403);
+  }
+
   let body = {};
   try { body = await request.json(); } catch (_) {}
   const oldPassword = (body.oldPassword || '').toString();
