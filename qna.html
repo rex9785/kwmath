@@ -7,6 +7,10 @@
 <link rel="manifest" href="/manifest.json?v=3">
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<!-- KaTeX: AI 답변의 LaTeX 수식 렌더링 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -491,6 +495,24 @@
     if (tab==='mine') loadMine(); else loadRoom();
   }
 
+  // AI 답변(.a-body) 안의 $...$ / $$...$$ 를 KaTeX로 렌더. 질문 본문은 건드리지 않음.
+  function renderMath(box){
+    if (!box || !window.renderMathInElement) return;
+    box.querySelectorAll('.a-body').forEach(function(el){
+      try {
+        renderMathInElement(el, {
+          delimiters: [
+            { left:'$$', right:'$$', display:true },
+            { left:'\\[', right:'\\]', display:true },
+            { left:'$', right:'$', display:false },
+            { left:'\\(', right:'\\)', display:false },
+          ],
+          throwOnError: false,
+        });
+      } catch(e){}
+    });
+  }
+
   async function loadRoom(){
     const box = $('roomList');
     box.innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
@@ -502,6 +524,7 @@
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">💬</div><p>아직 질문이 없어요.<br>첫 질문을 남겨보세요!</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
+      renderMath(box);
     } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
   }
 
@@ -516,6 +539,7 @@
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>아직 올린 질문이 없어요.</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
+      renderMath(box);
     } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
   }
 
