@@ -31,7 +31,9 @@ const MAX_IMG_B64 = 2_600_000;  // 첨부 사진 base64 최대 길이(약 1.9MB 
 const PRICE_IN_PER_M = 0.30;   // 입력 토큰
 const PRICE_OUT_PER_M = 2.50;  // 출력(+사고) 토큰
 const USD_KRW = 1350;          // 환율 대략치(비용은 추정)
-const DEFAULT_MONTHLY_TOKEN_BUDGET = 2_000_000; // 월 토큰 예산 기본값(관리자 화면에서 수정)
+const DEFAULT_MONTHLY_TOKEN_BUDGET = 2_000_000; // 월 토큰 예산 기본값(참고용)
+// 무료 등급은 돈이 아니라 '하루 요청수(RPD)'로 제한됨. 2.5 Flash 무료 일일 한도 대략치(프로젝트/시점마다 다름·AI Studio가 정답).
+const DEFAULT_DAILY_REQUEST_LIMIT = 250;
 
 // 데이터URL("data:image/jpeg;base64,...") → { mimeType, data(base64), dataUrl } 또는 null
 function parseImage(raw) {
@@ -262,20 +264,23 @@ export async function onRequest({ request, env }) {
           "SELECT COUNT(*) AS q, COALESCE(SUM(tokens_total),0) AS tok, COALESCE(SUM(tokens_in),0) AS tin, COALESCE(SUM(tokens_out),0) AS tout " +
           "FROM qna WHERE mode='ai' AND tokens_total IS NOT NULL"
         ).first();
-        const bRow = await env.DB.prepare("SELECT value FROM qna_settings WHERE key='monthly_token_budget'").first();
-        const monthlyBudget = (bRow && bRow.value != null && bRow.value !== '')
-          ? Math.max(0, parseInt(bRow.value, 10) || 0) : DEFAULT_MONTHLY_TOKEN_BUDGET;
+        // 무료 등급은 돈이 아니라 '하루 요청수(RPD)'로 제한 — 일일 한도(설정값, 기본 250) 대비 오늘 사용량.
+        const lRow = await env.DB.prepare("SELECT value FROM qna_settings WHERE key='daily_request_limit'").first();
+        const dailyRequestLimit = (lRow && lRow.value != null && lRow.value !== '')
+          ? Math.max(0, parseInt(lRow.value, 10) || 0) : DEFAULT_DAILY_REQUEST_LIMIT;
         const num = (v) => Number(v) || 0;
         const usdCost = (tin, tout) => (num(tin) / 1e6) * PRICE_IN_PER_M + (num(tout) / 1e6) * PRICE_OUT_PER_M;
         const totQ = num(totalRow && totalRow.q);
         const avgTok = totQ > 0 ? Math.round(num(totalRow.tok) / totQ) : 0;
-        const avgKrw = totQ > 0 ? Math.round(usdCost(totalRow.tin, totalRow.tout) / totQ * USD_KRW) : 0;
-        const remTok = Math.max(0, monthlyBudget - num(monthRow && monthRow.tok));
-        const remQ = avgTok > 0 ? Math.floor(remTok / avgTok) : null;
+        const avgUsd = totQ > 0 ? usdCost(totalRow.tin, totalRow.tout) / totQ : 0;
+        const avgKrw = Math.round(avgUsd * USD_KRW);
+        const todayQ = num(todayRow && todayRow.q);
+        const remTodayReq = Math.max(0, dailyRequestLimit - todayQ);
         const monthUsd = usdCost(monthRow && monthRow.tin, monthRow && monthRow.tout);
         return jsonOk({
           ok: true,
-          today: { questions: num(todayRow && todayRow.q), tokens: num(todayRow && todayRow.tok) },
+          tier: 'free',  // 현재 무료 등급(실제 청구 ₩0). 비용 값은 '유료 전환 시 예상'.
+          today: { questions: todayQ, tokens: num(todayRow && todayRow.tok) },
           month: {
             questions: num(monthRow && monthRow.q), tokens: num(monthRow && monthRow.tok),
             tokensIn: num(monthRow && monthRow.tin), tokensOut: num(monthRow && monthRow.tout),
@@ -284,9 +289,9 @@ export async function onRequest({ request, env }) {
           total: { questions: totQ, tokens: num(totalRow && totalRow.tok) },
           avgTokensPerQuestion: avgTok,
           avgCostKrwPerQuestion: avgKrw,
-          monthlyBudget,
-          remainingTokens: remTok,
-          remainingQuestions: remQ,
+          avgCostUsdPerQuestion: Number(avgUsd.toFixed(5)),
+          dailyRequestLimit,
+          remainingTodayRequests: remTodayReq,
           pricing: { inPerMillionUsd: PRICE_IN_PER_M, outPerMillionUsd: PRICE_OUT_PER_M, usdKrw: USD_KRW },
         });
       }
@@ -330,16 +335,16 @@ export async function onRequest({ request, env }) {
 
     // ─────────────────────────── POST (질문 작성) ───────────────────────────
     if (method === 'POST') {
-      // 관리자 — 월 토큰 예산 저장 (질문 작성 흐름보다 먼저 분기)
+      // 관리자 — 무료 일일 요청 한도 저장 (질문 작성 흐름보다 먼저 분기)
       if (url.searchParams.get('usage') === '1') {
         if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
         const sb = await request.json().catch(() => ({}));
-        const val = Math.max(0, parseInt(sb.monthlyBudget, 10) || 0);
+        const val = Math.max(0, parseInt(sb.dailyRequestLimit, 10) || 0);
         await env.DB.prepare(
-          "INSERT INTO qna_settings (key, value) VALUES ('monthly_token_budget', ?) " +
+          "INSERT INTO qna_settings (key, value) VALUES ('daily_request_limit', ?) " +
           "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
         ).bind(String(val)).run();
-        return jsonOk({ ok: true, monthlyBudget: val });
+        return jsonOk({ ok: true, dailyRequestLimit: val });
       }
 
       const access = await requireStudentAccess(env, request);

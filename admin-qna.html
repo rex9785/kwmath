@@ -142,11 +142,11 @@
     var pending = rows.filter(function(q){ return q.status==='pending'; }).length;
     var head =
       '<div class="bar">'+
-        '<div class="count">📊 AI 토큰 사용량</div>'+
+        '<div class="count">📊 AI 사용량·한도</div>'+
         '<div class="tabs">'+
           '<button onclick="setTab(\'pending\')">미답변 <span class="n">'+pending+'</span></button>'+
           '<button onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
-          '<button class="active" onclick="setTab(\'usage\')">📊 토큰</button>'+
+          '<button class="active" onclick="setTab(\'usage\')">📊 사용량</button>'+
         '</div>'+
       '</div>';
     $('content').innerHTML = head + '<div class="msg">불러오는 중…</div>';
@@ -168,37 +168,43 @@
 
   function usagePanelHtml(d){
     var t=d.today||{}, m=d.month||{}, tot=d.total||{}, pr=d.pricing||{};
-    var budget=Number(d.monthlyBudget)||0, used=Number(m.tokens)||0;
-    var pct = budget>0 ? Math.min(100, Math.round(used/budget*100)) : 0;
-    var remQ = (d.remainingQuestions==null) ? '—' : nf(d.remainingQuestions);
+    var limit=Number(d.dailyRequestLimit)||0, usedToday=Number(t.questions)||0;
+    var rem=(d.remainingTodayRequests!=null)?Number(d.remainingTodayRequests):Math.max(0,limit-usedToday);
+    var pct = limit>0 ? Math.min(100, Math.round(usedToday/limit*100)) : 0;
     var avg = Number(d.avgTokensPerQuestion)||0, avgKrw = Number(d.avgCostKrwPerQuestion)||0;
+    var monthKrw = Number(m.costKrw)||0;
     return ''+
       '<div class="ucard">'+
-        '<div class="urow"><span>이번 달 사용</span><b>'+fmtTok(used)+' <span class="udim">/ '+fmtTok(budget)+' 토큰</span></b></div>'+
+        '<div style="font-size:13px;color:#1e8e3e;margin-bottom:8px;font-weight:600;">현재 무료 등급 · 실제 청구 ₩0</div>'+
+        '<div class="urow"><span>오늘 요청</span><b>'+nf(usedToday)+' <span class="udim">/ '+nf(limit)+'건</span></b></div>'+
         '<div class="ubar"><i style="width:'+pct+'%;'+(pct>=80?'background:#c0392b;':'')+'"></i></div>'+
-        '<div class="ubig">예산 기준 <b>약 '+remQ+'개</b> 질문 더 가능 <span class="udim">('+pct+'% 사용)</span></div>'+
-        '<div class="uedit"><label>월 예산(토큰)</label>'+
-          '<input type="number" id="budgetInput" value="'+budget+'" min="0" step="100000">'+
-          '<button class="send" onclick="saveBudget()">저장</button></div>'+
+        '<div class="ubig">오늘 <b>약 '+nf(rem)+'건</b> 더 가능 <span class="udim">('+pct+'% 사용)</span></div>'+
+        '<div class="uedit"><label>무료 일일 한도(요청수)</label>'+
+          '<input type="number" id="limitInput" value="'+limit+'" min="0" step="10">'+
+          '<button class="send" onclick="saveDailyLimit()">저장</button></div>'+
       '</div>'+
       '<div class="ugrid">'+
         statBox('오늘', t.questions, t.tokens, null)+
-        statBox('이번 달', m.questions, m.tokens, m.costKrw)+
+        statBox('이번 달', m.questions, m.tokens, null)+
         statBox('누적', tot.questions, tot.tokens, null)+
       '</div>'+
-      '<div class="ucard usmall">질문당 평균 <b>'+nf(avg)+' 토큰</b>'+(avgKrw?' <span class="udim">(≈ ₩'+nf(avgKrw)+')</span>':'')+'</div>'+
-      '<div class="unote">※ 추정 비용은 Gemini 2.5 Flash 단가(입력 $'+pr.inPerMillionUsd+' / 출력 $'+pr.outPerMillionUsd+' per 1M, 환율 ₩'+nf(pr.usdKrw)+') 기준 대략치예요. 실제 청구액은 Google AI Studio·Cloud 콘솔에서 확인하세요.<br>이 집계는 <b>질문방 AI(API) 사용량</b>만 — Gemini 앱 PRO 구독과는 별개입니다.</div>';
+      '<div class="ucard usmall">질문당 평균 <b>'+nf(avg)+' 토큰</b></div>'+
+      '<div class="ucard">'+
+        '<div class="urow"><span>💳 유료 전환 시 · 질문 1건당</span><b>약 ₩'+nf(avgKrw)+'</b></div>'+
+        '<div class="urow"><span>유료 전환 시 · 이번 달이면</span><b>약 ₩'+nf(monthKrw)+'</b></div>'+
+      '</div>'+
+      '<div class="unote">※ 무료 등급은 하루 요청수로 제한(매일 리셋). 정확한 한도는 Google AI Studio 키 옆 사용량에서 확인해 위 값에 맞추세요.<br>유료 비용은 입력 $'+pr.inPerMillionUsd+' / 출력 $'+pr.outPerMillionUsd+' per 1M · 환율 ₩'+nf(pr.usdKrw)+' 기준 추정(데이터 쌓일수록 정확). 무료 등급은 입력 데이터가 구글 학습에 쓰일 수 있고, 유료 전환 시 학습 제외 + 한도↑.<br>이 집계는 <b>질문방 AI(API)</b>만 — Gemini 앱 PRO 구독과는 별개입니다.</div>';
   }
 
-  async function saveBudget(){
-    var el=$('budgetInput'); if(!el) return;
+  async function saveDailyLimit(){
+    var el=$('limitInput'); if(!el) return;
     var v = parseInt(String(el.value||'').replace(/[^0-9]/g,''),10);
-    if(isNaN(v)||v<0){ showToast('예산을 숫자로 입력하세요.'); return; }
+    if(isNaN(v)||v<0){ showToast('한도를 숫자로 입력하세요.'); return; }
     try{
-      var r = await api('/api/qna?usage=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ monthlyBudget: v }) });
+      var r = await api('/api/qna?usage=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dailyRequestLimit: v }) });
       var d = await r.json();
       if(!r.ok){ showToast(d.error||'저장 실패'); return; }
-      showToast('✅ 월 예산을 저장했어요.');
+      showToast('✅ 일일 한도를 저장했어요.');
       renderUsage();
     }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
   }
@@ -212,7 +218,7 @@
         '<div class="tabs">'+
           '<button class="'+(tab==='pending'?'active':'')+'" onclick="setTab(\'pending\')">미답변 <span class="n">'+pending.length+'</span></button>'+
           '<button class="'+(tab==='all'?'active':'')+'" onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
-          '<button class="'+(tab==='usage'?'active':'')+'" onclick="setTab(\'usage\')">📊 토큰</button>'+
+          '<button class="'+(tab==='usage'?'active':'')+'" onclick="setTab(\'usage\')">📊 사용량</button>'+
         '</div>'+
       '</div>';
 
