@@ -685,7 +685,7 @@
       return;
     }
     if (Notification.permission === 'denied') {
-      showToast('알림 권한이 거부됐어요. 브라우저 설정에서 허용해주세요.', 4000);
+      showToast('알림이 차단돼 있어요. 휴대폰 브라우저 설정 → 사이트 권한 → 알림에서 kwmath.co.kr 허용해주세요.', 6000);
       return;
     }
     _pushBusyPortal = true;
@@ -707,14 +707,6 @@
         return;
       }
 
-      // 권한 요청 (이미 허용돼 있으면 다시 안 띄움)
-      if (Notification.permission !== 'granted') {
-        const perm = await Notification.requestPermission();
-        if (perm !== 'granted') {
-          showToast('알림 권한이 필요합니다.');
-          return;
-        }
-      }
       // VAPID 공개키
       const vRes = await fetch('/api/push-vapid-public');
       const vData = await vRes.json();
@@ -722,12 +714,18 @@
         showToast('푸쉬 서버 설정이 안 되어있어요. 관우T께 문의해주세요.', 4000);
         return;
       }
-      // 구독 (권한 받은 뒤 재확인 → 이미 있으면 재사용, 중복구독 방지)
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vData.publicKey),
-      });
+      // 권한창은 subscribe가 필요할 때 딱 1번만 띄움.
+      // (Notification.requestPermission()을 따로 부르면 삼성인터넷에서 권한창이 2번 떠서 제거)
+      let sub;
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vData.publicKey),
+        });
+      } catch (err) {
+        showToast('알림 권한이 필요해요. "허용"을 눌러주세요.', 4000);
+        return;
+      }
       // 서버 저장
       await fetch('/api/push-subscribe', {
         method: 'POST',
