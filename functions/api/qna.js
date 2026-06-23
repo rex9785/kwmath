@@ -104,10 +104,12 @@ function rowOut(r, opts = {}) {
 async function askGemini(env, question, studentMeta, image) {
   if (!env.GEMINI_API_KEY) return { error: 'AI 답변 기능이 아직 설정되지 않았어요. (관리자: GEMINI_API_KEY 등록 필요)' };
   const model = (env.GEMINI_MODEL || DEFAULT_MODEL).trim();
-  // 기본은 구글 직통. env GEMINI_BASE_URL을 Cloudflare AI Gateway 주소로 두면 그쪽을 경유함.
-  // (→ Cloudflare가 차단지역 PoP에서 나가 "User location is not supported"가 뜰 때 우회용)
-  //   예: https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway>/google-ai-studio
-  const base = (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com').trim().replace(/\/+$/, '');
+  // 기본 호출 경로 = Cloudflare AI Gateway(kwmath) 경유 → google-ai-studio.
+  // 이유: 구글 직통이면 Cloudflare가 차단지역 PoP에서 나가 "User location is not supported"가 뜸.
+  //       게이트웨이를 거치면 지원 지역에서 나가 우회됨. (구글 API 키는 그대로 x-goog-api-key로 전달)
+  // 되돌리려면 env GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com' (직통).
+  const DEFAULT_BASE = 'https://gateway.ai.cloudflare.com/v1/8a4345aa80570af6f8c1d2b3e04eb638/kwmath/google-ai-studio';
+  const base = (env.GEMINI_BASE_URL || DEFAULT_BASE).trim().replace(/\/+$/, '');
   const url = `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   const sys =
