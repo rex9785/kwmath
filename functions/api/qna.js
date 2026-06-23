@@ -104,7 +104,11 @@ function rowOut(r, opts = {}) {
 async function askGemini(env, question, studentMeta, image) {
   if (!env.GEMINI_API_KEY) return { error: 'AI 답변 기능이 아직 설정되지 않았어요. (관리자: GEMINI_API_KEY 등록 필요)' };
   const model = (env.GEMINI_MODEL || DEFAULT_MODEL).trim();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  // 기본은 구글 직통. env GEMINI_BASE_URL을 Cloudflare AI Gateway 주소로 두면 그쪽을 경유함.
+  // (→ Cloudflare가 차단지역 PoP에서 나가 "User location is not supported"가 뜰 때 우회용)
+  //   예: https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway>/google-ai-studio
+  const base = (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com').trim().replace(/\/+$/, '');
+  const url = `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   const sys =
     '너는 "이관우 수학연구소"의 친절한 수학 조교 AI야. 중·고등학생과 학부모의 수학 질문에 답한다.\n' +
@@ -169,6 +173,10 @@ async function askGemini(env, question, studentMeta, image) {
       }
       if (isOverload(res.status, lastMsg)) {
         return { error: '지금 AI 사용이 몰려 답변이 잠시 어려워요. 1~2분 뒤 다시 시도해 주세요.' };
+      }
+      // 지역 차단(Cloudflare가 미지원 지역 PoP에서 호출) — 학생에겐 깔끔한 한글로, 영어 원문 노출 안 함
+      if (/user location is not supported/i.test(lastMsg)) {
+        return { error: '지금 AI 답변이 어려워요.' };
       }
       return { error: 'AI 답변 생성 실패: ' + lastMsg };
     } catch (e) {
