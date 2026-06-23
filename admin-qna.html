@@ -84,6 +84,13 @@
   .utok{ font-size:0.76rem; color:var(--ink); margin-top:2px; } .ucost{ font-size:0.71rem; color:var(--muted); margin-top:2px; }
   .usmall{ font-size:0.9rem; } .usmall b{ color:var(--primary); }
   .unote{ font-size:0.72rem; color:var(--muted); line-height:1.65; padding:2px 4px 0; }
+
+  /* 새 질문 알림(푸시) 버튼 */
+  .pushbtn{ display:block; width:100%; margin:0 0 13px; padding:11px 14px; border-radius:11px; font-size:0.86rem; font-weight:800; cursor:pointer; font-family:inherit; border:1.5px solid var(--primary); background:#fff; color:var(--primary); transition:background .15s; }
+  .pushbtn:hover{ background:var(--primary-light); }
+  .pushbtn.on{ background:var(--primary-light); color:var(--primary); border-color:var(--primary-light); }
+  .pushbtn.blocked{ border-color:var(--border); color:var(--muted); cursor:default; }
+  .pushbtn.blocked:hover{ background:#fff; }
 </style>
 </head>
 <body>
@@ -92,6 +99,7 @@
     <div><h1>💬 질문 관리</h1><div class="sub">학생 질문에 선생님·조교가 답변 (관리자 전용)</div></div>
     <a class="back" href="/admin">← 관리자</a>
   </div>
+  <button id="pushBtn" class="pushbtn" style="display:none;" onclick="togglePush()">🔔 새 질문 알림 받기</button>
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -113,6 +121,7 @@
     return r;
   }
   function showLogin(err){
+    var pb=$('pushBtn'); if(pb) pb.style.display='none';
     $('content').innerHTML =
       '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>'+
       '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">'+
@@ -122,6 +131,49 @@
   }
   function doLogin(){ token=($('pw').value||'').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw',token); boot(); }
 
+  // ════════ 새 질문 알림 (관리자 푸시 구독) ════════
+  // userId='__admin__' 로 구독 → qna.js가 새 선생님요청 질문 때 이 id로 푸시 발송.
+  // (qna.js의 ADMIN_PUSH_USERS 와 반드시 동일한 문자열이어야 함)
+  var ADMIN_PUSH_USER = '__admin__';
+  function _u8(b64){ var pad='='.repeat((4-b64.length%4)%4); var s=(b64+pad).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(s); var o=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++)o[i]=raw.charCodeAt(i); return o; }
+  function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+
+  async function refreshPushBtn(){
+    var btn=$('pushBtn'); if(!btn) return;
+    if(!pushSupported()){ btn.style.display='none'; return; }
+    btn.style.display='block';
+    if(Notification.permission==='denied'){ btn.textContent='🔔 알림이 차단됨 — 브라우저 설정에서 허용'; btn.className='pushbtn blocked'; return; }
+    try{
+      var reg=await navigator.serviceWorker.ready;
+      var sub=await reg.pushManager.getSubscription();
+      if(sub){ btn.textContent='🔔 새 질문 알림 켜짐 (탭하면 끄기)'; btn.className='pushbtn on'; }
+      else{ btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; }
+    }catch(_){ btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; }
+  }
+
+  async function togglePush(){
+    if(!pushSupported()){ showToast('이 브라우저는 알림을 지원하지 않아요.'); return; }
+    if(Notification.permission==='denied'){ showToast('알림이 차단돼 있어요. 브라우저 설정에서 허용해주세요.'); return; }
+    try{
+      var reg=await navigator.serviceWorker.ready;
+      var existing=await reg.pushManager.getSubscription();
+      if(existing){
+        await existing.unsubscribe();
+        try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
+        showToast('알림을 껐어요.'); refreshPushBtn(); return;
+      }
+      var perm=await Notification.requestPermission();
+      if(perm!=='granted'){ showToast('알림 권한이 필요해요.'); return; }
+      var vRes=await fetch('/api/push-vapid-public'); var vData=await vRes.json();
+      if(!vData||!vData.publicKey){ showToast('푸시 서버 설정(VAPID)이 안 돼 있어요. 환경변수를 확인해주세요.', 4000); return; }
+      var sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8(vData.publicKey) });
+      var sRes=await fetch('/api/push-subscribe',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, subscription:sub.toJSON() }) });
+      if(!sRes.ok){ showToast('구독 저장 실패. 잠시 후 다시 시도해주세요.'); return; }
+      showToast('🔔 이제 새 질문이 오면 알림이 와요!');
+      refreshPushBtn();
+    }catch(e){ showToast('알림 설정 오류: '+((e&&e.message)||'')); }
+  }
+
   async function boot(){
     $('content').innerHTML = '<div class="msg">질문 불러오는 중…</div>';
     try{
@@ -129,6 +181,7 @@
       var data = await r.json();
       rows = (data && data.questions) || [];
       render();
+      refreshPushBtn();
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
   }
 
@@ -311,6 +364,8 @@
     }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
   }
 
+  // 푸시 수신용 서비스워커 등록 (sw.js의 push 핸들러가 알림 표시)
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(function(){}); }
   if(token) boot(); else showLogin('');
 </script>
 </body>

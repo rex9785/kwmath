@@ -19,6 +19,12 @@
 //     GEMINI_MODEL(선택, 기본 gemini-2.5-flash) · QNA_AI_DAILY_LIMIT(선택, 기본 10)
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
+import { sendPushToUsers } from './_push.js';
+
+// 새 질문(선생님 답변 대기) 알림을 받을 관리자 푸시 userId 목록.
+// 학생 userId는 휴대폰번호라 '__admin__'과 충돌하지 않음. admin-qna.html이 이 값으로 구독.
+// (나중에 조교용 id를 배열에 추가하면 조교에게도 동시 발송됨)
+const ADMIN_PUSH_USERS = ['__admin__'];
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const DEFAULT_DAILY_LIMIT = 10;  // 6/23 3→5→10 상향(학생 수 적어 토큰 비용 영향 미미, 나중에 조정 가능)
@@ -225,7 +231,33 @@ async function askGemini(env, question, studentMeta, image) {
   return { error: '지금 AI 사용이 몰려 답변이 잠시 어려워요. 1~2분 뒤 다시 시도해 주세요.' };
 }
 
-export async function onRequest({ request, env }) {
+// ── 새 질문(선생님 답변 대기)이 생기면 관리자에게 푸시 알림 (best-effort, 절대 throw 안 함) ──
+//   비밀글은 내용 미리보기를 빼고 이름만. AI 자동답변(answered)은 알림 안 함.
+function notifyAdminNewQuestion(context, env, q) {
+  try {
+    const who = (q.authorName || '학생').toString().slice(0, 20);
+    let detail;
+    if (q.isPrivate) {
+      detail = '🔒 비밀 질문이 등록됐어요';
+    } else {
+      const t = (q.title || '').toString().trim();
+      const qbody = (q.question && q.question !== '[사진으로 질문]') ? q.question.toString().trim() : '';
+      const preview = t || qbody || (q.hasImage ? '사진 질문' : '새 질문');
+      detail = preview.slice(0, 50);
+    }
+    const p = sendPushToUsers(env, ADMIN_PUSH_USERS, {
+      title: '💬 새 질문이 등록됐어요',
+      body: who + ' 학생 · ' + detail,
+      url: '/admin-qna.html',
+      tag: 'kwmath-qna-new',
+    });
+    if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+    else if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (_) { /* best-effort */ }
+}
+
+export async function onRequest(context) {
+  const { request, env } = context;
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
@@ -387,6 +419,7 @@ export async function onRequest({ request, env }) {
             'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
           ).bind(student.id || null, phone, authorName, 'teacher', isPrivate, title, storedQuestion, imageToStore, null, null, 'pending', today, now, null).run();
+          notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: !!imageToStore });
           return jsonOk({
             ok: true, id: res.meta && res.meta.last_row_id, mode: 'teacher', status: 'pending',
             aiFailed: true, message: ai.error + ' 대신 선생님께 질문이 전달됐어요.',
@@ -411,6 +444,7 @@ export async function onRequest({ request, env }) {
         'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
       ).bind(student.id || null, phone, authorName, 'teacher', isPrivate, title, storedQuestion, imageToStore, null, null, 'pending', today, now, null).run();
+      notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: !!imageToStore });
       return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id, mode: 'teacher', status: 'pending' });
     }
 
