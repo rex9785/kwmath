@@ -151,27 +151,34 @@
     }catch(_){ btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; }
   }
 
+  var _pushBusy=false;
   async function togglePush(){
+    if(_pushBusy) return;   // 처리 중 연타 무시 — 권한창이 3~4번 겹쳐 뜨던 원인
     if(!pushSupported()){ showToast('이 브라우저는 알림을 지원하지 않아요.'); return; }
     if(Notification.permission==='denied'){ showToast('알림이 차단돼 있어요. 브라우저 설정에서 허용해주세요.'); return; }
+    _pushBusy=true;
+    var btn=$('pushBtn'); if(btn){ btn.disabled=true; btn.style.opacity='0.6'; btn.textContent='⏳ 설정 중…'; }
     try{
       var reg=await navigator.serviceWorker.ready;
       var existing=await reg.pushManager.getSubscription();
       if(existing){
         await existing.unsubscribe();
         try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
-        showToast('알림을 껐어요.'); refreshPushBtn(); return;
+        showToast('알림을 껐어요.'); return;
       }
-      var perm=await Notification.requestPermission();
-      if(perm!=='granted'){ showToast('알림 권한이 필요해요.'); return; }
+      if(Notification.permission!=='granted'){            // 이미 허용돼 있으면 권한창 다시 안 띄움
+        var perm=await Notification.requestPermission();
+        if(perm!=='granted'){ showToast('알림 권한이 필요해요.'); return; }
+      }
       var vRes=await fetch('/api/push-vapid-public'); var vData=await vRes.json();
       if(!vData||!vData.publicKey){ showToast('푸시 서버 설정(VAPID)이 안 돼 있어요. 환경변수를 확인해주세요.', 4000); return; }
-      var sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8(vData.publicKey) });
+      var sub=await reg.pushManager.getSubscription();    // 권한 받은 뒤 재확인(있으면 재사용 → 중복구독 방지)
+      if(!sub) sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8(vData.publicKey) });
       var sRes=await fetch('/api/push-subscribe',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, subscription:sub.toJSON() }) });
       if(!sRes.ok){ showToast('구독 저장 실패. 잠시 후 다시 시도해주세요.'); return; }
       showToast('🔔 이제 새 질문이 오면 알림이 와요!');
-      refreshPushBtn();
     }catch(e){ showToast('알림 설정 오류: '+((e&&e.message)||'')); }
+    finally{ _pushBusy=false; if(btn){ btn.disabled=false; btn.style.opacity=''; } refreshPushBtn(); }
   }
 
   async function boot(){
