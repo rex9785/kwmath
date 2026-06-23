@@ -66,6 +66,24 @@
   .err{ color:#c0392b; font-size:0.8rem; margin-bottom:8px; }
   .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
   .toast.show{ display:block; }
+
+  /* 토큰 사용량 패널 */
+  .ucard{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:16px; margin-bottom:11px; box-shadow:0 2px 8px rgba(134,38,51,0.04); }
+  .urow{ display:flex; justify-content:space-between; align-items:baseline; font-size:0.9rem; font-weight:700; }
+  .urow b{ font-size:1.05rem; } .udim{ color:var(--muted); font-weight:600; font-size:0.82rem; }
+  .ubar{ height:10px; background:#F0E7E8; border-radius:6px; overflow:hidden; margin:10px 0 9px; }
+  .ubar i{ display:block; height:100%; background:var(--ai); border-radius:6px; transition:width .3s; }
+  .ubig{ font-size:0.92rem; color:var(--ink); } .ubig b{ color:var(--primary); font-size:1.08rem; }
+  .uedit{ display:flex; align-items:center; gap:8px; margin-top:13px; flex-wrap:wrap; }
+  .uedit label{ font-size:0.8rem; font-weight:700; color:var(--muted); }
+  .uedit input{ flex:1; min-width:120px; padding:7px 10px; border:1.5px solid var(--border); border-radius:8px; font-size:0.9rem; font-family:inherit; }
+  .ugrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:11px; }
+  .ubox{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:13px 8px; text-align:center; }
+  .ulab{ font-size:0.74rem; font-weight:700; color:var(--muted); margin-bottom:5px; }
+  .uq{ font-size:1.25rem; font-weight:800; color:var(--primary); } .uq span{ font-size:0.76rem; font-weight:600; color:var(--muted); margin-left:1px; }
+  .utok{ font-size:0.76rem; color:var(--ink); margin-top:2px; } .ucost{ font-size:0.71rem; color:var(--muted); margin-top:2px; }
+  .usmall{ font-size:0.9rem; } .usmall b{ color:var(--primary); }
+  .unote{ font-size:0.72rem; color:var(--muted); line-height:1.65; padding:2px 4px 0; }
 </style>
 </head>
 <body>
@@ -114,7 +132,76 @@
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
   }
 
-  function setTab(t){ tab=t; render(); }
+  function setTab(t){ tab=t; if(t==='usage'){ renderUsage(); } else { render(); } }
+
+  // ── 토큰 사용량 패널 ──
+  function nf(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+  function fmtTok(n){ n=Number(n)||0; if(n>=1000000) return (n/1000000).toFixed(2)+'M'; return nf(n); }
+
+  async function renderUsage(){
+    var pending = rows.filter(function(q){ return q.status==='pending'; }).length;
+    var head =
+      '<div class="bar">'+
+        '<div class="count">📊 AI 토큰 사용량</div>'+
+        '<div class="tabs">'+
+          '<button onclick="setTab(\'pending\')">미답변 <span class="n">'+pending+'</span></button>'+
+          '<button onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
+          '<button class="active" onclick="setTab(\'usage\')">📊 토큰</button>'+
+        '</div>'+
+      '</div>';
+    $('content').innerHTML = head + '<div class="msg">불러오는 중…</div>';
+    try{
+      var r = await api('/api/qna?usage=1&t='+Date.now());
+      var d = await r.json();
+      if(!r.ok){ $('content').innerHTML = head + '<div class="msg">'+esc(d.error||'불러오기 실패')+'</div>'; return; }
+      $('content').innerHTML = head + usagePanelHtml(d);
+    }catch(e){ if(String(e.message)!=='401') $('content').innerHTML = head + '<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
+  }
+
+  function statBox(label, q, tok, krw){
+    return '<div class="ubox"><div class="ulab">'+label+'</div>'+
+      '<div class="uq">'+nf(q||0)+'<span>개</span></div>'+
+      '<div class="utok">'+fmtTok(tok||0)+' 토큰</div>'+
+      (krw!=null ? '<div class="ucost">≈ ₩'+nf(krw)+'</div>' : '')+
+    '</div>';
+  }
+
+  function usagePanelHtml(d){
+    var t=d.today||{}, m=d.month||{}, tot=d.total||{}, pr=d.pricing||{};
+    var budget=Number(d.monthlyBudget)||0, used=Number(m.tokens)||0;
+    var pct = budget>0 ? Math.min(100, Math.round(used/budget*100)) : 0;
+    var remQ = (d.remainingQuestions==null) ? '—' : nf(d.remainingQuestions);
+    var avg = Number(d.avgTokensPerQuestion)||0, avgKrw = Number(d.avgCostKrwPerQuestion)||0;
+    return ''+
+      '<div class="ucard">'+
+        '<div class="urow"><span>이번 달 사용</span><b>'+fmtTok(used)+' <span class="udim">/ '+fmtTok(budget)+' 토큰</span></b></div>'+
+        '<div class="ubar"><i style="width:'+pct+'%;'+(pct>=80?'background:#c0392b;':'')+'"></i></div>'+
+        '<div class="ubig">예산 기준 <b>약 '+remQ+'개</b> 질문 더 가능 <span class="udim">('+pct+'% 사용)</span></div>'+
+        '<div class="uedit"><label>월 예산(토큰)</label>'+
+          '<input type="number" id="budgetInput" value="'+budget+'" min="0" step="100000">'+
+          '<button class="send" onclick="saveBudget()">저장</button></div>'+
+      '</div>'+
+      '<div class="ugrid">'+
+        statBox('오늘', t.questions, t.tokens, null)+
+        statBox('이번 달', m.questions, m.tokens, m.costKrw)+
+        statBox('누적', tot.questions, tot.tokens, null)+
+      '</div>'+
+      '<div class="ucard usmall">질문당 평균 <b>'+nf(avg)+' 토큰</b>'+(avgKrw?' <span class="udim">(≈ ₩'+nf(avgKrw)+')</span>':'')+'</div>'+
+      '<div class="unote">※ 추정 비용은 Gemini 2.5 Flash 단가(입력 $'+pr.inPerMillionUsd+' / 출력 $'+pr.outPerMillionUsd+' per 1M, 환율 ₩'+nf(pr.usdKrw)+') 기준 대략치예요. 실제 청구액은 Google AI Studio·Cloud 콘솔에서 확인하세요.<br>이 집계는 <b>질문방 AI(API) 사용량</b>만 — Gemini 앱 PRO 구독과는 별개입니다.</div>';
+  }
+
+  async function saveBudget(){
+    var el=$('budgetInput'); if(!el) return;
+    var v = parseInt(String(el.value||'').replace(/[^0-9]/g,''),10);
+    if(isNaN(v)||v<0){ showToast('예산을 숫자로 입력하세요.'); return; }
+    try{
+      var r = await api('/api/qna?usage=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ monthlyBudget: v }) });
+      var d = await r.json();
+      if(!r.ok){ showToast(d.error||'저장 실패'); return; }
+      showToast('✅ 월 예산을 저장했어요.');
+      renderUsage();
+    }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
+  }
 
   function render(){
     var pending = rows.filter(function(q){ return q.status==='pending'; });
@@ -125,6 +212,7 @@
         '<div class="tabs">'+
           '<button class="'+(tab==='pending'?'active':'')+'" onclick="setTab(\'pending\')">미답변 <span class="n">'+pending.length+'</span></button>'+
           '<button class="'+(tab==='all'?'active':'')+'" onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
+          '<button class="'+(tab==='usage'?'active':'')+'" onclick="setTab(\'usage\')">📊 토큰</button>'+
         '</div>'+
       '</div>';
 

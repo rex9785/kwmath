@@ -26,6 +26,13 @@ const MAX_Q_LEN = 1200;     // 질문 글자 제한
 const MAX_A_LEN = 8000;     // 저장 답변 글자 제한
 const MAX_IMG_B64 = 2_600_000;  // 첨부 사진 base64 최대 길이(약 1.9MB 바이너리). 클라이언트가 리사이즈해 보내므로 보통 그 한참 아래.
 
+// ── 토큰 사용량/비용 추정용 상수 (6/23 추가) ──
+// Gemini 2.5 Flash 단가(2026-06 기준, USD per 1M tokens). 바뀌면 여기만 수정.
+const PRICE_IN_PER_M = 0.30;   // 입력 토큰
+const PRICE_OUT_PER_M = 2.50;  // 출력(+사고) 토큰
+const USD_KRW = 1350;          // 환율 대략치(비용은 추정)
+const DEFAULT_MONTHLY_TOKEN_BUDGET = 2_000_000; // 월 토큰 예산 기본값(관리자 화면에서 수정)
+
 // 데이터URL("data:image/jpeg;base64,...") → { mimeType, data(base64), dataUrl } 또는 null
 function parseImage(raw) {
   if (!raw || typeof raw !== 'string') return null;
@@ -55,6 +62,12 @@ async function ensureTable(env) {
   try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN image TEXT').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_qna_phone ON qna(author_phone)').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_qna_created ON qna(created_at)').run(); } catch (_) {}
+  // 토큰 사용량(6/23 추가) — AI 답변 1건당 사용 토큰. 기존 테이블이면 컬럼만 추가.
+  try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN tokens_total INTEGER').run(); } catch (_) {}
+  try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN tokens_in INTEGER').run(); } catch (_) {}
+  try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN tokens_out INTEGER').run(); } catch (_) {}
+  // 앱 설정(키-값) — 월 토큰 예산 등
+  try { await env.DB.prepare('CREATE TABLE IF NOT EXISTS qna_settings (key TEXT PRIMARY KEY, value TEXT)').run(); } catch (_) {}
 }
 
 // KST 기준 날짜 문자열 (일일 제한 카운트용 — UTC와 9시간 차이 보정)
@@ -178,7 +191,12 @@ async function askGemini(env, question, studentMeta, image) {
         const parts = cand && cand.content && cand.content.parts;
         const text = (parts || []).map(p => p && p.text ? p.text : '').join('').trim();
         if (!text) return { error: 'AI가 답변을 만들지 못했어요. 잠시 후 다시 시도하거나 선생님께 질문해 주세요.' };
-        return { text: text.slice(0, MAX_A_LEN) };
+        // 사용 토큰 집계용 — usageMetadata(있으면). 사고 토큰은 출력 단가로 청구되므로 out에 합산.
+        const um = (data && data.usageMetadata) || {};
+        const tIn = Number(um.promptTokenCount) || 0;
+        const tOut = (Number(um.candidatesTokenCount) || 0) + (Number(um.thoughtsTokenCount) || 0);
+        const tTotal = Number(um.totalTokenCount) || (tIn + tOut);
+        return { text: text.slice(0, MAX_A_LEN), usage: { in: tIn, out: tOut, total: tTotal } };
       }
       lastMsg = (data && data.error && data.error.message) || ('HTTP ' + res.status);
       if (isOverload(res.status, lastMsg) && attempt < RETRY_WAITS.length) {
@@ -227,6 +245,52 @@ export async function onRequest({ request, env }) {
   try {
     // ─────────────────────────── GET ───────────────────────────
     if (method === 'GET') {
+      // 관리자 — AI 토큰 사용량 집계 (오늘/이번달/누적 + 월예산 대비)
+      if (url.searchParams.get('usage') === '1') {
+        if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
+        const today = kstDateStr();
+        const month = today.slice(0, 7);   // YYYY-MM (KST)
+        const todayRow = await env.DB.prepare(
+          "SELECT COUNT(*) AS q, COALESCE(SUM(tokens_total),0) AS tok " +
+          "FROM qna WHERE mode='ai' AND tokens_total IS NOT NULL AND qdate=?"
+        ).bind(today).first();
+        const monthRow = await env.DB.prepare(
+          "SELECT COUNT(*) AS q, COALESCE(SUM(tokens_total),0) AS tok, COALESCE(SUM(tokens_in),0) AS tin, COALESCE(SUM(tokens_out),0) AS tout " +
+          "FROM qna WHERE mode='ai' AND tokens_total IS NOT NULL AND substr(qdate,1,7)=?"
+        ).bind(month).first();
+        const totalRow = await env.DB.prepare(
+          "SELECT COUNT(*) AS q, COALESCE(SUM(tokens_total),0) AS tok, COALESCE(SUM(tokens_in),0) AS tin, COALESCE(SUM(tokens_out),0) AS tout " +
+          "FROM qna WHERE mode='ai' AND tokens_total IS NOT NULL"
+        ).first();
+        const bRow = await env.DB.prepare("SELECT value FROM qna_settings WHERE key='monthly_token_budget'").first();
+        const monthlyBudget = (bRow && bRow.value != null && bRow.value !== '')
+          ? Math.max(0, parseInt(bRow.value, 10) || 0) : DEFAULT_MONTHLY_TOKEN_BUDGET;
+        const num = (v) => Number(v) || 0;
+        const usdCost = (tin, tout) => (num(tin) / 1e6) * PRICE_IN_PER_M + (num(tout) / 1e6) * PRICE_OUT_PER_M;
+        const totQ = num(totalRow && totalRow.q);
+        const avgTok = totQ > 0 ? Math.round(num(totalRow.tok) / totQ) : 0;
+        const avgKrw = totQ > 0 ? Math.round(usdCost(totalRow.tin, totalRow.tout) / totQ * USD_KRW) : 0;
+        const remTok = Math.max(0, monthlyBudget - num(monthRow && monthRow.tok));
+        const remQ = avgTok > 0 ? Math.floor(remTok / avgTok) : null;
+        const monthUsd = usdCost(monthRow && monthRow.tin, monthRow && monthRow.tout);
+        return jsonOk({
+          ok: true,
+          today: { questions: num(todayRow && todayRow.q), tokens: num(todayRow && todayRow.tok) },
+          month: {
+            questions: num(monthRow && monthRow.q), tokens: num(monthRow && monthRow.tok),
+            tokensIn: num(monthRow && monthRow.tin), tokensOut: num(monthRow && monthRow.tout),
+            costKrw: Math.round(monthUsd * USD_KRW), costUsd: Number(monthUsd.toFixed(4)),
+          },
+          total: { questions: totQ, tokens: num(totalRow && totalRow.tok) },
+          avgTokensPerQuestion: avgTok,
+          avgCostKrwPerQuestion: avgKrw,
+          monthlyBudget,
+          remainingTokens: remTok,
+          remainingQuestions: remQ,
+          pricing: { inPerMillionUsd: PRICE_IN_PER_M, outPerMillionUsd: PRICE_OUT_PER_M, usdKrw: USD_KRW },
+        });
+      }
+
       // admin 전체
       if (url.searchParams.get('admin') === '1') {
         if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
@@ -266,6 +330,18 @@ export async function onRequest({ request, env }) {
 
     // ─────────────────────────── POST (질문 작성) ───────────────────────────
     if (method === 'POST') {
+      // 관리자 — 월 토큰 예산 저장 (질문 작성 흐름보다 먼저 분기)
+      if (url.searchParams.get('usage') === '1') {
+        if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
+        const sb = await request.json().catch(() => ({}));
+        const val = Math.max(0, parseInt(sb.monthlyBudget, 10) || 0);
+        await env.DB.prepare(
+          "INSERT INTO qna_settings (key, value) VALUES ('monthly_token_budget', ?) " +
+          "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+        ).bind(String(val)).run();
+        return jsonOk({ ok: true, monthlyBudget: val });
+      }
+
       const access = await requireStudentAccess(env, request);
       if (!access.ok) return access.response;
       const phone = access.phone;
@@ -312,10 +388,11 @@ export async function onRequest({ request, env }) {
             aiRemaining: Math.max(0, dailyLimit - used),
           }, 200);
         }
+        const u = ai.usage || { in: null, out: null, total: null };
         const res = await env.DB.prepare(
-          'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
-          "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        ).bind(student.id || null, phone, authorName, 'ai', isPrivate, title, storedQuestion, imageToStore, ai.text, 'AI', 'answered', today, now, now).run();
+          'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at, tokens_total, tokens_in, tokens_out) ' +
+          "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        ).bind(student.id || null, phone, authorName, 'ai', isPrivate, title, storedQuestion, imageToStore, ai.text, 'AI', 'answered', today, now, now, u.total, u.in, u.out).run();
         const usedAfter = used + 1;
         return jsonOk({
           ok: true, id: res.meta && res.meta.last_row_id, mode: 'ai', status: 'answered',
