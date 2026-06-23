@@ -138,28 +138,49 @@ async function askGemini(env, question, studentMeta, image) {
     ],
   };
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const m = (data && data.error && data.error.message) || ('HTTP ' + res.status);
-      return { error: 'AI 답변 생성 실패: ' + m };
+  // 과부하(429/503 · "high demand") 시 짧게 재시도 — Gemini가 일시적으로 몰릴 때
+  const RETRY_WAITS = [800, 1600]; // ms, 최대 2회 추가 시도
+  const isOverload = (status, msg) =>
+    status === 429 || status === 503 || status === 500 ||
+    /high demand|overloaded|unavailable|resource_exhausted/i.test(msg || '');
+  let lastMsg = '';
+  for (let attempt = 0; attempt <= RETRY_WAITS.length; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        if (data && data.promptFeedback && data.promptFeedback.blockReason) {
+          return { error: '질문이 안전 정책에 걸려 답변할 수 없어요. 수학 질문으로 다시 작성해 주세요.' };
+        }
+        const cand = data && data.candidates && data.candidates[0];
+        const parts = cand && cand.content && cand.content.parts;
+        const text = (parts || []).map(p => p && p.text ? p.text : '').join('').trim();
+        if (!text) return { error: 'AI가 답변을 만들지 못했어요. 잠시 후 다시 시도하거나 선생님께 질문해 주세요.' };
+        return { text: text.slice(0, MAX_A_LEN) };
+      }
+      lastMsg = (data && data.error && data.error.message) || ('HTTP ' + res.status);
+      if (isOverload(res.status, lastMsg) && attempt < RETRY_WAITS.length) {
+        await new Promise(r => setTimeout(r, RETRY_WAITS[attempt]));
+        continue;
+      }
+      if (isOverload(res.status, lastMsg)) {
+        return { error: '지금 AI 사용이 몰려 답변이 잠시 어려워요. 1~2분 뒤 다시 시도해 주세요.' };
+      }
+      return { error: 'AI 답변 생성 실패: ' + lastMsg };
+    } catch (e) {
+      lastMsg = (e && e.message) || '통신 오류';
+      if (attempt < RETRY_WAITS.length) {
+        await new Promise(r => setTimeout(r, RETRY_WAITS[attempt]));
+        continue;
+      }
+      return { error: 'AI 서버 통신 오류. 잠시 후 다시 시도해 주세요.' };
     }
-    if (data && data.promptFeedback && data.promptFeedback.blockReason) {
-      return { error: '질문이 안전 정책에 걸려 답변할 수 없어요. 수학 질문으로 다시 작성해 주세요.' };
-    }
-    const cand = data && data.candidates && data.candidates[0];
-    const parts = cand && cand.content && cand.content.parts;
-    const text = (parts || []).map(p => p && p.text ? p.text : '').join('').trim();
-    if (!text) return { error: 'AI가 답변을 만들지 못했어요. 잠시 후 다시 시도하거나 선생님께 질문해 주세요.' };
-    return { text: text.slice(0, MAX_A_LEN) };
-  } catch (e) {
-    return { error: 'AI 서버 통신 오류. 잠시 후 다시 시도해 주세요.' };
   }
+  return { error: '지금 AI 사용이 몰려 답변이 잠시 어려워요. 1~2분 뒤 다시 시도해 주세요.' };
 }
 
 export async function onRequest({ request, env }) {
