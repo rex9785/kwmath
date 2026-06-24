@@ -10,10 +10,20 @@
 // status: '출석' / '지각' / '결석' / '병결' / '공결'   homework: 0~100
 
 import { requireStudentAccess } from './_auth.js';
-import { getStudentByName, getStudentsByPhone, getAttendance, upsertAttendance, deleteAttendance, listAllAttendance } from './_db.js';
+import { getStudentByName, getStudentsByPhone, getAttendance, upsertAttendance, deleteAttendance, listAllAttendance, listStudents } from './_db.js';
+import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 
 const VALID_STATUS = ['출석', '지각', '결석', '병결', '공결'];
+
+// 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음).
+//   미배정 조교는 빈 Set → 아무 출결도 못 봄. POST/DELETE는 미들웨어가 이미 403으로 막음.
+async function staffNameScope(env, request) {
+  const academy = await staffScopeAcademy(env, request);
+  if (academy === null) return null;                               // 원장 → 전체
+  const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
+  return new Set(roster.map(s => s.name));
+}
 
 export async function onRequest({ request, env }) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
@@ -22,10 +32,14 @@ export async function onRequest({ request, env }) {
 
   // ── GET ──
   if (request.method === 'GET') {
-    // admin 전체
+    // 조교 학원 스코프 (원장이면 null). isAdmin일 때만 의미 있음(학생/학부모는 자기 것만).
+    const allowedNames = isAdmin ? await staffNameScope(env, request) : null;
+
+    // admin/조교 전체 (조교는 자기 학원만 필터)
     if (isAdmin && url.searchParams.get('all') === '1') {
       try {
-        const out = await listAllAttendance(env);
+        let out = await listAllAttendance(env);
+        if (allowedNames) out = out.filter(e => allowedNames.has(e.name));
         return Response.json(out);
       } catch (e) {
         return safeError(e, env, { message: '출결 기록을 불러오지 못했습니다.' });
@@ -45,6 +59,10 @@ export async function onRequest({ request, env }) {
         studentId = me ? me.id : null;
       } else {
         if (!targetName) return Response.json({ error: 'name 필수' }, { status: 400 });
+        // 조교가 자기 학원 밖 학생을 조회하면 빈 기록 반환(존재 여부도 숨김)
+        if (allowedNames && !allowedNames.has(targetName)) {
+          return Response.json({ name: targetName, records: {}, updatedAt: null });
+        }
         const st = await getStudentByName(env, targetName);
         studentId = st ? st.id : null;
       }

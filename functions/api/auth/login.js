@@ -56,9 +56,15 @@ export async function onRequest({ request, env }) {
     if (!staff.approved) {
       return jsonError('조교 가입이 아직 승인되지 않았습니다. 관우T 승인 후 같은 번호·비밀번호로 로그인하실 수 있어요.', 403);
     }
-    const staffToken = await issueStaffSession(env);
+    const staffToken = await issueStaffSession(env, phone);
     if (!staffToken) return jsonError('운영진 세션 설정이 누락됐습니다. (ADMIN_PASSWORD 미설정)', 500);
-    return Response.json({ ok: true, role: 'staff', isStaff: true, phone, name: staff.name || '', staffToken });
+    return Response.json({
+      ok: true, role: 'staff', isStaff: true, phone,
+      name: staff.name || '',
+      academy: staff.academy || '',          // 맡은 학원 (조교 페이지 표시용)
+      hourlyWage: staff.hourlyWage || 0,      // 시급 (원장이 설정)
+      staffToken,
+    });
   }
 
   // ════════ 학생/학부모 — 기존 포털 흐름 ════════

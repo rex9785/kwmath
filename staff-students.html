@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>우리 학원 학생 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ai:#1f6f78; --ai-light:#E3F1F2; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:4px; }
+  h1{ font-size:1.3rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.82rem; margin-bottom:14px; }
+  a.back, .back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; }
+  .nav{ display:flex; gap:8px; margin-bottom:13px; flex-wrap:wrap; }
+  .nav a{ flex:1; min-width:130px; text-align:center; text-decoration:none; background:#fff; border:1.5px solid var(--border); border-radius:10px; padding:9px 10px; font-weight:700; font-size:0.82rem; color:var(--ink); }
+  .nav a.cur{ border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
+  .bar{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+  .count{ font-weight:800; font-size:0.98rem; } .count b{ color:var(--primary); }
+  .search{ flex:1; min-width:160px; padding:8px 12px; border:1.5px solid var(--border); border-radius:9px; font-size:0.9rem; font-family:inherit; outline:none; }
+  .search:focus{ border-color:var(--primary); }
+
+  .card{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:14px 15px; margin-bottom:10px; box-shadow:0 2px 8px rgba(134,38,51,0.04); }
+  .chead{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .nm{ font-weight:800; font-size:1.0rem; }
+  .cls{ font-size:0.74rem; color:var(--primary); font-weight:700; background:var(--primary-light); padding:2px 8px; border-radius:9px; }
+  .meta{ font-size:0.78rem; color:var(--muted); margin-left:auto; }
+  .badge{ display:inline-block; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .b-pending{ background:#FFF7E0; color:#B07A00; } .b-ok{ background:#E5F5E8; color:#1F7A33; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:7px 12px; margin-top:11px; }
+  .f{ font-size:0.82rem; } .f .k{ color:var(--muted); font-size:0.72rem; display:block; margin-bottom:1px; }
+  .f .v{ font-weight:700; } .f .v.empty{ color:#bbb; font-weight:500; }
+  .scorebox{ margin-top:11px; background:var(--bg); border-radius:9px; padding:9px 11px; display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:6px; }
+  .sc{ text-align:center; } .sc .l{ font-size:0.68rem; color:var(--muted); } .sc .g{ font-size:0.98rem; font-weight:800; color:var(--ink); } .sc .g.empty{ color:#ccc; }
+  .arow{ margin-top:10px; }
+  button.mini{ background:#fff; color:var(--muted); border:1px solid var(--border); border-radius:7px; padding:5px 11px; font-size:0.76rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  button.mini:hover{ border-color:var(--primary); color:var(--primary); }
+  .attwrap{ margin-top:10px; background:#fff; border:1px dashed var(--border); border-radius:9px; padding:10px 11px; font-size:0.8rem; display:none; }
+  .attwrap.show{ display:block; }
+  .attsum{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .pill{ font-size:0.74rem; font-weight:700; padding:2px 9px; border-radius:9px; background:#F2EDEE; color:var(--ink); }
+  .pill.ab{ background:#FBE6E6; color:#b3261e; } .pill.ok{ background:#E5F5E8; color:#1F7A33; } .pill.late{ background:#FFF3DB; color:#B07A00; }
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
+  .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
+  .toast.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>🎓 우리 학원 학생</h1><div class="sub" id="subTitle">담당 학원 학생만 보여요 · 연락처는 가려집니다</div></div>
+    <button class="back" id="backLink" onclick="logout()">로그아웃</button>
+  </div>
+  <div class="nav">
+    <a href="/admin-qna">💬 질문 답변</a>
+    <a href="/staff-students" class="cur">🎓 학생</a>
+    <a href="/staff-worklog">🗓️ 근무기록</a>
+  </div>
+  <div class="bar">
+    <div class="count" id="count">불러오는 중…</div>
+    <input class="search" id="search" placeholder="이름·반 검색" oninput="render()">
+  </div>
+  <div id="content"><div class="msg">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  var students = [], attCache = {};
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
+  function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+  function curMonth(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401){ logout(); throw new Error('401'); }
+    return r;
+  }
+
+  function val(v){ return v ? '<span class="v">'+esc(v)+'</span>' : '<span class="v empty">—</span>'; }
+  function score(label, g){ return '<div class="sc"><div class="l">'+label+'</div><div class="g'+(g?'':' empty')+'">'+esc(g||'—')+'</div></div>'; }
+
+  function cardHtml(s){
+    var appr = (s.approvalStatus==='대기중')
+      ? '<span class="badge b-pending">승인대기</span>'
+      : (s.approvalStatus==='거부' ? '<span class="badge b-pending">거부</span>' : '<span class="badge b-ok">재원</span>');
+    return ''+
+    '<div class="card">'+
+      '<div class="chead">'+
+        '<span class="nm">'+esc(s.name||'(이름없음)')+'</span>'+
+        (s.className?'<span class="cls">'+esc(s.className)+'</span>':'')+
+        appr+
+        '<span class="meta">'+esc(s.school||'')+(s.grade?' · '+esc(s.grade):'')+'</span>'+
+      '</div>'+
+      '<div class="grid">'+
+        '<div class="f"><span class="k">현재 수학 등급</span>'+val(s.level)+'</div>'+
+        '<div class="f"><span class="k">선행 진도</span>'+val(s.advanceProgress)+'</div>'+
+        '<div class="f"><span class="k">약점 단원</span>'+val(s.weakness)+'</div>'+
+        '<div class="f"><span class="k">목표 대학</span>'+val(s.dreamUniv)+'</div>'+
+      '</div>'+
+      '<div class="scorebox">'+
+        score('수학 모의', s.mathMockGrade)+
+        score('국어 모의', s.korMockGrade)+
+        score('영어 모의', s.engMockGrade)+
+        score('내신 수학', s.schoolMathGrade)+
+      '</div>'+
+      '<div class="arow"><button class="mini" onclick="toggleAtt(this,\''+esc(s.name).replace(/'/g,"\\'")+'\')">📅 이번 달 출결</button></div>'+
+      '<div class="attwrap" data-name="'+esc(s.name)+'"></div>'+
+    '</div>';
+  }
+
+  function render(){
+    var q = ($('search').value||'').trim().toLowerCase();
+    var list = students.filter(function(s){
+      if(!q) return true;
+      return (String(s.name||'').toLowerCase().indexOf(q)>=0) || (String(s.className||'').toLowerCase().indexOf(q)>=0);
+    });
+    var acad = students.length ? (students[0].academy||'') : '';
+    $('count').innerHTML = (acad?esc(acad)+' · ':'')+'학생 <b>'+list.length+'</b>명';
+    if(!students.length){ $('content').innerHTML = '<div class="msg">담당 학원에 등록된 학생이 없어요.<br><span style="font-size:0.78rem;">(원장이 학원 배정을 안 했거나, 아직 학생이 없는 경우)</span></div>'; return; }
+    if(!list.length){ $('content').innerHTML = '<div class="msg">검색 결과가 없어요.</div>'; return; }
+    $('content').innerHTML = list.map(cardHtml).join('');
+  }
+
+  async function toggleAtt(btn, name){
+    var box = btn.closest('.card').querySelector('.attwrap');
+    if(box.classList.contains('show')){ box.classList.remove('show'); return; }
+    box.classList.add('show');
+    if(box.dataset.loaded==='1') return;
+    box.innerHTML = '불러오는 중…';
+    try{
+      var m = curMonth();
+      var r = await api('/api/attendance?name='+encodeURIComponent(name)+'&month='+m);
+      var j = await r.json();
+      var rec = (j&&j.records)||{};
+      var dates = Object.keys(rec).sort();
+      if(!dates.length){ box.innerHTML = '<span style="color:#999;">'+m+' 출결 기록 없음</span>'; box.dataset.loaded='1'; return; }
+      var c={출석:0,지각:0,결석:0,병결:0,공결:0}, hwSum=0, hwN=0;
+      dates.forEach(function(d){ var e=rec[d]||{}; if(c[e.status]!==undefined)c[e.status]++; if(typeof e.homework==='number'){hwSum+=e.homework;hwN++;} });
+      var pills='<span class="pill ok">출석 '+c.출석+'</span>'+
+        (c.지각?'<span class="pill late">지각 '+c.지각+'</span>':'')+
+        (c.결석?'<span class="pill ab">결석 '+c.결석+'</span>':'')+
+        (c.병결?'<span class="pill">병결 '+c.병결+'</span>':'')+
+        (c.공결?'<span class="pill">공결 '+c.공결+'</span>':'');
+      var hw = hwN? '<span class="pill">숙제 평균 '+Math.round(hwSum/hwN)+'%</span>':'';
+      var days = dates.map(function(d){ var e=rec[d]||{}; return '<div>'+esc(d.slice(5))+' · '+esc(e.status||'-')+(typeof e.homework==='number'?' · 숙제 '+e.homework+'%':'')+(e.note?' · '+esc(e.note):'')+'</div>'; }).join('');
+      box.innerHTML = '<div class="attsum">'+pills+hw+'</div><div style="color:var(--muted);line-height:1.7;">'+days+'</div>';
+      box.dataset.loaded='1';
+    }catch(e){ box.innerHTML = '<span style="color:#c0392b;">출결을 불러오지 못했어요.</span>'; }
+  }
+
+  async function boot(){
+    if(!token){ logout(); return; }
+    try{
+      var r = await api('/api/students');
+      var j = await r.json();
+      students = Array.isArray(j) ? j : [];
+      render();
+    }catch(e){ if(String(e.message)!=='401') $('content').innerHTML = '<div class="msg">목록을 불러오지 못했어요. 다시 시도해주세요.</div>'; }
+  }
+  boot();
+</script>
+</body>
+</html>

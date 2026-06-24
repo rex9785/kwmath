@@ -1,8 +1,9 @@
-// /api/staff-approve — 운영진(조교) 승인 관리 (원장 전용, Bearer ADMIN_PASSWORD)
-//   GET                              → { ok, staff:[{phone,name,approved,createdAt,approvedAt}] }
-//   POST { phone, action:'approve'|'reject' }
+// /api/staff-approve — 운영진(조교) 승인·배정 관리 (원장 전용, Bearer ADMIN_PASSWORD)
+//   GET                              → { ok, staff:[{phone,name,approved,createdAt,approvedAt,academy,hourlyWage}] }
+//   POST { phone, action:'approve'|'reject'|'config' }
 //     approve → R2 staff/{phone}.json approved=true (이제 로그인 가능)
 //     reject  → R2 staff 레코드 + 계정 삭제 (로그인 차단)
+//     config  → { academy?, hourlyWage? } 맡은 학원·시급 설정 (월급 계산·학생 스코프에 사용)
 import { listStaff, getStaffRecord, putStaffRecord, deleteStaffRecord } from './_staff.js';
 import { normalizePhone } from './_auth.js';
 
@@ -26,11 +27,26 @@ export async function onRequest({ request, env }) {
     const phone = normalizePhone(body.phone || '') || String(body.phone || '').trim();
     const action = String(body.action || '');
     if (!phone) return Response.json({ error: 'phone 필수' }, { status: 400 });
-    if (!['approve', 'reject'].includes(action))
-      return Response.json({ error: "action은 approve 또는 reject" }, { status: 400 });
+    if (!['approve', 'reject', 'config'].includes(action))
+      return Response.json({ error: "action은 approve / reject / config" }, { status: 400 });
 
     const rec = await getStaffRecord(env, phone);
     if (!rec) return Response.json({ error: '해당 조교 신청을 찾을 수 없습니다.' }, { status: 404 });
+
+    // 학원 배정·시급 설정 (월급 계산·학생 열람 스코프의 핵심)
+    if (action === 'config') {
+      if (body.academy !== undefined) rec.academy = String(body.academy || '').trim();
+      if (body.hourlyWage !== undefined) {
+        const w = Math.round(Number(body.hourlyWage));
+        rec.hourlyWage = (Number.isFinite(w) && w >= 0) ? w : 0;
+      }
+      await putStaffRecord(env, phone, rec);
+      return Response.json({
+        ok: true, action: 'config', phone, name: rec.name || '',
+        academy: rec.academy || '', hourlyWage: rec.hourlyWage || 0,
+        message: '[' + (rec.name || phone) + '] 배정 저장: 학원 "' + (rec.academy || '미배정') + '" · 시급 ' + (rec.hourlyWage || 0).toLocaleString() + '원',
+      });
+    }
 
     if (action === 'approve') {
       rec.approved = true;

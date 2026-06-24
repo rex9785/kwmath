@@ -35,6 +35,20 @@
   .msg a{color:var(--primary);font-weight:700;text-decoration:none;}
   .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#222;color:#fff;padding:11px 20px;border-radius:10px;font-size:0.85rem;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:50;max-width:90%;text-align:center;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* 급여 월 선택 + 배정/시급 설정 */
+  .monthbar{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:16px;}
+  .monthbar button{background:#fff;border:1.5px solid var(--border);border-radius:8px;width:32px;height:32px;font-size:1rem;cursor:pointer;color:var(--primary);font-weight:800;}
+  .monthbar .ml{font-weight:800;min-width:118px;text-align:center;}
+  .cfg{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+  .cfg .crow{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+  .cfg label{font-size:0.76rem;font-weight:700;color:var(--text-light);min-width:42px;}
+  .cfg input{flex:1;min-width:110px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.86rem;font-family:inherit;outline:none;}
+  .cfg input:focus{border-color:var(--primary);}
+  .cfg .save{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:800;font-size:0.82rem;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .cfg .save:disabled{opacity:.5;cursor:not-allowed;}
+  .payline{display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap;font-size:0.84rem;}
+  .payline .tag{background:var(--primary-light);color:var(--primary);font-weight:800;padding:5px 12px;border-radius:9px;}
+  .payline .dim{color:var(--text-light);font-size:0.78rem;}
 </style>
 </head>
 <body>
@@ -45,24 +59,39 @@
 <div class="wrap">
   <div class="intro">
     조교(운영진) 가입 신청을 <b>승인</b>하면 같은 번호·비밀번호로 로그인해 <b>질문 답변</b>을 할 수 있습니다.
-    조교는 열람과 질문답변만 가능하며, 학생 삭제·비밀번호 초기화 등 관리 기능은 사용할 수 없습니다.
+    승인 후 <b>담당 학원</b>을 배정하면 그 학원 학생 정보(연락처 제외)를 열람할 수 있고, <b>시급</b>을 설정하면 조교가 입력한 근무기록으로 월급이 자동 계산됩니다.
+    조교는 열람·질문답변·본인 근무기록만 가능하며, 학생 삭제·비밀번호 초기화 등 관리 기능은 쓸 수 없습니다.
   </div>
   <div class="summary" id="summary" style="display:none;">
     <div class="pill">대기 <b id="cntWait">0</b></div>
     <div class="pill">승인됨 <b id="cntOk">0</b></div>
+    <div class="pill">이달 급여합계 <b id="cntPay">0원</b></div>
+  </div>
+  <div class="monthbar" id="monthbar" style="display:none;">
+    <button onclick="moveMonth(-1)">‹</button>
+    <div class="ml" id="monthLabel">—</div>
+    <button onclick="moveMonth(1)">›</button>
   </div>
   <div id="content"><div class="msg">불러오는 중…</div></div>
+  <datalist id="academyOptions"></datalist>
 </div>
 <div class="toast" id="toast"></div>
 <script>
   var token = localStorage.getItem('kwmath_admin_token') || '';
   var staff = [];
+  var month = curMonth();          // 급여 조회 월
+  var payByPhone = {};             // digits → { totalHours, totalPay, dayCount }
+  var academyList = [];            // 학생 학원 목록(드롭다운) — 오타로 스코프 깨지는 것 방지
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2600); }
   function fmtPhone(p){ var d=String(p||'').replace(/[^0-9]/g,''); if(d.length===11) return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7); if(d.length===10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); return esc(p); }
   function fmtDate(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return esc(iso); return d.getFullYear()+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+('0'+d.getDate()).slice(-2); }
+  function curMonth(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+  function won(n){ return (Number(n)||0).toLocaleString()+'원'; }
+  function digits(p){ return String(p||'').replace(/\D/g,''); }
+  function moveMonth(delta){ var p=month.split('-'); var d=new Date(+p[0],+p[1]-1+delta,1); month=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); loadPayroll().then(render); }
 
   function needLogin(){
     $('summary').style.display='none';
@@ -77,16 +106,50 @@
       if(r.status===401 || r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
       var data = await r.json();
       staff = (data && data.staff) || [];
+      await Promise.all([ loadAcademies(), loadPayroll() ]);
       render();
     }catch(e){ $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
+  }
+
+  // 학생들의 학원 목록 → 배정 드롭다운(정확한 학원명 선택용, 오타 방지)
+  async function loadAcademies(){
+    try{
+      var r = await fetch('/api/students', { headers: { 'Authorization': 'Bearer ' + token } });
+      if(!r.ok) return;
+      var arr = await r.json();
+      var set = {};
+      (Array.isArray(arr)?arr:[]).forEach(function(s){ if(s.academy) set[s.academy]=1; });
+      academyList = Object.keys(set).sort();
+    }catch(_){}
+  }
+
+  // 선택 월 전체 조교 근무 합계 → payByPhone
+  async function loadPayroll(){
+    payByPhone = {};
+    try{
+      var r = await fetch('/api/staff-worklog?all=1&month='+month, { headers: { 'Authorization': 'Bearer ' + token } });
+      if(!r.ok) return;
+      var j = await r.json();
+      (j && j.staff || []).forEach(function(s){ payByPhone[digits(s.phone)] = s; });
+    }catch(_){}
   }
 
   function render(){
     var wait = staff.filter(function(s){ return !s.approved; });
     var ok   = staff.filter(function(s){ return s.approved; });
     $('summary').style.display='flex';
+    $('monthbar').style.display = staff.length ? 'flex' : 'none';
+    $('monthLabel').textContent = month.replace('-','년 ')+'월 급여';
     $('cntWait').textContent = wait.length;
     $('cntOk').textContent = ok.length;
+
+    // 드롭다운(학원 목록) 채우기
+    $('academyOptions').innerHTML = academyList.map(function(a){ return '<option value="'+esc(a)+'">'; }).join('');
+
+    // 이달 급여 합계 (승인 조교 기준)
+    var totalPay = 0;
+    ok.forEach(function(s){ var p=payByPhone[digits(s.phone)]; if(p) totalPay += (p.totalPay||0); });
+    $('cntPay').textContent = won(totalPay);
 
     if(!staff.length){
       $('content').innerHTML='<div class="msg">아직 조교 가입 신청이 없습니다.<br><span style="font-size:0.8rem;">조교는 <b>/register-staff</b> 에서 가입 신청합니다.</span></div>';
@@ -106,6 +169,26 @@
     var when = s.approved
       ? ('승인일 ' + fmtDate(s.approvedAt))
       : ('신청일 ' + fmtDate(s.createdAt));
+
+    // 승인된 조교: 학원 배정 + 시급 설정 + 이달 급여
+    var extra = '';
+    if(s.approved){
+      var pay = payByPhone[digits(s.phone)] || { totalHours:0, totalPay:0, dayCount:0 };
+      var wage = s.hourlyWage||0;
+      extra =
+        '<div class="cfg">'+
+          '<div class="crow"><label>담당 학원</label>'+
+            '<input id="ac_'+phone+'" list="academyOptions" value="'+esc(s.academy||'')+'" placeholder="학생 학원과 정확히 일치"></div>'+
+          '<div class="crow"><label>시급</label>'+
+            '<input id="wg_'+phone+'" type="number" min="0" step="1000" value="'+wage+'" placeholder="원">'+
+            '<button class="save" onclick="saveConfig(\''+phone+'\',\''+nameSafe+'\')">저장</button></div>'+
+          '<div class="payline">'+
+            '<span class="tag">'+month.slice(5)+'월 '+won(pay.totalPay)+'</span>'+
+            '<span class="dim">'+(pay.dayCount||0)+'일 · '+(pay.totalHours||0)+'시간'+(wage?'':' · ⚠️시급 미설정')+'</span>'+
+          '</div>'+
+        '</div>';
+    }
+
     var btns = s.approved
       ? '<div class="btns"><button class="btn revoke" onclick="act(\''+phone+'\',\'reject\',\''+nameSafe+'\')">권한 해제(삭제)</button></div>'
       : '<div class="btns">'+
@@ -116,8 +199,29 @@
       '<div class="row1"><div class="name">'+nameSafe+'</div>'+badge+'</div>'+
       '<div class="phone">'+fmtPhone(s.phone)+'</div>'+
       '<div class="meta">'+when+'</div>'+
+      extra+
       btns+
     '</div>';
+  }
+
+  // 학원 배정 + 시급 저장 (config action)
+  async function saveConfig(phone, name){
+    var ac = ($('ac_'+phone)||{}).value || '';
+    var wg = ($('wg_'+phone)||{}).value;
+    var card = document.querySelector('.card[data-phone="'+phone+'"]');
+    var btn = card ? card.querySelector('.cfg .save') : null;
+    if(btn) btn.disabled=true;
+    try{
+      var r = await fetch('/api/staff-approve', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+        body: JSON.stringify({ phone: phone, action:'config', academy: ac.trim(), hourlyWage: Number(wg)||0 })
+      });
+      if(r.status===401 || r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var data = await r.json();
+      if(r.ok && data.ok){ showToast(data.message || '저장됨'); await load(); }
+      else { showToast(data.error || '저장 실패'); if(btn) btn.disabled=false; }
+    }catch(e){ showToast('네트워크 오류'); if(btn) btn.disabled=false; }
   }
 
   async function act(phone, action, name){

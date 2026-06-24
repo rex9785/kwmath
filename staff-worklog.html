@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>근무기록 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ai:#1f6f78; --ai-light:#E3F1F2; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:680px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 70px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:4px; }
+  h1{ font-size:1.3rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.82rem; margin-bottom:14px; }
+  .back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; }
+  .nav{ display:flex; gap:8px; margin-bottom:13px; flex-wrap:wrap; }
+  .nav a{ flex:1; min-width:130px; text-align:center; text-decoration:none; background:#fff; border:1.5px solid var(--border); border-radius:10px; padding:9px 10px; font-weight:700; font-size:0.82rem; color:var(--ink); }
+  .nav a.cur{ border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
+
+  .card{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:15px 16px; margin-bottom:12px; box-shadow:0 2px 8px rgba(134,38,51,0.04); }
+  .mhead{ display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:12px; }
+  .mhead button{ background:#fff; border:1.5px solid var(--border); border-radius:8px; width:34px; height:34px; font-size:1.0rem; cursor:pointer; color:var(--primary); font-weight:800; }
+  .mhead .ml{ font-size:1.05rem; font-weight:800; min-width:118px; text-align:center; }
+  .sumgrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+  .sumbox{ background:var(--bg); border-radius:11px; padding:13px 8px; text-align:center; }
+  .sumbox .l{ font-size:0.74rem; color:var(--muted); font-weight:700; margin-bottom:4px; }
+  .sumbox .v{ font-size:1.2rem; font-weight:800; color:var(--ink); }
+  .sumbox.pay{ background:var(--primary-light); } .sumbox.pay .v{ color:var(--primary); }
+  .wagehint{ text-align:center; font-size:0.75rem; color:var(--muted); margin-top:10px; }
+
+  .sechead{ font-weight:800; font-size:0.92rem; margin:2px 0 11px; }
+  .seg{ display:flex; gap:4px; background:#F2EDEE; border-radius:8px; padding:3px; margin-bottom:11px; }
+  .seg button{ flex:1; border:none; background:transparent; padding:8px 10px; border-radius:6px; font-size:0.82rem; font-weight:700; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .seg button.active{ background:#fff; color:var(--primary); box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  .row{ display:flex; gap:9px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .row label{ font-size:0.8rem; font-weight:700; color:var(--muted); min-width:62px; }
+  input[type=date], input[type=time], input[type=number], input[type=text]{ flex:1; min-width:110px; padding:9px 11px; border:1.5px solid var(--border); border-radius:9px; font-size:0.9rem; font-family:inherit; outline:none; }
+  input:focus{ border-color:var(--primary); }
+  .hint{ font-size:0.74rem; color:var(--muted); }
+  button.save{ width:100%; background:var(--primary); color:#fff; border:none; border-radius:9px; padding:11px; font-size:0.9rem; font-weight:800; cursor:pointer; font-family:inherit; margin-top:3px; }
+  button.save:hover{ background:#6f1f2b; } button.save:disabled{ opacity:.55; cursor:not-allowed; }
+
+  .days{ display:flex; gap:5px; flex-wrap:wrap; margin-bottom:11px; }
+  .days button{ border:1.5px solid var(--border); background:#fff; border-radius:8px; padding:7px 0; width:40px; font-size:0.82rem; font-weight:700; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .days button.on{ border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
+  .fillrow{ display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
+  button.ghost{ background:#fff; color:var(--primary); border:1.5px solid var(--primary); border-radius:9px; padding:9px 14px; font-size:0.82rem; font-weight:800; cursor:pointer; font-family:inherit; }
+  button.ghost:hover{ background:var(--primary-light); } button.ghost:disabled{ opacity:.5; cursor:not-allowed; }
+  .collapse-h{ display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .collapse-h .arrow{ color:var(--muted); font-size:0.8rem; }
+  .collapse-body{ margin-top:13px; }
+
+  .entry{ display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--border); }
+  .entry:last-child{ border-bottom:none; }
+  .entry .d{ font-weight:800; font-size:0.88rem; min-width:78px; }
+  .entry .d small{ display:block; color:var(--muted); font-weight:600; font-size:0.7rem; }
+  .entry .h{ font-weight:800; color:var(--primary); font-size:0.92rem; min-width:54px; }
+  .entry .det{ font-size:0.76rem; color:var(--muted); flex:1; min-width:80px; }
+  .entry .det .memo{ color:var(--ink); }
+  .entry button.del{ background:none; border:none; color:#c0392b; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .empty{ text-align:center; color:var(--muted); padding:18px; font-size:0.85rem; }
+  .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
+  .toast.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>🗓️ 근무기록</h1><div class="sub" id="subTitle">일한 날을 기록하면 월급이 자동 계산돼요</div></div>
+    <button class="back" onclick="logout()">로그아웃</button>
+  </div>
+  <div class="nav">
+    <a href="/admin-qna">💬 질문 답변</a>
+    <a href="/staff-students">🎓 학생</a>
+    <a href="/staff-worklog" class="cur">🗓️ 근무기록</a>
+  </div>
+
+  <!-- 월 요약 -->
+  <div class="card">
+    <div class="mhead">
+      <button onclick="moveMonth(-1)">‹</button>
+      <div class="ml" id="monthLabel">—</div>
+      <button onclick="moveMonth(1)">›</button>
+    </div>
+    <div class="sumgrid">
+      <div class="sumbox"><div class="l">일한 날</div><div class="v" id="sDays">—</div></div>
+      <div class="sumbox"><div class="l">총 시간</div><div class="v" id="sHours">—</div></div>
+      <div class="sumbox pay"><div class="l">예상 급여</div><div class="v" id="sPay">—</div></div>
+    </div>
+    <div class="wagehint" id="wageHint"></div>
+  </div>
+
+  <!-- 입력 -->
+  <div class="card">
+    <div class="sechead">➕ 근무 추가 / 수정</div>
+    <div class="seg">
+      <button id="modeTime" class="active" onclick="setMode('time')">출근·퇴근 시각</button>
+      <button id="modeHours" onclick="setMode('hours')">총 시간 직접</button>
+    </div>
+    <div class="row"><label>날짜</label><input type="date" id="inDate"></div>
+    <div id="timeFields">
+      <div class="row"><label>출근</label><input type="time" id="inStart"><label style="min-width:38px;text-align:center;">퇴근</label><input type="time" id="inEnd"></div>
+    </div>
+    <div id="hoursFields" style="display:none;">
+      <div class="row"><label>근무시간</label><input type="number" id="inHours" min="0" max="24" step="0.5" placeholder="예: 3.5"><span class="hint">시간 단위</span></div>
+    </div>
+    <div class="row"><label>메모</label><input type="text" id="inMemo" maxlength="100" placeholder="비고 (선택) — 예: 보강, 시험감독"></div>
+    <button class="save" id="saveBtn" onclick="saveEntry()">저장</button>
+  </div>
+
+  <!-- 기본 출근 요일 -->
+  <div class="card">
+    <div class="collapse-h" onclick="togglePrefs()">
+      <div class="sechead" style="margin:0;">⚙️ 기본 출근 요일 (빠른 채우기)</div>
+      <span class="arrow" id="prefArrow">▾</span>
+    </div>
+    <div class="collapse-body" id="prefBody">
+      <div class="hint" style="margin-bottom:9px;">기본으로 나오는 요일과 1회 근무시간을 정해두면, 이번 달을 한 번에 채울 수 있어요. (이 설정은 이 기기에만 저장)</div>
+      <div class="days" id="dayBtns"></div>
+      <div class="row"><label>1회 시간</label><input type="number" id="defHours" min="0" max="24" step="0.5" placeholder="예: 3"><button class="ghost" onclick="savePrefs()" style="white-space:nowrap;">설정 저장</button></div>
+      <div class="fillrow">
+        <button class="ghost" id="fillBtn" onclick="fillMonth()">📌 이번 달 기본요일 채우기</button>
+        <span class="hint">이미 기록된 날은 건너뛰어요. 못 나온 날은 아래에서 삭제, 추가 근무는 위에서 입력하세요.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 일별 내역 -->
+  <div class="card">
+    <div class="sechead">📋 일별 내역</div>
+    <div id="entryList"><div class="empty">불러오는 중…</div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  var state = { month: curMonth(), data: null, mode: 'time' };
+  var WD = ['일','월','화','수','목','금','토'];
+  var prefs = loadPrefs();
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
+  function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+  function curMonth(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function won(n){ return (Number(n)||0).toLocaleString()+'원'; }
+  function wdOf(dateStr){ var p=dateStr.split('-'); return new Date(+p[0],+p[1]-1,+p[2]).getDay(); }
+
+  function loadPrefs(){ try{ return JSON.parse(localStorage.getItem('kwmath_worklog_prefs')||'') || {days:[],hours:''}; }catch(_){ return {days:[],hours:''}; } }
+
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401){ logout(); throw new Error('401'); }
+    return r;
+  }
+
+  function setMode(m){ state.mode=m; $('modeTime').classList.toggle('active',m==='time'); $('modeHours').classList.toggle('active',m==='hours'); $('timeFields').style.display=m==='time'?'':'none'; $('hoursFields').style.display=m==='hours'?'':'none'; }
+  function moveMonth(delta){ var p=state.month.split('-'); var d=new Date(+p[0],+p[1]-1+delta,1); state.month=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); load(); }
+
+  function renderSummary(){
+    var d = state.data || {};
+    $('monthLabel').textContent = state.month.replace('-','년 ')+'월';
+    $('sDays').textContent = (d.dayCount||0)+'일';
+    $('sHours').textContent = (d.totalHours||0)+'h';
+    $('sPay').textContent = won(d.totalPay||0);
+    var w = d.hourlyWage||0;
+    $('wageHint').innerHTML = w ? ('시급 <b style="color:var(--primary);">'+won(w)+'</b> 기준 (원장이 설정)') : '⚠️ 시급이 아직 설정되지 않았어요. 원장께 문의하면 급여가 계산돼요.';
+  }
+
+  function renderEntries(){
+    var rows = (state.data && state.data.entries) || [];
+    if(!rows.length){ $('entryList').innerHTML = '<div class="empty">이 달 기록이 없어요. 위에서 추가해보세요.</div>'; return; }
+    $('entryList').innerHTML = rows.map(function(e){
+      var wd = WD[wdOf(e.date)];
+      var det = (e.start&&e.end) ? (e.start+'~'+e.end) : '직접입력';
+      var memo = e.memo ? ' · <span class="memo">'+esc(e.memo)+'</span>' : '';
+      return '<div class="entry">'+
+        '<div class="d">'+esc(e.date.slice(5))+'<small>'+wd+'요일</small></div>'+
+        '<div class="h">'+e.hours+'h</div>'+
+        '<div class="det">'+det+memo+'</div>'+
+        '<button class="del" onclick="delEntry(\''+e.date+'\')">삭제</button>'+
+      '</div>';
+    }).join('');
+  }
+
+  async function saveEntry(){
+    var date=$('inDate').value;
+    if(!date){ showToast('날짜를 선택해주세요'); return; }
+    var payload={ date:date, memo:($('inMemo').value||'').trim() };
+    if(state.mode==='time'){
+      var s=$('inStart').value, en=$('inEnd').value;
+      if(!s||!en){ showToast('출근·퇴근 시각을 입력해주세요'); return; }
+      payload.start=s; payload.end=en;
+    } else {
+      var h=parseFloat($('inHours').value);
+      if(!(h>0)){ showToast('근무시간을 입력해주세요'); return; }
+      payload.hours=h;
+    }
+    var btn=$('saveBtn'); btn.disabled=true;
+    try{
+      var r=await api('/api/staff-worklog',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      var j=await r.json();
+      if(!r.ok||!j.ok){ showToast(j.error||'저장 실패'); btn.disabled=false; return; }
+      showToast('저장됐어요 ('+j.hours+'시간)');
+      $('inMemo').value=''; $('inStart').value=''; $('inEnd').value=''; $('inHours').value='';
+      await load();
+    }catch(e){ showToast('저장 중 오류'); }
+    btn.disabled=false;
+  }
+
+  async function delEntry(date){
+    if(!confirm(date+' 기록을 삭제할까요?')) return;
+    try{
+      var r=await api('/api/staff-worklog?date='+encodeURIComponent(date),{ method:'DELETE' });
+      var j=await r.json();
+      if(j.ok){ showToast('삭제됨'); await load(); } else showToast(j.error||'삭제 실패');
+    }catch(e){ showToast('삭제 중 오류'); }
+  }
+
+  // ── 기본 출근 요일 ──
+  function togglePrefs(){ var b=$('prefBody'); var open=b.style.display!=='none'; b.style.display=open?'none':''; $('prefArrow').textContent=open?'▸':'▾'; }
+  function renderDayBtns(){
+    $('dayBtns').innerHTML = WD.map(function(w,i){ var on=(prefs.days||[]).indexOf(i)>=0; return '<button class="'+(on?'on':'')+'" onclick="toggleDay('+i+')">'+w+'</button>'; }).join('');
+    $('defHours').value = prefs.hours||'';
+  }
+  function toggleDay(i){ prefs.days=prefs.days||[]; var k=prefs.days.indexOf(i); if(k>=0)prefs.days.splice(k,1); else prefs.days.push(i); renderDayBtns(); }
+  function savePrefs(){ prefs.hours=parseFloat($('defHours').value)||''; try{ localStorage.setItem('kwmath_worklog_prefs',JSON.stringify(prefs)); }catch(_){} showToast('기본 출근 설정 저장됨'); }
+  async function fillMonth(){
+    var days=prefs.days||[], h=parseFloat($('defHours').value)||prefs.hours;
+    if(!days.length){ showToast('기본 요일을 먼저 골라주세요'); return; }
+    if(!(h>0)){ showToast('1회 근무시간을 입력해주세요'); return; }
+    savePrefs();
+    var p=state.month.split('-'), y=+p[0], mo=+p[1];
+    var existing={}; ((state.data&&state.data.entries)||[]).forEach(function(e){ existing[e.date]=1; });
+    var targets=[];
+    var last=new Date(y,mo,0).getDate();
+    for(var d=1; d<=last; d++){ var ds=state.month+'-'+('0'+d).slice(-2); if(days.indexOf(new Date(y,mo-1,d).getDay())>=0 && !existing[ds]) targets.push(ds); }
+    if(!targets.length){ showToast('채울 날이 없어요 (이미 기록됨)'); return; }
+    if(!confirm(targets.length+'일을 '+h+'시간으로 채울까요? (이미 기록된 날 제외)')) return;
+    var btn=$('fillBtn'); btn.disabled=true; var ok=0;
+    for(var i=0;i<targets.length;i++){
+      try{ var r=await api('/api/staff-worklog',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ date:targets[i], hours:h, memo:'기본근무' }) }); if(r.ok)ok++; }catch(_){}
+    }
+    btn.disabled=false; showToast(ok+'일 채웠어요'); await load();
+  }
+
+  async function load(){
+    if(!token){ logout(); return; }
+    try{
+      var r=await api('/api/staff-worklog?month='+state.month);
+      var j=await r.json();
+      if(!r.ok){ if(j&&j.error) showToast(j.error); return; }
+      state.data=j;
+      if(j.name) $('subTitle').textContent=j.name+' 선생님'+(j.academy?' · '+j.academy:'')+' · 일한 날 기록';
+      renderSummary(); renderEntries();
+    }catch(e){ if(String(e.message)!=='401'){ $('entryList').innerHTML='<div class="empty">불러오지 못했어요.</div>'; } }
+  }
+
+  // init
+  $('inDate').value=todayStr();
+  renderDayBtns();
+  load();
+</script>
+</body>
+</html>

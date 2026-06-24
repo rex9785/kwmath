@@ -42,6 +42,7 @@ const STAFF_GET_BLOCK = new Set([
 ]);
 const STAFF_WRITE_ALLOW = new Set([
   '/api/push-subscribe',   // 조교 본인 알림 구독/해제
+  '/api/staff-worklog',    // 조교 본인 근무기록 입력/수정/삭제 (POST·DELETE) — 신원은 X-Staff-Phone로 서버가 강제
 ]);
 function staffAllowed(url, method) {
   const pathname = url.pathname;
@@ -83,20 +84,26 @@ export async function onRequest(context) {
       const authz = context.request.headers.get('Authorization') || '';
       const bearer = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
 
-      const translate = () => {
+      // staffPhone이 주어지면 다운스트림에 X-Staff-Phone(검증된 신원)을 실어 보낸다.
+      //   ⚠️ 클라이언트가 직접 넣은 X-Staff-Phone은 항상 지운 뒤(스푸핑 방지) 토큰에서 나온 값만 세팅.
+      //   원장(adm_)·쿠키 경로는 staffPhone 없음 → 헤더도 안 붙음(= 전체 접근).
+      const translate = (staffPhone) => {
         const h = new Headers(context.request.headers);
         h.set('Authorization', 'Bearer ' + env.ADMIN_PASSWORD);
+        h.delete('X-Staff-Phone');                       // 외부 주입 차단(필수)
+        if (staffPhone) h.set('X-Staff-Phone', staffPhone);
         forwardRequest = new Request(context.request, { headers: h });
       };
 
       if (isAdminSessionToken(bearer)) {
-        // 원장(adm_) 풀권한 세션 — 기존 동작 그대로
+        // 원장(adm_) 풀권한 세션 — 기존 동작 그대로 (X-Staff-Phone 없음 → 전체 열람)
         if (await verifyAdminSession(env, bearer)) translate();
       } else if (isStaffSessionToken(bearer)) {
-        // 조교(ast_) 제한 세션 — 허용 경로만 번역, 그 외 403
-        if (await verifyStaffSession(env, bearer)) {
+        // 조교(ast_) 제한 세션 — 허용 경로만 번역, 그 외 403. 토큰에 박힌 전화번호를 X-Staff-Phone로 전달.
+        const sv = await verifyStaffSession(env, bearer);
+        if (sv) {
           if (staffAllowed(url, method)) {
-            translate();
+            translate(sv.phone);   // ← 검증된 조교 신원(숫자만)
           } else {
             return new Response(
               JSON.stringify({ error: '조교 권한으로는 이 작업을 할 수 없어요. (열람·질문답변만 가능)' }),

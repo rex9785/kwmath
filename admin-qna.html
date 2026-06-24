@@ -91,6 +91,11 @@
   .pushbtn.on{ background:var(--primary-light); color:var(--primary); border-color:var(--primary-light); }
   .pushbtn.blocked{ border-color:var(--border); color:var(--muted); cursor:default; }
   .pushbtn.blocked:hover{ background:#fff; }
+
+  /* 조교 콘솔 네비게이션 (staffMode에서만 노출) */
+  .staffnav{ display:flex; gap:8px; margin-bottom:13px; flex-wrap:wrap; }
+  .staffnav a{ flex:1; min-width:120px; text-align:center; text-decoration:none; background:#fff; border:1.5px solid var(--border); border-radius:10px; padding:9px 10px; font-weight:700; font-size:0.82rem; color:var(--ink); }
+  .staffnav a.cur{ border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
 </style>
 </head>
 <body>
@@ -98,6 +103,11 @@
   <div class="top">
     <div><h1>💬 질문 관리</h1><div class="sub" id="subTitle">학생 질문에 선생님·조교가 답변 (관리자 전용)</div></div>
     <a class="back" id="backLink" href="/admin">← 관리자</a>
+  </div>
+  <div class="staffnav" id="staffNav" style="display:none;">
+    <a href="/admin-qna" class="cur">💬 질문 답변</a>
+    <a href="/staff-students">🎓 학생</a>
+    <a href="/staff-worklog">🗓️ 근무기록</a>
   </div>
   <button id="pushBtn" class="pushbtn" style="display:none;" onclick="togglePush()">🔔 새 질문 알림 받기</button>
   <div id="content"><div class="msg">불러오는 중…</div></div>
@@ -114,8 +124,10 @@
     if(!staffMode()) return;
     var back = document.getElementById('backLink');
     var sub  = document.getElementById('subTitle');
+    var nav  = document.getElementById('staffNav');
     if(back){ back.textContent='로그아웃'; back.removeAttribute('href'); back.style.cursor='pointer'; back.onclick=staffLogout; }
-    if(sub){ sub.textContent='조교 콘솔 · 질문 답변 전용'; }
+    if(sub){ sub.textContent='조교 콘솔 · 질문답변 · 학생 · 근무기록'; }
+    if(nav){ nav.style.display='flex'; }   // 조교용 학생·근무기록 바로가기 노출
   }
   function staffLogout(){ sessionStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
 
