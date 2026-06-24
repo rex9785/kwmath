@@ -1412,5 +1412,9 @@ const FAQ_DATA = [
   if(hidden){reopen.style.display='block';}else{setTimeout(kwOpen,600);}
 })();
 </script>
+<script>
+/* 월급 리마인더(매월 4·5일): 하루 1회만 서버 핑 — Pages엔 cron이 없어 접속 트래픽으로 트리거 */
+(function(){try{var t=new Date().toISOString().slice(0,10);if(localStorage.getItem('kwmath_payroll_ping')!==t){localStorage.setItem('kwmath_payroll_ping',t);fetch('/api/payroll-reminder').catch(function(){});}}catch(e){}})();
+</script>
 </body>
 </html>

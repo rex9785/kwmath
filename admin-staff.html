@@ -39,6 +39,12 @@
   .monthbar{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:16px;}
   .monthbar button{background:#fff;border:1.5px solid var(--border);border-radius:8px;width:32px;height:32px;font-size:1rem;cursor:pointer;color:var(--primary);font-weight:800;}
   .monthbar .ml{font-weight:800;min-width:118px;text-align:center;}
+  /* 월급날(매월 5일) 안내 배너 */
+  .payday{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;background:var(--primary-light);border:1.5px solid var(--primary);border-radius:12px;padding:11px 14px;margin-bottom:16px;font-size:0.86rem;color:var(--primary);}
+  .payday b{font-weight:800;}
+  .payday.today{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .payday .jump{background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;padding:5px 11px;font-size:0.78rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .payday.today .jump{border-color:#fff;}
   .cfg{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
   .cfg .crow{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
   .cfg label{font-size:0.76rem;font-weight:700;color:var(--text-light);min-width:42px;}
@@ -60,13 +66,15 @@
   <div class="intro">
     조교(운영진) 가입 신청을 <b>승인</b>하면 같은 번호·비밀번호로 로그인해 <b>질문 답변</b>을 할 수 있습니다.
     승인 후 <b>담당 학원</b>을 배정하면 그 학원 학생 정보(연락처 제외)를 열람할 수 있고, <b>시급</b>을 설정하면 조교가 입력한 근무기록으로 월급이 자동 계산됩니다.
+    <b>월급날은 매월 5일</b> — 전월(1일~말일) 근무분을 정산해 지급합니다(아래 배너에 이번 지급 대상·금액 표시).
     조교는 열람·질문답변·본인 근무기록만 가능하며, 학생 삭제·비밀번호 초기화 등 관리 기능은 쓸 수 없습니다.
   </div>
   <div class="summary" id="summary" style="display:none;">
     <div class="pill">대기 <b id="cntWait">0</b></div>
     <div class="pill">승인됨 <b id="cntOk">0</b></div>
-    <div class="pill">이달 급여합계 <b id="cntPay">0원</b></div>
+    <div class="pill"><span id="payMonthLbl">이달</span> 급여합계 <b id="cntPay">0원</b></div>
   </div>
+  <div class="payday" id="payday" style="display:none;"></div>
   <div class="monthbar" id="monthbar" style="display:none;">
     <button onclick="moveMonth(-1)">‹</button>
     <div class="ml" id="monthLabel">—</div>
@@ -79,7 +87,8 @@
 <script>
   var token = localStorage.getItem('kwmath_admin_token') || '';
   var staff = [];
-  var month = curMonth();          // 급여 조회 월
+  var PAY = payInfo();             // 월급날(매월 5일)·정산 대상월
+  var month = PAY.targetMonth;     // 기본 조회월 = 이번에 지급할 전월 근무분
   var payByPhone = {};             // digits → { totalHours, totalPay, dayCount }
   var academyList = [];            // 학생 학원 목록(드롭다운) — 오타로 스코프 깨지는 것 방지
 
@@ -92,6 +101,22 @@
   function won(n){ return (Number(n)||0).toLocaleString()+'원'; }
   function digits(p){ return String(p||'').replace(/\D/g,''); }
   function moveMonth(delta){ var p=month.split('-'); var d=new Date(+p[0],+p[1]-1+delta,1); month=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); loadPayroll().then(render); }
+  function ym(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+  // 월급날 = 매월 5일. 전월(1~말일) 근무분 정산.
+  // 오늘이 5일 이하 → 이번 달 5일에 '전월' 지급 / 5일 초과 → 다음 달 5일에 '이번 달' 지급.
+  function payInfo(){
+    var d=new Date(), y=d.getFullYear(), m=d.getMonth();   // m: 0-base
+    var pm = (d.getDate()>5) ? m+1 : m;                     // 지급일이 속한 달
+    var pay = new Date(y, pm, 5);                            // 다음(또는 오늘) 지급일
+    var tgt = new Date(y, pm-1, 1);                          // 정산 대상 = 지급월 전월
+    return {
+      paydayLabel: (pay.getMonth()+1)+'월 5일',
+      targetMonth: ym(tgt),
+      targetLabel: (tgt.getMonth()+1)+'월',
+      isToday: (d.getFullYear()===pay.getFullYear() && d.getMonth()===pay.getMonth() && d.getDate()===5)
+    };
+  }
+  function goPayTarget(){ month=PAY.targetMonth; loadPayroll().then(render); }
 
   function needLogin(){
     $('summary').style.display='none';
@@ -142,14 +167,29 @@
     $('monthLabel').textContent = month.replace('-','년 ')+'월 급여';
     $('cntWait').textContent = wait.length;
     $('cntOk').textContent = ok.length;
+    $('payMonthLbl').textContent = (+month.slice(5))+'월';
 
     // 드롭다운(학원 목록) 채우기
     $('academyOptions').innerHTML = academyList.map(function(a){ return '<option value="'+esc(a)+'">'; }).join('');
 
-    // 이달 급여 합계 (승인 조교 기준)
+    // 선택 월 급여 합계 (승인 조교 기준)
     var totalPay = 0;
     ok.forEach(function(s){ var p=payByPhone[digits(s.phone)]; if(p) totalPay += (p.totalPay||0); });
     $('cntPay').textContent = won(totalPay);
+
+    // 💰 월급날(매월 5일) 배너 — 정산 대상 전월 안내
+    var pb = $('payday');
+    if(staff.length){
+      pb.style.display='flex';
+      var onTarget = (month===PAY.targetMonth);
+      pb.className = 'payday' + (PAY.isToday ? ' today' : '');
+      var head = PAY.isToday
+        ? ('💰 <b>오늘이 월급날!</b> '+PAY.targetLabel+' 근무분 지급일')
+        : ('💰 다음 월급날 <b>'+PAY.paydayLabel+'</b> · '+PAY.targetLabel+' 근무분 정산');
+      pb.innerHTML = onTarget
+        ? (head + ' — 합계 <b>'+won(totalPay)+'</b>')
+        : (head + ' <button class="jump" onclick="goPayTarget()">▶ '+PAY.targetLabel+' 보기</button>');
+    } else { pb.style.display='none'; }
 
     if(!staff.length){
       $('content').innerHTML='<div class="msg">아직 조교 가입 신청이 없습니다.<br><span style="font-size:0.8rem;">조교는 <b>/register-staff</b> 에서 가입 신청합니다.</span></div>';
