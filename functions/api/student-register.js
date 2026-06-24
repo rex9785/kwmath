@@ -3,6 +3,7 @@
 import { normalizePhone } from './_auth.js';
 import { createStudent } from './_db.js';
 import { safeError } from './_errors.js';
+import { resolveClassCode } from './class-options.js';
 
 function generateKey() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 문자 제외 (I, O, 0, 1)
@@ -19,7 +20,7 @@ export async function onRequest({ request, env }) {
   const {
     name, school, grade,
     parentPhone4, parentPhone, parentRelation, studentPhone,
-    goals, level, academy, className,
+    goals, level, classCode,
     mathMockGrade, mathMockScore, korMockGrade, engMockGrade,
     schoolMathGrade, advanceProgress, weakness, dreamUniv, availableDays,
     notes,
@@ -37,6 +38,12 @@ export async function onRequest({ request, env }) {
   }
   if (!Array.isArray(availableDays) || !availableDays.length) {
     return Response.json({ error: '등원 가능 요일을 선택해주세요. (모르면 "협의")' }, { status: 400 });
+  }
+
+  // 🔑 반 코드 → 학원/반 자동 배정 (서버측 권위 검증). 코드 없거나 틀리면 등록 불가(스팸 차단).
+  const resolvedClass = await resolveClassCode(env, classCode);
+  if (!resolvedClass) {
+    return Response.json({ error: '반 코드가 올바르지 않습니다. 선생님께 받은 코드를 다시 확인해주세요.' }, { status: 400 });
   }
 
   let phone4 = (parentPhone4 || '').replace(/[^0-9]/g, '').slice(-4);
@@ -65,8 +72,8 @@ export async function onRequest({ request, env }) {
     parentRelation,
     goals: goalsArray,
     level: level || '잘 모름',
-    academy: academy || '대치동 정규반',
-    className,
+    academy: resolvedClass.academy,
+    className: resolvedClass.className,
     mathMockGrade, mathMockScore, korMockGrade, engMockGrade,
     schoolMathGrade, advanceProgress,
     availableDays: daysArray,

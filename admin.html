@@ -1567,8 +1567,12 @@
         for (const cls of classes) {
           const cnt = getClassStudentCount(acad, cls);
           const canDelete = cnt === 0;
+          const code = (data.codes || {})[acad + '/' + cls] || '—';
           html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f9fafc;border-radius:6px;font-size:0.85rem;">
-            <span>${esc(cls)} <span style="color:#888;font-size:0.78rem;margin-left:6px;">학생 ${cnt}명</span></span>
+            <span>${esc(cls)}
+              <span onclick="copyClassCode('${esc(code).replace(/'/g,'\\x27')}')" title="탭하면 복사" style="display:inline-block;margin-left:6px;background:#E8EAF6;color:#283593;font-weight:800;font-size:0.78rem;letter-spacing:1px;padding:1px 7px;border-radius:5px;cursor:pointer;font-family:monospace;">🔑 ${esc(code)}</span>
+              <span style="color:#888;font-size:0.78rem;margin-left:6px;">학생 ${cnt}명</span>
+            </span>
             <button class="del-btn" ${canDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${canDelete ? '반 삭제' : '학생 있어서 삭제 불가'}" style="padding:4px 10px;font-size:0.78rem;">🗑 삭제</button>
           </div>`;
         }
@@ -1577,6 +1581,15 @@
       html += '</div>';
     }
     list.innerHTML = html;
+  }
+  // 🔑 반코드 탭 → 클립보드 복사
+  function copyClassCode(code) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code);
+        showToast('📋 반코드 ' + code + ' 복사됨');
+      } else { showToast('반코드: ' + code); }
+    } catch (e) { showToast('반코드: ' + code); }
   }
   async function deleteClass(academy, className) {
     if (!confirm('[' + academy + ' · ' + className + '] 반을 삭제할까요?\n(드롭다운 옵션에서만 사라집니다. 옛 데이터는 보존됨)')) return;
@@ -1649,7 +1662,7 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '추가 실패')); return; }
-      showToast('✅ [' + academy + ' · ' + name + '] 반 추가됨');
+      showToast('✅ [' + academy + ' · ' + name + '] 추가됨 · 🔑 반코드 ' + (data.code || '-'));
       await loadClassOptionsFromServer();
       renderClassManager();
     } catch (e) { showToast('네트워크 오류: ' + e.message); }

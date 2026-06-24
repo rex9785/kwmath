@@ -42,6 +42,39 @@ async function saveOptions(env, data) {
   });
 }
 
+// 🔑 반 코드 — 학원/반마다 자동 발급되는 5자리 숫자.
+//   학생 등록 시 이 코드로 반 자동 배정 + 코드 없으면 등록 불가(스팸 차단).
+function genCode(existing) {
+  let code, tries = 0;
+  do { code = String(Math.floor(10000 + Math.random() * 90000)); tries++; }
+  while (existing && existing.has(code) && tries < 50);
+  return code;
+}
+
+// 모든 학원/반에 코드가 있도록 보장 + 없어진 반의 코드 정리. 변경되면 true 반환.
+function ensureCodes(saved) {
+  saved.codes = saved.codes || {};
+  const existing = new Set(Object.values(saved.codes));
+  let changed = false;
+  const validKeys = new Set();
+  for (const acad of (saved.academies || [])) {
+    for (const cls of (saved.classes[acad] || [])) {
+      const key = acad + '/' + cls;
+      validKeys.add(key);
+      if (!saved.codes[key]) {
+        const code = genCode(existing);
+        saved.codes[key] = code;
+        existing.add(code);
+        changed = true;
+      }
+    }
+  }
+  for (const key of Object.keys(saved.codes)) {
+    if (!validKeys.has(key)) { delete saved.codes[key]; changed = true; }
+  }
+  return changed;
+}
+
 // 학생 데이터에서 실제 사용 중인 학원/반 추출 (active만)
 // 학생 데이터(D1)에서 실제 사용 중인 학원/반 추출
 async function getUsedFromStudents(env) {
@@ -76,6 +109,7 @@ function mergeOptions(saved, used) {
   }
   result.academies = Array.from(allAcademies).sort();
   result.counts = used.counts;
+  result.codes = saved.codes || {};
   return result;
 }
 
@@ -103,15 +137,34 @@ async function syncStudentClassesToSaved(env, saved, used) {
 
 export async function onRequest({ request, env }) {
   if (request.method === 'GET') {
+    const url = new URL(request.url);
+    const codeQ = (url.searchParams.get('code') || '').replace(/[^0-9]/g, '');
+
     const saved = await loadOptions(env);
     const used  = await getUsedFromStudents(env);
     // 학생 데이터에서 사용 중인 학원/반을 R2 saved에 자동 흡수 (한 번 등록되면 학생 0명이 돼도 남음)
     await syncStudentClassesToSaved(env, saved, used);
+    // 모든 반에 코드 보장 (기존 반도 첫 호출 때 코드 자동 생성·저장)
+    if (ensureCodes(saved)) await saveOptions(env, saved);
+
+    // 🔑 반 코드 조회 (공개) — 등록 폼에서 코드 입력 시 학원/반 확인용. 매칭 1건만 반환(목록 비노출).
+    if (codeQ) {
+      for (const acad of saved.academies) {
+        for (const cls of (saved.classes[acad] || [])) {
+          if (saved.codes[acad + '/' + cls] === codeQ) {
+            return Response.json({ valid: true, academy: acad, className: cls });
+          }
+        }
+      }
+      return Response.json({ valid: false });
+    }
+
     const merged = mergeOptions(saved, used);
-    // 🔒 인원 수(counts)는 admin 전용 — 비로그인 공개 노출 차단.
-    //    학원/반 "이름"은 등록 폼 드롭다운에 필요해서 공개 유지.
+    // 🔒 인원 수(counts)·반코드(codes)는 admin 전용 — 비로그인 공개 노출 차단.
+    //    학원/반 "이름"은 등록 폼에 필요해서 공개 유지.
     if (!isAdmin(request, env)) {
       delete merged.counts;
+      delete merged.codes;
     }
     return Response.json(merged);
   }
@@ -144,6 +197,7 @@ export async function onRequest({ request, env }) {
       }
       saved.academies = saved.academies.filter(a => a !== academy);
       delete saved.classes[academy];
+      if (saved.codes) for (const k of Object.keys(saved.codes)) { if (k.startsWith(academy + '/')) delete saved.codes[k]; }
       await saveOptions(env, saved);
       return Response.json({ ok: true, action, academy });
     }
@@ -153,8 +207,12 @@ export async function onRequest({ request, env }) {
       if (!saved.academies.includes(academy)) saved.academies.push(academy);
       if (!saved.classes[academy]) saved.classes[academy] = [];
       if (!saved.classes[academy].includes(className)) saved.classes[academy].push(className);
+      // 🔑 반 생성 시 코드 자동 발급
+      saved.codes = saved.codes || {};
+      const ckey = academy + '/' + className;
+      if (!saved.codes[ckey]) saved.codes[ckey] = genCode(new Set(Object.values(saved.codes)));
       await saveOptions(env, saved);
-      return Response.json({ ok: true, action, academy, className });
+      return Response.json({ ok: true, action, academy, className, code: saved.codes[ckey] });
     }
 
     if (action === 'delete-class') {
@@ -166,6 +224,7 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: `[${academy} · ${className}]에 학생 ${count}명이 있어서 삭제할 수 없습니다. (먼저 이동하거나 퇴원 처리)` }, { status: 409 });
       }
       saved.classes[academy] = (saved.classes[academy] || []).filter(c => c !== className);
+      if (saved.codes) delete saved.codes[academy + '/' + className];
       await saveOptions(env, saved);
       return Response.json({ ok: true, action, academy, className });
     }
@@ -174,4 +233,19 @@ export async function onRequest({ request, env }) {
   }
 
   return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
+}
+
+// 🔑 학생 등록(student-register.js)에서 import — 반 코드 → { academy, className } 서버측 권위 검증.
+//   코드가 없거나 매칭 안 되면 null. (코드 없는 기존 반은 여기서도 자동 백필·저장)
+export async function resolveClassCode(env, code) {
+  const codeQ = String(code || '').replace(/[^0-9]/g, '');
+  if (!codeQ) return null;
+  const saved = await loadOptions(env);
+  if (ensureCodes(saved)) await saveOptions(env, saved);
+  for (const acad of saved.academies) {
+    for (const cls of (saved.classes[acad] || [])) {
+      if (saved.codes[acad + '/' + cls] === codeQ) return { academy: acad, className: cls };
+    }
+  }
+  return null;
 }

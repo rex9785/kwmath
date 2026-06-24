@@ -126,18 +126,12 @@
             </select>
           </div>
           <div class="form-row">
-            <label>수강 학원 <span class="req">*</span></label>
-            <select id="academy" onchange="updateClassOptions()">
-              <option value="">선택하세요</option>
-              <option value="대치동 정규반">대치동 정규반</option>
-              <option value="세정학원">세정학원</option>
-            </select>
+            <label>반 코드 <span class="req">*</span></label>
+            <input id="classCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="선생님께 받은 숫자코드" oninput="onClassCodeInput(this)" autocomplete="off">
+            <div class="form-hint">선생님이 알려주신 반 코드를 입력하면 자동으로 반이 배정됩니다.</div>
           </div>
         </div>
-        <div class="form-row" id="classRow" style="display:none;">
-          <label>수강 반 <span class="req">*</span></label>
-          <select id="classSelect"><option value="">선택하세요</option></select>
-        </div>
+        <div class="form-row" id="classConfirm" style="display:none;margin-top:-2px;"></div>
       </div>
 
       <div class="form-section">
@@ -261,47 +255,41 @@
 </div>
 
 <script>
-  // fallback (서버 로드 실패 시)
-  let CLASS_OPTIONS = {
-    '대치동 정규반': [],
-    '세정학원':      [],
-  };
-  let ACADEMY_OPTIONS = ['대치동 정규반', '세정학원'];
+  // 🔑 반 코드 → 학원/반 자동 배정 (학원·반 드롭다운 대신 코드 입력)
+  let resolvedAcademy = '';
+  let resolvedClassName = '';
+  let _codeTimer = null;
 
-  // 서버에서 동적 로드 (admin이 관리)
-  async function loadClassOptionsFromServer() {
+  function escHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function onClassCodeInput(el) {
+    const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 6);
+    if (el.value !== v) el.value = v;
+    resolvedAcademy = ''; resolvedClassName = '';
+    const box = document.getElementById('classConfirm');
+    if (v.length < 4) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    clearTimeout(_codeTimer);
+    _codeTimer = setTimeout(function(){ lookupClassCode(v); }, 350);
+  }
+
+  async function lookupClassCode(code) {
+    const box = document.getElementById('classConfirm');
+    box.style.display = 'block';
+    box.innerHTML = '<span style="color:#888;font-size:0.85rem;">반 확인 중…</span>';
     try {
-      const res = await fetch('/api/class-options');
+      const res = await fetch('/api/class-options?code=' + encodeURIComponent(code));
       const data = await res.json();
-      if (data && Array.isArray(data.academies) && data.classes) {
-        ACADEMY_OPTIONS = data.academies;
-        CLASS_OPTIONS = data.classes;
-        // 학원 드롭다운 갱신
-        const acadSel = document.getElementById('academy');
-        if (acadSel) {
-          const currentVal = acadSel.value;
-          acadSel.innerHTML = '<option value="">학원 선택</option>' + ACADEMY_OPTIONS.map(a => '<option value="'+a+'">'+a+'</option>').join('');
-          if (ACADEMY_OPTIONS.includes(currentVal)) acadSel.value = currentVal;
-        }
-        // 반 드롭다운도 갱신
-        updateClassOptions();
+      if (data && data.valid) {
+        resolvedAcademy = data.academy; resolvedClassName = data.className;
+        box.innerHTML = '<div style="background:#E8F5E9;border:1.5px solid #66BB6A;border-radius:10px;padding:10px 14px;color:#1B5E20;font-weight:700;font-size:0.88rem;">✅ ' + escHtml(data.academy) + ' · ' + escHtml(data.className) + ' 반으로 등록돼요</div>';
+      } else {
+        resolvedAcademy = ''; resolvedClassName = '';
+        box.innerHTML = '<div style="background:#FDECEA;border:1.5px solid #E57373;border-radius:10px;padding:10px 14px;color:#B71C1C;font-weight:700;font-size:0.88rem;">❌ 코드를 찾을 수 없어요. 선생님께 다시 확인해주세요.</div>';
       }
-    } catch (e) { /* 서버 안 되면 fallback 사용 */ }
-  }
-  // 페이지 로드 시 즉시 호출
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadClassOptionsFromServer);
-  } else {
-    loadClassOptionsFromServer();
-  }
-
-  function updateClassOptions() {
-    const academy = document.getElementById('academy').value;
-    const classRow = document.getElementById('classRow');
-    const classSelect = document.getElementById('classSelect');
-    const options = CLASS_OPTIONS[academy] || [];
-    classSelect.innerHTML = '<option value="">선택하세요</option>' + options.map(o => '<option value="'+o+'">'+o+'</option>').join('');
-    classRow.style.display = options.length ? 'block' : 'none';
+    } catch (e) {
+      resolvedAcademy = ''; resolvedClassName = '';
+      box.innerHTML = '<div style="color:#B71C1C;font-size:0.85rem;">확인 중 오류가 났어요. 잠시 후 다시 시도해주세요.</div>';
+    }
   }
 
   function toggleCheck(e, el) {
@@ -342,8 +330,7 @@
     const parentPhone    = document.getElementById('parentPhone').value.trim();
     const parentRelation = document.getElementById('parentRelation').value;
     const level          = document.getElementById('level').value;
-    const academy        = document.getElementById('academy').value;
-    const className      = document.getElementById('classSelect').value;
+    const classCode      = document.getElementById('classCode').value.replace(/[^0-9]/g, '');
     const goals          = getCheckedValues('goalGroup');
     const mathMockGrade  = document.getElementById('mathMockGrade').value;
     const mathMockScoreV = document.getElementById('mathMockScore').value;
@@ -372,8 +359,8 @@
     if (parentDigits.length < 10)  { showErr('학부모 휴대폰 번호를 정확히 입력해주세요.'); return; }
     if (!parentRelation) { showErr('학부모 관계를 선택해주세요.'); return; }
     if (!goals.length) { showErr('수강 목적을 한 개 이상 선택해주세요.'); return; }
-    if (!academy) { showErr('수강 학원을 선택해주세요.'); return; }
-    if (!className) { showErr('수강 반을 선택해주세요.'); return; }
+    if (!classCode) { showErr('반 코드를 입력해주세요. (선생님께 받은 숫자코드)'); return; }
+    if (!resolvedClassName) { showErr('반 코드를 확인할 수 없습니다. 코드를 다시 확인해주세요.'); return; }
     if (!mathMockGrade)   { showErr('모의고사 수학 등급을 선택해주세요. (모르면 "모름")'); return; }
     if (!korMockGrade)    { showErr('모의고사 국어 등급을 선택해주세요. (모르면 "모름")'); return; }
     if (!engMockGrade)    { showErr('모의고사 영어 등급을 선택해주세요. (모르면 "모름")'); return; }
@@ -397,7 +384,7 @@
           name: name, school: school, grade: grade,
           parentPhone4: parentPhone4, studentPhone: studentPhone, parentPhone: parentPhone,
           parentRelation: parentRelation,
-          goals: goals, level: level, academy: academy, className: className,
+          goals: goals, level: level, classCode: classCode,
           mathMockGrade: mathMockGrade, mathMockScore: mathMockScore,
           korMockGrade: korMockGrade, engMockGrade: engMockGrade,
           schoolMathGrade: schoolMathGrade, advanceProgress: advanceProgress,
