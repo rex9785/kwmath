@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>운영진 관리 | 관리자</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;--ok:#1F8A4C;--warn:#B8860B;--danger:#C0392B;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+  .top{background:var(--primary);color:#fff;padding:14px 5%;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+  .top .title{font-size:1rem;font-weight:900;}
+  .top .back{color:rgba(255,255,255,0.85);font-size:0.85rem;text-decoration:none;}
+  .wrap{max-width:680px;margin:0 auto;padding:22px 5% 80px;}
+  .intro{font-size:0.82rem;color:var(--text-light);line-height:1.7;margin-bottom:18px;}
+  .summary{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .pill{background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:0.82rem;font-weight:700;}
+  .pill b{color:var(--primary);}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:12px;box-shadow:0 4px 14px rgba(139,26,53,0.05);}
+  .card .row1{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
+  .card .name{font-size:1rem;font-weight:900;}
+  .card .phone{font-size:0.85rem;color:var(--text-light);font-variant-numeric:tabular-nums;}
+  .card .meta{font-size:0.74rem;color:var(--text-light);margin-top:2px;}
+  .badge{font-size:0.72rem;font-weight:800;padding:4px 10px;border-radius:999px;white-space:nowrap;}
+  .badge.ok{background:#E6F4EA;color:var(--ok);}
+  .badge.wait{background:#FFF7E0;color:var(--warn);}
+  .btns{display:flex;gap:8px;margin-top:12px;}
+  .btn{flex:1;border:none;border-radius:10px;padding:11px;font-size:0.88rem;font-weight:800;cursor:pointer;font-family:inherit;transition:opacity .15s;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn.approve{background:var(--ok);color:#fff;}
+  .btn.reject{background:#fff;border:1.5px solid var(--danger);color:var(--danger);}
+  .btn.revoke{background:#fff;border:1.5px solid var(--text-light);color:var(--text-light);}
+  .msg{text-align:center;color:var(--text-light);padding:40px 16px;font-size:0.9rem;line-height:1.8;}
+  .msg a{color:var(--primary);font-weight:700;text-decoration:none;}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#222;color:#fff;padding:11px 20px;border-radius:10px;font-size:0.85rem;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:50;max-width:90%;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="title">🧑‍🏫 운영진 관리</div>
+  <a class="back" href="/admin">← 관리자</a>
+</div>
+<div class="wrap">
+  <div class="intro">
+    조교(운영진) 가입 신청을 <b>승인</b>하면 같은 번호·비밀번호로 로그인해 <b>질문 답변</b>을 할 수 있습니다.
+    조교는 열람과 질문답변만 가능하며, 학생 삭제·비밀번호 초기화 등 관리 기능은 사용할 수 없습니다.
+  </div>
+  <div class="summary" id="summary" style="display:none;">
+    <div class="pill">대기 <b id="cntWait">0</b></div>
+    <div class="pill">승인됨 <b id="cntOk">0</b></div>
+  </div>
+  <div id="content"><div class="msg">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+  var token = localStorage.getItem('kwmath_admin_token') || '';
+  var staff = [];
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2600); }
+  function fmtPhone(p){ var d=String(p||'').replace(/[^0-9]/g,''); if(d.length===11) return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7); if(d.length===10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); return esc(p); }
+  function fmtDate(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return esc(iso); return d.getFullYear()+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+('0'+d.getDate()).slice(-2); }
+
+  function needLogin(){
+    $('summary').style.display='none';
+    $('content').innerHTML='<div class="msg">관리자 로그인이 필요합니다.<br><a href="/admin">→ 관리자 로그인 하러 가기</a></div>';
+  }
+
+  async function load(){
+    if(!token){ needLogin(); return; }
+    $('content').innerHTML='<div class="msg">불러오는 중…</div>';
+    try{
+      var r = await fetch('/api/staff-approve', { headers: { 'Authorization': 'Bearer ' + token } });
+      if(r.status===401 || r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var data = await r.json();
+      staff = (data && data.staff) || [];
+      render();
+    }catch(e){ $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
+  }
+
+  function render(){
+    var wait = staff.filter(function(s){ return !s.approved; });
+    var ok   = staff.filter(function(s){ return s.approved; });
+    $('summary').style.display='flex';
+    $('cntWait').textContent = wait.length;
+    $('cntOk').textContent = ok.length;
+
+    if(!staff.length){
+      $('content').innerHTML='<div class="msg">아직 조교 가입 신청이 없습니다.<br><span style="font-size:0.8rem;">조교는 <b>/register-staff</b> 에서 가입 신청합니다.</span></div>';
+      return;
+    }
+    // 대기중 먼저, 그 다음 승인됨
+    var ordered = wait.concat(ok);
+    $('content').innerHTML = ordered.map(cardHtml).join('');
+  }
+
+  function cardHtml(s){
+    var phone = esc(s.phone||'');
+    var nameSafe = esc(s.name||'(이름없음)');
+    var badge = s.approved
+      ? '<span class="badge ok">✓ 승인됨</span>'
+      : '<span class="badge wait">⏳ 승인 대기</span>';
+    var when = s.approved
+      ? ('승인일 ' + fmtDate(s.approvedAt))
+      : ('신청일 ' + fmtDate(s.createdAt));
+    var btns = s.approved
+      ? '<div class="btns"><button class="btn revoke" onclick="act(\''+phone+'\',\'reject\',\''+nameSafe+'\')">권한 해제(삭제)</button></div>'
+      : '<div class="btns">'+
+          '<button class="btn approve" onclick="act(\''+phone+'\',\'approve\',\''+nameSafe+'\')">승인</button>'+
+          '<button class="btn reject" onclick="act(\''+phone+'\',\'reject\',\''+nameSafe+'\')">거부</button>'+
+        '</div>';
+    return '<div class="card" data-phone="'+phone+'">'+
+      '<div class="row1"><div class="name">'+nameSafe+'</div>'+badge+'</div>'+
+      '<div class="phone">'+fmtPhone(s.phone)+'</div>'+
+      '<div class="meta">'+when+'</div>'+
+      btns+
+    '</div>';
+  }
+
+  async function act(phone, action, name){
+    if(action==='reject'){
+      var msg = '[' + name + '] 조교 신청을 ' + '거부하고 계정을 삭제할까요?\n(되돌릴 수 없습니다. 다시 가입 신청해야 합니다.)';
+      if(!confirm(msg)) return;
+    }
+    // 해당 카드 버튼 비활성화
+    var card = document.querySelector('.card[data-phone="'+phone+'"]');
+    if(card){ card.querySelectorAll('button').forEach(function(b){ b.disabled=true; }); }
+    try{
+      var r = await fetch('/api/staff-approve', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+        body: JSON.stringify({ phone: phone, action: action })
+      });
+      if(r.status===401 || r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var data = await r.json();
+      if(r.ok && data.ok){
+        showToast(data.message || (action==='approve'?'승인 완료':'처리 완료'));
+        load();
+      } else {
+        showToast(data.error || '처리에 실패했어요.');
+        if(card){ card.querySelectorAll('button').forEach(function(b){ b.disabled=false; }); }
+      }
+    }catch(e){
+      showToast('네트워크 오류. 다시 시도해 주세요.');
+      if(card){ card.querySelectorAll('button').forEach(function(b){ b.disabled=false; }); }
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

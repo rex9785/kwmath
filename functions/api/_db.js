@@ -141,11 +141,21 @@ export async function getStudentByName(env, name) {
   return rowToStudent(r);
 }
 
+// ── 운영진(원장) 학생 명단 제외 ──
+// 원장(관우T)은 admin 계정으로 로그인하므로 학생 목록·반 편성·리포트 명단에 노출하지 않는다.
+// (login.js·staff-register.js·me.js의 ADMIN_PHONES와 동일하게 유지)
+// ※ 학생 레코드 자체는 보존 — '표시'에서만 제외. 되돌리려면 이 필터만 제거. 계정·로그인엔 영향 없음.
+const OWNER_PHONES = new Set(['01041149785']);
+function _isOwnerStudent(s) {
+  const d = (p) => String(p || '').replace(/\D/g, '');
+  return !!s && (OWNER_PHONES.has(d(s.studentPhone)) || OWNER_PHONES.has(d(s.parentPhone)));
+}
+
 export async function listStudents(env) {
   const { results } = await env.DB.prepare(
     'SELECT * FROM students ORDER BY created_at DESC, id DESC'
   ).all();
-  return (results || []).map(rowToStudent);
+  return (results || []).map(rowToStudent).filter(s => s && !_isOwnerStudent(s));
 }
 
 export async function createStudent(env, data) {

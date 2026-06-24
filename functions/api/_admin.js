@@ -57,3 +57,40 @@ export function readCookie(request, name) {
   }
   return null;
 }
+
+// ───────────────────────────────────────────────────────────
+// 조교(운영진 staff) 무상태 서명 세션 — adm_(원장 풀권한)와 구분되는 ast_ 토큰.
+//   형식:  ast_<expMs>_<hmacHex>   (HMAC key = ADMIN_PASSWORD, msg = expMs + '|staff')
+//   _middleware.js가 ast_ 토큰은 '열람(GET) + 질문답변(/api/qna)'만 ADMIN_PASSWORD로 번역하고,
+//   그 외 쓰기·삭제·계정 엔드포인트는 403으로 막는다 → 조교 권한 제한.
+//   폐기: ADMIN_PASSWORD 변경 시 발급된 모든 ast_ 토큰도 즉시 무효화.
+// ───────────────────────────────────────────────────────────
+const STAFF_PREFIX = 'ast_';
+const STAFF_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일
+
+export async function issueStaffSession(env, ttlMs = STAFF_TTL_MS) {
+  if (!env.ADMIN_PASSWORD) return null;
+  const exp = Date.now() + ttlMs;
+  const sig = await hmacHex(env.ADMIN_PASSWORD, exp + '|staff');
+  return STAFF_PREFIX + exp + '_' + sig;
+}
+
+export async function verifyStaffSession(env, token) {
+  if (!env.ADMIN_PASSWORD || typeof token !== 'string' || !token.startsWith(STAFF_PREFIX)) return false;
+  const rest = token.slice(STAFF_PREFIX.length);
+  const sep = rest.indexOf('_');
+  if (sep < 0) return false;
+  const expStr = rest.slice(0, sep);
+  const sig = rest.slice(sep + 1);
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < Date.now()) return false;
+  const expected = await hmacHex(env.ADMIN_PASSWORD, expStr + '|staff');
+  if (sig.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
+export function isStaffSessionToken(token) {
+  return typeof token === 'string' && token.startsWith(STAFF_PREFIX);
+}

@@ -96,16 +96,28 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div><h1>💬 질문 관리</h1><div class="sub">학생 질문에 선생님·조교가 답변 (관리자 전용)</div></div>
-    <a class="back" href="/admin">← 관리자</a>
+    <div><h1>💬 질문 관리</h1><div class="sub" id="subTitle">학생 질문에 선생님·조교가 답변 (관리자 전용)</div></div>
+    <a class="back" id="backLink" href="/admin">← 관리자</a>
   </div>
   <button id="pushBtn" class="pushbtn" style="display:none;" onclick="togglePush()">🔔 새 질문 알림 받기</button>
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
-  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  // 토큰: 조교는 portal 로그인 때 sessionStorage(ast_), 원장은 admin.html localStorage(adm_)를 재사용.
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   var rows = [], tab = 'pending', byChoice = {};
+
+  function staffMode(){ return /^ast_/.test(token || ''); }  // 조교(ast_) 세션이면 제한 모드(삭제·사용량 숨김)
+  // 조교 모드: 헤더/뒤로가기 라벨을 조교용으로 (원장은 '← 관리자' 그대로)
+  function applyRoleUI(){
+    if(!staffMode()) return;
+    var back = document.getElementById('backLink');
+    var sub  = document.getElementById('subTitle');
+    if(back){ back.textContent='로그아웃'; back.removeAttribute('href'); back.style.cursor='pointer'; back.onclick=staffLogout; }
+    if(sub){ sub.textContent='조교 콘솔 · 질문 답변 전용'; }
+  }
+  function staffLogout(){ sessionStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
@@ -190,7 +202,7 @@
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
   }
 
-  function setTab(t){ tab=t; if(t==='usage'){ renderUsage(); } else { render(); } }
+  function setTab(t){ if(t==='usage' && staffMode()) return; tab=t; if(t==='usage'){ renderUsage(); } else { render(); } }
 
   // ── 토큰 사용량 패널 ──
   function nf(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
@@ -204,7 +216,7 @@
         '<div class="tabs">'+
           '<button onclick="setTab(\'pending\')">미답변 <span class="n">'+pending+'</span></button>'+
           '<button onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
-          '<button class="active" onclick="setTab(\'usage\')">📊 사용량</button>'+
+          (staffMode()?'':'<button class="active" onclick="setTab(\'usage\')">📊 사용량</button>')+
         '</div>'+
       '</div>';
     $('content').innerHTML = head + '<div class="msg">불러오는 중…</div>';
@@ -276,7 +288,7 @@
         '<div class="tabs">'+
           '<button class="'+(tab==='pending'?'active':'')+'" onclick="setTab(\'pending\')">미답변 <span class="n">'+pending.length+'</span></button>'+
           '<button class="'+(tab==='all'?'active':'')+'" onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
-          '<button class="'+(tab==='usage'?'active':'')+'" onclick="setTab(\'usage\')">📊 사용량</button>'+
+          (staffMode()?'':'<button class="'+(tab==='usage'?'active':'')+'" onclick="setTab(\'usage\')">📊 사용량</button>')+
         '</div>'+
       '</div>';
 
@@ -305,17 +317,19 @@
 
     // 답변 작성/수정 영역 (미답변이면 펼침, 답변완료면 '수정' 링크)
     var composerOpen = (q.status==='pending');
-    var by = byChoice[q.id] || '선생님';
+    var by = byChoice[q.id] || (staffMode() ? '조교' : '선생님');
     var composer =
       '<div class="composer" id="comp_'+q.id+'" style="'+(composerOpen?'':'display:none;')+'">'+
         '<textarea id="ans_'+q.id+'" placeholder="답변을 입력하세요. (학생에게 그대로 보여요)">'+esc(q.answeredBy && q.answeredBy!=='AI' ? q.answer : '')+'</textarea>'+
         '<div class="crow">'+
           '<div class="byseg">'+
-            '<button class="'+(by==='선생님'?'active':'')+'" onclick="setBy('+q.id+',\'선생님\')">선생님</button>'+
-            '<button class="'+(by==='조교'?'active':'')+'" onclick="setBy('+q.id+',\'조교\')">조교</button>'+
+            (staffMode()
+              ? '<button class="active" disabled>조교</button>'
+              : '<button class="'+(by==='선생님'?'active':'')+'" onclick="setBy('+q.id+',\'선생님\')">선생님</button>'+
+                '<button class="'+(by==='조교'?'active':'')+'" onclick="setBy('+q.id+',\'조교\')">조교</button>')+
           '</div>'+
           '<div class="spacer"></div>'+
-          '<button class="mini danger" onclick="delQ('+q.id+')">삭제</button>'+
+          (staffMode()?'':'<button class="mini danger" onclick="delQ('+q.id+')">삭제</button>')+
           '<button class="send" onclick="sendAns('+q.id+')">'+(q.status==='pending'?'답변 등록':'답변 수정')+'</button>'+
         '</div>'+
       '</div>';
@@ -343,7 +357,7 @@
     var ta = $('ans_'+id); if(!ta) return;
     var answer = (ta.value||'').trim();
     if(!answer){ showToast('답변 내용을 입력하세요.'); ta.focus(); return; }
-    var by = byChoice[id] || '선생님';
+    var by = byChoice[id] || (staffMode() ? '조교' : '선생님');
     var btn = ta.closest('.composer').querySelector('.send');
     if(btn){ btn.disabled=true; btn.textContent='등록 중…'; }
     try{
@@ -371,6 +385,7 @@
 
   // 푸시 수신용 서비스워커 등록 (sw.js의 push 핸들러가 알림 표시)
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(function(){}); }
+  applyRoleUI();
   if(token) boot(); else showLogin('');
 </script>
 </body>

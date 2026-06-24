@@ -134,7 +134,8 @@
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
       처음이세요? 초기 비밀번호는 <b>0000</b>입니다.<br>
-      비밀번호를 잊으셨거나 등록되지 않았다면 <b>관우T께 문의</b>해주세요.
+      비밀번호를 잊으셨거나 등록되지 않았다면 <b>관우T께 문의</b>해주세요.<br>
+      <span style="font-size:0.72rem;color:var(--text-light);">운영진(조교)이신가요? <a href="/register-staff" style="color:var(--primary);font-weight:700;text-decoration:none;">조교 가입 신청 →</a></span>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);text-align:center;font-size:0.72rem;color:var(--text-light);line-height:1.7;">
       로그인 시 <a href="/terms" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600;">이용약관</a> 및 <a href="/privacy" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600;">개인정보 처리방침</a>에 동의한 것으로 간주됩니다.
@@ -449,7 +450,20 @@
         showErr('loginErr', data.error || '로그인 실패. 다시 시도해주세요.');
         return;
       }
-      // 토큰 저장
+      // ── 운영진(원장·조교) 라우팅 — 학생 포털 대신 관리 콘솔로 ──
+      //   원장(adm_)  → /admin       (admin.html이 localStorage 토큰으로 자동 로그인)
+      //   조교(ast_)  → /admin-qna   (admin-qna.html이 sessionStorage 토큰으로 자동 인증, 권한은 미들웨어가 제한)
+      if (data.role === 'owner' && data.adminToken) {
+        localStorage.setItem('kwmath_admin_token', data.adminToken);
+        location.href = '/admin';
+        return;
+      }
+      if (data.role === 'staff' && data.staffToken) {
+        sessionStorage.setItem('kwmath_admin_pw', data.staffToken);
+        location.href = '/admin-qna';
+        return;
+      }
+      // 토큰 저장 (학생/학부모)
       currentToken = data.token;
       currentPhone = data.phone;
       currentStudents = Array.isArray(data.students) ? data.students : [];

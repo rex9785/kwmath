@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>운영진(조교) 가입 | LKW math LAB</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+  .topbar{background:var(--primary);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
+  .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
+  .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;}
+  .topbar-back:hover{color:#fff;}
+  .page-wrap{max-width:480px;margin:0 auto;padding:40px 5% 80px;}
+  .form-card{background:#fff;border-radius:20px;padding:36px;border:1px solid var(--border);box-shadow:0 8px 30px rgba(139,26,53,0.08);}
+  .form-header{text-align:center;margin-bottom:28px;}
+  .form-header .icon{font-size:2.2rem;margin-bottom:10px;}
+  .form-header h1{font-size:1.4rem;font-weight:900;color:var(--primary);margin-bottom:6px;}
+  .form-header p{font-size:0.85rem;color:var(--text-light);line-height:1.7;}
+  .form-row{margin-bottom:16px;}
+  .form-row label{display:block;font-size:0.82rem;font-weight:700;margin-bottom:6px;color:var(--text);}
+  .form-row label .req{color:var(--primary);margin-left:2px;}
+  .pw-wrap{position:relative;}
+  .form-row input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;font-family:inherit;outline:none;transition:border .2s;background:#fff;}
+  .form-row input:focus{border-color:var(--primary);}
+  .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.05rem;opacity:.6;padding:4px 6px;}
+  .form-hint{font-size:0.75rem;color:var(--text-light);margin-top:5px;line-height:1.6;}
+  .notice-box{background:var(--primary-light);border:1px solid var(--border);border-radius:12px;padding:14px 16px;font-size:0.8rem;color:var(--text);line-height:1.7;margin-bottom:24px;}
+  .notice-box b{color:var(--primary);}
+  .submit-btn{width:100%;background:var(--primary);color:#fff;border:none;padding:16px;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;margin-top:4px;}
+  .submit-btn:hover{background:var(--primary-mid);}
+  .submit-btn:disabled{opacity:.6;cursor:not-allowed;}
+  #doneScreen{display:none;text-align:center;padding:50px 16px;}
+  #doneScreen .done-icon{font-size:3.5rem;margin-bottom:16px;}
+  #doneScreen h2{font-size:1.4rem;font-weight:900;color:var(--primary);margin-bottom:10px;}
+  #doneScreen p{font-size:0.9rem;color:var(--text-light);line-height:1.8;}
+  .err-msg{color:#c0392b;font-size:0.82rem;margin-top:10px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="topbar-logo">📐 LKW math LAB</a>
+  <a href="/portal" class="topbar-back">← 로그인</a>
+</div>
+
+<div class="page-wrap">
+  <div class="form-card">
+    <div id="formArea">
+      <div class="form-header">
+        <div class="icon">🧑‍🏫</div>
+        <h1>운영진(조교) 가입</h1>
+        <p>이름·휴대폰·비밀번호만 입력하면 됩니다.<br>학생 가입과 다른, 운영진 전용 신청란입니다.</p>
+      </div>
+
+      <div class="notice-box">
+        ℹ️ 이 페이지는 <b>조교(운영진)</b> 전용입니다. 학생·학부모는
+        <a href="/register" style="color:var(--primary);font-weight:700;">학생 등록</a>을 이용해주세요.<br>
+        가입 후 <b>관우T 승인</b>이 완료되면 같은 번호·비밀번호로 로그인할 수 있습니다.
+      </div>
+
+      <div class="form-row">
+        <label>이름 <span class="req">*</span></label>
+        <input id="name" type="text" placeholder="홍길동" maxlength="20" autocomplete="name">
+      </div>
+
+      <div class="form-row">
+        <label>휴대폰 번호 <span class="req">*</span></label>
+        <input id="phone" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)" autocomplete="username">
+        <div class="form-hint">이 번호가 로그인 아이디가 됩니다.</div>
+      </div>
+
+      <div class="form-row">
+        <label>비밀번호 <span class="req">*</span></label>
+        <div class="pw-wrap">
+          <input id="pw" type="password" placeholder="4자 이상" autocomplete="new-password">
+          <button type="button" class="pw-toggle" onclick="togglePw('pw', this)" title="비밀번호 보기">👁</button>
+        </div>
+        <div class="form-hint">직접 정한 비밀번호를 그대로 사용합니다. (초기 비번 변경 강제 없음)</div>
+      </div>
+
+      <div class="form-row">
+        <label>비밀번호 확인 <span class="req">*</span></label>
+        <div class="pw-wrap">
+          <input id="pw2" type="password" placeholder="비밀번호 다시 입력" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitForm()">
+          <button type="button" class="pw-toggle" onclick="togglePw('pw2', this)" title="비밀번호 보기">👁</button>
+        </div>
+      </div>
+
+      <div class="err-msg" id="errMsg"></div>
+      <button class="submit-btn" id="submitBtn" onclick="submitForm()">가입 신청 →</button>
+    </div>
+
+    <div id="doneScreen">
+      <div class="done-icon">🧑‍🏫</div>
+      <h2>가입 신청이 접수됐어요!</h2>
+      <p>관우T가 확인 후 <strong>승인</strong>해드릴 예정입니다.<br>
+      승인되면 같은 번호·비밀번호로 로그인하실 수 있습니다.</p>
+      <br>
+      <div style="background:#FFF8DC;border:1.5px solid #E8C56C;border-radius:10px;padding:12px 16px;text-align:left;font-size:0.85rem;color:#854F0B;margin-bottom:18px;">
+        ⏳ 아직 로그인은 되지 않습니다.<br>
+        관우T 승인 완료까지 잠시 기다려주세요.
+      </div>
+      <a href="/portal" style="display:inline-block;background:var(--primary);color:#fff;padding:13px 30px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.93rem;">로그인 화면으로 →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 휴대폰 자동 포맷팅 (register.html과 동일 규칙)
+  function formatPhone(el) {
+    const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 11);
+    let f = v;
+    if (v.length > 7)      f = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7);
+    else if (v.length > 3) f = v.slice(0,3) + '-' + v.slice(3);
+    if (el.value !== f) el.value = f;
+  }
+
+  function togglePw(id, btn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.type = el.type === 'password' ? 'text' : 'password';
+    btn.style.opacity = el.type === 'text' ? '1' : '.6';
+  }
+
+  function showErr(msg) {
+    const errMsg = document.getElementById('errMsg');
+    errMsg.textContent = msg;
+    errMsg.style.display = 'block';
+    errMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  async function submitForm() {
+    const name  = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const pw    = document.getElementById('pw').value;
+    const pw2   = document.getElementById('pw2').value;
+
+    document.getElementById('errMsg').style.display = 'none';
+
+    const digits = phone.replace(/[^0-9]/g, '');
+    if (!name)               { showErr('이름을 입력해주세요.'); return; }
+    if (digits.length < 10)  { showErr('휴대폰 번호를 정확히 입력해주세요.'); return; }
+    if (pw.length < 4)       { showErr('비밀번호는 4자 이상으로 설정해주세요.'); return; }
+    if (pw !== pw2)          { showErr('비밀번호가 일치하지 않습니다.'); return; }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '신청 중...';
+
+    try {
+      const res = await fetch('/api/staff-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, phone: phone, password: pw })
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        document.getElementById('formArea').style.display = 'none';
+        document.getElementById('doneScreen').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        showErr(data.error || '가입에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } catch (e) {
+      showErr('서버 통신 오류: ' + (e.message || '알 수 없는 오류'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '가입 신청 →';
+    }
+  }
+</script>
+</body>
+</html>
