@@ -12,7 +12,17 @@
 //  sortKey : 시간순 정렬용 문자열(프론트가 생성, 예 '2026-1-1' = 고1·1학기·중간). 없으면 id순.
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
-import { getStudentByName } from './_db.js';
+import { getStudentByName, listStudents } from './_db.js';
+import { staffScopeAcademy } from './_staff.js';
+
+// 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음).
+//   미배정 조교는 빈 Set → 아무 학생 성적도 못 봄/못 씀. (출결과 동일 패턴)
+async function staffNameScope(env, request) {
+  const academy = await staffScopeAcademy(env, request);
+  if (academy === null) return null;                               // 원장 → 전체
+  const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
+  return new Set(roster.map(s => s.name));
+}
 
 async function ensureTable(env) {
   await env.DB.prepare(
@@ -63,11 +73,16 @@ export async function onRequest({ request, env }) {
   try { await ensureTable(env); }
   catch (e) { return Response.json({ error: '성적 DB 초기화에 실패했습니다.' }, { status: 500 }); }
 
+  // 조교 학원 스코프 (원장이면 null). isAdmin 경로에서만 의미 있음(학생은 토큰으로 본인만).
+  const allowedNames = isAdmin ? await staffNameScope(env, request) : null;
+
   // 요청자 → student_id 매핑 (admin: ?name/body.name으로 지정 / 학생: 토큰으로 본인·자녀)
   async function resolveStudent(bodyName) {
     if (isAdmin) {
       const name = (bodyName || url.searchParams.get('name') || '').trim();
       if (!name) return { error: 'name 필수', status: 400 };
+      // 조교는 자기 학원 학생만 (원장은 allowedNames=null → 통과). 조회·입력·삭제 모두 이 경로를 거침.
+      if (allowedNames && !allowedNames.has(name)) return { error: '담당 학원 학생만 성적을 입력·조회할 수 있어요.', status: 403 };
       const st = await getStudentByName(env, name);
       if (!st) return { error: '학생을 D1에서 찾을 수 없습니다.', status: 404 };
       return { id: st.id, name: st.name };

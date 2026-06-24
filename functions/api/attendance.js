@@ -92,6 +92,11 @@ export async function onRequest({ request, env }) {
     if (!name) return Response.json({ error: 'name 필수' }, { status: 400 });
     if (!date) return Response.json({ error: 'date(YYYY-MM-DD) 필수' }, { status: 400 });
 
+    // 조교는 자기 학원 학생만 입력 가능 (원장이면 allowedNames=null → 통과)
+    const allowedNames = await staffNameScope(env, request);
+    if (allowedNames && !allowedNames.has(name))
+      return Response.json({ error: '담당 학원 학생만 출결을 입력할 수 있어요.' }, { status: 403 });
+
     const updates = {};
     if (typeof body.status === 'string' && body.status) {
       if (!VALID_STATUS.includes(body.status))
@@ -129,6 +134,11 @@ export async function onRequest({ request, env }) {
     const name = (body.name || '').trim();
     const date = (body.date || '').trim();
     if (!name || !date) return Response.json({ error: 'name + date 필수' }, { status: 400 });
+
+    // 조교는 자기 학원 학생만 삭제 가능 (원장이면 allowedNames=null → 통과)
+    const allowedNames = await staffNameScope(env, request);
+    if (allowedNames && !allowedNames.has(name))
+      return Response.json({ error: '담당 학원 학생만 출결을 수정할 수 있어요.' }, { status: 403 });
 
     try {
       const st = await getStudentByName(env, name);
