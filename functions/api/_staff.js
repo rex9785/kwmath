@@ -1,6 +1,7 @@
 // 운영진(조교) 레지스트리 — R2에 저장. D1 스키마 변경 없이 역할/승인 상태 관리.
 //   키:  staff/{normalizedPhone}.json
-//   값:  { phone, name, role:'staff', approved:bool, createdAt, approvedAt?, academy?, hourlyWage? }
+//   값:  { phone, name, role:'staff', approved:bool, createdAt, approvedAt?, academy?, hourlyWage?, account? }
+//        account = 월급 받을 계좌(은행명+번호 자유텍스트). 가입시 입력, 본인/원장이 나중에 변경 가능.
 //   원장(owner)은 별도 ADMIN_PHONES로 식별하므로 이 레지스트리에 없어도 됨.
 //   비밀번호 자체는 기존 accounts(D1)에 저장 — 여기엔 역할/승인/배정 메타만.
 import { normalizePhone } from './_auth.js';

@@ -89,6 +89,12 @@
         </div>
       </div>
 
+      <div class="form-row">
+        <label>급여 받을 계좌</label>
+        <input id="account" type="text" maxlength="60" placeholder="예: 신한 110-123-456789 (예금주: 본인)">
+        <div class="form-hint">월급을 보내드릴 계좌예요. 은행명까지 적어주세요. 지금 비워둬도 되고, 나중에 근무기록 화면에서 바꿀 수 있어요.</div>
+      </div>
+
       <div class="err-msg" id="errMsg"></div>
       <button class="submit-btn" id="submitBtn" onclick="submitForm()">가입 신청 →</button>
     </div>
@@ -137,6 +143,7 @@
     const phone = document.getElementById('phone').value.trim();
     const pw    = document.getElementById('pw').value;
     const pw2   = document.getElementById('pw2').value;
+    const account = document.getElementById('account').value.trim();
 
     document.getElementById('errMsg').style.display = 'none';
 
@@ -154,7 +161,7 @@
       const res = await fetch('/api/staff-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, phone: phone, password: pw })
+        body: JSON.stringify({ name: name, phone: phone, password: pw, account: account })
       });
       const data = await res.json();
       if (res.ok && data.ok) {

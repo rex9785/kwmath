@@ -16,7 +16,7 @@
 //   DELETE ?date=YYYY-MM-DD             → (조교 본인) 그 날 삭제
 //
 // 시간 계산: start·end(HH:MM)가 있으면 (end-start) 시간으로, 없으면 hours 직접값.
-import { listStaff, getStaffRecord } from './_staff.js';
+import { listStaff, getStaffRecord, putStaffRecord } from './_staff.js';
 import { normalizePhone } from './_auth.js';
 import { safeError } from './_errors.js';
 
@@ -56,6 +56,13 @@ async function writeMonth(env, digits, month, data) {
   await env.BUCKET.put(WKEY(digits, month), JSON.stringify(data), {
     httpMetadata: { contentType: 'application/json' },
   });
+}
+
+// 외부(payroll-reminder 등)에서 재사용: 한 조교의 한 달 합계만 깔끔히.
+//   → { totalHours, totalPay, dayCount, rows }
+export async function staffMonthSummary(env, phoneDigits, month, hourlyWage) {
+  const md = await readMonth(env, onlyDigits(phoneDigits), month);
+  return summarize(md, hourlyWage);
 }
 
 // 한 달치 합계 계산 → { totalHours, totalPay, dayCount, entries(정렬·시간포함) }
@@ -116,7 +123,7 @@ export async function onRequest({ request, env }) {
       return Response.json({
         ok: true, phone: targetDigits, month,
         name: rec ? (rec.name || '') : '', academy: rec ? (rec.academy || '') : '',
-        hourlyWage: wage,
+        hourlyWage: wage, account: rec ? (rec.account || '') : '',
         totalHours: sum.totalHours, totalPay: sum.totalPay, dayCount: sum.dayCount,
         entries: sum.rows,
       });
@@ -127,6 +134,16 @@ export async function onRequest({ request, env }) {
       if (!isStaff) return Response.json({ error: '근무기록은 조교 본인만 입력할 수 있어요.' }, { status: 403 });
       let body = {};
       try { body = await request.json(); } catch (_) {}
+
+      // 급여 계좌 변경 — date 없이 account만 보내면 본인 계좌 업데이트(근무기록 아님)
+      if (body.account !== undefined && !body.date) {
+        const skey = normalizePhone(selfDigits) || selfDigits;
+        const rec = await getStaffRecord(env, skey);
+        if (!rec) return Response.json({ error: '조교 정보를 찾을 수 없어요.' }, { status: 404 });
+        rec.account = String(body.account || '').replace(/[<>"'`]/g, '').trim().slice(0, 60);
+        await putStaffRecord(env, skey, rec);
+        return Response.json({ ok: true, updated: 'account', account: rec.account });
+      }
 
       const date = String(body.date || '').trim();
       if (!isDate(date)) return Response.json({ error: 'date(YYYY-MM-DD)가 필요합니다.' }, { status: 400 });

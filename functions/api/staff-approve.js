@@ -3,7 +3,7 @@
 //   POST { phone, action:'approve'|'reject'|'config' }
 //     approve → R2 staff/{phone}.json approved=true (이제 로그인 가능)
 //     reject  → R2 staff 레코드 + 계정 삭제 (로그인 차단)
-//     config  → { academy?, hourlyWage? } 맡은 학원·시급 설정 (월급 계산·학생 스코프에 사용)
+//     config  → { academy?, hourlyWage?, account? } 맡은 학원·시급·급여계좌 설정
 import { listStaff, getStaffRecord, putStaffRecord, deleteStaffRecord } from './_staff.js';
 import { normalizePhone } from './_auth.js';
 
@@ -40,10 +40,11 @@ export async function onRequest({ request, env }) {
         const w = Math.round(Number(body.hourlyWage));
         rec.hourlyWage = (Number.isFinite(w) && w >= 0) ? w : 0;
       }
+      if (body.account !== undefined) rec.account = String(body.account || '').replace(/[<>"'`]/g, '').trim().slice(0, 60);
       await putStaffRecord(env, phone, rec);
       return Response.json({
         ok: true, action: 'config', phone, name: rec.name || '',
-        academy: rec.academy || '', hourlyWage: rec.hourlyWage || 0,
+        academy: rec.academy || '', hourlyWage: rec.hourlyWage || 0, account: rec.account || '',
         message: '[' + (rec.name || phone) + '] 배정 저장: 학원 "' + (rec.academy || '미배정') + '" · 시급 ' + (rec.hourlyWage || 0).toLocaleString() + '원',
       });
     }

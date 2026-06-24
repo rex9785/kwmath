@@ -18,6 +18,8 @@ export async function onRequest({ request, env }) {
   const name = String(body.name || '').replace(/[<>"'`]/g, '').trim().slice(0, 40);
   const phone = normalizePhone(body.phone || '');
   const password = String(body.password || '');
+  // 계좌(은행명+번호 자유텍스트) — 선택 입력. XSS 방지 살균 후 60자 제한.
+  const account = String(body.account || '').replace(/[<>"'`]/g, '').trim().slice(0, 60);
 
   if (!name) return Response.json({ error: '이름을 입력해주세요.' }, { status: 400 });
   if (!phone) return Response.json({ error: '휴대폰 번호를 정확히 입력해주세요.' }, { status: 400 });
@@ -49,6 +51,7 @@ export async function onRequest({ request, env }) {
 
   await putStaffRecord(env, phone, {
     phone, name, role: 'staff', approved: false, createdAt: new Date().toISOString(),
+    account,
   });
 
   return Response.json({

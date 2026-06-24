@@ -7,6 +7,7 @@ import { safeError } from './_errors.js';
 // GET, POST 모두 동작
 
 import { dispatchNoticePush } from './notices-write.js';
+import { runPayrollReminder } from './payroll-reminder.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 
@@ -30,12 +31,19 @@ function isAuthed(request, env) {
   return false;
 }
 
-export async function onRequest({ request, env }) {
+export async function onRequest({ request, env, waitUntil }) {
   if (!isAuthed(request, env)) {
     return Response.json({ error: '인증이 필요합니다.' }, { status: 401 });
   }
 
-  // 침묵 시간(밤 11시 ~ 아침 7시 KST)이면 발송 보류
+  // 이 5분 크론에 월급 리마인더도 얹는다(매월 4·5일 아침 1발).
+  // 발송 여부 판단(4·5일·아침 08~22시·하루1발)은 runPayrollReminder 내부 게이트가 전담.
+  try {
+    const prP = Promise.resolve(runPayrollReminder(env)).catch(() => {});
+    if (typeof waitUntil === 'function') waitUntil(prP); else await prP;
+  } catch (_) {}
+
+  // 침묵 시간(밤 11시 ~ 아침 7시 KST)이면 (공지) 발송 보류
   if (isQuietHourKST()) {
     return Response.json({
       ok: true,

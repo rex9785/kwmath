@@ -220,7 +220,9 @@
           '<div class="crow"><label>담당 학원</label>'+
             '<input id="ac_'+phone+'" list="academyOptions" value="'+esc(s.academy||'')+'" placeholder="학생 학원과 정확히 일치"></div>'+
           '<div class="crow"><label>시급</label>'+
-            '<input id="wg_'+phone+'" type="number" min="0" step="1000" value="'+wage+'" placeholder="원">'+
+            '<input id="wg_'+phone+'" type="number" min="0" step="1000" value="'+wage+'" placeholder="원"></div>'+
+          '<div class="crow"><label>급여 계좌</label>'+
+            '<input id="acct_'+phone+'" value="'+esc(s.account||'')+'" placeholder="월급 보낼 은행·계좌번호">'+
             '<button class="save" onclick="saveConfig(\''+phone+'\',\''+nameSafe+'\')">저장</button></div>'+
           '<div class="payline">'+
             '<span class="tag">'+month.slice(5)+'월 '+won(pay.totalPay)+'</span>'+
@@ -248,6 +250,7 @@
   async function saveConfig(phone, name){
     var ac = ($('ac_'+phone)||{}).value || '';
     var wg = ($('wg_'+phone)||{}).value;
+    var acct = ($('acct_'+phone)||{}).value || '';
     var card = document.querySelector('.card[data-phone="'+phone+'"]');
     var btn = card ? card.querySelector('.cfg .save') : null;
     if(btn) btn.disabled=true;
@@ -255,7 +258,7 @@
       var r = await fetch('/api/staff-approve', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
-        body: JSON.stringify({ phone: phone, action:'config', academy: ac.trim(), hourlyWage: Number(wg)||0 })
+        body: JSON.stringify({ phone: phone, action:'config', academy: ac.trim(), hourlyWage: Number(wg)||0, account: acct.trim() })
       });
       if(r.status===401 || r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
       var data = await r.json();
