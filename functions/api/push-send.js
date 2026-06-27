@@ -26,7 +26,13 @@ export async function onRequest({ request, env }) {
   let body = {};
   try { body = await request.json(); } catch {}
 
-  if ((body.password || '') !== env.ADMIN_PASSWORD)
+  // 인증: 둘 중 하나면 통과
+  //   (1) Authorization: Bearer <ADMIN_PASSWORD>  — _middleware가 원장 세션토큰(adm_)을 번역해 줌 (admin 페이지 표준 경로)
+  //   (2) body.password === ADMIN_PASSWORD        — 서버 내부 호출(notices-write 등)·레거시 호환
+  const authz = request.headers.get('Authorization') || '';
+  const bearerOk = !!env.ADMIN_PASSWORD && authz === 'Bearer ' + env.ADMIN_PASSWORD;
+  const bodyOk   = !!env.ADMIN_PASSWORD && (body.password || '') === env.ADMIN_PASSWORD;
+  if (!bearerOk && !bodyOk)
     return Response.json({ error: '인증 실패' }, { status: 401 });
 
   const vapidPub  = env.VAPID_PUBLIC_KEY  || '';

@@ -56,7 +56,7 @@
   <div id="app"></div>
 </div>
 <script>
-  // 원장 비밀번호 = admin token (관리자 세션이면 그대로 재사용). push-send.js는 body.password로 인증.
+  // 원장 세션토큰(adm_) = localStorage['kwmath_admin_token']. /api/push-send엔 Authorization: Bearer로 보내 _middleware가 ADMIN_PASSWORD로 번역.
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   var ADMIN = '__admin__';   // qna.js의 ADMIN_PUSH_USERS 와 동일해야 함
 
@@ -153,7 +153,7 @@
     var res, data, txt='';
     try{
       res = await fetch('/api/push-send', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
         body: JSON.stringify({ password:token, userId:ADMIN, title:'🔔 테스트 알림', body:'이게 보이면 알림 정상! ('+nowStr()+')', url:'/admin-qna.html', tag:'kwmath-test' })
       });
       txt = await res.text();
