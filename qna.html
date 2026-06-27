@@ -95,6 +95,17 @@
   .btn-mini{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:5px 11px;border-radius:7px;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:inherit;}
   .btn-mini:hover{border-color:var(--primary);color:var(--primary);}
 
+  /* 접이식(아코디언) 질문 목록 — 제목만 보이고, 누르면 펼쳐짐 */
+  .q-summary{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .q-sum-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;}
+  .q-sum-line{display:flex;align-items:center;gap:8px;}
+  .q-sum-title{flex:1;min-width:0;font-size:0.9rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .q-card:not(.open) .q-summary:hover .q-sum-title{color:var(--primary);}
+  .q-chevron{flex-shrink:0;color:var(--text-light);font-size:0.8rem;transition:transform .18s;}
+  .q-card.open .q-chevron{transform:rotate(180deg);}
+  .q-detail{margin-top:11px;border-top:1px solid var(--border);padding-top:11px;}
+  .b-done{background:#E6F4EA;color:#1E7E45;}
+
   .state-box{text-align:center;padding:36px 24px;color:var(--text-light);}
   .state-box .state-icon{font-size:2rem;margin-bottom:10px;}
   .state-box p{font-size:0.85rem;line-height:1.7;}
@@ -450,14 +461,27 @@
     }
   }
 
-  // ── 카드 렌더 ──
+  // ── 목록에서 보일 한 줄 제목(미리보기) ──
+  //   비밀글은 내용 노출 금지(목록엔 라벨만). 제목 없으면 본문 첫 줄, 그것도 없으면 사진/기본.
+  function previewText(q){
+    if (q.isPrivate && !q.mine) return '🔒 비밀 질문';
+    if (q.title && q.title.trim()) return q.title.trim();
+    const body = (q.question||'').replace(/\s+/g,' ').trim();
+    if (body) return body.slice(0, 60);
+    if (q.image) return '📷 사진 질문';
+    return '질문';
+  }
+
+  // ── 카드 렌더 (접이식: 제목만 보이고 누르면 상세가 펼쳐짐) ──
   function cardHtml(q){
     const modeBadge = q.mode === 'ai'
       ? '<span class="badge b-ai">🤖 AI</span>'
       : '<span class="badge b-teacher">🧑‍🏫 선생님</span>';
     const privBadge = q.isPrivate ? '<span class="badge b-priv">🔒 비밀</span>' : '';
     const mineBadge = q.mine ? '<span class="badge b-mine">내 질문</span>' : '';
-    const pendBadge = q.status === 'pending' ? '<span class="badge b-pending">답변 대기</span>' : '';
+    const statusBadge = q.status === 'pending'
+      ? '<span class="badge b-pending">답변 대기</span>'
+      : (q.answer ? '<span class="badge b-done">답변 완료</span>' : '');
 
     let answerHtml = '';
     if (q.answer){
@@ -470,21 +494,38 @@
       answerHtml = '<div class="answer-pending">⏳ 선생님·조교의 답변을 기다리는 중이에요.</div>';
     }
 
-    const titleHtml = q.title ? '<div class="q-title">'+esc(q.title)+'</div>' : '';
     const photoHtml = q.image ? '<div class="q-photo"><img src="'+esc(q.image)+'" alt="첨부 사진" loading="lazy" onclick="openPhoto(this.src)"></div>' : '';
     const delBtn = q.mine ? '<div class="q-actions"><button class="btn-mini" onclick="delQuestion('+q.id+')">삭제</button></div>' : '';
 
+    // 펼쳤을 때만 보일 상세(본문+사진+답변+삭제). 비밀글이 남의 글이면 본문 숨김(목록에 안 오지만 방어적으로).
+    const bodyHtml = (q.isPrivate && !q.mine) ? '' : '<div class="q-body">'+esc(q.question)+'</div>';
+
     return '<div class="q-card">'+
-      '<div class="q-head">'+
-        '<span class="q-author">'+esc(q.authorName||'익명')+'</span>'+
-        modeBadge + privBadge + mineBadge + pendBadge +
-        '<span class="q-meta">'+fmtDate(q.createdAt)+'</span>'+
+      '<div class="q-summary" onclick="toggleCard(this)">'+
+        '<div class="q-sum-top">'+
+          '<span class="q-author">'+esc(q.authorName||'익명')+'</span>'+
+          modeBadge + privBadge + mineBadge + statusBadge +
+          '<span class="q-meta">'+fmtDate(q.createdAt)+'</span>'+
+        '</div>'+
+        '<div class="q-sum-line">'+
+          '<span class="q-sum-title">'+esc(previewText(q))+'</span>'+
+          '<span class="q-chevron">▼</span>'+
+        '</div>'+
       '</div>'+
-      titleHtml +
-      '<div class="q-body">'+esc(q.question)+'</div>'+
-      photoHtml +
-      answerHtml + delBtn +
+      '<div class="q-detail" style="display:none;">'+
+        bodyHtml + photoHtml + answerHtml + delBtn +
+      '</div>'+
     '</div>';
+  }
+
+  // 카드 펼치기/접기 (처음 펼칠 때 수식 렌더)
+  function toggleCard(el){
+    const card = el.closest('.q-card');
+    if (!card) return;
+    const detail = card.querySelector('.q-detail');
+    const open = card.classList.toggle('open');
+    if (detail) detail.style.display = open ? 'block' : 'none';
+    if (open && detail && !detail.dataset.mathDone){ renderMath(detail); detail.dataset.mathDone = '1'; }
   }
 
   function switchTab(tab){
@@ -524,7 +565,6 @@
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">💬</div><p>아직 질문이 없어요.<br>첫 질문을 남겨보세요!</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
-      renderMath(box);
     } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
   }
 
@@ -539,7 +579,6 @@
       const list = data.questions || [];
       if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>아직 올린 질문이 없어요.</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
-      renderMath(box);
     } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
   }
 
