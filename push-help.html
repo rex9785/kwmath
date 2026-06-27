@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>알림이 안 울려요? · 이관우 수학연구소</title>
+<meta name="robots" content="noindex">
+
+<link rel="manifest" href="/manifest.json?v=3">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
+  .topbar .back{color:#fff;text-decoration:none;font-size:1.3rem;line-height:1;flex-shrink:0;}
+  .topbar-logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;border-radius:6px;overflow:hidden;}
+  .topbar-logo img{width:100%;height:100%;object-fit:cover;border-radius:6px;}
+  .topbar-title{font-size:1rem;font-weight:900;}
+
+  .page{max-width:480px;margin:0 auto;padding:28px 20px 80px;}
+  .hero{text-align:center;margin-bottom:22px;}
+  .hero .emoji{font-size:2.6rem;display:block;margin-bottom:8px;}
+  .hero h1{font-size:1.35rem;font-weight:900;margin-bottom:8px;}
+  .hero .pitch{color:var(--text-light);font-size:0.9rem;line-height:1.65;}
+
+  .os-tabs{display:flex;gap:6px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:16px;}
+  .os-tab{flex:1;background:none;border:none;padding:10px 8px;border-radius:9px;font-size:0.86rem;font-weight:700;color:var(--text-light);cursor:pointer;font-family:inherit;}
+  .os-tab.on{background:var(--primary);color:#fff;}
+
+  .card{background:#fff;border-radius:16px;padding:20px 20px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.05);margin-bottom:14px;}
+  .card h2{font-size:1rem;font-weight:900;color:var(--primary);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .card .lead{font-size:0.84rem;color:var(--text-light);line-height:1.6;margin-bottom:6px;}
+
+  .step{display:flex;gap:13px;padding:13px 0;border-bottom:1px solid var(--border);}
+  .step:last-child{border-bottom:none;}
+  .step-num{flex-shrink:0;width:30px;height:30px;background:var(--primary-light);color:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.92rem;}
+  .step-text{flex:1;font-size:0.9rem;line-height:1.58;color:var(--text);padding-top:4px;}
+  .step-text b{color:var(--primary);}
+  .step.key .step-num{background:#FFE8A8;color:#854F0B;}
+  .step.key .step-text b{color:#854F0B;}
+
+  .note{background:var(--primary-light);border-left:3px solid var(--primary);padding:13px 15px;border-radius:8px;font-size:0.84rem;line-height:1.65;color:var(--text);margin-bottom:16px;}
+  .note b{color:var(--primary);}
+  .note.warn{background:#FFF8DC;border-left-color:#E0A100;}
+  .note.warn b{color:#854F0B;}
+
+  .ask{background:#fff;border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:0.85rem;line-height:1.65;color:var(--text-light);text-align:center;margin-top:6px;}
+  .ask a{color:var(--primary);font-weight:700;text-decoration:none;}
+
+  .go-portal{display:block;background:#fff;color:var(--primary);border:2px solid var(--primary);text-align:center;padding:14px;border-radius:12px;text-decoration:none;font-weight:800;font-size:0.95rem;margin-top:16px;}
+  .go-portal:hover{background:var(--primary-light);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="back" aria-label="뒤로">‹</a>
+  <span class="topbar-logo"><img src="/icons/icon-192.png?v=6" alt="K"></span>
+  <span class="topbar-title">알림 도움말</span>
+</div>
+
+<div class="page">
+  <div class="hero">
+    <span class="emoji">🔕</span>
+    <h1>알림이 안 울려요?</h1>
+    <div class="pitch">앱에서 <b>"알림 켜기"</b>를 눌렀는데도 알림이 안 온다면,<br>휴대폰이 알림을 막고 있을 수 있어요.<br>아래 순서대로 <b>한 번만</b> 풀어주세요. 1분이면 끝나요!</div>
+  </div>
+
+  <div class="note warn">
+    💡 <b>가장 흔한 원인</b><br>
+    휴대폰이 "한동안 안 쓴 앱"이라고 판단하면 <b>"사용하지 않는 앱 권한 삭제"</b> 기능이 알림 권한을 몰래 꺼버려요. 그래서 분명 켰는데도 어느 날부터 알림이 안 오게 됩니다. 아래 <b>④번</b>을 꼭 꺼주세요.
+  </div>
+
+  <div class="os-tabs">
+    <button class="os-tab" data-os="android">🤖 안드로이드 / 갤럭시</button>
+    <button class="os-tab" data-os="ios">🍎 아이폰</button>
+  </div>
+
+  <!-- 안드로이드 -->
+  <div class="card" id="androidGuide" style="display:none;">
+    <h2>🤖 안드로이드 · 갤럭시</h2>
+    <div class="lead">설정에서 한 번만 풀어두면 다시 막히지 않아요.</div>
+    <div class="step"><div class="step-num">1</div><div class="step-text">휴대폰 <b>설정</b> 앱을 열어요</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text"><b>애플리케이션</b>(앱) → <b>이관우 수학연구소</b> 를 찾아 눌러요</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text"><b>알림</b> 을 눌러 <b>"알림 허용"</b> 을 켜요</div></div>
+    <div class="step key"><div class="step-num">4</div><div class="step-text">⭐ 다시 앱 정보 화면으로 나와서, <b>"사용하지 않는 앱 권한 삭제"</b>(또는 <b>"사용하지 않으면 권한 제거"</b>)를 <b>꺼주세요</b>. — 이게 켜져 있으면 며칠 뒤 또 막혀요</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text"><b>배터리</b> 를 눌러 <b>"제한 없음"</b> 으로 바꿔요. (화면이 꺼져 있어도 알림이 와요)</div></div>
+    <div class="step"><div class="step-num">6</div><div class="step-text">앱으로 돌아와 <b>🔔 알림 켜기</b> 를 다시 한 번 눌러요. 끝!</div></div>
+  </div>
+
+  <!-- 아이폰 -->
+  <div class="card" id="iosGuide" style="display:none;">
+    <h2>🍎 아이폰</h2>
+    <div class="lead">아이폰은 <b>홈 화면에 추가한 앱</b>에서만 알림이 와요.</div>
+    <div class="step"><div class="step-num">1</div><div class="step-text">Safari 탭이 아니라 <b>홈 화면 아이콘</b>으로 앱을 열어요. (아직 설치 안 했다면 <a href="/install" style="color:var(--primary);font-weight:700;">설치 안내 보기 →</a>)</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">휴대폰 <b>설정</b> → <b>알림</b> → <b>이관우 수학연구소</b> 를 눌러요</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text"><b>"알림 허용"</b> 을 켜요</div></div>
+    <div class="step key"><div class="step-num">4</div><div class="step-text"><b>집중 모드</b>(방해금지)가 켜져 있으면 알림이 가려져요. — 꺼주세요</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text">앱으로 돌아와 <b>🔔 알림 켜기</b> 를 다시 눌러요. 끝!</div></div>
+  </div>
+
+  <div class="ask">
+    위 순서대로 했는데도 알림이 안 온다면<br>
+    <a href="/qna">질문방</a> 이나 문자로 <b>관우T</b>에게 알려주세요. 🙏
+  </div>
+
+  <a href="/portal" class="go-portal">← 포털로 돌아가기</a>
+</div>
+
+<script>
+  var ua = navigator.userAgent;
+  var isIOS = /iPhone|iPad|iPod/i.test(ua) && !window.MSStream;
+
+  function showOs(os) {
+    var tabs = document.querySelectorAll('.os-tab');
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].dataset.os === os) tabs[i].classList.add('on');
+      else tabs[i].classList.remove('on');
+    }
+    document.getElementById('androidGuide').style.display = (os === 'android') ? 'block' : 'none';
+    document.getElementById('iosGuide').style.display     = (os === 'ios')     ? 'block' : 'none';
+  }
+  document.querySelectorAll('.os-tab').forEach(function (t) {
+    t.addEventListener('click', function () { showOs(t.dataset.os); });
+  });
+  showOs(isIOS ? 'ios' : 'android');
+</script>
+</body>
+</html>
