@@ -627,8 +627,6 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <!-- 출석부 PDF 렌더 영역 (화면에선 숨김 / 인쇄 시 표시) -->
 <div id="attendanceSheet"></div>
 
@@ -643,15 +641,6 @@
     "대치동 정규반": [],
     "세정학원":      [],
   };
-
-  // 토스트 알림
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    if (!t) { console.log('[toast]', msg); return; }
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2200);
-  }
 
   // ── 로그인 ──
   async function doLogin() {

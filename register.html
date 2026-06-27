@@ -299,11 +299,6 @@
     if (cb) cb.checked = !cb.checked;
   }
 
-  function toggleAcc(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('open');
-  }
-
   // 휴대폰 자동 포맷팅 (백스페이스 친화)
   // - 4번째 숫자부터 하이픈 자동 추가
   // - 7자리 정확히일 때는 꼬리 하이픈 X (백스페이스로 지울 수 있도록)
@@ -315,8 +310,6 @@
     else if (v.length > 3) f = v.slice(0,3) + '-' + v.slice(3);
     if (el.value !== f) el.value = f;
   }
-  // 호환용 — 이전에 추가했던 함수, 이제 formatPhone에 위임
-  function stripToDigits(el) { formatPhone(el); }
 
   function getCheckedValues(groupId) {
     return [].slice.call(document.querySelectorAll('#' + groupId + ' .check-item.checked input')).map(function(i){ return i.value; });

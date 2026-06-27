@@ -875,33 +875,9 @@
     }
   });
 
-  // 안드로이드 한 클릭 설치
-  let deferredPrompt = null;
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    const btn = $('installNowBtn');
-    if (btn) btn.style.display = 'block';
-  });
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = $('installNowBtn');
-    if (!btn) return;
-    btn.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        btn.style.display = 'none';
-        showToast('✅ 어플이 홈 화면에 추가됐어요!');
-      }
-      deferredPrompt = null;
-    });
-  });
+  // 앱 설치 완료 시: 설치 안내 FAB 숨김 ('한 클릭 설치' 버튼은 별도 '📲 앱 설치' 링크로 대체되어 제거)
   window.addEventListener('appinstalled', () => {
-    const btn = $('installNowBtn');
-    const hint = $('installHint');
     const fab = $('installFab');
-    if (btn) btn.style.display = 'none';
     if (fab) fab.classList.remove('show');
   });
 
