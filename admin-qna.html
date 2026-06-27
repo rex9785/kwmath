@@ -89,8 +89,20 @@
   .pushbtn{ display:block; width:100%; margin:0 0 13px; padding:11px 14px; border-radius:11px; font-size:0.86rem; font-weight:800; cursor:pointer; font-family:inherit; border:1.5px solid var(--primary); background:#fff; color:var(--primary); transition:background .15s; }
   .pushbtn:hover{ background:var(--primary-light); }
   .pushbtn.on{ background:var(--primary-light); color:var(--primary); border-color:var(--primary-light); }
-  .pushbtn.blocked{ border-color:var(--border); color:var(--muted); cursor:default; }
-  .pushbtn.blocked:hover{ background:#fff; }
+  .pushbtn.blocked{ border-color:#E0A100; color:#B07A00; background:#FFF7E0; cursor:pointer; }
+  .pushbtn.blocked:hover{ background:#FFEFC2; }
+  .pushbtn.warn{ border-color:#E0A100; color:#B07A00; background:#FFF7E0; }
+
+  /* 알림 안내 모달 (권한창 전 안내 / 차단 복구 공용) */
+  .modal-bg{ position:fixed; inset:0; background:rgba(30,10,15,0.6); display:none; align-items:center; justify-content:center; z-index:300; padding:24px; }
+  .modal-bg.show{ display:flex; }
+  .modal-card{ background:#fff; border-radius:18px; padding:26px 22px; max-width:380px; width:100%; box-shadow:0 18px 50px rgba(0,0,0,0.25); }
+  .modal-card h2{ font-size:1.05rem; font-weight:900; color:var(--primary); margin:0 0 8px; }
+  .modal-card .modal-sub{ font-size:0.86rem; color:var(--ink); margin-bottom:18px; line-height:1.6; }
+  .modal-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
+  .btn-cancel{ background:#fff; color:var(--muted); border:1.5px solid var(--border); padding:9px 16px; border-radius:9px; font-size:0.86rem; cursor:pointer; font-family:inherit; }
+  .btn-primary{ background:var(--primary); color:#fff; border:none; padding:9px 18px; border-radius:9px; font-size:0.86rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn-primary:hover{ background:#6f1f2b; }
 
   /* 조교 콘솔 네비게이션 (staffMode에서만 노출) */
   .staffnav{ display:flex; gap:8px; margin-bottom:13px; flex-wrap:wrap; }
@@ -114,6 +126,18 @@
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- 알림(푸시) 안내 모달: 권한창 전 안내 / 차단됨 복구 안내 공용 -->
+<div class="modal-bg" id="pushHelpModal">
+  <div class="modal-card">
+    <h2 id="pushHelpTitle">🔔 알림</h2>
+    <div class="modal-sub" id="pushHelpBody"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="pushHelpCancel" onclick="closePushHelp()">닫기</button>
+      <button class="btn-primary" id="pushHelpOk" onclick="closePushHelp()">확인</button>
+    </div>
+  </div>
+</div>
 <script>
   // 토큰: 조교는 portal 로그인 때 sessionStorage(ast_), 원장은 admin.html localStorage(adm_)를 재사용.
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
@@ -167,36 +191,92 @@
     var btn=$('pushBtn'); if(!btn) return;
     if(!pushSupported()){ btn.style.display='none'; return; }
     btn.style.display='block';
-    if(Notification.permission==='denied'){ btn.textContent='🔔 알림이 차단됨 — 브라우저 설정에서 허용'; btn.className='pushbtn blocked'; return; }
+    // 차단 → 탭하면 복구 안내 모달 (이제 버튼 클릭 가능)
+    if(Notification.permission==='denied'){ btn.textContent='🔔 알림 차단됨 — 탭해서 푸는 법 보기'; btn.className='pushbtn blocked'; return; }
     try{
       var reg=await navigator.serviceWorker.ready;
       var sub=await reg.pushManager.getSubscription();
-      if(sub){ btn.textContent='🔔 새 질문 알림 켜짐 (탭하면 끄기)'; btn.className='pushbtn on'; }
+      if(sub && Notification.permission==='granted'){ btn.textContent='🔔 새 질문 알림 켜짐 (탭하면 끄기)'; btn.className='pushbtn on'; }
+      else if(sub){ btn.textContent='🔔 알림 재설정 필요 — 탭해서 다시 켜기'; btn.className='pushbtn warn'; }  // 구독은 있는데 권한이 빠진 desync(폰이 권한 회수)
       else{ btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; }
     }catch(_){ btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; }
   }
 
+  // ════════ 알림 안내 모달 (권한창 전 안내 / 차단 복구) ════════
+  function closePushHelp(){ var m=$('pushHelpModal'); if(m) m.classList.remove('show'); }
+
+  function showPushExplainModal(){
+    $('pushHelpTitle').textContent='🔔 알림을 켤게요';
+    $('pushHelpBody').innerHTML='잠시 후 <b>"알림을 보내도록 허용하시겠어요?"</b> 창이 떠요.<br><b>"허용"</b>을 눌러야 새 질문 알림을 받을 수 있어요.';
+    $('pushHelpCancel').style.display='';
+    var ok=$('pushHelpOk'); ok.textContent='허용하러 가기'; ok.onclick=function(){ closePushHelp(); proceedPush(); };
+    $('pushHelpModal').classList.add('show');
+  }
+
+  function showPushBlockedModal(){
+    $('pushHelpTitle').textContent='🔔 알림이 막혀 있어요';
+    $('pushHelpBody').innerHTML='휴대폰이 이 앱의 알림을 막아둔 상태예요. 아래대로 한 번만 풀어주세요:'
+      +'<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
+      +'<li>휴대폰 <b>설정</b> 앱 열기</li>'
+      +'<li><b>애플리케이션</b> → <b>이관우 수학연구소</b> 선택</li>'
+      +'<li><b>알림</b> → <b>허용</b> 켜기</li>'
+      +'<li>같은 화면 <b>"사용하지 않는 앱 권한 삭제"</b> 끄기 <span style="color:#B07A00;">(다시 막히는 것 방지)</span></li>'
+      +'<li>이 화면으로 돌아와 알림 버튼 다시 누르기</li>'
+      +'</ol>';
+    $('pushHelpCancel').style.display='none';
+    var ok=$('pushHelpOk'); ok.textContent='알겠어요'; ok.onclick=closePushHelp;
+    $('pushHelpModal').classList.add('show');
+  }
+
   var _pushBusy=false;
   async function togglePush(){
-    if(_pushBusy) return;   // 처리 중 연타 무시 — 권한창이 3~4번 겹쳐 뜨던 원인
+    if(_pushBusy) return;   // 처리 중 연타 무시
     if(!pushSupported()){ showToast('이 브라우저는 알림을 지원하지 않아요.'); return; }
-    if(Notification.permission==='denied'){ showToast('알림이 차단돼 있어요. 브라우저 설정에서 허용해주세요.'); return; }
+    // 차단 → 막연한 토스트 대신 단계별 복구 안내 모달
+    if(Notification.permission==='denied'){ showPushBlockedModal(); return; }
+
+    var existing=null;
+    try{ var reg=await navigator.serviceWorker.ready; existing=await reg.pushManager.getSubscription(); }catch(_){}
+
+    // 정상 ON(구독+권한 허용)에서 탭 → 끄기
+    if(existing && Notification.permission==='granted'){
+      _pushBusy=true;
+      var btn=$('pushBtn'); if(btn){ btn.disabled=true; btn.style.opacity='0.6'; btn.textContent='⏳ 처리 중…'; }
+      try{
+        await existing.unsubscribe();
+        try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
+        showToast('알림을 껐어요.');
+      }catch(e){ showToast('알림 끄기 오류: '+((e&&e.message)||'')); }
+      finally{ _pushBusy=false; if(btn){ btn.disabled=false; btn.style.opacity=''; } refreshPushBtn(); }
+      return;
+    }
+    // desync(구독은 있는데 권한이 빠짐 — 폰이 권한 회수) → 낡은 구독 정리 후 재등록
+    if(existing){
+      try{ await existing.unsubscribe(); }catch(_){}
+      try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
+    }
+    // 새로 켜기: 권한창이 새로 뜰 상황(default)이면 안내 모달 먼저
+    if(Notification.permission==='default'){ showPushExplainModal(); return; }
+    proceedPush();
+  }
+
+  // 실제 구독 — 안내 모달 '허용하러 가기' 후 또는 이미 권한 허용 상태일 때
+  async function proceedPush(){
+    if(_pushBusy) return;
     _pushBusy=true;
     var btn=$('pushBtn'); if(btn){ btn.disabled=true; btn.style.opacity='0.6'; btn.textContent='⏳ 설정 중…'; }
     try{
       var reg=await navigator.serviceWorker.ready;
-      var existing=await reg.pushManager.getSubscription();
-      if(existing){
-        await existing.unsubscribe();
-        try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
-        showToast('알림을 껐어요.'); return;
-      }
       var vRes=await fetch('/api/push-vapid-public'); var vData=await vRes.json();
       if(!vData||!vData.publicKey){ showToast('푸시 서버 설정(VAPID)이 안 돼 있어요. 환경변수를 확인해주세요.', 4000); return; }
       // 권한창은 subscribe가 필요할 때 딱 1번만 띄움 (requestPermission 따로 호출 X — 권한창 2번 뜨던 원인)
       var sub;
       try{ sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8(vData.publicKey) }); }
-      catch(err){ showToast('알림 권한이 필요해요. "허용"을 눌러주세요.'); return; }
+      catch(err){
+        if(Notification.permission==='denied'){ showPushBlockedModal(); }
+        else{ showToast('알림 권한이 필요해요. "허용"을 눌러주세요.'); }
+        return;
+      }
       var sRes=await fetch('/api/push-subscribe',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, subscription:sub.toJSON() }) });
       if(!sRes.ok){ showToast('구독 저장 실패. 잠시 후 다시 시도해주세요.'); return; }
       showToast('🔔 이제 새 질문이 오면 알림이 와요!');

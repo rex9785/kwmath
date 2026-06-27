@@ -181,11 +181,11 @@
     <div id="pushBanner" style="display:none;background:linear-gradient(135deg,#FFF8DC 0%,#FFE8A8 100%);border:1.5px solid #E8C56C;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:10px;flex-wrap:wrap;">
       <span style="font-size:1.2rem;">🔔</span>
       <div style="flex:1;min-width:180px;">
-        <div style="font-size:0.86rem;font-weight:700;color:#854F0B;">새 리포트·공지 알림 받기</div>
-        <div style="font-size:0.74rem;color:#854F0B;opacity:0.85;margin-top:2px;">한 번 켜두면 새 소식이 휴대폰 알림으로 와요</div>
+        <div id="pushBannerTitle" style="font-size:0.86rem;font-weight:700;color:#854F0B;">새 리포트·공지 알림 받기</div>
+        <div id="pushBannerDesc" style="font-size:0.74rem;color:#854F0B;opacity:0.85;margin-top:2px;">한 번 켜두면 새 소식이 휴대폰 알림으로 와요</div>
       </div>
       <div style="display:flex;gap:6px;">
-        <button onclick="toggleEnablePush()" style="background:#854F0B;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">켜기</button>
+        <button id="pushBannerBtn" onclick="toggleEnablePush()" style="background:#854F0B;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">켜기</button>
         <button onclick="snoozePushBanner()" style="background:#fff;color:#854F0B;border:1.5px solid #E8C56C;padding:7px 12px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit;">나중에</button>
       </div>
     </div>
@@ -289,6 +289,18 @@
     <div class="modal-actions">
       <button class="btn-cancel" id="pwCancelBtn" onclick="closePasswordModal()">취소</button>
       <button class="btn-primary" onclick="doChangePassword()">변경</button>
+    </div>
+  </div>
+</div>
+
+<!-- 알림(푸시) 안내 모달: 권한창 전 안내 / 차단됨 복구 안내 공용 -->
+<div class="modal-bg" id="pushHelpModal">
+  <div class="modal-card">
+    <h2 id="pushHelpTitle">🔔 알림</h2>
+    <div class="modal-sub" id="pushHelpBody"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="pushHelpCancel" onclick="closePushHelp()">닫기</button>
+      <button class="btn-primary" id="pushHelpOk" onclick="closePushHelp()">확인</button>
     </div>
   </div>
 </div>
@@ -655,7 +667,22 @@
     } catch (_) { return false; }
   }
 
-  // 알림 안 켠 사용자만 상단 배너 노출. 켰거나·권한 거부·snooze 중이면 숨김.
+  // 배너 텍스트를 기본('켜기')/차단('푸는 법') 두 상태로 전환
+  function setPushBannerMode(blocked) {
+    const t = $('pushBannerTitle'), d = $('pushBannerDesc'), b = $('pushBannerBtn');
+    if (blocked) {
+      if (t) t.textContent = '알림이 막혀 있어요';
+      if (d) d.textContent = '탭하면 다시 켜는 방법을 알려드려요';
+      if (b) b.textContent = '푸는 법';
+    } else {
+      if (t) t.textContent = '새 리포트·공지 알림 받기';
+      if (d) d.textContent = '한 번 켜두면 새 소식이 휴대폰 알림으로 와요';
+      if (b) b.textContent = '켜기';
+    }
+  }
+
+  // 알림 안 켠 사용자만 상단 배너 노출. 켰거나·snooze 중이면 숨김.
+  // 차단(denied) 상태는 숨기지 않고 '푸는 법' 배너로 노출 → 복구 진입점 제공.
   async function updatePushButton() {
     const banner = $('pushBanner');
     if (!banner) return;
@@ -665,21 +692,23 @@
       banner.style.display = 'none';
       return;
     }
-    // 2. 권한 영구 거부 → 배너 노출해도 못 켬, 숨김 (브라우저 설정에서 풀어야)
-    if (Notification.permission === 'denied') {
-      banner.style.display = 'none';
-      return;
-    }
-    // 3. 이미 구독 중 → 숨김
-    try {
-      const subbed = await isPushSubscribed();
-      if (subbed) { banner.style.display = 'none'; return; }
-    } catch (_) {}
-    // 4. snooze 중 → 숨김
+    // 2. snooze 중 → 숨김 (차단 상태여도 사용자가 미뤘으면 존중)
     const snoozedUntil = parseInt(localStorage.getItem('pushSnoozedUntil') || '0', 10);
     if (snoozedUntil > Date.now()) { banner.style.display = 'none'; return; }
+    // 3. 권한 차단 → '푸는 법' 배너 노출 (구독 객체는 무시: 차단 상태면 어차피 알림 안 옴)
+    if (Notification.permission === 'denied') {
+      setPushBannerMode(true);
+      banner.style.display = 'flex';
+      return;
+    }
+    // 4. 이미 구독 중(+권한 허용) → 숨김
+    try {
+      const subbed = await isPushSubscribed();
+      if (subbed && Notification.permission === 'granted') { banner.style.display = 'none'; return; }
+    } catch (_) {}
 
-    // 위 어느 케이스에도 안 걸리면 → 배너 표시
+    // 그 외 → 기본 '켜기' 배너 표시
+    setPushBannerMode(false);
     banner.style.display = 'flex';
   }
 
@@ -691,25 +720,59 @@
     showToast('알림 안내를 일주일 동안 숨길게요.');
   }
 
+  // ════════ 알림 안내 모달 (권한창 전 안내 / 차단 복구) ════════
+  function closePushHelp() { const m = $('pushHelpModal'); if (m) m.classList.remove('show'); }
+
+  // 권한창 뜨기 직전 안내 — 학생이 반사적으로 닫아 거부되는 것 방지
+  function showPushExplainModal() {
+    $('pushHelpTitle').textContent = '🔔 알림을 켤게요';
+    $('pushHelpBody').innerHTML =
+      '잠시 후 <b>"알림을 보내도록 허용하시겠어요?"</b> 창이 떠요.<br>'
+      + '<b>"허용"</b>을 눌러야 새 리포트·공지 알림을 받을 수 있어요.';
+    $('pushHelpCancel').style.display = '';
+    $('pushHelpOk').textContent = '허용하러 가기';
+    $('pushHelpOk').onclick = function () { closePushHelp(); proceedEnablePush(); };
+    $('pushHelpModal').classList.add('show');
+  }
+
+  // 차단(denied) 복구 안내 — 설정 경로 단계별
+  function showPushBlockedModal() {
+    $('pushHelpTitle').textContent = '🔔 알림이 막혀 있어요';
+    $('pushHelpBody').innerHTML =
+      '휴대폰이 이 앱의 알림을 막아둔 상태예요. 아래대로 한 번만 풀어주세요:'
+      + '<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
+      + '<li>휴대폰 <b>설정</b> 앱 열기</li>'
+      + '<li><b>애플리케이션</b> → <b>이관우 수학연구소</b> 선택</li>'
+      + '<li><b>알림</b> → <b>허용</b> 켜기</li>'
+      + '<li>같은 화면 <b>"사용하지 않는 앱 권한 삭제"</b> 끄기 <span style="color:#854F0B;">(다시 막히는 것 방지)</span></li>'
+      + '<li>이 화면으로 돌아와 알림 <b>"켜기"</b> 다시 누르기</li>'
+      + '</ol>';
+    $('pushHelpCancel').style.display = 'none';
+    $('pushHelpOk').textContent = '알겠어요';
+    $('pushHelpOk').onclick = closePushHelp;
+    $('pushHelpModal').classList.add('show');
+  }
+
   var _pushBusyPortal = false;
   async function toggleEnablePush() {
-    if (_pushBusyPortal) return;   // 처리 중 연타 무시 — 권한창이 2~3번 겹쳐 뜨던 원인
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (_pushBusyPortal) return;   // 처리 중 연타 무시
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       showToast('이 브라우저는 푸쉬 알림을 지원하지 않습니다.');
       return;
     }
-    if (Notification.permission === 'denied') {
-      showToast('알림이 차단돼 있어요. 휴대폰 브라우저 설정 → 사이트 권한 → 알림에서 kwmath.co.kr 허용해주세요.', 6000);
-      return;
-    }
-    _pushBusyPortal = true;
+    // 차단 상태 → 복구 안내 모달 (막연한 토스트 대신 단계별 안내)
+    if (Notification.permission === 'denied') { showPushBlockedModal(); return; }
+
+    // 이미 구독 중이면 해제
+    let existing = null;
     try {
-      // 이미 구독 중이면 해제
       const reg = await navigator.serviceWorker.ready;
-      const existing = await reg.pushManager.getSubscription();
-      if (existing) {
+      existing = await reg.pushManager.getSubscription();
+    } catch (_) {}
+    if (existing) {
+      _pushBusyPortal = true;
+      try {
         await existing.unsubscribe();
-        // 서버에서도 해제 (구현돼있다면)
         try {
           await fetch('/api/push-subscribe', {
             method: 'DELETE',
@@ -718,9 +781,26 @@
           });
         } catch (_) {}
         showToast('알림이 꺼졌습니다.');
-        return;
+      } catch (e) {
+        showToast('알림 끄기 오류: ' + (e.message || ''), 4000);
+      } finally {
+        _pushBusyPortal = false;
+        updatePushButton();
       }
+      return;
+    }
+    // 새로 켜는 경우: 권한창이 새로 뜰 상황(default)이면 먼저 안내 모달
+    if (Notification.permission === 'default') { showPushExplainModal(); return; }
+    // 이미 허용(granted)인데 구독만 없으면 바로 구독
+    proceedEnablePush();
+  }
 
+  // 실제 구독 — 안내 모달 '허용하러 가기' 후 또는 이미 권한 허용 상태일 때
+  async function proceedEnablePush() {
+    if (_pushBusyPortal) return;
+    _pushBusyPortal = true;
+    try {
+      const reg = await navigator.serviceWorker.ready;
       // VAPID 공개키
       const vRes = await fetch('/api/push-vapid-public');
       const vData = await vRes.json();
@@ -737,7 +817,9 @@
           applicationServerKey: urlBase64ToUint8Array(vData.publicKey),
         });
       } catch (err) {
-        showToast('알림 권한이 필요해요. "허용"을 눌러주세요.', 4000);
+        // 사용자가 권한창에서 '차단'/'닫기'를 누른 경우
+        if (Notification.permission === 'denied') { showPushBlockedModal(); }
+        else { showToast('알림 권한이 필요해요. "허용"을 눌러주세요.', 4000); }
         return;
       }
       // 서버 저장
