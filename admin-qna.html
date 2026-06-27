@@ -37,6 +37,12 @@
   .qphoto{ margin-top:9px; }
   .qphoto img{ max-width:100%; max-height:360px; border-radius:9px; border:1px solid var(--border); cursor:zoom-in; display:block; }
 
+  /* 사진 크게 보기(라이트박스) — window.open(거대 dataURL) 먹통 방지용 인앱 뷰어 */
+  .lightbox{ position:fixed; inset:0; background:rgba(10,4,6,0.92); display:none; align-items:center; justify-content:center; z-index:300; padding:18px; }
+  .lightbox.show{ display:flex; }
+  .lightbox img{ max-width:100%; max-height:100%; border-radius:8px; }
+  .lightbox .lb-close{ position:absolute; top:max(14px,env(safe-area-inset-top,14px)); right:16px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; width:40px; height:40px; border-radius:50%; font-size:1.1rem; cursor:pointer; font-family:inherit; }
+
   .ans{ margin-top:11px; background:var(--bg); border-radius:9px; padding:11px 13px; border-left:3px solid var(--ai); }
   .ans.teacher{ border-left-color:var(--primary); }
   .ans .lab{ font-size:0.74rem; font-weight:800; color:var(--ai); margin-bottom:4px; }
@@ -138,6 +144,12 @@
     </div>
   </div>
 </div>
+
+<!-- 첨부 사진 크게 보기 -->
+<div class="lightbox" id="lightbox" onclick="closePhoto()">
+  <button class="lb-close" type="button" onclick="closePhoto()">✕</button>
+  <img id="lightboxImg" alt="첨부 사진 크게 보기">
+</div>
 <script>
   // 토큰: 조교는 portal 로그인 때 sessionStorage(ast_), 원장은 admin.html localStorage(adm_)를 재사용.
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
@@ -160,6 +172,9 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
   function fmtDate(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return esc(iso); return (d.getMonth()+1)+'/'+d.getDate()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+  // 첨부 사진 크게 보기: 거대 dataURL을 새 탭(window.open)으로 열면 PWA에서 먹통 → 인앱 라이트박스로 표시
+  function openPhoto(src){ var im=$('lightboxImg'); if(im) im.src=src; var lb=$('lightbox'); if(lb) lb.classList.add('show'); }
+  function closePhoto(){ var lb=$('lightbox'); if(lb) lb.classList.remove('show'); var im=$('lightboxImg'); if(im) im.src=''; }
 
   async function api(path, opts){
     opts = opts || {}; opts.headers = opts.headers || {};
@@ -398,7 +413,7 @@
     var privBadge = q.isPrivate ? '<span class="badge b-priv">🔒 비밀</span>' : '';
     var statBadge = q.status==='pending' ? '<span class="badge b-pending">미답변</span>' : '<span class="badge b-done">답변완료</span>';
     var titleHtml = q.title ? '<div class="qtitle">'+esc(q.title)+'</div>' : '';
-    var photoHtml = q.image ? '<div class="qphoto"><img src="'+esc(q.image)+'" alt="첨부 사진" onclick="window.open(this.src,\'_blank\')"></div>' : '';
+    var photoHtml = q.image ? '<div class="qphoto"><img src="'+esc(q.image)+'" alt="첨부 사진" loading="lazy" onclick="openPhoto(this.src)"></div>' : '';
 
     var ansHtml = '';
     if (q.answer){
