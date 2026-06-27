@@ -11,6 +11,7 @@ import {
 } from '../_auth.js';
 import { issueAdminSession, issueStaffSession } from '../_admin.js';
 import { getStaffRecord } from '../_staff.js';
+import { checkLockout, recordFailure, clearLockout, fmtRetry } from '../_lockout.js';
 
 // 운영진(원장) 번호 — 원장 식별 (staff-register.js·me.js와 동일하게 유지)
 const ADMIN_PHONES = ['01041149785'];
@@ -28,13 +29,37 @@ export async function onRequest({ request, env }) {
   if (!phone) return jsonError('휴대폰 번호를 정확히 입력해주세요.', 400);
   if (!password) return jsonError('비밀번호를 입력해주세요.', 400);
 
+  // ── 무차별 대입(brute-force) 방어: 이미 잠긴 계정이면 즉시 거절 ──
+  const lock = await checkLockout(env, phone);
+  if (lock.locked) {
+    return jsonError(
+      `비밀번호를 여러 번 잘못 입력해 로그인이 일시 제한되었습니다. 약 ${fmtRetry(lock.retryAfterSec)} 후 다시 시도하시거나, 관우T께 비밀번호 초기화를 요청해주세요.`,
+      429,
+    );
+  }
+
   // 계정 조회
   const account = await findAccountByPhone(env, phone);
   if (!account) return jsonError('등록되지 않은 휴대폰 번호입니다. 관우T께 문의해주세요.', 401);
 
   // 비밀번호 검증
   const ok = await verifyPassword(password, account.hash, account.salt);
-  if (!ok) return jsonError('비밀번호가 일치하지 않습니다.', 401);
+  if (!ok) {
+    // 실패 1회 기록 → 누적 5회째부터 잠금(점점 길어짐)
+    const f = await recordFailure(env, phone);
+    if (f.locked) {
+      return jsonError(
+        `비밀번호를 여러 번 잘못 입력해 로그인이 약 ${fmtRetry(f.retryAfterSec)} 제한됩니다. 관우T께 비밀번호 초기화를 요청하시면 즉시 풀 수 있어요.`,
+        429,
+      );
+    }
+    const left = Math.max(0, 5 - f.failCount);
+    const tail = left > 0 && left <= 2 ? ` (${left}회 더 틀리면 일시 잠금)` : '';
+    return jsonError('비밀번호가 일치하지 않습니다.' + tail, 401);
+  }
+
+  // 비밀번호 정답 → 누적 실패 기록 초기화(잠금 해제)
+  await clearLockout(env, phone);
 
   // 마지막 로그인 시각 (비치명적)
   touchLastLogin(env, account.id);

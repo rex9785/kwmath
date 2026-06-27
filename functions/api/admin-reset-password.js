@@ -1,6 +1,7 @@
 // POST /api/admin-reset-password (admin only) — Cloudflare D1 accounts (이전엔 Notion)
 // body: { phone } → 비번 '0000' 리셋 + must_change=true (재로그인 시 강제 변경)
 import { findAccountByPhone, updateAccountPassword } from './_auth.js';
+import { clearLockout } from './_lockout.js';
 import { safeError } from './_errors.js';
 
 const INITIAL_PASSWORD = '0000';
@@ -25,6 +26,9 @@ export async function onRequest({ request, env }) {
 
     // updateAccountPassword가 must_change_pw=0으로 바꾸니, 명시적으로 1 덮어쓰기
     try { await env.DB.prepare('UPDATE accounts SET must_change_pw = 1 WHERE phone = ?').bind(account.id).run(); } catch (_) {}
+
+    // 비번 초기화 시 로그인 잠금도 함께 해제 → 잠긴 학생을 관우T가 즉시 풀어줄 수 있음
+    try { await clearLockout(env, account.id); } catch (_) {}
 
     return Response.json({ ok: true, phone, message: '비밀번호가 0000으로 초기화되었습니다. 학부모/학생에게 알려주세요.' });
   } catch (e) {

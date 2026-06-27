@@ -6,6 +6,7 @@
 import {
   requireAuth, findAccountByPhone, verifyPassword, updateAccountPassword, jsonError,
 } from '../_auth.js';
+import { clearLockout } from '../_lockout.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return jsonError('POST만 허용', 405);
@@ -41,6 +42,9 @@ export async function onRequest({ request, env }) {
 
   const upd = await updateAccountPassword(env, account.id, newPassword);
   if (!upd.ok) return jsonError(upd.error || '비밀번호 변경 실패', 500);
+
+  // 비번 변경 성공 → 혹시 남아있던 로그인 잠금도 해제
+  try { await clearLockout(env, account.id); } catch (_) {}
 
   return Response.json({ ok: true });
 }
