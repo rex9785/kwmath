@@ -86,6 +86,7 @@
       '<div class="actions">'+
         '<button class="big primary" id="btnTest" onclick="testSend()">🔔 나에게 테스트 알림 보내기</button>'+
         '<button class="big ghost" id="btnPerm" onclick="requestPermDirect()">🧪 권한 직접 요청 (정밀 진단)</button>'+
+        '<button class="big ghost" id="btnLocal" onclick="localNotifyTest()">📍 이 폰에서 직접 띄워보기 (서버 없이)</button>'+
         '<button class="big ghost" id="btnReset" onclick="resetSub()">♻️ 알림 구독 새로 만들기</button>'+
         '<button class="big ghost" id="btnRe" onclick="runChecks()">🔄 다시 검사</button>'+
       '</div>'+
@@ -266,6 +267,38 @@
     }
     if(b){b.disabled=false;b.textContent='🧪 권한 직접 요청 (정밀 진단)';}
     runChecks();
+  }
+
+  // ── 로컬 알림 테스트 (서버·푸시 없이, 이 폰이 배너를 띄울 수 있는지만 판정) ──
+  async function localNotifyTest(){
+    var b=$('btnLocal'); if(b){ b.disabled=true; b.textContent='⏳ 띄우는 중…'; }
+    try{
+      if(!('serviceWorker' in navigator) || !window.Notification){ setResult('bad','⛔ 이 브라우저는 알림 미지원',''); return; }
+      var perm = Notification.permission;
+      if(perm!=='granted'){
+        setResult('warn','⚠️ 권한이 '+perm+' 라 로컬 알림도 막혀요 — 먼저 "권한 직접 요청"부터',
+          '권한이 <b>granted</b>가 아니면 이 폰 스스로도 배너를 못 띄웁니다. 위의 <b>🧪 권한 직접 요청</b> 버튼으로 먼저 granted를 만들어 주세요. 지금 값: <b>'+perm+'</b>');
+        return;
+      }
+      var reg = await navigator.serviceWorker.ready;
+      try{
+        await reg.showNotification('📍 로컬 테스트 알림', {
+          body:'이 배너가 보이면 이 폰은 알림 표시가 됩니다! ('+nowStr()+')',
+          icon:'/icons/icon-192.png', badge:'/icons/favicon-32.png',
+          tag:'kwmath-local', vibrate:[120,60,120], requireInteraction:true, data:{url:'/admin-qna.html'}
+        });
+        setResult('warn','📍 방금 알림을 띄웠습니다 — 화면(또는 상단바)에 배너가 보였나요?',
+          '권한값은 현재 <b>'+perm+'</b> 입니다. 방금 배너가:'+
+          '<ol class="steps">'+
+          '<li><b>보였다면</b> → 이 폰 알림 표시는 정상. 서버 푸시가 안 뜬 진짜 원인은 <b>배터리·절전 배달 차단</b>: 설정→앱→이관우 수학연구소→배터리→"제한 없음".</li>'+
+          '<li><b>안 보였다면</b> → 폰이 표시를 막는 중: <b>방해 금지(DND)</b> 해제, 앱→알림 껐다 켜기.</li>'+
+          '</ol>둘 중 어느 쪽이었는지 알려주세요.');
+      }catch(err){
+        setResult('bad','⛔ 로컬 알림조차 못 띄웠어요 — 권한이 표시를 막고 있습니다 (확정)',
+          '서버·푸시와 무관하게 이 폰이 알림 표시를 거부했어요(권한 <b>'+perm+'</b>). 설정→앱→이관우 수학연구소→알림 껐다 켜기.<div class="raw">'+esc((err&&err.message)||err)+'</div>');
+      }
+    }catch(e){ setResult('bad','❌ 오류',esc((e&&e.message)||e)); }
+    finally{ if(b){ b.disabled=false; b.textContent='📍 이 폰에서 직접 띄워보기 (서버 없이)'; } runChecks(); }
   }
 
   // ── 구독 강제 재설정 (desync·없음 복구) ──
