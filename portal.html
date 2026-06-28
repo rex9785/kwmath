@@ -653,8 +653,26 @@
   // ════════ 앱(Capacitor) 네이티브 FCM 알림 ════════
   // 앱 WebView 안에서는 Web Push가 안 되므로 네이티브 FCM 토큰을 등록한다.
   // 원격+번들 구조라 이 페이지가 곧 앱 화면 → window.Capacitor 브리지로 플러그인 호출.
-  function getPN() { return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications) || null; }
-  function isInApp() { return !!getPN(); }
+  // ⚠️ 원격+번들 앱: 사이트에 Capacitor 코어 JS를 번들하지 않으므로 window.Capacitor.Plugins 는 비어 있다.
+  // → 앱 감지는 isNativePlatform()으로, 플러그인 호출은 브리지 저수준 API(nativePromise/nativeCallback)로 직접 한다.
+  function isInApp() {
+    try { return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()); }
+    catch (e) { return false; }
+  }
+  function getPN() {
+    if (!isInApp()) return null;
+    var C = window.Capacitor;
+    if (C.Plugins && C.Plugins.PushNotifications) return C.Plugins.PushNotifications;  // 코어가 번들된 경우
+    if (typeof C.nativePromise === 'function' && typeof C.nativeCallback === 'function') {
+      return {
+        checkPermissions:   function () { return C.nativePromise('PushNotifications', 'checkPermissions', {}); },
+        requestPermissions: function () { return C.nativePromise('PushNotifications', 'requestPermissions', {}); },
+        register:           function () { return C.nativePromise('PushNotifications', 'register', {}); },
+        addListener:        function (eventName, cb) { C.nativeCallback('PushNotifications', 'addListener', { eventName: eventName }, function (d) { try { cb(d); } catch (_) {} }); return { remove: function () {} }; }
+      };
+    }
+    return null;
+  }
   let _appPushWired = false, _appPushTried = false, _appPushDone = false, _appPushUserId = '';
   async function appPushRegister(userId) {
     const PN = getPN(); if (!PN) return;
