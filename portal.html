@@ -743,7 +743,13 @@
         + '<li>그 화면에서 알림 켜기 누르면 권한창이 떠요 <span style="color:#854F0B;">(iOS 16.4 이상)</span></li>'
         + '</ol>';
     } else {
-      $('pushHelpBody').innerHTML = '이 기기의 iOS(아이패드OS)가 <b>16.4 미만</b>이라 웹 알림을 지원하지 않아요.<br><b>설정 → 일반 → 소프트웨어 업데이트</b>에서 최신으로 올리면 알림을 받을 수 있어요.';
+      $('pushHelpBody').innerHTML = '이 아이콘이 <b>Safari로 추가</b>한 게 아니면(크롬·네이버 등 다른 브라우저로 추가하면 ✕) 아이패드는 알림을 못 받아요. <b>Safari로 다시 설치</b>해 주세요:'
+        + '<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
+        + '<li>지금 홈 화면 <b>아이콘을 길게 눌러 삭제</b></li>'
+        + '<li><b>Safari</b>로 이 페이지 다시 열기</li>'
+        + '<li>하단 <b>공유</b>(<b>□↑</b>) → <b>"홈 화면에 추가"</b></li>'
+        + '<li>새로 생긴 <b>아이콘으로 열어</b> 알림 다시 켜기 <span style="color:#854F0B;">(iPadOS 16.4 이상 필요 — 26.x면 문제없음)</span></li>'
+        + '</ol>';
     }
     $('pushHelpCancel').style.display = 'none';
     $('pushHelpOk').textContent = '알겠어요';
