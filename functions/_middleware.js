@@ -42,6 +42,7 @@ const STAFF_GET_BLOCK = new Set([
 ]);
 const STAFF_WRITE_ALLOW = new Set([
   '/api/push-subscribe',   // 조교 본인 알림 구독/해제
+  '/api/push-register-fcm',// 조교 본인 앱 FCM 토큰 등록/해제
   '/api/staff-worklog',    // 조교 본인 근무기록 입력/수정/삭제 (POST·DELETE) — 신원은 X-Staff-Phone로 서버가 강제
   '/api/attendance',       // 조교: 자기 학원 학생 출결 입력/삭제 (POST·DELETE) — 학원 스코프는 attendance.js가 X-Staff-Phone로 강제
   '/api/scores',           // 조교: 자기 학원 학생 성적 입력/삭제 (POST·DELETE) — 학원 스코프는 scores.js가 X-Staff-Phone로 강제

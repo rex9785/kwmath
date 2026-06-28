@@ -195,6 +195,33 @@
   }
   function doLogin(){ token=($('pw').value||'').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw',token); boot(); }
 
+  // ════════ 앱(Capacitor) 네이티브 FCM 알림 ════════
+  function getPN(){ return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications) || null; }
+  function isInApp(){ return !!getPN(); }
+  var _appPushWired=false, _appPushTried=false, _appPushDone=false, _appPushUserId='';
+  async function appPushRegister(userId){
+    var PN=getPN(); if(!PN) return;
+    if(userId) _appPushUserId=userId;
+    if(!_appPushWired){
+      _appPushWired=true;
+      PN.addListener('registration', function(t){
+        var tok=t&&t.value; if(!tok||!_appPushUserId) return;
+        fetch('/api/push-register-fcm',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:_appPushUserId, token:tok }) })
+          .then(function(){ _appPushDone=true; refreshPushBtn(); }).catch(function(){});
+      });
+      PN.addListener('registrationError', function(){});
+      PN.addListener('pushNotificationActionPerformed', function(ev){
+        try{ var url=ev&&ev.notification&&ev.notification.data&&ev.notification.data.url; if(url) location.href=url; }catch(_){}
+      });
+    }
+    try{
+      var perm=await PN.checkPermissions();
+      if(perm.receive!=='granted') perm=await PN.requestPermissions();
+      if(perm.receive!=='granted'){ showToast('휴대폰 알림 권한이 꺼져 있어요. 설정에서 켜주세요.'); return; }
+      await PN.register();
+    }catch(e){ showToast('앱 알림 설정 오류: '+((e&&e.message)||'')); }
+  }
+
   // ════════ 새 질문 알림 (관리자 푸시 구독) ════════
   // userId='__admin__' 로 구독 → qna.js가 새 선생님요청 질문 때 이 id로 푸시 발송.
   // (qna.js의 ADMIN_PUSH_USERS 와 반드시 동일한 문자열이어야 함)
@@ -234,6 +261,12 @@
 
   async function refreshPushBtn(){
     var btn=$('pushBtn'); if(!btn) return;
+    if(isInApp()){
+      btn.style.display='block';
+      if(_appPushDone){ btn.textContent='🔔 새 질문 알림 켜짐'; btn.className='pushbtn on'; }
+      else { btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; if(!_appPushTried){ _appPushTried=true; appPushRegister(ADMIN_PUSH_USER); } }
+      return;
+    }
     if(!pushSupported()){ btn.style.display='none'; return; }
     btn.style.display='block';
     // 차단 → 탭하면 복구 안내 모달 (이제 버튼 클릭 가능)
@@ -276,6 +309,7 @@
   var _pushBusy=false;
   async function togglePush(){
     if(_pushBusy) return;   // 처리 중 연타 무시
+    if(isInApp()){ _appPushTried=true; appPushRegister(ADMIN_PUSH_USER); return; }   // 앱이면 네이티브 FCM
     if(!pushSupported()){ if(isIOS()){ showIOSPushModal(); } else { showToast('이 브라우저는 알림을 지원하지 않아요.'); } return; }
     // 차단 → 막연한 토스트 대신 단계별 복구 안내 모달
     if(Notification.permission==='denied'){ showPushBlockedModal(); return; }

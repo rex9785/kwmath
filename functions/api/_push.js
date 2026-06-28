@@ -103,42 +103,132 @@ async function sendOne(sub, payload, vapidPub, vapidPriv, subject) {
   });
 }
 
-// ── 공개 API: 여러 userId(=휴대폰)에게 알림 발송 (best-effort, 절대 throw 안 함) ──
+// ── FCM HTTP v1 (안드로이드 네이티브 앱 푸시) ──────────────────────────────
+// 서비스계정 JSON(env.FCM_SERVICE_ACCOUNT)으로 OAuth2 액세스 토큰 발급(RS256 JWT) 후
+//   POST https://fcm.googleapis.com/v1/projects/{project_id}/messages:send
+// 토큰 저장: R2 fcm-tokens/{userId}.json  { tokens:[{token,ua,savedAt}], updatedAt }
+const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
+let _fcmSA = null;     // 파싱한 서비스계정(아이솔레이트 재사용 시 캐시)
+let _fcmToken = null;  // { token, expMs }
+
+function parseServiceAccount(env) {
+  if (_fcmSA) return _fcmSA;
+  const raw = env.FCM_SERVICE_ACCOUNT;
+  if (!raw) return null;
+  try { _fcmSA = (typeof raw === 'string') ? JSON.parse(raw) : raw; } catch { _fcmSA = null; }
+  return _fcmSA;
+}
+
+function pemToDer(pem) {
+  const b64 = String(pem).replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+  const bin = atob(b64);
+  const der = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) der[i] = bin.charCodeAt(i);
+  return der.buffer;
+}
+
+async function getGoogleAccessToken(sa) {
+  if (_fcmToken && _fcmToken.expMs > Date.now() + 60000) return _fcmToken.token;
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64url(new TextEncoder().encode(JSON.stringify({ alg:'RS256', typ:'JWT' })));
+  const claims = b64url(new TextEncoder().encode(JSON.stringify({
+    iss: sa.client_email, scope: FCM_SCOPE,
+    aud: sa.token_uri || 'https://oauth2.googleapis.com/token',
+    iat: now, exp: now + 3600,
+  })));
+  const data = `${header}.${claims}`;
+  const key = await crypto.subtle.importKey('pkcs8', pemToDer(sa.private_key),
+    { name:'RSASSA-PKCS1-v1_5', hash:'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(data));
+  const jwt = `${data}.${b64url(sig)}`;
+  const res = await fetch(sa.token_uri || 'https://oauth2.googleapis.com/token', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+    body:`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${encodeURIComponent(jwt)}`,
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok || !d.access_token) throw new Error('FCM OAuth 실패: ' + (d.error_description || d.error || res.status));
+  _fcmToken = { token: d.access_token, expMs: Date.now() + (d.expires_in || 3600) * 1000 };
+  return _fcmToken.token;
+}
+
+async function sendFcmOne(projectId, accessToken, token, msg) {
+  return await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+    method:'POST',
+    headers:{ 'Authorization':`Bearer ${accessToken}`, 'Content-Type':'application/json' },
+    body: JSON.stringify({ message: {
+      token,
+      notification: { title: msg.title, body: msg.body },
+      data: { url: String(msg.url || '/portal'), tag: String(msg.tag || 'kwmath') },
+      android: { priority: 'high' },
+    }}),
+  });
+}
+
+async function sendFcmToUsers(env, ids, msg) {
+  try {
+    const sa = parseServiceAccount(env);
+    if (!sa || !sa.private_key || !sa.client_email || !sa.project_id) return { sent: 0, note: 'FCM 미설정' };
+    const accessToken = await getGoogleAccessToken(sa);
+    const tokens = [];
+    for (const uid of ids) {
+      try {
+        const obj = await env.BUCKET.get(`fcm-tokens/${encodeURIComponent(uid)}.json`);
+        if (!obj) continue;
+        const rec = JSON.parse(await obj.text());
+        for (const t of (rec.tokens || [])) if (t && t.token) tokens.push(t.token);
+      } catch {}
+    }
+    if (!tokens.length) return { sent: 0, note: 'FCM 토큰 없음' };
+    const results = await Promise.allSettled(tokens.map(t => sendFcmOne(sa.project_id, accessToken, t, msg)));
+    let sent = 0;
+    for (const r of results) if (r.status === 'fulfilled' && r.value && r.value.ok) sent++;
+    return { sent, total: tokens.length };
+  } catch (e) {
+    return { sent: 0, error: String(e && e.message || e) };
+  }
+}
+
+// ── 공개 API: 여러 userId(=휴대폰)에게 알림 발송 (Web Push + FCM 병행, best-effort, 절대 throw 안 함) ──
 export async function sendPushToUsers(env, userIds, payload) {
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean).map(String))];
+  if (!ids.length) return { ok: true, sent: 0 };
+
+  const msg = {
+    title: payload.title || '이관우 수학연구소',
+    body:  payload.body  || '',
+    url:   payload.url   || '/portal',
+    tag:   payload.tag   || 'kwmath',
+  };
+
+  // ① Web Push (브라우저·PWA) — 기존 경로 유지
+  let webSent = 0, webTotal = 0;
   try {
     const vapidPub  = env.VAPID_PUBLIC_KEY  || '';
     const vapidPriv = env.VAPID_PRIVATE_KEY || '';
     const subject   = env.VAPID_SUBJECT     || 'mailto:rex9785@gmail.com';
-    if (!vapidPub || !vapidPriv) return { ok: false, sent: 0, note: 'VAPID 미설정' };
-
-    const ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean).map(String))];
-    if (!ids.length) return { ok: true, sent: 0 };
-
-    const msg = {
-      title: payload.title || '이관우 수학연구소',
-      body:  payload.body  || '',
-      url:   payload.url   || '/portal',
-      tag:   payload.tag   || 'kwmath',
-    };
-
-    const allSubs = [];
-    for (const uid of ids) {
-      try {
-        const obj = await env.BUCKET.get(`push-subs/${encodeURIComponent(uid)}.json`);
-        if (!obj) continue;
-        const rec = JSON.parse(await obj.text());
-        for (const s of (rec.subs || [])) allSubs.push(s);
-      } catch {}
+    if (vapidPub && vapidPriv) {
+      const allSubs = [];
+      for (const uid of ids) {
+        try {
+          const obj = await env.BUCKET.get(`push-subs/${encodeURIComponent(uid)}.json`);
+          if (!obj) continue;
+          const rec = JSON.parse(await obj.text());
+          for (const s of (rec.subs || [])) allSubs.push(s);
+        } catch {}
+      }
+      webTotal = allSubs.length;
+      if (allSubs.length) {
+        const results = await Promise.allSettled(
+          allSubs.map(s => sendOne(s, msg, vapidPub, vapidPriv, subject))
+        );
+        for (const r of results) if (r.status === 'fulfilled' && r.value && r.value.ok) webSent++;
+      }
     }
-    if (!allSubs.length) return { ok: true, sent: 0, note: '구독자 없음' };
+  } catch {}
 
-    const results = await Promise.allSettled(
-      allSubs.map(s => sendOne(s, msg, vapidPub, vapidPriv, subject))
-    );
-    let sent = 0;
-    for (const r of results) if (r.status === 'fulfilled' && r.value && r.value.ok) sent++;
-    return { ok: true, sent, total: allSubs.length };
-  } catch (e) {
-    return { ok: false, sent: 0, error: String(e && e.message || e) };
-  }
+  // ② FCM (안드로이드 앱) — 병행 발송
+  const fcm = await sendFcmToUsers(env, ids, msg);
+
+  return { ok: true, sent: webSent + (fcm.sent || 0), web: { sent: webSent, total: webTotal }, fcm };
 }

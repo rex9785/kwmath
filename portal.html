@@ -650,6 +650,35 @@
     }
   }
 
+  // ════════ 앱(Capacitor) 네이티브 FCM 알림 ════════
+  // 앱 WebView 안에서는 Web Push가 안 되므로 네이티브 FCM 토큰을 등록한다.
+  // 원격+번들 구조라 이 페이지가 곧 앱 화면 → window.Capacitor 브리지로 플러그인 호출.
+  function getPN() { return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications) || null; }
+  function isInApp() { return !!getPN(); }
+  let _appPushWired = false, _appPushTried = false, _appPushDone = false, _appPushUserId = '';
+  async function appPushRegister(userId) {
+    const PN = getPN(); if (!PN) return;
+    if (userId) _appPushUserId = userId;
+    if (!_appPushWired) {
+      _appPushWired = true;
+      PN.addListener('registration', t => {
+        const token = t && t.value; if (!token || !_appPushUserId) return;
+        fetch('/api/push-register-fcm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: _appPushUserId, token }) })
+          .then(() => { _appPushDone = true; updatePushButton(); }).catch(() => {});
+      });
+      PN.addListener('registrationError', () => {});
+      PN.addListener('pushNotificationActionPerformed', ev => {
+        try { const url = ev && ev.notification && ev.notification.data && ev.notification.data.url; if (url) location.href = url; } catch (_) {}
+      });
+    }
+    try {
+      let perm = await PN.checkPermissions();
+      if (perm.receive !== 'granted') perm = await PN.requestPermissions();
+      if (perm.receive !== 'granted') { showToast('휴대폰 알림 권한이 꺼져 있어요. 설정에서 켜주세요.', 4500); return; }
+      await PN.register();
+    } catch (e) { showToast('앱 알림 설정 오류: ' + ((e && e.message) || ''), 4000); }
+  }
+
   // ════════ 푸쉬 알림 (PWA) ════════
   function urlBase64ToUint8Array(b64) {
     const padding = '='.repeat((4 - b64.length % 4) % 4);
@@ -688,6 +717,13 @@
   async function updatePushButton() {
     const banner = $('pushBanner');
     if (!banner) return;
+
+    // 0. 앱(Capacitor) 안 → 네이티브 FCM 경로 (Web Push 검사 건너뜀)
+    if (isInApp()) {
+      if (!currentPhone || _appPushDone) { banner.style.display = 'none'; }
+      else { setPushBannerMode(false); banner.style.display = 'flex'; if (!_appPushTried){ _appPushTried = true; appPushRegister(currentPhone); } }
+      return;
+    }
 
     // 1. 브라우저가 푸쉬 미지원 → 배너 안 보임
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
@@ -790,6 +826,7 @@
   var _pushBusyPortal = false;
   async function toggleEnablePush() {
     if (_pushBusyPortal) return;   // 처리 중 연타 무시
+    if (isInApp()) { _appPushTried = true; appPushRegister(currentPhone); return; }   // 앱이면 네이티브 FCM
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       if (isIOSDevice()) { showIOSPushModal(); }
       else { showToast('이 브라우저는 푸쉬 알림을 지원하지 않습니다.'); }
