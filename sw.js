@@ -6,7 +6,7 @@
  * 버전 올릴 때: VERSION 문자열 숫자 +1 → 옛 캐시 자동 정리
  */
 
-const VERSION = 'kwmath-v6';
+const VERSION = 'kwmath-v7';
 const APP_SHELL = [
   '/portal',
   '/manifest.json',
@@ -106,16 +106,23 @@ self.addEventListener('push', (event) => {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch (e) {}
 
+  const title = data.title || '이관우 수학연구소';
+  const options = {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/favicon-32.png',
+    tag: data.tag || 'kwmath',
+    renotify: true,            // 같은 tag라도 매번 다시 알림(배너·소리·진동). 없으면 안드로이드가 무음으로 갱신만 해서 "배너 안 뜸"
+    data: { url: data.url || '/portal' },
+    requireInteraction: false,
+    vibrate: [120, 60, 120]
+  };
+
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/favicon-32.png',
-      tag: data.tag || 'kwmath',
-      data: { url: data.url || '/portal' },
-      requireInteraction: false,
-      vibrate: [120, 60, 120]
-    })
+    self.registration.showNotification(title, options).catch(() =>
+      // 아이콘/옵션 문제로 실패해도 알림은 무조건 뜨도록 최소형으로 재시도
+      self.registration.showNotification(title, { body: options.body, tag: options.tag, renotify: true })
+    )
   );
 });
 

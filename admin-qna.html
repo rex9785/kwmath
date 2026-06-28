@@ -202,6 +202,30 @@
   var ADMIN_PUSH_USER = '__admin__';
   function _u8(b64){ var pad='='.repeat((4-b64.length%4)%4); var s=(b64+pad).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(s); var o=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++)o[i]=raw.charCodeAt(i); return o; }
   function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+  function isIOS(){ var ua=navigator.userAgent||''; return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1); }
+  function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }
+  // VAPID 공개키 프리로드 — 구독 직전 await fetch가 사용자 제스처 활성화를 소진해 권한창이 안 뜨던 회귀 방지
+  var _vapidKey=null;
+  async function preloadVapidKey(){ try{ var r=await fetch('/api/push-vapid-public'); var d=await r.json(); if(d&&d.publicKey) _vapidKey=d.publicKey; }catch(_){} }
+  // iOS는 '홈 화면에 추가'한 PWA(standalone)에서만, 그리고 iOS 16.4+ 에서만 푸시 지원
+  function showIOSPushModal(){
+    $('pushHelpTitle').textContent='🔔 아이폰·아이패드 알림 켜는 법';
+    if(!isStandalone()){
+      $('pushHelpBody').innerHTML='아이폰·아이패드는 <b>홈 화면에 앱을 추가한 뒤</b> 그 아이콘으로 열어야 알림을 받을 수 있어요:'
+        +'<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
+        +'<li><b>Safari</b>로 이 페이지 열기 (크롬·다른 브라우저 ✕)</li>'
+        +'<li>하단 <b>공유</b> 버튼(<b>□↑</b>) 누르기</li>'
+        +'<li><b>"홈 화면에 추가"</b> 선택</li>'
+        +'<li>홈 화면에 생긴 <b>아이콘으로 다시 열기</b></li>'
+        +'<li>그 화면에서 알림 버튼 누르면 권한창이 떠요 <span style="color:#B07A00;">(iOS 16.4 이상)</span></li>'
+        +'</ol>';
+    } else {
+      $('pushHelpBody').innerHTML='이 기기의 iOS(아이패드OS)가 <b>16.4 미만</b>이라 웹 알림을 지원하지 않아요.<br><b>설정 → 일반 → 소프트웨어 업데이트</b>에서 최신으로 올리면 알림을 받을 수 있어요.';
+    }
+    $('pushHelpCancel').style.display='none';
+    var ok=$('pushHelpOk'); ok.textContent='알겠어요'; ok.onclick=closePushHelp;
+    $('pushHelpModal').classList.add('show');
+  }
 
   async function refreshPushBtn(){
     var btn=$('pushBtn'); if(!btn) return;
@@ -247,7 +271,7 @@
   var _pushBusy=false;
   async function togglePush(){
     if(_pushBusy) return;   // 처리 중 연타 무시
-    if(!pushSupported()){ showToast('이 브라우저는 알림을 지원하지 않아요.'); return; }
+    if(!pushSupported()){ if(isIOS()){ showIOSPushModal(); } else { showToast('이 브라우저는 알림을 지원하지 않아요.'); } return; }
     // 차단 → 막연한 토스트 대신 단계별 복구 안내 모달
     if(Notification.permission==='denied'){ showPushBlockedModal(); return; }
 
@@ -282,15 +306,24 @@
     _pushBusy=true;
     var btn=$('pushBtn'); if(btn){ btn.disabled=true; btn.style.opacity='0.6'; btn.textContent='⏳ 설정 중…'; }
     try{
+      // ① 권한 먼저 — 사용자 탭 직후 '첫 await'로 권한창을 띄워 제스처 활성화를 유지(이미 granted면 건너뜀)
+      if(Notification.permission!=='granted'){
+        var perm='default';
+        try{ perm=await Notification.requestPermission(); }catch(_){ perm=Notification.permission; }
+        if(perm==='denied'){ showPushBlockedModal(); return; }
+        if(perm!=='granted'){ showToast('알림을 켜려면 "허용"을 눌러주세요.'); return; }
+      }
+      // ② VAPID 키 — 프리로드 캐시 우선(없으면 지금 받되, 권한은 이미 처리돼 안전)
+      var pubKey=_vapidKey;
+      if(!pubKey){ try{ var vRes=await fetch('/api/push-vapid-public'); var vData=await vRes.json(); pubKey=vData&&vData.publicKey; }catch(_){} }
+      if(!pubKey){ showToast('푸시 서버 설정(VAPID)이 안 돼 있어요. 환경변수를 확인해주세요.', 4000); return; }
+      // ③ 구독 — 권한이 이미 granted라 권한창은 다시 안 뜸
       var reg=await navigator.serviceWorker.ready;
-      var vRes=await fetch('/api/push-vapid-public'); var vData=await vRes.json();
-      if(!vData||!vData.publicKey){ showToast('푸시 서버 설정(VAPID)이 안 돼 있어요. 환경변수를 확인해주세요.', 4000); return; }
-      // 권한창은 subscribe가 필요할 때 딱 1번만 띄움 (requestPermission 따로 호출 X — 권한창 2번 뜨던 원인)
       var sub;
-      try{ sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8(vData.publicKey) }); }
+      try{ sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8(pubKey) }); }
       catch(err){
         if(Notification.permission==='denied'){ showPushBlockedModal(); }
-        else{ showToast('알림 권한이 필요해요. "허용"을 눌러주세요.'); }
+        else{ showToast('알림 구독 실패: '+((err&&err.message)||'')); }
         return;
       }
       var sRes=await fetch('/api/push-subscribe',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, subscription:sub.toJSON() }) });
@@ -495,6 +528,7 @@
   // 푸시 수신용 서비스워커 등록 (sw.js의 push 핸들러가 알림 표시)
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(function(){}); }
   applyRoleUI();
+  preloadVapidKey();
   if(token) boot(); else showLogin('');
 </script>
 </body>
