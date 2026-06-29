@@ -205,6 +205,30 @@
   function getPN(){
     if (!isInApp()) return null;
     var C = window.Capacitor;
+    var _plat = (typeof C.getPlatform === 'function') ? C.getPlatform() : '';
+    // iOS: 코어 PushNotifications는 APNs 토큰(FCM 비호환)을 주므로 @capacitor-firebase/messaging(FirebaseMessaging)으로 FCM 토큰을 받는다.
+    if (_plat === 'ios' && typeof C.nativePromise === 'function' && typeof C.nativeCallback === 'function') {
+      var _regCbs = [];
+      var _fireReg = function (token) { if (!token) return; _regCbs.forEach(function (cb) { try { cb({ value: token }); } catch (_) {} }); };
+      return {
+        checkPermissions:   function () { return C.nativePromise('FirebaseMessaging', 'checkPermissions', {}); },
+        requestPermissions: function () { return C.nativePromise('FirebaseMessaging', 'requestPermissions', {}); },
+        register:           function () {
+          return C.nativePromise('FirebaseMessaging', 'getToken', {})
+            .then(function (r) { _fireReg(r && r.token); return r; })
+            .catch(function () { return {}; });
+        },
+        addListener:        function (eventName, cb) {
+          if (eventName === 'registration') {
+            _regCbs.push(cb);
+            C.nativeCallback('FirebaseMessaging', 'addListener', { eventName: 'tokenReceived' }, function (d) { if (d && d.token) { try { cb({ value: d.token }); } catch (_) {} } });
+          } else if (eventName === 'pushNotificationActionPerformed') {
+            C.nativeCallback('FirebaseMessaging', 'addListener', { eventName: 'notificationActionPerformed' }, function (d) { try { cb(d); } catch (_) {} });
+          }
+          return { remove: function () {} };
+        }
+      };
+    }
     if (C.Plugins && C.Plugins.PushNotifications) return C.Plugins.PushNotifications;  // 코어가 번들된 경우
     if (typeof C.nativePromise === 'function' && typeof C.nativeCallback === 'function') {
       return {
