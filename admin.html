@@ -669,9 +669,10 @@
   function doLogout() {
     adminToken = '';
     localStorage.removeItem('kwmath_admin_token');
-    // 로그아웃 = 관리자 영역에서 완전히 나가 공개 홈페이지로 이동.
+    // 로그아웃 = 관리자 영역에서 나가 학생/원장 공용 포털 로그인 화면으로 이동.
     // (예전엔 같은 화면에 비밀번호 입력창만 다시 떠서 '나갈 수 없던' 문제 — 2026-06-29 수정)
-    location.href = '/';
+    // 원장은 포털에 상시 세션이 없으므로 /portal 로 가면 포털 로그인 화면이 떠 루프 없음.
+    location.href = '/portal';
   }
 
   function showDashboard() {
