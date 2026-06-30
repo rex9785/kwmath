@@ -2808,11 +2808,14 @@
     } catch(e){}
   }
 
-  // 비밀번호 0000 초기화 — admin이 분실/잊음 신고 시 사용
+  // 비밀번호 초기화 — admin이 분실/잊음 신고 시 사용 (일반=0000 / 데모 010-1234-1234=1234)
   async function resetPassword(phone, role) {
     if (!phone) return;
     const label = (role || '계정') + ' (' + phone + ')';
-    const ok = confirm('🔑 ' + label + ' 비밀번호를 0000으로 초기화할까요?\n\n초기화 후 ' + role + '님이 0000으로 다시 로그인하면 새 비밀번호 설정 화면이 떠요.');
+    const isDemo = phone === '010-1234-1234';
+    const ok = confirm(isDemo
+      ? ('🔑 데모 계정 (' + phone + ') 비밀번호를 1234로 되돌릴까요?\n\n데모는 자가 변경이 막혀 있어 0000이 아니라 1234로 복구됩니다.')
+      : ('🔑 ' + label + ' 비밀번호를 0000으로 초기화할까요?\n\n초기화 후 ' + role + '님이 0000으로 다시 로그인하면 새 비밀번호 설정 화면이 떠요.'));
     if (!ok) return;
     try {
       const res = await fetch('/api/admin-reset-password', {
@@ -2825,7 +2828,7 @@
         showToast('❌ ' + (data.error || '초기화 실패'));
         return;
       }
-      showToast('✅ ' + label + ' 비번 0000으로 초기화됨. 알려주세요!');
+      showToast('✅ ' + (data.message || (label + ' 비번 0000으로 초기화됨.')));
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }

@@ -243,16 +243,6 @@
       </a>
     </div>
 
-    <!-- 어플 설치 안내 -->
-    <div id="installHint" style="background:#fff;border:1.5px dashed var(--primary);border-radius:14px;padding:18px 20px;font-size:0.84rem;color:var(--text);line-height:1.7;display:none;">
-      <div style="font-weight:800;color:var(--primary);margin-bottom:8px;">📱 어플처럼 사용하기</div>
-      <div style="color:var(--text-light);">
-        <b>iPhone (Safari)</b>: 하단 공유 버튼 → "홈 화면에 추가"<br>
-        <b>Android (Chrome)</b>: 우측 상단 메뉴 → "앱 설치" 또는 자동 배너 "설치"<br>
-        설치하면 홈화면 아이콘이 생기고 어플처럼 실행됩니다.
-      </div>
-    </div>
-
     <!-- 하단 계정 관리 (로그아웃 · 비밀번호 변경 · 알림 설정) -->
     <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:14px;font-size:0.82rem;color:var(--text-light);flex-wrap:wrap;">
       <a href="#" onclick="event.preventDefault();doLogout()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">로그아웃</a>
@@ -958,9 +948,12 @@
 
   // ════════ 어플 설치 안내 (이미 설치/standalone이 아닐 때만 표시) ════════
   function showInstallHintIfNeeded() {
+    // 네이티브 앱 출시로 '어플처럼 사용하기' 설치 안내 박스는 제거됨. 요소가 없으면 아무것도 안 함.
+    const el = $('installHint');
+    if (!el) return;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
       || window.navigator.standalone === true;
-    if (!isStandalone) $('installHint').style.display = 'block';
+    if (!isStandalone) el.style.display = 'block';
   }
 
   // ════════ 자동 로그인 복원 + PWA SW 등록 ════════
