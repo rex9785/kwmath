@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>관리자 페이지 | LKW math LAB</title>
 <!-- 설치형 PWA (관리자 앱) -->
 <meta name="theme-color" content="#2A4A8C">
@@ -35,7 +35,7 @@
 
   /* ── 관리자 대시보드 ── */
   #dashboard{display:none;}
-  .topbar{background:var(--primary);color:#fff;padding:0 5%;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 5% 14px;min-height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
   .topbar-title{font-size:1rem;font-weight:900;letter-spacing:-0.5px;}
   .topbar-right{display:flex;align-items:center;gap:16px;}
   .topbar-link{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;transition:color .2s;}
