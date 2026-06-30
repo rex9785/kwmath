@@ -22,6 +22,7 @@ const PUBLIC_API = new Set([
   '/api/materials',
   '/api/timetable',
   '/api/clips',
+  '/api/app-version',   // 강제업데이트 최소버전 조회(GET) — 앱 부팅 때 무인증 호출
 ]);
 
 function allowOrigin(request) {

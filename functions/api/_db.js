@@ -423,6 +423,39 @@ export async function listAllClinic(env) {
   return Object.values(byStudent);
 }
 
+// ════════════ 앱 설정 (app_config) — 강제업데이트 최소버전 등 ════════════
+// 관리자만 변경. key-value 한 줄씩. 마이그레이션 러너 없으니 첫 사용 시 보장(아이솔레이트당 1회).
+let _appConfigReady = false;
+async function ensureAppConfig(env) {
+  if (_appConfigReady) return;
+  await env.DB.prepare(
+    'CREATE TABLE IF NOT EXISTS app_config (' +
+    'key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)'
+  ).run();
+  _appConfigReady = true;
+}
+
+export async function getAppConfig(env, key) {
+  await ensureAppConfig(env);
+  const row = await env.DB.prepare('SELECT value FROM app_config WHERE key=?').bind(key).first();
+  return row ? row.value : null;
+}
+
+export async function setAppConfig(env, key, value) {
+  await ensureAppConfig(env);
+  try {
+    const existing = await env.DB.prepare('SELECT key FROM app_config WHERE key=?').bind(key).first();
+    if (existing) {
+      await env.DB.prepare('UPDATE app_config SET value=?, updated_at=? WHERE key=?')
+        .bind(value, new Date().toISOString(), key).run();
+    } else {
+      await env.DB.prepare('INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, ?)')
+        .bind(key, value, new Date().toISOString()).run();
+    }
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
 // ════════════ KW-Study ════════════
 export async function getStudySessions(env, studentId) {
   let results;

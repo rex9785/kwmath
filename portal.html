@@ -956,8 +956,75 @@
     if (!isStandalone) el.style.display = 'block';
   }
 
+  // ════════ 강제 업데이트 게이트 (앱 전용) ════════
+  // 설치된 앱 버전이 서버(/api/app-version)가 정한 최소버전보다 낮으면 업데이트 화면으로 막는다.
+  // ⚠️ 절대 원칙(fail-open): 앱이 아니거나·버전을 못 읽거나·서버를 못 받으면 절대 막지 않는다.
+  //    · 브라우저 사용자, 구형 비-Capacitor iOS 래퍼 → isInApp()=false → 그냥 통과(오차단 방지 0순위).
+  //    · 심사위원은 최신 빌드(=최소버전과 같음)를 받으므로 '같음'은 반드시 통과(반려 방지).
+  function cmpVer(a, b) {
+    // "1.0.2" 형식 비교. a<b→-1, 같음→0, a>b→1. 마디 수 달라도 OK. 형식 이상이면 throw(호출부 fail-open).
+    const parse = (s) => String(s).trim().split('.').map(n => {
+      const x = parseInt(n, 10); if (!Number.isFinite(x)) throw new Error('bad ver'); return x;
+    });
+    const pa = parse(a), pb = parse(b), len = Math.max(pa.length, pb.length);
+    for (let i = 0; i < len; i++) {
+      const x = pa[i] || 0, y = pb[i] || 0;
+      if (x < y) return -1;
+      if (x > y) return 1;
+    }
+    return 0;
+  }
+  function showUpdateGate(storeUrl) {
+    if (document.getElementById('forceUpdateGate')) return;   // 중복 방지
+    const safeUrl = (typeof storeUrl === 'string' && /^https:\/\//.test(storeUrl)) ? storeUrl : '';
+    const ov = document.createElement('div');
+    ov.id = 'forceUpdateGate';
+    ov.setAttribute('style', [
+      'position:fixed', 'inset:0', 'z-index:2147483647', 'background:#8B1A35', 'color:#fff',
+      'display:flex', 'flex-direction:column', 'align-items:center', 'justify-content:center',
+      'text-align:center', 'padding:32px', 'box-sizing:border-box', 'font-family:inherit', 'gap:18px'
+    ].join(';'));
+    ov.innerHTML =
+      '<div style="font-size:46px;line-height:1">🔄</div>' +
+      '<div style="font-size:22px;font-weight:800">업데이트가 필요해요</div>' +
+      '<div style="font-size:15px;line-height:1.6;opacity:.95;max-width:340px">더 안정적인 새 버전이 나왔어요.<br>스토어에서 업데이트한 뒤 다시 열어주세요.</div>' +
+      (safeUrl ? '<a id="forceUpdateBtn" href="' + safeUrl + '" style="margin-top:8px;display:inline-block;background:#fff;color:#8B1A35;font-weight:800;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:12px">스토어에서 업데이트</a>' : '');
+    document.body.appendChild(ov);
+    try { document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; } catch (_) {}
+  }
+  async function enforceMinVersion() {
+    // 막아야 하면 true(오버레이 표시 후), 아니면 false. 어떤 오류든 false(=통과).
+    try {
+      if (!isInApp()) return false;                                  // 앱 아님 → 통과
+      const C = window.Capacitor;
+      const plat = (typeof C.getPlatform === 'function') ? C.getPlatform() : '';
+      if (plat !== 'ios' && plat !== 'android') return false;
+      if (typeof C.nativePromise !== 'function') return false;
+      let cur = '';
+      try { const info = await C.nativePromise('App', 'getInfo', {}); cur = (info && info.version) ? String(info.version).trim() : ''; }
+      catch (_) { return false; }                                    // @capacitor/app 없음/실패 → 통과
+      if (!cur) return false;
+      let data = null;
+      try {
+        const ctrl = new AbortController();
+        const tm = setTimeout(() => ctrl.abort(), 4000);             // 느린/끊긴 네트워크 → 통과
+        const res = await fetch('/api/app-version', { signal: ctrl.signal, cache: 'no-store' });
+        clearTimeout(tm);
+        if (!res.ok) return false;
+        data = await res.json();
+      } catch (_) { return false; }
+      const conf = data && data[plat];
+      if (!conf || !conf.min) return false;
+      let older; try { older = cmpVer(cur, conf.min) < 0; } catch (_) { return false; }
+      if (!older) return false;
+      showUpdateGate(conf.url || '');
+      return true;
+    } catch (_) { return false; }
+  }
+
   // ════════ 자동 로그인 복원 + PWA SW 등록 ════════
   window.addEventListener('DOMContentLoaded', async () => {
+    try { if (await enforceMinVersion()) return; } catch (_) {}     // 구버전 앱이면 여기서 멈춤(화면 차단)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));
     }
