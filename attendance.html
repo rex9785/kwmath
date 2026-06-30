@@ -11,7 +11,7 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
-    --att:#1F7A33;--late:#B07A00;--abs:#B02347;--sick:#5060B0;--off:#6A6A6A;}
+    --att:#1F7A33;--late:#B07A00;--abs:#B02347;--sick:#5060B0;--off:#6A6A6A;--clinic:#1f6f78;--clinic-light:#E3F1F2;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
   .topbar{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
@@ -25,6 +25,16 @@
   .student-bar .info{font-size:0.92rem;font-weight:700;color:var(--text);}
   .student-bar .info .meta{display:block;font-size:0.75rem;font-weight:500;color:var(--text-light);margin-top:2px;}
   .student-bar select{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;outline:none;}
+
+  /* 수업/클리닉 전환 */
+  .modebar{display:flex;gap:8px;margin-bottom:14px;}
+  .modebtn{flex:1;background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:0.88rem;font-weight:700;color:var(--text-light);cursor:pointer;font-family:inherit;}
+  .modebtn.on{border-color:var(--primary);background:var(--primary-light);color:var(--primary);}
+  .modebtn[data-mode="clinic"].on{border-color:var(--clinic);background:var(--clinic-light);color:var(--clinic);}
+  .cli-stat{background:linear-gradient(135deg,#fff 0%,var(--clinic-light) 100%);border:1.5px solid var(--clinic);grid-column:span 4;padding:10px 14px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
+  .cli-stat .lbl{font-size:0.78rem;color:var(--clinic);font-weight:700;}
+  .cli-stat .val{font-size:1.05rem;font-weight:900;color:var(--clinic);}
+  .cli-stat .sub{font-size:0.7rem;color:var(--text-light);}
 
   /* 월간 요약 카드 */
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
@@ -92,6 +102,11 @@
       <select id="childSelect" style="display:none;" onchange="onChildChange()"></select>
     </div>
 
+    <div class="modebar">
+      <button class="modebtn on" data-mode="class" onclick="setMode('class')">📅 수업 출결</button>
+      <button class="modebtn" data-mode="clinic" onclick="setMode('clinic')">📋 클리닉</button>
+    </div>
+
     <div class="summary" id="summary"></div>
 
     <div class="month-nav">
@@ -112,7 +127,7 @@
         <span><span class="dot" style="background:#FBE5E9;"></span>결석</span>
         <span><span class="dot" style="background:#E8ECFB;"></span>병결</span>
         <span><span class="dot" style="background:#EDEDED;"></span>공결</span>
-        <span style="width:100%;text-align:center;color:var(--text-light);font-size:0.7rem;margin-top:4px;">하단 색띠 = 숙제 완료율 (빨강 0% → 초록 100%)</span>
+        <span id="legendHint" style="width:100%;text-align:center;color:var(--text-light);font-size:0.7rem;margin-top:4px;">하단 색띠 = 숙제 완료율 (빨강 0% → 초록 100%)</span>
       </div>
     </div>
   </div>
@@ -128,6 +143,14 @@
   let selected = null;
   let viewMonth = new Date(); viewMonth.setDate(1);
   let allRecords = {};
+  let mode = 'class';   // 'class'(수업 출결) | 'clinic'(클리닉)
+
+  function setMode(md){
+    if (mode === md) return;
+    mode = md;
+    document.querySelectorAll('.modebtn').forEach(function(b){ b.classList.toggle('on', b.dataset.mode === mode); });
+    loadRecords();
+  }
 
   async function loadMe() {
     try {
@@ -182,8 +205,9 @@
   }
 
   async function loadRecords() {
+    const ep = mode === 'clinic' ? '/api/clinic' : '/api/attendance';
     try {
-      const res = await fetch('/api/attendance?name=' + encodeURIComponent(selected.name), {
+      const res = await fetch(ep + '?name=' + encodeURIComponent(selected.name), {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await res.json();
@@ -201,6 +225,9 @@
   // 옛 string 레코드와 새 object 레코드 둘 다 호환
   function recStatus(r) { return (typeof r === 'string') ? r : (r && r.status) || ''; }
   function recHomework(r) { return (typeof r === 'object' && r && typeof r.homework === 'number') ? r.homework : null; }
+  function recAchieve(r) { return (typeof r === 'object' && r && typeof r.achieve === 'number') ? r.achieve : null; }
+  function recMinutes(r) { return (typeof r === 'object' && r && typeof r.minutes === 'number') ? r.minutes : null; }
+  function fmtMin(min) { var h = Math.floor(min/60), m = min%60; var s = (h?h+'시간':'') + (m?(h?' ':'')+m+'분':''); return s || '0분'; }
   function hwBucketClass(p) {
     if (p === 0)   return 'hw-0';
     if (p <= 25)   return 'hw-25';
@@ -215,24 +242,37 @@
     const monthStr = y + '-' + String(m + 1).padStart(2, '0');
     document.getElementById('monthLabel').textContent = y + '년 ' + (m + 1) + '월';
 
+    const isClinic = mode === 'clinic';
     let cnt = { '출석': 0, '지각': 0, '결석': 0, '병결': 0, '공결': 0 };
-    let hwSum = 0, hwN = 0;
+    let aSum = 0, aN = 0, minSum = 0;
     for (const [date, r] of Object.entries(allRecords)) {
       if (!date.startsWith(monthStr)) continue;
       const st = recStatus(r);
       if (cnt.hasOwnProperty(st)) cnt[st]++;
-      const hp = recHomework(r);
-      if (hp !== null) { hwSum += hp; hwN++; }
+      if (isClinic) {
+        const a = recAchieve(r); if (a !== null) { aSum += a; aN++; }
+        const mn = recMinutes(r); if (mn !== null) minSum += mn;
+      } else {
+        const hp = recHomework(r); if (hp !== null) { aSum += hp; aN++; }
+      }
     }
-    const hwAvg = hwN ? Math.round(hwSum / hwN) : null;
-    document.getElementById('summary').innerHTML =
+    const avg = aN ? Math.round(aSum / aN) : null;
+
+    let statBoxes =
       '<div class="stat-box"><div class="stat-num" style="color:var(--att);">' + cnt['출석'] + '</div><div class="stat-label">출석</div></div>' +
       '<div class="stat-box"><div class="stat-num" style="color:var(--late);">' + cnt['지각'] + '</div><div class="stat-label">지각</div></div>' +
       '<div class="stat-box"><div class="stat-num" style="color:var(--abs);">' + cnt['결석'] + '</div><div class="stat-label">결석</div></div>' +
-      '<div class="stat-box"><div class="stat-num" style="color:var(--sick);">' + (cnt['병결'] + cnt['공결']) + '</div><div class="stat-label">병·공결</div></div>' +
-      (hwAvg !== null
-        ? '<div class="hw-stat"><div><div class="lbl">📝 이번 달 숙제 평균</div><div class="sub">' + hwN + '회 기록</div></div><div class="val">' + hwAvg + '%</div></div>'
-        : '<div class="hw-stat"><div class="lbl">📝 이번 달 숙제 기록 없음</div></div>');
+      '<div class="stat-box"><div class="stat-num" style="color:var(--sick);">' + (cnt['병결'] + cnt['공결']) + '</div><div class="stat-label">병·공결</div></div>';
+    if (isClinic) {
+      statBoxes += (avg !== null || minSum > 0)
+        ? '<div class="cli-stat"><div><div class="lbl">📋 이번 달 클리닉</div><div class="sub">' + (aN ? aN + '회 성취도 기록' : '성취도 기록 없음') + '</div></div><div style="text-align:right;"><div class="val">' + (avg !== null ? '성취도 ' + avg : '시간 기록') + '</div><div class="sub">시간 합계 ' + fmtMin(minSum) + '</div></div></div>'
+        : '<div class="cli-stat"><div class="lbl">📋 이번 달 클리닉 기록 없음</div></div>';
+    } else {
+      statBoxes += (avg !== null)
+        ? '<div class="hw-stat"><div><div class="lbl">📝 이번 달 숙제 평균</div><div class="sub">' + aN + '회 기록</div></div><div class="val">' + avg + '%</div></div>'
+        : '<div class="hw-stat"><div class="lbl">📝 이번 달 숙제 기록 없음</div></div>';
+    }
+    document.getElementById('summary').innerHTML = statBoxes;
 
     const firstDow = new Date(y, m, 1).getDay();
     const lastDate = new Date(y, m + 1, 0).getDate();
@@ -246,14 +286,21 @@
       const ds = monthStr + '-' + String(d).padStart(2, '0');
       const r = allRecords[ds];
       const status = recStatus(r);
-      const hp = recHomework(r);
+      const band = isClinic ? recAchieve(r) : recHomework(r);
       const cc = status ? cls[status] || '' : '';
-      const hwCls = (hp !== null) ? ' ' + hwBucketClass(hp) : '';
+      const bandCls = (band !== null) ? ' ' + hwBucketClass(band) : '';
       const isToday = ds === todayStr ? ' today' : '';
-      const hwBadge = (hp !== null) ? '<div class="hw">' + hp + '</div>' : '';
-      html += '<div class="cal-cell ' + cc + hwCls + isToday + '">' + hwBadge + '<div class="d">' + d + '</div>' + (status ? '<div class="s">' + status + '</div>' : '') + '</div>';
+      const badge = (band !== null) ? '<div class="hw">' + band + '</div>' : '';
+      const mn = isClinic ? recMinutes(r) : null;
+      const minLine = (mn !== null && mn > 0) ? '<div class="s" style="color:var(--clinic);font-weight:800;">' + fmtMin(mn) + '</div>' : '';
+      html += '<div class="cal-cell ' + cc + bandCls + isToday + '">' + badge + '<div class="d">' + d + '</div>' + (status ? '<div class="s">' + status + '</div>' : '') + minLine + '</div>';
     }
     document.getElementById('calGrid').innerHTML = html;
+
+    const hint = document.getElementById('legendHint');
+    if (hint) hint.textContent = isClinic
+      ? '하단 색띠·우상단 배지 = 클리닉 성취도 (빨강 0 → 초록 100) · 셀 안 시간 = 클리닉 시간'
+      : '하단 색띠 = 숙제 완료율 (빨강 0% → 초록 100%)';
   }
 
   loadMe();

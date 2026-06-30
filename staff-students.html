@@ -53,6 +53,18 @@
   .attsum{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
   .pill{ font-size:0.74rem; font-weight:700; padding:2px 9px; border-radius:9px; background:#F2EDEE; color:var(--ink); }
   .pill.ab{ background:#FBE6E6; color:#b3261e; } .pill.ok{ background:#E5F5E8; color:#1F7A33; } .pill.late{ background:#FFF3DB; color:#B07A00; }
+  .pill.cli{ background:var(--ai-light); color:var(--ai); }
+  .arow{ display:flex; gap:7px; flex-wrap:wrap; }
+  .ailabel2{ font-weight:700; font-size:0.76rem; color:var(--muted); margin-right:1px; }
+  .aih,.aim{ width:52px; padding:6px 8px; border:1.5px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.82rem; outline:none; text-align:center; }
+  .aih:focus,.aim:focus,.aidate:focus{ border-color:var(--primary); }
+  .cliwrap{ margin-top:8px; background:#fff; border:1px dashed var(--ai); border-radius:9px; padding:10px 11px; font-size:0.8rem; display:none; }
+  .cliwrap.show{ display:block; }
+  .cliwrap .ailabel{ color:var(--ai); }
+  .cliwrap .aibtn.on{ background:var(--ai); color:#fff; border-color:var(--ai); }
+  .cliwrap .aibtn:hover{ border-color:var(--ai); }
+  .cliwrap .aih:focus,.cliwrap .aim:focus,.cliwrap .aidate:focus{ border-color:var(--ai); }
+  .cliwrap .aisave{ background:var(--ai); }
   .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
   .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
   .toast.show{ display:block; }
@@ -123,8 +135,12 @@
         score('영어 모의', s.engMockGrade)+
         score('내신 수학', s.schoolMathGrade)+
       '</div>'+
-      '<div class="arow"><button class="mini" onclick="toggleAtt(this,\''+esc(s.name).replace(/'/g,"\\'")+'\')">📅 출결 입력·조회</button></div>'+
+      '<div class="arow">'+
+        '<button class="mini" onclick="toggleAtt(this,\''+esc(s.name).replace(/'/g,"\\'")+'\')">📅 수업 출결</button>'+
+        '<button class="mini" onclick="toggleClinic(this,\''+esc(s.name).replace(/'/g,"\\'")+'\')">📋 클리닉</button>'+
+      '</div>'+
       '<div class="attwrap" data-name="'+esc(s.name)+'"></div>'+
+      '<div class="cliwrap" data-name="'+esc(s.name)+'"></div>'+
     '</div>';
   }
 
@@ -214,6 +230,98 @@
       box.querySelectorAll('.aibtn').forEach(function(x){x.classList.remove('on');});
       box.querySelector('.aihw').value='';
       await loadAttSummary(box, name);
+    }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); }
+    finally{ btnEl.disabled=false; btnEl.textContent=old; }
+  }
+
+  function fmtMin(min){ var h=Math.floor(min/60), m=min%60; var s=(h?h+'시간':'')+(m?(h?' ':'')+m+'분':''); return s||'0분'; }
+
+  async function toggleClinic(btn, name){
+    var box = btn.closest('.card').querySelector('.cliwrap');
+    if(box.classList.contains('show')){ box.classList.remove('show'); return; }
+    box.classList.add('show');
+    if(box.dataset.built==='1') return;
+    box.dataset.built='1';
+    box.innerHTML =
+      '<div class="attin">'+
+        '<div class="ailabel">📋 클리닉 입력</div>'+
+        '<div class="air">'+
+          '<input type="date" class="aidate" value="'+todayStr()+'">'+
+          '<div class="aist">'+
+            ['출석','지각','결석','병결','공결'].map(function(s){ return '<button type="button" class="aibtn" data-st="'+s+'">'+s+'</button>'; }).join('')+
+          '</div>'+
+        '</div>'+
+        '<div class="air">'+
+          '<span class="ailabel2">성취도</span>'+
+          '<div class="aist">'+
+            [0,25,50,75,100].map(function(v){ return '<button type="button" class="aibtn" data-ach="'+v+'">'+v+'</button>'; }).join('')+
+          '</div>'+
+        '</div>'+
+        '<div class="air">'+
+          '<span class="ailabel2">시간</span>'+
+          '<input type="number" class="aih" min="0" max="12" placeholder="0"><span class="ailabel2">시간</span>'+
+          '<input type="number" class="aim" min="0" max="60" placeholder="0"><span class="ailabel2">분</span>'+
+          '<button type="button" class="aisave">저장</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="clisummary">불러오는 중…</div>';
+    var stBtns = box.querySelectorAll('.aibtn[data-st]');
+    stBtns.forEach(function(b){ b.addEventListener('click', function(){ stBtns.forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); }); });
+    var achBtns = box.querySelectorAll('.aibtn[data-ach]');
+    achBtns.forEach(function(b){ b.addEventListener('click', function(){ achBtns.forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); }); });
+    box.querySelector('.aisave').addEventListener('click', function(){ saveClinic(box, name, this); });
+    await loadClinicSummary(box, name);
+  }
+
+  async function loadClinicSummary(box, name){
+    var sumEl = box.querySelector('.clisummary');
+    sumEl.innerHTML = '불러오는 중…';
+    try{
+      var m = curMonth();
+      var r = await api('/api/clinic?name='+encodeURIComponent(name)+'&month='+m);
+      var j = await r.json();
+      var rec = (j&&j.records)||{};
+      var dates = Object.keys(rec).sort();
+      if(!dates.length){ sumEl.innerHTML = '<span style="color:#999;">'+m+' 클리닉 기록 없음</span>'; return; }
+      var c={출석:0,지각:0,결석:0,병결:0,공결:0}, achSum=0, achN=0, minSum=0;
+      dates.forEach(function(d){ var e=rec[d]||{}; if(c[e.status]!==undefined)c[e.status]++; if(typeof e.achieve==='number'){achSum+=e.achieve;achN++;} if(typeof e.minutes==='number'){minSum+=e.minutes;} });
+      var pills='<span class="pill ok">출석 '+c.출석+'</span>'+
+        (c.지각?'<span class="pill late">지각 '+c.지각+'</span>':'')+
+        (c.결석?'<span class="pill ab">결석 '+c.결석+'</span>':'')+
+        (c.병결?'<span class="pill">병결 '+c.병결+'</span>':'')+
+        (c.공결?'<span class="pill">공결 '+c.공결+'</span>':'');
+      var extra=(achN?'<span class="pill cli">성취도 평균 '+Math.round(achSum/achN)+'</span>':'')+(minSum?'<span class="pill cli">시간 합계 '+fmtMin(minSum)+'</span>':'');
+      var days = dates.map(function(d){ var e=rec[d]||{}; return '<div>'+esc(d.slice(5))+' · '+esc(e.status||'-')+(typeof e.achieve==='number'?' · 성취도 '+e.achieve:'')+(typeof e.minutes==='number'?' · '+fmtMin(e.minutes):'')+(e.note?' · '+esc(e.note):'')+'</div>'; }).join('');
+      sumEl.innerHTML = '<div class="attsum">'+pills+extra+'</div><div style="color:var(--muted);line-height:1.7;">'+days+'</div>';
+    }catch(e){ sumEl.innerHTML = '<span style="color:#c0392b;">클리닉을 불러오지 못했어요.</span>'; }
+  }
+
+  async function saveClinic(box, name, btnEl){
+    var date = (box.querySelector('.aidate').value||'').trim();
+    if(!date){ showToast('날짜를 선택해주세요.'); return; }
+    var stBtn = box.querySelector('.aibtn[data-st].on');
+    var achBtn = box.querySelector('.aibtn[data-ach].on');
+    var hRaw = (box.querySelector('.aih').value||'').trim();
+    var mRaw = (box.querySelector('.aim').value||'').trim();
+    var body = { name: name, date: date };
+    if(stBtn) body.status = stBtn.dataset.st;
+    if(achBtn) body.achieve = Number(achBtn.dataset.ach);
+    if(hRaw!=='' || mRaw!==''){
+      var hh = hRaw===''?0:Number(hRaw), mm = mRaw===''?0:Number(mRaw);
+      if(!isFinite(hh)||hh<0||hh>12){ showToast('시간은 0~12 사이로 입력해주세요.'); return; }
+      if(!isFinite(mm)||mm<0||mm>60){ showToast('분은 0~60 사이로 입력해주세요.'); return; }
+      body.minutes = Math.round(hh)*60 + Math.round(mm);
+    }
+    if(!body.status && body.achieve===undefined && body.minutes===undefined){ showToast('출결·성취도·시간 중 하나는 입력해주세요.'); return; }
+    var old = btnEl.textContent; btnEl.disabled=true; btnEl.textContent='저장 중…';
+    try{
+      var r = await api('/api/clinic', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      var j = await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'저장에 실패했어요.'); return; }
+      showToast(date.slice(5)+' 클리닉 저장됐어요.');
+      box.querySelectorAll('.aibtn').forEach(function(x){x.classList.remove('on');});
+      box.querySelector('.aih').value=''; box.querySelector('.aim').value='';
+      await loadClinicSummary(box, name);
     }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); }
     finally{ btnEl.disabled=false; btnEl.textContent=old; }
   }

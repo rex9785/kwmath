@@ -341,6 +341,88 @@ export async function listAllAttendance(env) {
   return Object.values(byStudent);
 }
 
+// ════════════ 클리닉 (수업 출결과 별도 테이블) ════════════
+// 라이브 수업 출결(attendance)은 절대 안 건드림. 클리닉은 독립 clinic 테이블에 저장.
+// 마이그레이션 러너가 없으므로 첫 사용 시 CREATE TABLE IF NOT EXISTS로 보장(아이솔레이트당 1회).
+let _clinicReady = false;
+async function ensureClinic(env) {
+  if (_clinicReady) return;
+  await env.DB.prepare(
+    'CREATE TABLE IF NOT EXISTS clinic (' +
+    'student_id TEXT NOT NULL, date TEXT NOT NULL, status TEXT, ' +
+    'achieve INTEGER, minutes INTEGER, note TEXT, updated_at TEXT, ' +
+    'PRIMARY KEY (student_id, date))'
+  ).run();
+  _clinicReady = true;
+}
+
+function clinicRecord(r) {
+  const rec = {};
+  if (r.status) rec.status = r.status;
+  if (r.achieve !== null && r.achieve !== undefined) rec.achieve = r.achieve;
+  if (r.minutes !== null && r.minutes !== undefined) rec.minutes = r.minutes;
+  if (r.note) rec.note = r.note;
+  return rec;
+}
+
+export async function getClinic(env, studentId, month) {
+  await ensureClinic(env);
+  let sql = 'SELECT date, status, achieve, minutes, note FROM clinic WHERE student_id = ?';
+  const vals = [studentId];
+  if (month) { sql += ' AND date LIKE ?'; vals.push(month + '%'); }
+  const { results } = await env.DB.prepare(sql).bind(...vals).all();
+  const records = {};
+  for (const r of (results || [])) records[r.date] = clinicRecord(r);
+  return { records, updatedAt: null };
+}
+
+export async function upsertClinic(env, studentId, date, fields) {
+  await ensureClinic(env);
+  const cols = ['status', 'achieve', 'minutes', 'note'];
+  const present = cols.filter(c => fields[c] !== undefined);
+  try {
+    const existing = await env.DB.prepare('SELECT student_id FROM clinic WHERE student_id=? AND date=?')
+      .bind(studentId, date).first();
+    if (existing) {
+      if (present.length) {
+        const setSql = present.map(c => c + '=?').join(', ') + ', updated_at=?';
+        await env.DB.prepare('UPDATE clinic SET ' + setSql + ' WHERE student_id=? AND date=?')
+          .bind(...present.map(c => fields[c]), new Date().toISOString(), studentId, date).run();
+      }
+    } else {
+      const allCols = ['student_id', 'date', ...present, 'updated_at'];
+      const allVals = [studentId, date, ...present.map(c => fields[c]), new Date().toISOString()];
+      await env.DB.prepare('INSERT INTO clinic (' + allCols.join(',') + ') VALUES (' + allCols.map(() => '?').join(',') + ')')
+        .bind(...allVals).run();
+    }
+    const got = await getClinic(env, studentId);
+    return { ok: true, record: got.records[date] || {} };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+export async function deleteClinic(env, studentId, date) {
+  await ensureClinic(env);
+  try {
+    const res = await env.DB.prepare('DELETE FROM clinic WHERE student_id=? AND date=?').bind(studentId, date).run();
+    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+export async function listAllClinic(env) {
+  await ensureClinic(env);
+  const { results } = await env.DB.prepare(
+    'SELECT c.student_id, s.name, c.date, c.status, c.achieve, c.minutes, c.note ' +
+    'FROM clinic c LEFT JOIN students s ON s.id = c.student_id'
+  ).all();
+  const byStudent = {};
+  for (const r of (results || [])) {
+    const key = r.name || ('id:' + r.student_id);
+    if (!byStudent[key]) byStudent[key] = { name: r.name || '', records: {}, updatedAt: null };
+    byStudent[key].records[r.date] = clinicRecord(r);
+  }
+  return Object.values(byStudent);
+}
+
 // ════════════ KW-Study ════════════
 export async function getStudySessions(env, studentId) {
   let results;

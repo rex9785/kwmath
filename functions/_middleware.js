@@ -46,6 +46,7 @@ const STAFF_WRITE_ALLOW = new Set([
   '/api/staff-worklog',    // 조교 본인 근무기록 입력/수정/삭제 (POST·DELETE) — 신원은 X-Staff-Phone로 서버가 강제
   '/api/attendance',       // 조교: 자기 학원 학생 출결 입력/삭제 (POST·DELETE) — 학원 스코프는 attendance.js가 X-Staff-Phone로 강제
   '/api/scores',           // 조교: 자기 학원 학생 성적 입력/삭제 (POST·DELETE) — 학원 스코프는 scores.js가 X-Staff-Phone로 강제
+  '/api/clinic',           // 조교: 자기 학원 학생 클리닉 출결/성취도/시간 입력·삭제 (POST·DELETE) — 학원 스코프는 clinic.js가 X-Staff-Phone로 강제
 ]);
 function staffAllowed(url, method) {
   const pathname = url.pathname;
