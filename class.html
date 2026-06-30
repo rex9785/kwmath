@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>반별 자료실 | LKW math LAB</title>
   <style>
     :root {
@@ -18,7 +18,7 @@
     body { font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
     /* 헤더 */
-    header { background: var(--primary); color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header { background: var(--primary); color: #fff; padding: max(14px,env(safe-area-inset-top,14px)) 24px 14px; display: flex; align-items: center; justify-content: space-between; }
     header .logo { font-size: 1.1rem; font-weight: 900; letter-spacing: -0.5px; }
     header a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.85rem; }
 

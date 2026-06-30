@@ -2,14 +2,14 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>운영진 관리 | 관리자</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;--ok:#1F8A4C;--warn:#B8860B;--danger:#C0392B;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
-  .top{background:var(--primary);color:#fff;padding:14px 5%;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+  .top{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 5% 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
   .top .title{font-size:1rem;font-weight:900;}
   .top .back{color:rgba(255,255,255,0.85);font-size:0.85rem;text-decoration:none;}
   .wrap{max-width:680px;margin:0 auto;padding:22px 5% 80px;}
