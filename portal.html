@@ -1025,6 +1025,12 @@
   // ════════ 자동 로그인 복원 + PWA SW 등록 ════════
   window.addEventListener('DOMContentLoaded', async () => {
     try { if (await enforceMinVersion()) return; } catch (_) {}     // 구버전 앱이면 여기서 멈춤(화면 차단)
+    // 운영진 세션 복원 — 앱은 항상 /portal로 재진입하므로, 저장된 관리자(원장) 세션이 있으면 관리 콘솔로 되돌린다.
+    //   (관리자 로그인은 kwmath_portal_token을 안 남기고 /admin으로 이동함 → 이 복원이 없으면 앱 재시작마다 로그인화면이 떴음.)
+    try {
+      const _adm = localStorage.getItem('kwmath_admin_token');
+      if (_adm) { const _m = /^adm_(\d+)_/.exec(_adm); if (_m && Number(_m[1]) > Date.now()) { location.replace('/admin'); return; } }
+    } catch (_) {}
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));
     }
