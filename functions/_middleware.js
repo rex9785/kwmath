@@ -11,6 +11,8 @@ import {
   verifyAdminSession, isAdminSessionToken, readCookie,
   verifyStaffSession, isStaffSessionToken,
 } from './api/_admin.js';
+import { getStaffRecord } from './api/_staff.js';
+import { normalizePhone } from './api/_auth.js';
 
 const PRIMARY_ORIGIN = 'https://kwmath.co.kr';
 
@@ -107,6 +109,16 @@ export async function onRequest(context) {
         // 조교(ast_) 제한 세션 — 허용 경로만 번역, 그 외 403. 토큰에 박힌 전화번호를 X-Staff-Phone로 전달.
         const sv = await verifyStaffSession(env, bearer);
         if (sv) {
+          // 조교 실시간 유효성 — 원장이 권한 해제(레코드 삭제)했거나 미승인이면, 이미 발급된 ast_ 토큰도 즉시 무효.
+          //   (ast_는 무상태 서명이라 서명검증만으론 안 죽음 → 매 요청 R2 조교 레코드로 현재 승인상태 확인 = 권한해제 즉시 반영.
+          //    이 검사가 qna 등 레코드를 스스로 안 보는 경로의 마지막 구멍까지 닫음. R2 오류 시 fail-closed=재로그인 유도.)
+          const staffRec = await getStaffRecord(env, normalizePhone(sv.phone) || sv.phone);
+          if (!staffRec || staffRec.approved !== true) {
+            return new Response(
+              JSON.stringify({ error: '조교 권한이 해제되었어요. 다시 로그인해주세요.' }),
+              { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': acao } }
+            );
+          }
           if (staffAllowed(url, method)) {
             translate(sv.phone);   // ← 검증된 조교 신원(숫자만)
           } else {

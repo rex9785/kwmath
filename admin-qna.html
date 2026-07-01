@@ -151,8 +151,8 @@
   <img id="lightboxImg" alt="첨부 사진 크게 보기">
 </div>
 <script>
-  // 토큰: 조교는 portal 로그인 때 sessionStorage(ast_), 원장은 admin.html localStorage(adm_)를 재사용.
-  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  // 토큰: 조교는 portal 로그인 때 신뢰기기면 localStorage, 아니면 sessionStorage(ast_). 원장은 admin.html localStorage(adm_) 재사용.
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   var rows = [], tab = 'pending', byChoice = {};
 
   function staffMode(){ return /^ast_/.test(token || ''); }  // 조교(ast_) 세션이면 제한 모드(삭제·사용량 숨김)
@@ -166,7 +166,7 @@
     if(sub){ sub.textContent='조교 콘솔 · 질문답변 · 학생 · 근무기록'; }
     if(nav){ nav.style.display='flex'; }   // 조교용 학생·근무기록 바로가기 노출
   }
-  function staffLogout(){ sessionStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+  function staffLogout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
@@ -181,7 +181,7 @@
     if (token) opts.headers['Authorization'] = 'Bearer ' + token;
     opts.credentials = 'same-origin';
     var r = await fetch(path, opts);
-    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); var had=token; token=null; showLogin(had?'비밀번호가 틀렸습니다':''); throw new Error('401'); }
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); var had=token; token=null; showLogin(had?'비밀번호가 틀렸습니다':''); throw new Error('401'); }
     return r;
   }
   function showLogin(err){

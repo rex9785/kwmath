@@ -130,6 +130,10 @@
         <button type="button" class="pw-toggle" onclick="togglePwVisibility('loginPw', this)" title="비밀번호 보기">👁</button>
       </div>
     </div>
+    <label for="trustDevice" style="display:flex;align-items:center;gap:8px;margin:2px 2px 12px;font-size:0.8rem;color:var(--text-light);cursor:pointer;user-select:none;">
+      <input id="trustDevice" type="checkbox" checked style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--primary);cursor:pointer;">
+      <span>이 기기 신뢰 — 자동 로그인 유지 <span style="color:var(--text-light);opacity:.8;">(공용 기기면 체크 해제)</span></span>
+    </label>
     <button id="loginBtn" class="login-btn" onclick="doLogin()">로그인 →</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
@@ -456,14 +460,21 @@
       }
       // ── 운영진(원장·조교) 라우팅 — 학생 포털 대신 관리 콘솔로 ──
       //   원장(adm_)  → /admin       (admin.html이 localStorage 토큰으로 자동 로그인)
-      //   조교(ast_)  → /admin-qna   (admin-qna.html이 sessionStorage 토큰으로 자동 인증, 권한은 미들웨어가 제한)
+      //   조교(ast_)  → /admin-qna   (신뢰기기면 localStorage, 아니면 sessionStorage 저장; 권한은 미들웨어가 제한)
+      // 신뢰기기 체크 시 localStorage(영구, 자동로그인 유지), 해제 시 sessionStorage(앱 종료시 소멸).
+      //   기본 체크 → 기존 학생/학부모 자동로그인과 동일(무회귀). 조교도 이 선택을 따라 자동로그인.
+      const trustDevice = !document.getElementById('trustDevice') || document.getElementById('trustDevice').checked;
+      const _sess  = trustDevice ? localStorage : sessionStorage;   // 실제 저장소
+      const _other = trustDevice ? sessionStorage : localStorage;   // 반대편은 항상 비워 잔존토큰 방지
       if (data.role === 'owner' && data.adminToken) {
+        // 원장(관우T 본인 기기)은 항상 유지 — admin.html이 localStorage만 보므로 체크와 무관하게 localStorage.
         localStorage.setItem('kwmath_admin_token', data.adminToken);
         location.href = '/admin';
         return;
       }
       if (data.role === 'staff' && data.staffToken) {
-        sessionStorage.setItem('kwmath_admin_pw', data.staffToken);
+        _sess.setItem('kwmath_admin_pw', data.staffToken);
+        _other.removeItem('kwmath_admin_pw');           // 반대편 잔존 조교토큰 제거
         location.href = '/admin-qna';
         return;
       }
@@ -471,8 +482,10 @@
       currentToken = data.token;
       currentPhone = data.phone;
       currentStudents = Array.isArray(data.students) ? data.students : [];
-      localStorage.setItem(TOKEN_KEY, currentToken);
-      localStorage.setItem(PHONE_KEY, currentPhone);
+      _sess.setItem(TOKEN_KEY, currentToken);
+      _sess.setItem(PHONE_KEY, currentPhone);
+      _other.removeItem(TOKEN_KEY);
+      _other.removeItem(PHONE_KEY);
 
       enterMain(data.mustChangePassword);
       { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
@@ -501,6 +514,8 @@
     if (!confirm('로그아웃하시겠습니까?')) return;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PHONE_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(PHONE_KEY);
     currentToken = ''; currentPhone = ''; currentStudents = []; selectedStudent = null;
     $('loginPw').value = '';
     showLoginScreen();
@@ -1031,12 +1046,18 @@
       const _adm = localStorage.getItem('kwmath_admin_token');
       if (_adm) { const _m = /^adm_(\d+)_/.exec(_adm); if (_m && Number(_m[1]) > Date.now()) { location.replace('/admin'); return; } }
     } catch (_) {}
+    // 조교(ast_) 세션 복원 — 신뢰기기로 로그인한 조교 토큰은 localStorage에 남으므로 /admin-qna로 되돌린다.
+    //   (권한해제된 조교면 /admin-qna 첫 API가 401 → 거기서 양쪽 저장소 토큰 삭제 후 /portal 복귀 → 무한루프 방지)
+    try {
+      const _ast = localStorage.getItem('kwmath_admin_pw') || sessionStorage.getItem('kwmath_admin_pw');
+      if (_ast) { const _s = /^ast_(\d+)_/.exec(_ast); if (_s && Number(_s[1]) > Date.now()) { location.replace('/admin-qna'); return; } }
+    } catch (_) {}
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));
     }
     preloadVapidKey();
-    const savedToken = localStorage.getItem(TOKEN_KEY);
-    const savedPhone = localStorage.getItem(PHONE_KEY);
+    const savedToken = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+    const savedPhone = localStorage.getItem(PHONE_KEY) || sessionStorage.getItem(PHONE_KEY);
     if (!savedToken) { showLoginScreen(); return; }
     try {
       const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
@@ -1044,6 +1065,8 @@
       if (!res.ok || !data.ok) {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(PHONE_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(PHONE_KEY);
         showLoginScreen();
         return;
       }
