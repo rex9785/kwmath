@@ -122,6 +122,7 @@
   .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:40px;}
   .feat-card{display:flex;gap:18px;align-items:flex-start;background:var(--bg2);border-radius:16px;padding:24px;border:1px solid var(--border);}
   .feat-icon{font-size:1.6rem;width:50px;height:50px;background:var(--primary-light);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .feat-icon svg{width:26px;height:26px;stroke:var(--primary);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   .feat-title{font-weight:800;font-size:0.97rem;margin-bottom:6px;}
   .feat-desc{font-size:0.85rem;color:var(--text-light);line-height:1.7;}
 
@@ -131,6 +132,7 @@
   .prog-card{background:#fff;border-radius:18px;padding:28px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(134,38,51,0.06);}
   .prog-icon-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
   .prog-icon{width:44px;height:44px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+  .prog-icon svg{width:23px;height:23px;stroke:#fff;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   .prog-title{font-weight:800;font-size:1rem;color:var(--primary);}
   .prog-desc{font-size:0.87rem;color:var(--text-light);line-height:1.75;}
   .system-table-wrap{margin-top:40px;overflow-x:auto;}
@@ -148,6 +150,7 @@
   .cycle-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(134,38,51,0.12);border-color:var(--primary-mid);}
   .cycle-badge{width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:0.95rem;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;letter-spacing:0;}
   .cycle-icon{font-size:1.8rem;margin-bottom:8px;line-height:1;}
+  .cycle-icon svg{width:32px;height:32px;stroke:var(--primary);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:middle;}
   .cycle-name{font-weight:800;font-size:1.05rem;color:var(--primary);margin-bottom:8px;}
   .cycle-desc{font-size:0.82rem;color:var(--text-light);line-height:1.7;}
   .cycle-loop{margin-top:22px;text-align:center;font-size:0.9rem;color:var(--primary);font-weight:700;background:var(--primary-light);padding:14px 18px;border-radius:12px;letter-spacing:0.2px;}
@@ -207,6 +210,7 @@
   .video-info{display:flex;flex-direction:column;justify-content:center;gap:16px;}
   .video-feature{display:flex;gap:16px;align-items:flex-start;background:var(--bg2);padding:20px;border-radius:14px;border:1px solid var(--border);}
   .vf-icon{font-size:1.4rem;flex-shrink:0;}
+  .vf-icon svg{width:26px;height:26px;stroke:var(--primary);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   .vf-title{font-weight:700;margin-bottom:4px;font-size:0.93rem;}
   .vf-desc{font-size:0.83rem;color:var(--text-light);line-height:1.6;}
 
@@ -227,6 +231,7 @@
   .contact-info p{color:var(--text-light);line-height:1.9;margin-bottom:26px;font-size:0.93rem;}
   .contact-item{display:flex;gap:14px;align-items:center;padding:16px;background:var(--bg2);border-radius:12px;margin-bottom:12px;border:1px solid var(--border);}
   .contact-icon{font-size:1.1rem;width:40px;height:40px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .contact-icon svg{width:21px;height:21px;stroke:var(--primary);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   .contact-label{font-size:0.77rem;color:var(--text-light);}
   .contact-val{font-weight:700;font-size:0.93rem;}
   .contact-form{background:var(--bg2);border-radius:20px;padding:34px;border:1px solid var(--border);}
@@ -343,7 +348,7 @@
 
 <!-- D-DAY 배너 -->
 <div class="dday-bar" id="ddayBar">
-  📅 2027 수능까지<span>|</span>D-<span class="dday-num" id="ddayNum">??</span>일<span>|</span>매일 한 문제씩 더!
+  2027 수능까지<span>|</span>D-<span class="dday-num" id="ddayNum">??</span>일<span>|</span>매일 한 문제씩 더!
 </div>
 
 <!-- NAV -->
@@ -386,20 +391,20 @@
 <section class="hero" id="home">
   <div class="hero-inner">
     <div>
-      <div class="hero-badge">📐 LKW math LAB · 대치동</div>
+      <div class="hero-badge">LKW math LAB · 대치동</div>
       <h1>"익숙함의<br><span class="point">위대함"</span></h1>
       <p class="hero-sub">수학이 어렵다고 느껴지는 것은 생소하기 때문입니다.<br>반복적인 학습은 생소함을 익숙함으로 바꾸어주고<br>익숙함은 곧 자신감과 성적향상으로 이어지게 됩니다.</p>
       <p class="hero-emphasis">결국, 수학은 경험하고 반복하는 것이 중요합니다.</p>
       <div class="hero-btns">
-        <a href="#video" class="btn-primary">🎬 샘플 강의 보기</a>
-        <a href="#contact" class="btn-outline">📩 수업 문의하기</a>
+        <a href="#video" class="btn-primary">샘플 강의 보기</a>
+        <a href="#contact" class="btn-outline">수업 문의하기</a>
       </div>
       <!-- 📱 네이티브 앱 다운로드 (2026-06 출시) · iOS 직링크 확보되면 아래 주석 해제 -->
       <div style="margin-top:20px;">
-        <div style="font-size:0.8rem;font-weight:700;color:var(--primary);margin-bottom:9px;">📱 이관우 수학연구소 앱 출시</div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--primary);margin-bottom:9px;">이관우 수학연구소 앱 출시</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <a href="https://play.google.com/store/apps/details?id=kr.co.kwmath.app" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;">🤖 Google Play에서 받기</a>
-          <a href="https://apps.apple.com/kr/app/id6778222395" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;">🍎 App Store에서 받기</a>
+          <a href="https://play.google.com/store/apps/details?id=kr.co.kwmath.app" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;">Google Play에서 받기</a>
+          <a href="https://apps.apple.com/kr/app/id6778222395" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;font-size:0.9rem;text-decoration:none;">App Store에서 받기</a>
         </div>
       </div>
     </div>
@@ -635,42 +640,42 @@
     <p class="section-desc">학생의 수준과 약점을 정확히 진단하고 '왜 이렇게 되는지'부터 다지는 수업을 합니다.</p>
     <div class="features-grid">
       <div class="feat-card">
-        <div class="feat-icon">💡</div>
+        <div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/></svg></div>
         <div>
           <div class="feat-title">원리 중심 개념 강의</div>
           <div class="feat-desc">단순 암기가 아닌 개념이 만들어진 이유와 정당성을 먼저 가르쳐, 응용·심화 문제까지 스스로 해결하게 합니다.</div>
         </div>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">📋</div>
+        <div class="feat-icon"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h4"/></svg></div>
         <div>
           <div class="feat-title">학생 맞춤형 학습방법 코칭</div>
           <div class="feat-desc">학생에게 맞는 '복습법 혹은 오답정리법' 등 체계적이고 효율적인 학습법을 코칭합니다.</div>
         </div>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">💬</div>
+        <div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
         <div>
           <div class="feat-title">활발한 질의응답 서비스 제공</div>
           <div class="feat-desc">모르는 문제를 질문하고 학습고민을 상담할 수 있는 '카카오톡 질의응답 서비스 채널'을 운영합니다.</div>
         </div>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">📚</div>
+        <div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
         <div>
           <div class="feat-title">자체 교재 및 영상 강의 제공</div>
           <div class="feat-desc">문제의 핵심을 관통하는 효과적인 학습을 위해 개념별 맞춤 문제가 수록된 '자체교재와 영상 강의'를 제공합니다.</div>
         </div>
       </div>
       <div class="feat-card">
-        <div class="feat-icon">📅</div>
+        <div class="feat-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M9 16l2 2 4-4"/></svg></div>
         <div>
           <div class="feat-title">체계적인 학생관리 시스템</div>
           <div class="feat-desc">숙제를 날짜별로 배분하고 주간 테스트와 학습 진단 리포트로 학습이 '밀리지 않도록' 관리하며, 학습 공백을 그 주 안에 메꾸어 다음 단원으로 자연스럽게 연결합니다.</div>
         </div>
       </div>
       <div class="feat-card" style="background:var(--primary-light);border-color:#E8C4C7;">
-        <div class="feat-icon" style="background:#fff;">🎯</div>
+        <div class="feat-icon" style="background:#fff;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
         <div>
           <div class="feat-title" style="color:var(--primary);">성적 향상을 향한 5가지 집중</div>
           <div class="feat-desc">원리 중심 수업 · 학습법 코칭 · 질의응답 · 자체교재 · 학생관리 시스템이 하나로 연결되어 성적 향상을 만들어냅니다.</div>
@@ -690,28 +695,28 @@
     <div class="program-grid">
       <div class="prog-card">
         <div class="prog-icon-row">
-          <div class="prog-icon">✏️</div>
+          <div class="prog-icon"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
           <div class="prog-title">백지 복습을 통한 개념 습득</div>
         </div>
         <div class="prog-desc">단순히 책을 보며 복습하는 것이 아닌 이해한 개념을 스스로 백지에 쓰며 완벽히 개념을 숙지하는 학습 프로그램</div>
       </div>
       <div class="prog-card">
         <div class="prog-icon-row">
-          <div class="prog-icon">🏫</div>
+          <div class="prog-icon"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
           <div class="prog-title">내신 유형 대비 완전 정복</div>
         </div>
         <div class="prog-desc">완벽하고 꼼꼼한 개념 정리와 유형별 맞춤 문제 정리를 통해 내신을 대비하는 학습 프로그램</div>
       </div>
       <div class="prog-card">
         <div class="prog-icon-row">
-          <div class="prog-icon">📝</div>
+          <div class="prog-icon"><svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg></div>
           <div class="prog-title">수능 대비 기출 풀이 및 실전 모의고사</div>
         </div>
         <div class="prog-desc">다양한 풀이를 바탕으로 기출문제를 완벽 습득하고 실제 수능장과 가장 유사하게 실전 훈련을 할 수 있는 학습 프로그램</div>
       </div>
       <div class="prog-card">
         <div class="prog-icon-row">
-          <div class="prog-icon">🔍</div>
+          <div class="prog-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></div>
           <div class="prog-title">맞춤형 오답 정리</div>
         </div>
         <div class="prog-desc">한 번 틀린 문제는 다시 틀리지 않도록 오답 유형별로 정리하여 피드백하는 프로그램</div>
@@ -727,25 +732,25 @@
       <div class="system-cycle">
         <div class="cycle-card">
           <div class="cycle-badge">1</div>
-          <div class="cycle-icon">📖</div>
+          <div class="cycle-icon"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
           <div class="cycle-name">학습</div>
           <div class="cycle-desc">수업과 백지 복습으로 개념의 원리와 인과성을 정착시킵니다.</div>
         </div>
         <div class="cycle-card">
           <div class="cycle-badge">2</div>
-          <div class="cycle-icon">✏️</div>
+          <div class="cycle-icon"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
           <div class="cycle-name">소화</div>
           <div class="cycle-desc">주간지(하루 10문제)와 워크북으로 배운 개념을 문제에 적용합니다.</div>
         </div>
         <div class="cycle-card">
           <div class="cycle-badge">3</div>
-          <div class="cycle-icon">📝</div>
+          <div class="cycle-icon"><svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg></div>
           <div class="cycle-name">점검</div>
           <div class="cycle-desc">주간 테스트와 오답 정리로 학습 공백과 약점을 정확히 짚어냅니다.</div>
         </div>
         <div class="cycle-card">
           <div class="cycle-badge">4</div>
-          <div class="cycle-icon">💬</div>
+          <div class="cycle-icon"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
           <div class="cycle-name">피드백</div>
           <div class="cycle-desc">클리닉·카톡 Q&A와 주간 학습 진단 리포트로 다음 사이클을 설계합니다.</div>
         </div>
@@ -767,7 +772,7 @@
       <div style="text-align:center;color:var(--text-light);padding:20px;font-size:0.9rem;">클립을 불러오는 중...</div>
     </div>
     <div style="text-align:center;margin-top:28px;">
-      <a href="https://www.instagram.com/kwa.noo.math" target="_blank" class="btn-outline">📸 인스타그램에서 더 보기</a>
+      <a href="https://www.instagram.com/kwa.noo.math" target="_blank" class="btn-outline">인스타그램에서 더 보기</a>
     </div>
   </div>
 </section>
@@ -811,21 +816,21 @@
       </div>
       <div class="video-info">
         <div class="video-feature">
-          <div class="vf-icon">🎯</div>
+          <div class="vf-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
           <div>
             <div class="vf-title">핵심만 짚는 개념 설명</div>
             <div class="vf-desc">복잡한 개념도 핵심 원리부터 쉽고 명쾌하게 설명합니다.</div>
           </div>
         </div>
         <div class="video-feature">
-          <div class="vf-icon">🔁</div>
+          <div class="vf-icon"><svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div>
           <div>
             <div class="vf-title">익숙함이 될 때까지 반복</div>
             <div class="vf-desc">이해 후 충분한 반복으로 완전한 내 것으로 만듭니다.</div>
           </div>
         </div>
         <div class="video-feature">
-          <div class="vf-icon">💡</div>
+          <div class="vf-icon"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/></svg></div>
           <div>
             <div class="vf-title">문제 접근법 시각화</div>
             <div class="vf-desc">문제를 보는 순간 어떻게 접근해야 할지 보이게 됩니다.</div>
@@ -871,8 +876,8 @@
       </a>
     </div>
     <div style="text-align:center;margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <a class="btn-primary" id="kwap2Open" role="button" tabindex="0" style="display:inline-block;cursor:pointer;">🎬 SUMMER 개강 설명회 보기</a>
-      <a href="/lectures" class="btn-primary" style="display:inline-block;">📺 공개강의·설명회 전체 보기 →</a>
+      <a class="btn-primary" id="kwap2Open" role="button" tabindex="0" style="display:inline-block;cursor:pointer;">SUMMER 개강 설명회 보기</a>
+      <a href="/lectures" class="btn-primary" style="display:inline-block;">공개강의·설명회 전체 보기 →</a>
     </div>
   </div>
   <script>
@@ -967,7 +972,7 @@
     <!-- 후기 작성 안내 CTA -->
     <div style="text-align:center;margin-top:30px;">
       <a href="/portal" style="display:inline-block;background:var(--primary,#862633);color:#fff;text-decoration:none;padding:13px 28px;border-radius:11px;font-size:0.93rem;font-weight:800;box-shadow:0 4px 14px rgba(134,38,51,0.18);">
-        📝 수강 후기 작성하기 (포털 로그인)
+        수강 후기 작성하기 (포털 로그인)
       </a>
       <div style="font-size:0.78rem;color:#777;margin-top:8px;">기존 학생·학부모님은 포털에서 후기를 남기실 수 있습니다.</div>
     </div>
@@ -1029,31 +1034,31 @@
     <p class="section-desc">궁금한 점이 있으시면 언제든지 문의해 주세요. 빠르게 답변 드리겠습니다.</p>
     <div class="contact-wrap">
       <div class="contact-info">
-        <h3>LKW math LAB<br>함께 시작해봐요 📐</h3>
+        <h3>LKW math LAB<br>함께 시작해봐요</h3>
         <p>지금 바로 문의주시면 수준 진단 상담을 먼저 진행해드립니다. 학생에게 맞는 솔루션을 함께 찾아드릴게요.</p>
         <div class="contact-item">
-          <div class="contact-icon">📍</div>
+          <div class="contact-icon"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
           <div>
             <div class="contact-label">위치</div>
             <div class="contact-val">서울시 강남구 삼성로 57길 35 (대치동) 2층</div>
           </div>
         </div>
         <div class="contact-item">
-          <div class="contact-icon">📞</div>
+          <div class="contact-icon"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
           <div>
             <div class="contact-label">대표 번호</div>
             <div class="contact-val">02) 3411 – 6123</div>
           </div>
         </div>
         <div class="contact-item">
-          <div class="contact-icon">🕐</div>
+          <div class="contact-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
           <div>
             <div class="contact-label">상담 가능 시간</div>
             <div class="contact-val">평일 15:00 ~ 22:00 / 주말 10:00 ~ 22:00</div>
           </div>
         </div>
         <div class="contact-item">
-          <div class="contact-icon">💬</div>
+          <div class="contact-icon"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
           <div>
             <div class="contact-label">카카오채널</div>
             <div class="contact-val"><a href="https://pf.kakao.com/_lIbJG" target="_blank" style="color:var(--primary);text-decoration:none;">이관우 수학연구소 → 친구 추가</a></div>
@@ -1406,18 +1411,18 @@ const FAQ_DATA = [
 <div class="kwapapp-card" id="kwapappCard">
   <button class="kwapapp-x" id="kwapappX" aria-label="닫기">&times;</button>
   <img class="kwapapp-logo" src="어플로고-removebg-preview.png" alt="이관우 수학연구소 앱 로고">
-  <div class="kwapapp-title">📱 앱 출시!</div>
+  <div class="kwapapp-title">앱 출시!</div>
   <div class="kwapapp-sub">이관우 수학연구소 앱으로<br>리포트 · 질문방 · KW-Study를 더 편하게.</div>
   <div class="kwapapp-btns">
-    <a class="kwapapp-btn" href="https://play.google.com/store/apps/details?id=kr.co.kwmath.app" target="_blank" rel="noopener">🤖 Google Play</a>
-    <a class="kwapapp-btn" href="https://apps.apple.com/kr/app/id6778222395" target="_blank" rel="noopener">🍎 App Store</a>
+    <a class="kwapapp-btn" href="https://play.google.com/store/apps/details?id=kr.co.kwmath.app" target="_blank" rel="noopener">Google Play</a>
+    <a class="kwapapp-btn" href="https://apps.apple.com/kr/app/id6778222395" target="_blank" rel="noopener">App Store</a>
   </div>
   <div class="kwapapp-foot">
     <label><input type="checkbox" id="kwapappDnd"> 오늘 하루 보지 않기</label>
     <button id="kwapappClose">닫기</button>
   </div>
 </div>
-<button class="kwapapp-reopen" id="kwapappReopen">📱 앱 설치</button>
+<button class="kwapapp-reopen" id="kwapappReopen">앱 설치</button>
 <script>
 (function(){
   var card=document.getElementById('kwapappCard'),reopen=document.getElementById('kwapappReopen'),dnd=document.getElementById('kwapappDnd');
