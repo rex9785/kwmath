@@ -1045,8 +1045,9 @@
           <label for="cMsg">문의 내용</label>
           <textarea id="cMsg" placeholder="현재 수학 성적이나 고민, 원하시는 수업 방식을 자유롭게 적어주세요."></textarea>
         </div>
+        <input type="text" id="cHp" name="cHp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
         <button type="submit" class="form-submit">문의 보내기</button>
-        <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;">* ‘문의 보내기’를 누르면 메일 앱이 내용이 채워진 채로 열려요. 보내기만 누르면 전송됩니다. (카카오톡으로도 가능)</p>
+        <p style="font-size:0.78rem;color:var(--text-light);margin-top:10px;text-align:center;">* 접수하시면 관우T에게 <b>바로 전달</b>돼요. 확인 후 남겨주신 연락처로 상담 연락을 드립니다. (카카오톡 상담도 가능)</p>
       </form>
     </div>
   </div>
@@ -1231,53 +1232,53 @@ const FAQ_DATA = [
   }
 })();
 
-/* ===== 문의폼 → 내용 자동 복사 후 카카오톡/이메일로 전송 ===== */
+/* ===== 문의폼 → 서버 접수(/api/inquiry) — 리드가 증발하지 않게 서버 저장 + 원장 앱 알림 ===== */
 (function(){
   const f = document.getElementById('contactForm');
   if (!f) return;
   const KAKAO_CHAT = 'https://pf.kakao.com/_lIbJG/chat';
-  const MAIL_TO = 'kwanoomath@gmail.com';
+  const btn = f.querySelector('.form-submit');
+  const kakaoLink = '<a href="' + KAKAO_CHAT + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">카카오톡 채널</a>';
 
-  // 안내 모달 1회 생성
-  const ov = document.createElement('div');
-  ov.className = 'send-overlay';
-  ov.innerHTML =
-    '<div class="send-card" role="dialog" aria-modal="true">' +
-      '<div class="ic">✉️</div>' +
-      '<h3>문의 보내기</h3>' +
-      '<p><b>‘메일 앱 열어 보내기’</b>를 누르면 받는사람·제목·내용이 모두 채워진 채로 메일 앱이 열려요. <b>보내기</b>만 누르면 끝입니다!</p>' +
-      '<a class="send-btn mail" id="sendMail">✉️ 메일 앱 열어 보내기</a>' +
-      '<a class="send-btn kakao" id="sendKakao" target="_blank" rel="noopener">💛 카카오톡으로 보내기 (내용 복사됨)</a>' +
-      '<button type="button" class="send-close" id="sendClose">닫기</button>' +
-    '</div>';
-  document.body.appendChild(ov);
-  const closeOv = () => ov.classList.remove('show');
-  ov.addEventListener('click', e => { if (e.target === ov) closeOv(); });
-  ov.querySelector('#sendClose').addEventListener('click', closeOv);
+  // 결과 안내 영역 1회 생성
+  const note = document.createElement('div');
+  note.setAttribute('aria-live', 'polite');
+  note.style.cssText = 'display:none;margin-top:12px;padding:12px 14px;border-radius:10px;font-size:0.9rem;line-height:1.55;text-align:center;';
+  f.appendChild(note);
+  const show = (msg, ok) => {
+    note.innerHTML = msg;
+    note.style.display = 'block';
+    note.style.background = ok ? 'var(--primary-light)' : '#FDECEC';
+    note.style.color = ok ? 'var(--primary)' : '#B02A37';
+  };
 
-  f.addEventListener('submit', e => {
+  f.addEventListener('submit', async e => {
     e.preventDefault();
     const v = id => (document.getElementById(id)?.value || '').trim();
-    const name = v('cName'), phone = v('cPhone'), grade = v('cGrade'), msg = v('cMsg');
-    const text =
-      '[수업 문의]\n' +
-      '• 성함: ' + (name || '-') + '\n' +
-      '• 연락처: ' + (phone || '-') + '\n' +
-      '• 학년/학교: ' + (grade || '-') + '\n' +
-      '• 문의 내용: ' + (msg || '-');
+    const name = v('cName'), phone = v('cPhone'), grade = v('cGrade'), message = v('cMsg');
+    if (!name || !phone) { show('성함과 연락처를 입력해 주세요.', false); return; }
 
-    // 클립보드 자동 복사 (best-effort)
-    try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (_) {}
-
-    // 카카오: 채팅 바로 열기 / 이메일: 제목·본문 자동 채움
-    ov.querySelector('#sendKakao').href = KAKAO_CHAT;
-    ov.querySelector('#sendMail').href =
-      'mailto:' + MAIL_TO +
-      '?subject=' + encodeURIComponent('[홈페이지 문의] ' + (name || '') + '님') +
-      '&body=' + encodeURIComponent(text);
-    ov.querySelector('#sendMail').addEventListener('click', closeOv, { once: true });
-
-    ov.classList.add('show');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = '보내는 중…';
+    try {
+      const res = await fetch('/api/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, grade, message, hp: v('cHp') })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        f.reset();
+        show('✅ 문의가 접수됐어요! 관우T가 확인 후 <b>' + name + '</b>님께 곧 연락드릴게요.<br>' +
+             '<span style="font-size:0.82rem;">더 빠른 상담을 원하시면 ' + kakaoLink + '로도 문의하실 수 있어요.</span>', true);
+      } else {
+        show((data.error || '접수에 실패했어요.') + ' 잠시 후 다시 시도하거나 ' + kakaoLink + '로 문의해 주세요.', false);
+      }
+    } catch (_) {
+      show('네트워크 오류로 접수하지 못했어요. ' + kakaoLink + '로 문의해 주세요.', false);
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
+    }
   });
 })();
 </script>

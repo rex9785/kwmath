@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>상담 문의함 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --primary-mid:#A83040;
+         --text:#2A2320; --text-light:#8a847e; --line:#ece7e3; --bg:#faf8f6; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+        background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%; }
+  header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
+          padding:calc(env(safe-area-inset-top) + 14px) 16px 14px; display:flex; align-items:center; gap:10px; }
+  header h1{ font-size:1.05rem; margin:0; flex:1; }
+  header .count{ font-size:0.8rem; color:#fff; background:var(--primary); border-radius:999px; padding:3px 10px; font-weight:700; }
+  header button{ border:1px solid var(--line); background:#fff; color:var(--text); border-radius:9px;
+                 padding:7px 12px; font-size:0.85rem; cursor:pointer; }
+  header button:active{ background:var(--primary-light); }
+  .wrap{ max-width:720px; margin:0 auto; padding:16px 14px calc(env(safe-area-inset-bottom) + 40px); }
+  .state{ text-align:center; color:var(--text-light); padding:48px 20px; font-size:0.95rem; line-height:1.6; }
+  .state a{ color:var(--primary); font-weight:600; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:15px 16px; margin-bottom:12px;
+         box-shadow:0 1px 3px rgba(0,0,0,0.03); }
+  .card.done{ opacity:0.62; }
+  .row1{ display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .nm{ font-weight:700; font-size:1.05rem; }
+  .badge{ font-size:0.72rem; font-weight:700; border-radius:999px; padding:2px 9px; }
+  .badge.new{ background:var(--primary-light); color:var(--primary); }
+  .badge.done{ background:#eef1ee; color:#6b7d6b; }
+  .time{ font-size:0.76rem; color:var(--text-light); margin-left:auto; }
+  .meta{ font-size:0.9rem; color:#4a423d; margin:3px 0; }
+  .meta .k{ color:var(--text-light); display:inline-block; min-width:52px; }
+  .meta a.tel{ color:var(--primary); font-weight:700; text-decoration:none; }
+  .msg{ background:var(--bg); border-radius:9px; padding:10px 12px; margin:9px 0 4px; font-size:0.92rem;
+        line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+  .acts{ display:flex; gap:8px; margin-top:11px; flex-wrap:wrap; }
+  .acts button{ border:none; border-radius:9px; padding:8px 13px; font-size:0.84rem; font-weight:600; cursor:pointer; }
+  .b-done{ background:var(--primary); color:#fff; }
+  .b-reopen{ background:#eef1ee; color:#3d4a3d; }
+  .b-del{ background:#fff; color:#B02A37; border:1px solid #f0d5d8 !important; margin-left:auto; }
+  .memo{ display:flex; gap:7px; margin-top:10px; }
+  .memo input{ flex:1; border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:0.85rem; }
+  .memo button{ border:1px solid var(--line); background:#fff; border-radius:9px; padding:8px 12px; font-size:0.82rem; cursor:pointer; }
+  .toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#2A2320; color:#fff;
+          padding:11px 18px; border-radius:10px; font-size:0.88rem; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50; }
+  .toast.show{ opacity:0.95; }
+</style>
+</head>
+<body>
+<header>
+  <h1>상담 문의함</h1>
+  <span class="count" id="count" style="display:none;">0</span>
+  <button id="refresh">새로고침</button>
+</header>
+<div class="wrap">
+  <div id="list"><div class="state">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var token = sessionStorage.getItem('kwmath_admin_pw')
+           || localStorage.getItem('kwmath_admin_pw')
+           || localStorage.getItem('kwmath_admin_token')
+           || null;
+
+  var listEl = document.getElementById('list');
+  var countEl = document.getElementById('count');
+  var toastEl = document.getElementById('toast');
+  var toastT = null;
+
+  function toast(m){
+    toastEl.textContent = m; toastEl.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function esc(s){ var d = document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
+  function fmt(iso){
+    if(!iso) return '';
+    try{
+      return new Date(iso).toLocaleString('ko-KR',{ timeZone:'Asia/Seoul',
+        month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    }catch(e){ return iso; }
+  }
+  function api(method, qs, body){
+    var opts = { method:method, headers:{} };
+    if(token) opts.headers['Authorization'] = 'Bearer ' + token;
+    if(body){ opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch('/api/inquiry' + (qs||''), opts);
+  }
+
+  function needLogin(){
+    listEl.innerHTML = '<div class="state">원장 전용 페이지예요.<br>먼저 <a href="/admin">관리자 로그인</a> 후 다시 열어주세요.</div>';
+    countEl.style.display = 'none';
+  }
+
+  function render(items){
+    if(!items.length){
+      listEl.innerHTML = '<div class="state">아직 들어온 문의가 없어요.<br>홈페이지 문의 폼으로 접수되면 여기에 쌓이고, 앱으로 바로 알림이 와요.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    items.forEach(function(it){
+      var done = it.status === 'done';
+      var digits = String(it.phone||'').replace(/[^0-9+]/g,'');
+      var card = document.createElement('div');
+      card.className = 'card' + (done ? ' done' : '');
+      var html = '';
+      html += '<div class="row1">';
+      html +=   '<span class="nm">' + esc(it.name || '(이름 없음)') + '</span>';
+      html +=   '<span class="badge ' + (done?'done':'new') + '">' + (done?'처리완료':'신규') + '</span>';
+      html +=   '<span class="time">' + esc(fmt(it.createdAt)) + '</span>';
+      html += '</div>';
+      html += '<div class="meta"><span class="k">연락처</span>' +
+              (digits ? '<a class="tel" href="tel:' + esc(digits) + '">' + esc(it.phone) + '</a>' : esc(it.phone||'-')) + '</div>';
+      if(it.grade) html += '<div class="meta"><span class="k">학년/학교</span>' + esc(it.grade) + '</div>';
+      if(it.message) html += '<div class="msg">' + esc(it.message) + '</div>';
+      html += '<div class="acts">';
+      if(done) html += '<button class="b-reopen" data-act="reopen">신규로 되돌리기</button>';
+      else     html += '<button class="b-done" data-act="done">처리완료</button>';
+      html += '<button class="b-del" data-act="del">삭제</button>';
+      html += '</div>';
+      html += '<div class="memo"><input type="text" placeholder="메모 (예: 상담 완료 / 등록함)" value="' + esc(it.memo||'') + '">' +
+              '<button data-act="memo">저장</button></div>';
+      card.innerHTML = html;
+
+      card.querySelector('[data-act="del"]').addEventListener('click', function(){
+        if(!confirm('이 문의를 삭제할까요? 되돌릴 수 없어요.')) return;
+        api('DELETE', '?id=' + encodeURIComponent(it.id)).then(function(r){
+          if(r.ok){ card.remove(); toast('삭제했어요'); load(); } else toast('삭제 실패');
+        }).catch(function(){ toast('삭제 실패'); });
+      });
+      var toggle = card.querySelector('[data-act="done"], [data-act="reopen"]');
+      if(toggle) toggle.addEventListener('click', function(){
+        api('PATCH', '?id=' + encodeURIComponent(it.id), { status: done ? 'new' : 'done' }).then(function(r){
+          if(r.ok){ toast(done?'신규로 되돌렸어요':'처리완료로 표시했어요'); load(); } else toast('변경 실패');
+        }).catch(function(){ toast('변경 실패'); });
+      });
+      card.querySelector('[data-act="memo"]').addEventListener('click', function(){
+        var val = card.querySelector('.memo input').value;
+        api('PATCH', '?id=' + encodeURIComponent(it.id), { memo: val }).then(function(r){
+          if(r.ok) toast('메모를 저장했어요'); else toast('저장 실패');
+        }).catch(function(){ toast('저장 실패'); });
+      });
+
+      listEl.appendChild(card);
+    });
+  }
+
+  function load(){
+    if(!token){ needLogin(); return; }
+    api('GET', '?admin=1').then(function(r){
+      if(r.status === 401 || r.status === 403){ needLogin(); return null; }
+      return r.json();
+    }).then(function(data){
+      if(!data) return;
+      if(!data.ok){ listEl.innerHTML = '<div class="state">' + esc(data.error || '불러오지 못했어요.') + '</div>'; return; }
+      var items = data.inquiries || [];
+      var n = data.newCount || 0;
+      countEl.textContent = '신규 ' + n;
+      countEl.style.display = n > 0 ? 'inline-block' : 'none';
+      render(items);
+    }).catch(function(){
+      listEl.innerHTML = '<div class="state">네트워크 오류로 불러오지 못했어요. 새로고침을 눌러주세요.</div>';
+    });
+  }
+
+  document.getElementById('refresh').addEventListener('click', load);
+  load();
+})();
+</script>
+</body>
+</html>
