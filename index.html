@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google Analytics 4 (gtag.js) — 홈페이지(index.html) 전용. portal.html·report.html 등 앱 웹뷰엔 절대 넣지 말 것(App '추적 없음' 선언 보호). 측정 ID(G-)는 공개 식별자. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-GT3Y8Q0TBY"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-GT3Y8Q0TBY');
+</script>
 <title>이관우 수학연구소 | LKW math LAB</title>
 <meta name="description" content="대치동 이관우 수학연구소(LKW math LAB) — '익숙함의 위대함'. 이유를 가르치는 수업, 4단계 학습 시스템, 주간 리포트로 성적 향상을 만듭니다.">
 <link rel="canonical" href="https://kwmath.co.kr/">
@@ -1272,6 +1280,24 @@ const FAQ_DATA = [
 (function(){
   const f = document.getElementById('contactForm');
   if (!f) return;
+
+  // 유입 채널 캡처(전환 추적) — 최초 진입 시점의 referrer/utm을 sessionStorage에 저장해
+  // 폼 제출까지 보존(첫 유입 보존: 내부 이동·재방문에도 최초 채널을 유지).
+  const lead = (function(){
+    try {
+      let src = sessionStorage.getItem('kw_lead_src');
+      let utm = sessionStorage.getItem('kw_lead_utm');
+      if (src === null) { src = document.referrer || ''; sessionStorage.setItem('kw_lead_src', src); }
+      if (utm === null) {
+        const q = new URLSearchParams(location.search);
+        utm = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term']
+          .filter(k => q.get(k)).map(k => k.replace('utm_','') + '=' + q.get(k)).join('&');
+        sessionStorage.setItem('kw_lead_utm', utm);
+      }
+      return { src: src, utm: utm };
+    } catch (_) { return { src: document.referrer || '', utm: '' }; }
+  })();
+
   const KAKAO_CHAT = 'https://pf.kakao.com/_lIbJG/chat';
   const btn = f.querySelector('.form-submit');
   const kakaoLink = '<a href="' + KAKAO_CHAT + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">카카오톡 채널</a>';
@@ -1300,7 +1326,7 @@ const FAQ_DATA = [
       const res = await fetch('/api/inquiry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, grade, message, hp: v('cHp') })
+        body: JSON.stringify({ name, phone, grade, message, hp: v('cHp'), src: lead.src, utm: lead.utm })
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {

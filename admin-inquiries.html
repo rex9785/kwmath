@@ -29,6 +29,14 @@
   .badge{ font-size:0.72rem; font-weight:700; border-radius:999px; padding:2px 9px; }
   .badge.new{ background:var(--primary-light); color:var(--primary); }
   .badge.done{ background:#eef1ee; color:#6b7d6b; }
+  .badge.src{ font-weight:600; }
+  .badge.src.si{ background:#FCE4EC; color:#AD1457; }  /* 인스타 */
+  .badge.src.sn{ background:#E6F4EA; color:#137333; }  /* 네이버 */
+  .badge.src.sy{ background:#FCE8E6; color:#C5221F; }  /* 유튜브 */
+  .badge.src.sg{ background:#E8F0FE; color:#1967D2; }  /* 구글 */
+  .badge.src.sk{ background:#FEF7E0; color:#8a6d00; }  /* 카카오 */
+  .badge.src.sd{ background:#f0ede9; color:#7a736c; }  /* 직접 */
+  .badge.src.se{ background:#f0ede9; color:#7a736c; }  /* 기타 */
   .time{ font-size:0.76rem; color:var(--text-light); margin-left:auto; }
   .meta{ font-size:0.9rem; color:#4a423d; margin:3px 0; }
   .meta .k{ color:var(--text-light); display:inline-block; min-width:52px; }
@@ -83,6 +91,17 @@
         month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
     }catch(e){ return iso; }
   }
+  // 유입 채널 분류 — 어느 경로로 홈페이지에 들어와 문의했는지 한눈에.
+  function srcLabel(src, utm){
+    var s = ((src||'') + ' ' + (utm||'')).toLowerCase();
+    if(!s.trim()) return { t:'직접 유입', c:'sd' };
+    if(/instagram|instagr\.am|ig_|l\.instagram/.test(s)) return { t:'인스타', c:'si' };
+    if(/naver/.test(s))                                   return { t:'네이버', c:'sn' };
+    if(/youtube|youtu\.be/.test(s))                       return { t:'유튜브', c:'sy' };
+    if(/google|goog/.test(s))                             return { t:'구글', c:'sg' };
+    if(/kakao|daum/.test(s))                              return { t:'카카오', c:'sk' };
+    return { t:'기타', c:'se' };
+  }
   function api(method, qs, body){
     var opts = { method:method, headers:{} };
     if(token) opts.headers['Authorization'] = 'Bearer ' + token;
@@ -104,12 +123,14 @@
     items.forEach(function(it){
       var done = it.status === 'done';
       var digits = String(it.phone||'').replace(/[^0-9+]/g,'');
+      var si = srcLabel(it.src, it.utm);
       var card = document.createElement('div');
       card.className = 'card' + (done ? ' done' : '');
       var html = '';
       html += '<div class="row1">';
       html +=   '<span class="nm">' + esc(it.name || '(이름 없음)') + '</span>';
       html +=   '<span class="badge ' + (done?'done':'new') + '">' + (done?'처리완료':'신규') + '</span>';
+      html +=   '<span class="badge src ' + si.c + '" title="' + esc(it.src || '직접 유입') + (it.utm ? (' · ' + esc(it.utm)) : '') + '">' + si.t + '</span>';
       html +=   '<span class="time">' + esc(fmt(it.createdAt)) + '</span>';
       html += '</div>';
       html += '<div class="meta"><span class="k">연락처</span>' +

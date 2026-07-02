@@ -40,9 +40,14 @@ async function ensureTable(env) {
     'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
     'name TEXT, phone TEXT, grade TEXT, message TEXT, ' +
     "status TEXT NOT NULL DEFAULT 'new', memo TEXT, ua TEXT, " +
+    'src TEXT, utm TEXT, ' +
     'created_at TEXT, handled_at TEXT)'
   ).run();
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_inq_created ON inquiries(created_at)').run(); } catch (_) {}
+  // 기존 테이블 마이그레이션 — CREATE TABLE IF NOT EXISTS는 컬럼을 추가 안 하므로
+  // 이미 있던 inquiries 테이블엔 ALTER로 유입정보 컬럼을 덧댄다(이미 있으면 조용히 무시).
+  try { await env.DB.prepare('ALTER TABLE inquiries ADD COLUMN src TEXT').run(); } catch (_) {}
+  try { await env.DB.prepare('ALTER TABLE inquiries ADD COLUMN utm TEXT').run(); } catch (_) {}
 }
 
 // KST 표시용(참고) — created_at 자체는 ISO(UTC)로 저장, 화면에서 변환.
@@ -57,6 +62,8 @@ function rowOut(r) {
     message: r.message || '',
     status: r.status || 'new',
     memo: r.memo || '',
+    src: r.src || '',
+    utm: r.utm || '',
     createdAt: r.created_at || '',
     handledAt: r.handled_at || '',
   };
@@ -103,6 +110,10 @@ export async function onRequest(context) {
       const phoneRaw = clean(body.phone, MAX_PHONE);
       const grade = clean(body.grade, MAX_GRADE);
       const message = clean(body.message, MAX_MSG);
+      // 유입정보 — 어느 채널로 홈페이지에 들어와 문의했는지(전환 추적용).
+      // src = document.referrer(유입 출처 URL), utm = 광고/캠페인 파라미터.
+      const src = clean(body.src, 300);
+      const utm = clean(body.utm, 200);
 
       if (!name) return jsonErr('성함을 입력해 주세요.');
       // 연락처: 숫자가 최소 8자리는 있어야 유효(하이픈·공백 허용)
@@ -112,9 +123,9 @@ export async function onRequest(context) {
       const ua = clean(request.headers.get('user-agent') || '', 200);
       const now = nowIso();
       const res = await env.DB.prepare(
-        'INSERT INTO inquiries (name, phone, grade, message, status, memo, ua, created_at, handled_at) ' +
-        "VALUES (?,?,?,?,?,?,?,?,?)"
-      ).bind(name, phoneRaw, grade, message, 'new', '', ua, now, null).run();
+        'INSERT INTO inquiries (name, phone, grade, message, status, memo, ua, src, utm, created_at, handled_at) ' +
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+      ).bind(name, phoneRaw, grade, message, 'new', '', ua, src, utm, now, null).run();
 
       notifyAdmin(context, env, { name, phone: phoneRaw, grade });
 
