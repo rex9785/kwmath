@@ -57,7 +57,7 @@
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
 <script>
-  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   var students = [], curName = '', curScores = [], tab = '내신', metric = 'raw', editingId = null;
 
   var LABELS = { '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
@@ -68,7 +68,7 @@
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function sortKey(y,l){ return (y||'')+'-'+(MONTH[l]||'99'); }
-  function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+  function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
   function fmtScore(s){
     if(s.rawScore!=null && s.grade!=null) return s.rawScore+'('+s.grade+')';
     if(s.rawScore!=null) return ''+s.rawScore;
