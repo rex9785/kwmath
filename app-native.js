@@ -1,0 +1,269 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * app-native.js — kwmath 앱(Capacitor) 네이티브 기능 공용 레이어
+ * ────────────────────────────────────────────────────────────────────────
+ * 목적: 웹 화면(kwmath.co.kr/portal 등)이 앱 안에서 열렸을 때 진짜 네이티브
+ *       기능(햅틱·로컬알림·공유·배지·생체인증)을 호출할 수 있게 해준다.
+ *       → 애플 Guideline 4.2.2(미완성/웹같음) 반려의 근본 대응: "웹 껍데기"가
+ *         아니라 OS 기능을 실제로 쓰는 앱임을 코드로 증명한다.
+ *
+ * 원리 (portal.html의 FCM 브리지와 동일한 저수준 방식):
+ *   - 이 사이트는 Capacitor 코어/플러그인 JS를 번들하지 않는다.
+ *     → window.Capacitor.Plugins 는 비어 있음(=고수준 API 못 씀).
+ *   - 대신 코어가 WebView에 주입하는 저수준 브리지를 직접 쓴다:
+ *       window.Capacitor.isNativePlatform()            → 앱 감지
+ *       window.Capacitor.nativePromise(js, method, opt) → 플러그인 호출(Promise)
+ *   - 네이티브에 해당 플러그인이 설치돼 있어야 실제 동작. 없으면 안전하게 무시.
+ *
+ * 안전성: 앱이 아니거나(=웹/PWA), 플러그인 미설치거나, 브리지가 없으면
+ *         모든 호출은 조용히 no-op(빈 결과)으로 끝난다. 웹/PWA/구버전 앱을
+ *         절대 깨뜨리지 않는다.
+ *
+ * 지금 자동 적용되는 것: 버튼/링크 탭 시 가벼운 햅틱(즉시 체감되는 네이티브감).
+ * 예약(수업 10분 전 알림 등) 타이밍/문구 세부는 나중에 웹만 고쳐 조정 가능
+ * (앱 재빌드 불필요). 이 파일은 "기능 자체"를 심는 레이어다.
+ *
+ * 작성: Claude (Cowork) · 2026-07-03 · 문서/주석 존댓말 규칙 적용
+ * ════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  // ── 앱(네이티브) 여부 ──────────────────────────────────────────────
+  function isApp() {
+    try {
+      return !!(window.Capacitor &&
+        typeof window.Capacitor.isNativePlatform === 'function' &&
+        window.Capacitor.isNativePlatform());
+    } catch (e) { return false; }
+  }
+
+  function platform() {
+    try {
+      var C = window.Capacitor;
+      return (C && typeof C.getPlatform === 'function') ? C.getPlatform() : '';
+    } catch (e) { return ''; }
+  }
+
+  // 저수준 브리지 사용 가능 여부
+  function hasBridge() {
+    try {
+      return isApp() && typeof window.Capacitor.nativePromise === 'function';
+    } catch (e) { return false; }
+  }
+
+  // ── 공용 호출기: 어떤 상황에서도 reject로 앱을 깨지 않는다 ──────────
+  //    앱/브리지/플러그인이 없거나 호출이 실패하면 항상 resolve(null).
+  function np(jsName, method, opts) {
+    if (!hasBridge()) return Promise.resolve(null);
+    try {
+      var p = window.Capacitor.nativePromise(jsName, method, opts || {});
+      // nativePromise가 Promise가 아닐 가능성까지 방어
+      if (p && typeof p.then === 'function') {
+        return p.then(function (r) { return r; })
+                .catch(function () { return null; });
+      }
+      return Promise.resolve(p);
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 1) Haptics — 촉각 피드백 (jsName: "Haptics")
+  //    impact{style: HEAVY|MEDIUM|LIGHT}, notification{type: SUCCESS|WARNING|ERROR},
+  //    vibrate{duration: ms}
+  // ══════════════════════════════════════════════════════════════════
+  function haptic(style) {
+    var s = (style || 'LIGHT').toUpperCase();
+    if (s !== 'HEAVY' && s !== 'MEDIUM' && s !== 'LIGHT') s = 'LIGHT';
+    return np('Haptics', 'impact', { style: s });
+  }
+  function hapticNotify(type) {
+    var t = (type || 'SUCCESS').toUpperCase();
+    if (t !== 'SUCCESS' && t !== 'WARNING' && t !== 'ERROR') t = 'SUCCESS';
+    return np('Haptics', 'notification', { type: t });
+  }
+  function vibrate(ms) {
+    return np('Haptics', 'vibrate', { duration: (ms > 0 ? ms : 300) });
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 2) LocalNotifications — 로컬 예약 알림 (jsName: "LocalNotifications")
+  //    schedule{notifications:[{id:Int, title, body, schedule:{at: Date}}]}
+  //    ⚠️ 네이티브가 schedule.at 을 Date로 읽어 ISO8601로 변환한다 → 반드시 Date 객체로 전달.
+  //    권한은 푸시(FCM)와 동일한 UNUserNotificationCenter 인증을 공유하므로
+  //    앱이 이미 푸시 권한을 받았다면 별도 프롬프트 없이 예약된다. 안전하게 확인/요청도 제공.
+  // ══════════════════════════════════════════════════════════════════
+  function notifPermission() {
+    return np('LocalNotifications', 'checkPermissions', {});
+  }
+  function requestNotifPermission() {
+    return np('LocalNotifications', 'requestPermissions', {});
+  }
+  // opts: {id, title, body, at:(Date|ms timestamp|ISO string), inSeconds}
+  function scheduleNotification(opts) {
+    opts = opts || {};
+    var id = (typeof opts.id === 'number') ? opts.id
+           : Math.floor(Date.now() % 2147483000) + 1; // 32-bit 안전 범위 양수
+    var at = opts.at;
+    if (typeof opts.inSeconds === 'number' && opts.inSeconds > 0) {
+      at = new Date(Date.now() + opts.inSeconds * 1000);
+    } else if (typeof at === 'number') {
+      at = new Date(at);
+    } else if (typeof at === 'string') {
+      at = new Date(at);
+    }
+    var one = { id: id, title: opts.title || '알림', body: opts.body || '' };
+    if (at instanceof Date && !isNaN(at.getTime())) {
+      one.schedule = { at: at };  // 네이티브가 Date로 파싱
+    }
+    return np('LocalNotifications', 'schedule', { notifications: [one] })
+      .then(function (r) { return (r == null) ? null : id; }); // 성공 시 id 반환
+  }
+  function cancelNotification(id) {
+    if (typeof id !== 'number') return Promise.resolve(null);
+    return np('LocalNotifications', 'cancel', { notifications: [{ id: id }] });
+  }
+  function pendingNotifications() {
+    return np('LocalNotifications', 'getPending', {});
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 3) Share — 시스템 공유 시트 (jsName: "Share")
+  //    share{title, text, url, dialogTitle}
+  // ══════════════════════════════════════════════════════════════════
+  function share(opts) {
+    opts = opts || {};
+    var payload = {};
+    if (opts.title) payload.title = opts.title;
+    if (opts.text)  payload.text  = opts.text;
+    if (opts.url)   payload.url   = opts.url;
+    payload.dialogTitle = opts.dialogTitle || '공유';
+    return np('Share', 'share', payload);
+  }
+  function canShare() {
+    return np('Share', 'canShare', {});
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 4) Badge — 앱 아이콘 배지 (jsName: "Badge")
+  //    set{count:Int}, clear, get, increase, decrease
+  // ══════════════════════════════════════════════════════════════════
+  function setBadge(count) {
+    var n = (typeof count === 'number' && count >= 0) ? Math.floor(count) : 0;
+    return np('Badge', 'set', { count: n });
+  }
+  function clearBadge() {
+    return np('Badge', 'clear', {});
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 5) Biometric — 생체 인증 로그인 (jsName: "BiometricAuthNative")
+  //    ⚠️ jsName은 "BiometricAuth"가 아니라 "BiometricAuthNative" (아니면 조용히 no-op).
+  //    checkBiometry{} → {isAvailable, biometryType, ...}
+  //    internalAuthenticate{reason, cancelTitle, iosFallbackTitle, allowDeviceCredential}
+  //      → 성공 시 resolve, 실패/취소 시 reject (여기선 catch로 흡수해 결과 객체로 정규화)
+  // ══════════════════════════════════════════════════════════════════
+  function checkBiometry() {
+    return np('BiometricAuthNative', 'checkBiometry', {});
+  }
+  // opts: {reason, cancelTitle, fallbackTitle, allowDeviceCredential}
+  // 반환: {success:true} 또는 {success:false, reason:'...'} — 절대 throw하지 않음
+  function authenticate(opts) {
+    opts = opts || {};
+    if (!hasBridge()) return Promise.resolve({ success: false, reason: 'not-app' });
+    var payload = {
+      reason: opts.reason || '본인 확인을 위해 인증해주세요.',
+      cancelTitle: opts.cancelTitle || '취소',
+      iosFallbackTitle: (opts.fallbackTitle != null) ? opts.fallbackTitle : '비밀번호 입력',
+      allowDeviceCredential: !!opts.allowDeviceCredential
+    };
+    try {
+      var p = window.Capacitor.nativePromise('BiometricAuthNative', 'internalAuthenticate', payload);
+      if (p && typeof p.then === 'function') {
+        return p.then(function () { return { success: true }; })
+                .catch(function (e) {
+                  var msg = (e && (e.message || e.code)) ? (e.message || e.code) : 'failed';
+                  return { success: false, reason: String(msg) };
+                });
+      }
+      return Promise.resolve({ success: true });
+    } catch (e) {
+      return Promise.resolve({ success: false, reason: 'bridge-error' });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 자동 향상: 버튼/링크 탭 시 가벼운 햅틱 (지금 바로 체감되는 네이티브감)
+  //   - 앱 안에서만 동작(웹/PWA는 no-op).
+  //   - [data-no-haptic] 가 붙은 요소/조상은 제외.
+  //   - 과도한 연타 방지를 위해 최소 간격 40ms 쓰로틀.
+  // ══════════════════════════════════════════════════════════════════
+  var _lastHaptic = 0;
+  function tapTargetFrom(node) {
+    var el = node, depth = 0;
+    while (el && el.nodeType === 1 && depth < 6) {
+      if (el.hasAttribute && el.hasAttribute('data-no-haptic')) return null;
+      var tag = (el.tagName || '').toLowerCase();
+      var role = el.getAttribute ? (el.getAttribute('role') || '') : '';
+      if (el.hasAttribute && el.hasAttribute('data-haptic')) return el;
+      if (tag === 'button' || tag === 'a' || tag === 'summary' || role === 'button') return el;
+      if (el.classList && (el.classList.contains('btn') || el.classList.contains('button'))) return el;
+      el = el.parentElement; depth++;
+    }
+    return null;
+  }
+  function onTap(ev) {
+    if (!hasBridge()) return;
+    var t = ev.target;
+    if (!t) return;
+    if (!tapTargetFrom(t)) return;
+    var now = Date.now();
+    if (now - _lastHaptic < 40) return;
+    _lastHaptic = now;
+    haptic('LIGHT');
+  }
+  function wireAutoHaptics() {
+    // 캡처 단계 위임 → 동적으로 추가된 버튼에도 자동 적용.
+    document.addEventListener('click', onTap, true);
+  }
+
+  // ── 공개 API ────────────────────────────────────────────────────────
+  var KWNative = {
+    // 상태
+    isApp: isApp,
+    platform: platform,
+    available: hasBridge,     // 브리지로 네이티브 호출이 가능한 상태인지
+    // Haptics
+    haptic: haptic,
+    hapticNotify: hapticNotify,
+    vibrate: vibrate,
+    // LocalNotifications
+    notifPermission: notifPermission,
+    requestNotifPermission: requestNotifPermission,
+    scheduleNotification: scheduleNotification,
+    cancelNotification: cancelNotification,
+    pendingNotifications: pendingNotifications,
+    // Share
+    share: share,
+    canShare: canShare,
+    // Badge
+    setBadge: setBadge,
+    clearBadge: clearBadge,
+    // Biometric
+    checkBiometry: checkBiometry,
+    authenticate: authenticate,
+    // 저수준 탈출구(고급): 직접 플러그인 호출이 필요할 때
+    _call: np
+  };
+  window.KWNative = KWNative;
+
+  // ── 초기화 ──────────────────────────────────────────────────────────
+  function init() {
+    try { wireAutoHaptics(); } catch (e) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+})();
