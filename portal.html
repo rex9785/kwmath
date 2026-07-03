@@ -24,7 +24,7 @@
 <meta name="apple-mobile-web-app-title" content="LKW math">
 
 <!-- 앱(Capacitor) 네이티브 기능 공용 레이어: 햅틱·로컬알림·공유·배지·생체인증. 웹/PWA에선 자동 no-op. -->
-<script src="/app-native.js?v=2"></script>
+<script src="/app-native.js?v=3"></script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
@@ -267,9 +267,9 @@
 
     <!-- 법적 고지 (스토어 심사 요건) -->
     <div style="margin-top:14px;display:flex;justify-content:center;align-items:center;gap:12px;font-size:0.74rem;color:var(--text-light);opacity:0.8;flex-wrap:wrap;">
-      <a href="/privacy" style="color:var(--text-light);text-decoration:none;">개인정보 처리방침</a>
+      <a href="/privacy" data-inapp style="color:var(--text-light);text-decoration:none;">개인정보 처리방침</a>
       <span style="color:var(--border);">·</span>
-      <a href="/terms" style="color:var(--text-light);text-decoration:none;">이용약관</a>
+      <a href="/terms" data-inapp style="color:var(--text-light);text-decoration:none;">이용약관</a>
     </div>
   </div>
 </div>

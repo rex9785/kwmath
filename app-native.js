@@ -24,6 +24,8 @@
  *
  * 작성: Claude (Cowork) · 2026-07-03 · 문서/주석 존댓말 규칙 적용
  * 갱신: 2026-07-03 · Face ID 잠금·공유 폴백·biometryAvailable 헬퍼 추가.
+ * Tier2: 2026-07-03 · 인앱 브라우저(openLink, jsName "Browser")·오프라인 배너 추가.
+ *        둘 다 앱 전용이며, 플러그인/네트워크가 없어도 안전하게 폴백한다.
  * ════════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -254,6 +256,89 @@
   }
 
   // ══════════════════════════════════════════════════════════════════
+  // 6) Browser — 인앱 사파리(SFSafariViewController) (jsName: "Browser")
+  //    open{url}, close{}. @capacitor/browser 플러그인(이번 빌드에 추가).
+  //    외부 링크를 앱 밖으로 튕기지 않고 앱 안 네이티브 브라우저 뷰로 연다
+  //    → 세션 유지 + "웹 껍데기 아님"을 한 번 더 증명(4.2.2 대응 강화).
+  //    ⚠️ 플러그인 미설치(구버전 앱)면 np가 null → window.open(시스템 브라우저)로 폴백.
+  //       즉 웹 push가 새 빌드보다 먼저 나가도 링크가 죽지 않는다(fail-open).
+  // ══════════════════════════════════════════════════════════════════
+  function openLink(url) {
+    if (!url) return Promise.resolve({ ok: false, via: 'none' });
+    if (hasBridge()) {
+      return np('Browser', 'open', { url: url }).then(function (r) {
+        if (r === null) {                     // 플러그인 미설치/실패 → 안전 폴백
+          try { window.open(url, '_blank'); } catch (e) {}
+          return { ok: true, via: 'fallback' };
+        }
+        return { ok: true, via: 'native' };   // 네이티브 인앱 브라우저로 열림
+      });
+    }
+    try { window.open(url, '_blank', 'noopener'); } catch (e) {}
+    return Promise.resolve({ ok: true, via: 'web' });
+  }
+  function closeBrowser() { return np('Browser', 'close', {}); }
+
+  // 앱에서만: 외부(다른 origin) 링크와 [data-inapp] 링크를 인앱 브라우저로 연다.
+  //   - 웹/PWA에선 절대 가로채지 않음(기본 동작 그대로).
+  //   - 이미 다른 핸들러가 처리(preventDefault)했으면 건드리지 않음.
+  //   - [data-no-inapp]는 제외. tel:/mailto:/#/javascript:도 제외.
+  function onLinkClick(ev) {
+    if (!hasBridge()) return;
+    if (ev.defaultPrevented) return;
+    var t = ev.target;
+    var a = (t && t.closest) ? t.closest('a') : null;
+    if (!a || a.hasAttribute('data-no-inapp')) return;
+    var abs = a.href;
+    if (!abs || !/^https?:\/\//i.test(abs)) return;   // http(s)만
+    var external = false;
+    try { external = (new URL(abs)).origin !== window.location.origin; } catch (e) {}
+    if (!external && !a.hasAttribute('data-inapp')) return;  // 같은 origin은 opt-in만
+    ev.preventDefault();
+    openLink(abs);
+  }
+  function wireInAppBrowser() {
+    document.addEventListener('click', onLinkClick, false);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 7) 오프라인 배너 — 네트워크가 끊기면 앱 상단에 얇은 안내 바를 띄운다.
+  //    앱에서만 노출(웹사이트 기본 경험은 그대로). 복구되면 자동으로 내려간다.
+  //    DOM은 처음 오프라인이 될 때만 생성(온라인이면 아무 것도 안 만듦).
+  // ══════════════════════════════════════════════════════════════════
+  var _offlineBar = null;
+  function ensureOfflineBar() {
+    if (_offlineBar) return _offlineBar;
+    var b = document.createElement('div');
+    b.id = 'kw-offline-bar';
+    b.textContent = '오프라인 상태예요. 인터넷 연결을 확인해 주세요.';
+    b.setAttribute('role', 'status');
+    b.style.cssText = [
+      'position:fixed', 'left:0', 'right:0', 'top:0', 'z-index:99999',
+      'padding:8px 12px', 'text-align:center',
+      'font-size:13px', 'font-weight:700', 'color:#fff',
+      'background:#c0392b', 'box-shadow:0 1px 4px rgba(0,0,0,0.2)',
+      'transition:transform .25s ease', 'font-family:inherit'
+    ].join(';');
+    (document.body || document.documentElement).appendChild(b);
+    _offlineBar = b;
+    return b;
+  }
+  function updateOnline() {
+    var online = (navigator.onLine !== false);
+    if (online) { if (_offlineBar) _offlineBar.style.transform = 'translateY(-100%)'; return; }
+    ensureOfflineBar().style.transform = 'translateY(0)';
+  }
+  function wireOfflineBanner() {
+    if (!hasBridge()) return;                 // 앱에서만
+    try {
+      window.addEventListener('online', updateOnline, false);
+      window.addEventListener('offline', updateOnline, false);
+      updateOnline();
+    } catch (e) {}
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   // 자동 향상: 버튼/링크 탭 시 가벼운 햅틱 (지금 바로 체감되는 네이티브감)
   //   - 앱 안에서만 동작(웹/PWA는 no-op).
   //   - [data-no-haptic] 가 붙은 요소/조상은 제외.
@@ -320,6 +405,9 @@
     faceLockActive: faceLockActive,
     // 공유(앱=네이티브 시트 / 웹=navigator.share→클립보드)
     shareOrFallback: shareOrFallback,
+    // 인앱 브라우저(앱=네이티브 SFSafariViewController / 웹=새 탭). 폴백 안전.
+    openLink: openLink,
+    closeBrowser: closeBrowser,
     // 저수준 탈출구(고급): 직접 플러그인 호출이 필요할 때
     _call: np
   };
@@ -328,6 +416,8 @@
   // ── 초기화 ──────────────────────────────────────────────────────────
   function init() {
     try { wireAutoHaptics(); } catch (e) {}
+    try { wireInAppBrowser(); } catch (e) {}   // Tier2: 외부/opt-in 링크 → 인앱 브라우저
+    try { wireOfflineBanner(); } catch (e) {}   // Tier2: 오프라인 배너(앱 전용)
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });
