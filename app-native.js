@@ -23,6 +23,7 @@
  * (앱 재빌드 불필요). 이 파일은 "기능 자체"를 심는 레이어다.
  *
  * 작성: Claude (Cowork) · 2026-07-03 · 문서/주석 존댓말 규칙 적용
+ * 갱신: 2026-07-03 · Face ID 잠금·공유 폴백·biometryAvailable 헬퍼 추가.
  * ════════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -192,6 +193,66 @@
     }
   }
 
+  // 생체 사용 가능 여부 → boolean (플러그인/기기마다 응답 키가 달라 관대하게 파싱)
+  function biometryAvailable() {
+    if (!hasBridge()) return Promise.resolve(false);
+    return checkBiometry().then(function (r) {
+      if (!r) return false;
+      if (typeof r.isAvailable === 'boolean') return r.isAvailable;      // aparajita: {isAvailable, biometryType,...}
+      if (typeof r.available === 'boolean') return r.available;
+      if (r.biometryType && r.biometryType !== 0 && r.biometryType !== 'none') return true;
+      return false;
+    }).catch(function () { return false; });
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Face ID 잠금 — 저장된 로그인 세션을 "복원 전에 생체인증"으로 잠근다.
+  //   플래그는 localStorage에 저장(기기별). 실제 잠금은 앱+플래그+생체가능일 때만 작동.
+  //   웹/PWA/생체불가에선 자동으로 열림(fail-open) → 잠겨서 못 들어가는 사고 없음.
+  // ══════════════════════════════════════════════════════════════════
+  var FACE_FLAG = 'kw_faceid_lock';
+  function faceLockEnabled() {
+    try { return localStorage.getItem(FACE_FLAG) === '1'; } catch (e) { return false; }
+  }
+  function setFaceLock(on) {
+    try { on ? localStorage.setItem(FACE_FLAG, '1') : localStorage.removeItem(FACE_FLAG); } catch (e) {}
+  }
+  // 지금 실제로 잠금을 걸어야 하는 상태인가? (앱 + 플래그 ON + 생체 사용가능) → boolean Promise
+  function faceLockActive() {
+    if (!hasBridge() || !faceLockEnabled()) return Promise.resolve(false);
+    return biometryAvailable();
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 공유 — 앱이면 네이티브 시트, 아니면 웹(navigator.share) → 클립보드 폴백.
+  //   반환: {ok, via} (via: native|web|clipboard|none)
+  // ══════════════════════════════════════════════════════════════════
+  function shareOrFallback(opts) {
+    opts = opts || {};
+    if (hasBridge()) {
+      return share(opts).then(function () { return { ok: true, via: 'native' }; });
+    }
+    try {
+      if (navigator && typeof navigator.share === 'function') {
+        var d = {};
+        if (opts.title) d.title = opts.title;
+        if (opts.text)  d.text  = opts.text;
+        if (opts.url)   d.url   = opts.url;
+        return navigator.share(d)
+          .then(function () { return { ok: true, via: 'web' }; })
+          .catch(function () { return { ok: false, via: 'web-cancel' }; });
+      }
+    } catch (e) {}
+    try {
+      if (navigator && navigator.clipboard && opts.url) {
+        return navigator.clipboard.writeText(opts.url)
+          .then(function () { return { ok: true, via: 'clipboard' }; })
+          .catch(function () { return { ok: false, via: 'none' }; });
+      }
+    } catch (e) {}
+    return Promise.resolve({ ok: false, via: 'none' });
+  }
+
   // ══════════════════════════════════════════════════════════════════
   // 자동 향상: 버튼/링크 탭 시 가벼운 햅틱 (지금 바로 체감되는 네이티브감)
   //   - 앱 안에서만 동작(웹/PWA는 no-op).
@@ -252,6 +313,13 @@
     // Biometric
     checkBiometry: checkBiometry,
     authenticate: authenticate,
+    biometryAvailable: biometryAvailable,
+    // Face ID 잠금(세션 복원 게이트)
+    faceLockEnabled: faceLockEnabled,
+    setFaceLock: setFaceLock,
+    faceLockActive: faceLockActive,
+    // 공유(앱=네이티브 시트 / 웹=navigator.share→클립보드)
+    shareOrFallback: shareOrFallback,
     // 저수준 탈출구(고급): 직접 플러그인 호출이 필요할 때
     _call: np
   };

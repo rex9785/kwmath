@@ -24,7 +24,7 @@
 <meta name="apple-mobile-web-app-title" content="LKW math">
 
 <!-- 앱(Capacitor) 네이티브 기능 공용 레이어: 햅틱·로컬알림·공유·배지·생체인증. 웹/PWA에선 자동 no-op. -->
-<script src="/app-native.js?v=1"></script>
+<script src="/app-native.js?v=2"></script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
@@ -259,6 +259,10 @@
       <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔔 알림 설정</a>
       <span style="color:var(--border);">|</span>
       <a href="/push-help" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔕 알림이 안 와요?</a>
+      <span style="color:var(--border);">|</span>
+      <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">📤 앱 공유</a>
+      <span id="faceLockSep" style="color:var(--border);display:none;">|</span>
+      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">🔒 Face ID 잠금</a>
     </div>
 
     <!-- 법적 고지 (스토어 심사 요건) -->
@@ -506,6 +510,8 @@
     renderChildSelect();
     updatePushButton();
     showInstallHintIfNeeded();
+    try { updateFaceLockLink(); } catch (_) {}                        // Face ID 잠금 링크 노출/문구 갱신
+    try { if (window.KWNative) KWNative.clearBadge(); } catch (_) {}  // 앱 진입 시 아이콘 배지 클리어
     if (QNA_ENABLED) { const _q = document.getElementById('qnaFeatBtn'); if (_q) _q.style.display = ''; }
     if (mustChangePassword) {
       openPasswordModal(true);
@@ -523,6 +529,48 @@
     $('loginPw').value = '';
     showLoginScreen();
     showToast('로그아웃 되었습니다.');
+  }
+
+  // ════════ 앱 공유 / Face ID 잠금 (네이티브 기능 UI) ════════
+  // 공유: 앱이면 iOS/안드 시스템 공유 시트, 웹이면 navigator.share→클립보드 폴백.
+  async function shareApp() {
+    try {
+      const r = await KWNative.shareOrFallback({
+        title: '이관우 수학연구소',
+        text: '이관우 수학연구소 학생 포털이에요. 출결·성적·리포트를 여기서 확인하세요.',
+        url: 'https://kwmath.co.kr/portal',
+        dialogTitle: '앱 공유'
+      });
+      if (r && r.via === 'clipboard') showToast('링크를 복사했어요. 붙여넣어 공유하세요.');
+    } catch (_) {}
+  }
+
+  // Face ID 잠금 토글: 저장된 로그인 세션을 앱 재실행 시 생체인증으로 잠글지 On/Off.
+  //   켤 때 즉시 1회 생체인증으로 사용 가능 여부를 확인(안 되면 켜지 않음).
+  async function toggleFaceLock() {
+    try {
+      if (KWNative.faceLockEnabled()) {
+        KWNative.setFaceLock(false);
+        showToast('Face ID 잠금을 껐습니다.');
+      } else {
+        const r = await KWNative.authenticate({ reason: 'Face ID 잠금을 켜기 위해 인증해 주세요.' });
+        if (r && r.success) { KWNative.setFaceLock(true); showToast('Face ID 잠금을 켰습니다. 앱을 다시 열 때 인증이 필요합니다.'); }
+        else { showToast('인증에 실패해 잠금을 켜지 못했습니다.', 4000); }
+      }
+    } catch (_) {}
+    updateFaceLockLink();
+  }
+
+  // 계정 관리 줄의 'Face ID 잠금' 링크 표시/문구 갱신 (앱 + 생체 사용가능일 때만 노출).
+  async function updateFaceLockLink() {
+    const link = document.getElementById('faceLockLink');
+    const sep = document.getElementById('faceLockSep');
+    if (!link || !sep) return;
+    let show = false;
+    try { show = !!(window.KWNative && KWNative.available() && await KWNative.biometryAvailable()); } catch (_) { show = false; }
+    link.style.display = show ? '' : 'none';
+    sep.style.display = show ? '' : 'none';
+    if (show) link.textContent = KWNative.faceLockEnabled() ? '🔒 Face ID 잠금 끄기' : '🔓 Face ID 잠금 켜기';
   }
 
   // ════════ 환영 메시지 + 자녀 선택 ════════
@@ -1062,6 +1110,14 @@
     const savedToken = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
     const savedPhone = localStorage.getItem(PHONE_KEY) || sessionStorage.getItem(PHONE_KEY);
     if (!savedToken) { showLoginScreen(); return; }
+    // Face ID 잠금: 저장된 세션을 복원하기 전에 생체인증을 요구(앱 + 사용자가 켠 경우 + 생체 사용가능일 때만).
+    //   실패/취소하면 자동복원을 막고 로그인 화면으로. 웹/PWA/생체불가에선 이 블록을 자동 통과(fail-open).
+    try {
+      if (window.KWNative && await KWNative.faceLockActive()) {
+        const _fr = await KWNative.authenticate({ reason: '이관우 수학연구소 — 잠금 해제를 위해 인증해 주세요.' });
+        if (!_fr || !_fr.success) { showLoginScreen(); showToast('인증이 취소되어 로그인 화면으로 돌아갑니다.', 4500); return; }
+      }
+    } catch (_) {}
     try {
       const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
       const data = await res.json();
