@@ -49,6 +49,18 @@
   .mode-btn.active[data-mode=teacher] .m-title{color:var(--primary);}
   .mode-btn.disabled{opacity:.5;cursor:not-allowed;}
 
+  /* 질문 / 문의 선택 (폼 최상단) */
+  .kind-row{display:flex;gap:8px;margin-bottom:14px;}
+  .kind-btn{flex:1;padding:13px 10px;border:1.5px solid var(--border);background:#fff;border-radius:12px;cursor:pointer;font-family:inherit;text-align:center;transition:all .12s;}
+  .kind-btn .k-emoji{font-size:1.4rem;display:block;margin-bottom:2px;}
+  .kind-btn .k-title{font-size:0.9rem;font-weight:800;color:var(--text);}
+  .kind-btn .k-desc{font-size:0.68rem;color:var(--text-light);margin-top:2px;}
+  .kind-btn.active[data-kind=question]{border-color:var(--primary);background:var(--primary-light);}
+  .kind-btn.active[data-kind=question] .k-title{color:var(--primary);}
+  .kind-btn.active[data-kind=inquiry]{border-color:#5B3FA8;background:#ECE7FB;}
+  .kind-btn.active[data-kind=inquiry] .k-title{color:#5B3FA8;}
+  .inq-note{font-size:0.74rem;color:#5B3FA8;background:#ECE7FB;border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.55;display:none;}
+
   .ai-quota{font-size:0.74rem;font-weight:700;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--ai-light);color:var(--ai);display:flex;align-items:center;gap:6px;}
   .ai-quota.empty{background:#FBE5E9;color:var(--primary);}
 
@@ -78,6 +90,7 @@
   .badge{display:inline-block;font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:10px;}
   .b-ai{background:var(--ai-light);color:var(--ai);}
   .b-teacher{background:var(--primary-light);color:var(--primary);}
+  .b-inq{background:#ECE7FB;color:#5B3FA8;}
   .b-priv{background:#F0E9D8;color:#8A6D1B;}
   .b-mine{background:#E5F0FB;color:#2A5C9C;}
   .b-pending{background:#FFF7E0;color:#B07A00;}
@@ -164,12 +177,27 @@
 
   <!-- 작성 폼 -->
   <div class="section">
-    <div class="section-label">질문하기</div>
+    <div class="section-label">질문 / 문의</div>
     <div class="form-card">
-      <h2>모르는 문제, 물어보세요 🙋</h2>
-      <div class="sub">AI 조교에게 바로 물어보거나, 선생님·조교에게 직접 질문할 수 있어요.</div>
+      <!-- 질문(수학) / 문의(학원·수업·결제 등) 먼저 고르기 -->
+      <div class="kind-row">
+        <div class="kind-btn active" data-kind="question" id="kindQuestion" onclick="setKind('question')">
+          <span class="k-emoji">🙋</span>
+          <span class="k-title">질문하기</span>
+          <span class="k-desc">모르는 문제·개념</span>
+        </div>
+        <div class="kind-btn" data-kind="inquiry" id="kindInquiry" onclick="setKind('inquiry')">
+          <span class="k-emoji">📩</span>
+          <span class="k-title">문의하기</span>
+          <span class="k-desc">수업·결제·기타 문의</span>
+        </div>
+      </div>
 
-      <div class="field">
+      <h2 id="formTitle">모르는 문제, 물어보세요 🙋</h2>
+      <div class="sub" id="formSub">AI 조교에게 바로 물어보거나, 선생님·조교에게 직접 질문할 수 있어요.</div>
+      <div class="inq-note" id="inqNote">📩 문의는 선생님·관리자만 확인해요. (다른 학생에게 안 보임) 수업·결제·일정 등 무엇이든 편하게 남겨주세요.</div>
+
+      <div class="field" id="modeField">
         <label>질문 방식</label>
         <div class="mode-row">
           <div class="mode-btn active" data-mode="ai" id="modeAi" onclick="setMode('ai')">
@@ -203,14 +231,14 @@
       </div>
 
       <div class="field">
-        <label>질문 내용 <span style="color:var(--primary);">*</span></label>
+        <label><span id="qBodyLabelText">질문 내용</span> <span style="color:var(--primary);">*</span></label>
         <textarea id="qBody" maxlength="1200" placeholder="궁금한 문제나 개념을 적어주세요. (예: 합성함수 미분이 왜 이렇게 되나요? f(x)=...)"></textarea>
         <div class="hint" id="charCount">0 / 1200</div>
       </div>
 
       <!-- 사진 첨부 (문제 사진을 찍어 올리면 AI가 읽고 풀어줘요) -->
       <div class="field">
-        <label>📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span></label>
+        <label id="photoLabel">📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span></label>
         <input type="file" id="photoInput" accept="image/*" style="display:none;">
         <button type="button" class="photo-btn" id="photoBtn" onclick="document.getElementById('photoInput').click()">📷 사진 찍기 / 앨범에서 고르기</button>
         <div class="photo-busy" id="photoBusy" style="display:none;">⏳ 사진 준비 중…</div>
@@ -296,6 +324,7 @@
   function nameQ(prefix) { return selectedName ? (prefix + 'name=' + encodeURIComponent(selectedName)) : ''; }
 
   let mode = 'ai';
+  let kind = 'question';      // 'question'(수학 질문) | 'inquiry'(수업·결제·기타 문의)
   let isPrivate = false;
   let aiRemaining = null, aiDailyLimit = 10;
   let attachedImage = null;   // 첨부 사진(data URL) — 리사이즈 후 저장
@@ -310,6 +339,38 @@
   // 양식이 그대로(미작성)인지 — 각 항목 라벨을 지웠을 때 남는 내용이 없으면 미작성으로 봄
   function isTplUntouched(){
     return $('qBody').value.replace(/▷[^\n:]*:/g, '').trim() === '';
+  }
+
+  // ── 질문 / 문의 선택 ──
+  //   문의(inquiry): AI 없이 선생님·관리자만 열람(서버가 비공개·teacher 강제). 방식 선택/공개토글 숨김.
+  function setKind(k){
+    kind = (k === 'inquiry') ? 'inquiry' : 'question';
+    $('kindQuestion').classList.toggle('active', kind==='question');
+    $('kindInquiry').classList.toggle('active', kind==='inquiry');
+    const isInq = (kind==='inquiry');
+
+    // 문의일 때 숨길 것: 질문 방식(AI/선생님) · 선생님 가이드 · 비밀글 토글(문의는 항상 비공개)
+    $('modeField').style.display        = isInq ? 'none' : '';
+    $('teacherGuideField').style.display= (!isInq && mode==='teacher') ? 'block' : 'none';
+    $('privField').style.display        = isInq ? 'none' : '';
+    $('inqNote').style.display          = isInq ? 'block' : 'none';
+    $('formSub').style.display          = isInq ? 'none' : 'block';
+
+    if (isInq){
+      $('formTitle').textContent = '무엇이든 문의하세요 📩';
+      $('qBodyLabelText').textContent = '문의 내용';
+      $('qBody').placeholder = '문의하실 내용을 적어주세요. (예: 8월 수업 일정, 교재비/결제, 결석·보강 요청 등)';
+      $('photoLabel').innerHTML = '📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 관련 화면·서류를 찍어 올려도 돼요)</span>';
+      // 질문용 기본 양식(▷…)이 그대로면 비움 — 문의엔 안 맞음
+      if (isTplUntouched()) { $('qBody').value=''; $('charCount').textContent = '0 / 1200'; }
+      const btn = $('submitBtn'); btn.classList.remove('ai'); btn.textContent = '📩 문의 보내기';
+    } else {
+      $('formTitle').textContent = '모르는 문제, 물어보세요 🙋';
+      $('qBodyLabelText').textContent = '질문 내용';
+      $('qBody').placeholder = '궁금한 문제나 개념을 적어주세요. (예: 합성함수 미분이 왜 이렇게 되나요? f(x)=...)';
+      $('photoLabel').innerHTML = '📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span>';
+      setMode(mode);   // 질문 방식(제출버튼·가이드·양식) 원복
+    }
   }
 
   // ── 모드 선택 ──
@@ -416,15 +477,15 @@
     // 사진이 있으면 글이 짧거나 없어도 OK. 둘 다 없을 때만 막음.
     if (!question && !attachedImage){ errBox.textContent='질문 내용을 입력하거나 사진을 올려주세요.'; return; }
     if (!attachedImage && question.length < 4){ errBox.textContent='질문을 조금 더 자세히 적어주세요.'; return; }
-    // 선생님 모드: 기본 양식만 있고 실제 내용이 비어 있으면 막기
-    if (mode==='teacher' && !attachedImage && isTplUntouched()){
+    // 선생님 모드(질문): 기본 양식만 있고 실제 내용이 비어 있으면 막기 (문의엔 양식 없음)
+    if (kind==='question' && mode==='teacher' && !attachedImage && isTplUntouched()){
       errBox.textContent='양식의 각 항목(어디까지 했는지, 어디서 막혔는지 등)에 내용을 채워 주세요.'; return;
     }
 
     const btn = $('submitBtn');
     const origText = btn.textContent;
     btn.disabled = true;
-    const aiMode = (mode === 'ai');
+    const aiMode = (kind==='question' && mode === 'ai');   // 문의는 AI 안 씀
     if (aiMode) $('aiLoading').classList.add('show');
     else btn.textContent = '등록 중…';
 
@@ -432,14 +493,14 @@
       const res = await fetch('/api/qna' + (nameQ('?') ? ('?'+nameQ('')) : ''), {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
-        body: JSON.stringify({ mode, isPrivate, title, question, image: attachedImage || undefined }),
+        body: JSON.stringify({ kind, mode, isPrivate, title, question, image: attachedImage || undefined }),
       });
       const data = await res.json();
       if (!res.ok){ errBox.textContent = data.error || '등록 실패'; return; }
 
-      // 입력 초기화 (선생님 모드면 기본 양식을 다시 채워둠)
+      // 입력 초기화 (질문·선생님 모드면 기본 양식을 다시 채워둠. 문의는 빈칸)
       $('qTitle').value='';
-      $('qBody').value = (mode==='teacher') ? TEACHER_TPL : '';
+      $('qBody').value = (kind==='question' && mode==='teacher') ? TEACHER_TPL : '';
       $('charCount').textContent = $('qBody').value.length + ' / 1200';
       removePhoto();
       if (isPrivate) togglePrivate();
@@ -449,7 +510,8 @@
       if (typeof data.aiDailyLimit === 'number') aiDailyLimit = data.aiDailyLimit;
       renderQuota();
 
-      if (data.aiFailed){ showToast(data.message || 'AI 답변 실패 → 선생님께 전달됐어요.', 3600); switchTab('mine'); }
+      if (kind==='inquiry'){ showToast('📩 문의가 접수됐어요. 선생님·관리자가 확인 후 답변드려요.', 3600); switchTab('mine'); }
+      else if (data.aiFailed){ showToast(data.message || 'AI 답변 실패 → 선생님께 전달됐어요.', 3600); switchTab('mine'); }
       else if (data.status === 'answered'){ showToast('🤖 AI 답변이 도착했어요!'); switchTab('mine'); }
       else { showToast('질문이 등록됐어요. 선생님·조교가 답변하면 여기에 표시돼요.', 3200); switchTab('mine'); }
       loadMine(); loadRoom();
@@ -474,10 +536,13 @@
 
   // ── 카드 렌더 (접이식: 제목만 보이고 누르면 상세가 펼쳐짐) ──
   function cardHtml(q){
-    const modeBadge = q.mode === 'ai'
-      ? '<span class="badge b-ai">🤖 AI</span>'
-      : '<span class="badge b-teacher">🧑‍🏫 선생님</span>';
-    const privBadge = q.isPrivate ? '<span class="badge b-priv">🔒 비밀</span>' : '';
+    const isInq = (q.kind === 'inquiry');
+    const kindBadge = isInq ? '<span class="badge b-inq">📩 문의</span>' : '';
+    const modeBadge = isInq ? ''      // 문의는 방식 배지 대신 문의 배지만
+      : (q.mode === 'ai'
+        ? '<span class="badge b-ai">🤖 AI</span>'
+        : '<span class="badge b-teacher">🧑‍🏫 선생님</span>');
+    const privBadge = (q.isPrivate && !isInq) ? '<span class="badge b-priv">🔒 비밀</span>' : '';
     const mineBadge = q.mine ? '<span class="badge b-mine">내 질문</span>' : '';
     const statusBadge = q.status === 'pending'
       ? '<span class="badge b-pending">답변 대기</span>'
@@ -504,7 +569,7 @@
       '<div class="q-summary" onclick="toggleCard(this)">'+
         '<div class="q-sum-top">'+
           '<span class="q-author">'+esc(q.authorName||'익명')+'</span>'+
-          modeBadge + privBadge + mineBadge + statusBadge +
+          kindBadge + modeBadge + privBadge + mineBadge + statusBadge +
           '<span class="q-meta">'+fmtDate(q.createdAt)+'</span>'+
         '</div>'+
         '<div class="q-sum-line">'+

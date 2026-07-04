@@ -258,6 +258,8 @@
       <span style="color:var(--border);">|</span>
       <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔔 알림 설정</a>
       <span style="color:var(--border);">|</span>
+      <a href="#" id="studyPushLink" onclick="event.preventDefault();toggleStudyPush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🏃 공부 알림</a>
+      <span style="color:var(--border);">|</span>
       <a href="/push-help" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔕 알림이 안 와요?</a>
       <span style="color:var(--border);">|</span>
       <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">📤 앱 공유</a>
@@ -595,6 +597,7 @@
     }
     $('welcomePhone').textContent = '📱 ' + currentPhone;
     renderDdays();
+    loadStudyPushPref();
   }
 
   // ──── D-day 배지 (수능 + 추가 가능) ────
@@ -1009,6 +1012,53 @@
     } finally {
       _pushBusyPortal = false;
       updatePushButton();
+    }
+  }
+
+  // ════════ 공부(추월) 알림 별도 토글 — 전체 알림은 유지하며 KW-Study 추월 알림만 켜기/끄기 ════════
+  //   전체 푸시가 너무 많아 다 꺼버리면 공지·리포트까지 못 받던 문제 → 이 종류만 따로 뮤트.
+  //   서버 저장(R2 push-prefs)이라 기기 바뀌어도 유지. 기본은 '켜짐'.
+  let _studyPushOn = true, _studyPrefLoaded = false, _studyPushBusy = false;
+  function _portalTokenForPrefs() {
+    try { return sessionStorage.getItem('kwmath_portal_token') || localStorage.getItem('kwmath_portal_token') || ''; } catch (e) { return ''; }
+  }
+  function renderStudyPushLink() {
+    const el = $('studyPushLink'); if (!el) return;
+    if (!_studyPrefLoaded) { el.textContent = '🏃 공부 알림'; el.style.color = 'var(--text-light)'; return; }
+    el.textContent = _studyPushOn ? '🏃 공부 알림: 켜짐' : '🏃 공부 알림: 꺼짐';
+    el.style.color = _studyPushOn ? 'var(--text-light)' : '#B02347';
+  }
+  async function loadStudyPushPref() {
+    const tk = _portalTokenForPrefs(); if (!tk) return;
+    try {
+      const r = await fetch('/api/push-prefs', { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d && d.prefs && typeof d.prefs.study === 'boolean') { _studyPushOn = d.prefs.study; _studyPrefLoaded = true; renderStudyPushLink(); }
+    } catch (_) {}
+  }
+  async function toggleStudyPush() {
+    if (_studyPushBusy) return;
+    const tk = _portalTokenForPrefs();
+    if (!tk) { showToast('로그인 후 이용해 주세요.'); return; }
+    _studyPushBusy = true;
+    const next = !_studyPushOn;
+    try {
+      const r = await fetch('/api/push-prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tk },
+        body: JSON.stringify({ category: 'study', on: next }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { showToast((d && d.error) || '설정 저장에 실패했어요.', 3000); return; }
+      _studyPushOn = (d && d.prefs && typeof d.prefs.study === 'boolean') ? d.prefs.study : next;
+      _studyPrefLoaded = true;
+      renderStudyPushLink();
+      showToast(_studyPushOn ? '🏃 공부(추월) 알림을 켰어요.' : '🏃 공부(추월) 알림만 껐어요. 공지·리포트 알림은 그대로 와요.', 3400);
+    } catch (e) {
+      showToast('설정 저장 오류: ' + (e.message || ''), 3000);
+    } finally {
+      _studyPushBusy = false;
     }
   }
 

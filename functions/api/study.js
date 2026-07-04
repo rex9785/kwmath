@@ -12,6 +12,7 @@ import { requireStudentAccess } from './_auth.js';
 import { getStudentsByPhone, getStudySessions, addStudySession } from './_db.js';
 import { safeError } from './_errors.js';
 import { sendPushToUsers } from './_push.js';
+import { isPushCategoryOn } from './_prefs.js';
 
 const MAX_SESSION_MINUTES = 720;   // 한 세션 최대 12시간
 const MAX_DAILY_MINUTES   = 960;   // 하루 누계 최대 16시간 (부정 방지)
@@ -111,7 +112,14 @@ async function notifyOvertakes(env, student, studentId, newDate, addedMinutes, p
     for (const { cm } of overtaken.slice(0, 5)) {
       const ids = [cm.student_phone, cm.parent_phone].filter(Boolean);
       if (!ids.length) continue;
-      await sendPushToUsers(env, ids, {
+      // 'study'(추월) 알림을 끈 사람은 제외 — 전체 알림(공지·리포트)은 그대로 두고 이 종류만 뮤트 가능. 기본 ON.
+      const gated = [];
+      for (const id of ids) {
+        try { if (await isPushCategoryOn(env, id, 'study')) gated.push(id); }
+        catch (_) { gated.push(id); }   // 조회 실패 시엔 기존대로 보냄(안전 폴백)
+      }
+      if (!gated.length) continue;
+      await sendPushToUsers(env, gated, {
         title: '🔥 누가 회원님을 추월했어요!',
         body: '이번 주 공부량에서 한 명이 막 앞질렀어요. KW-Study에서 다시 1등 도전!',
         url: '/study',

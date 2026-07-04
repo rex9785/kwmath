@@ -29,6 +29,7 @@
   .badge{ display:inline-block; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:10px; }
   .b-ai{ background:var(--ai-light); color:var(--ai); }
   .b-teacher{ background:var(--primary-light); color:var(--primary); }
+  .b-inq{ background:#ECE7FB; color:#5B3FA8; }
   .b-priv{ background:#F0E9D8; color:#8A6D1B; }
   .b-pending{ background:#FFF7E0; color:#B07A00; }
   .b-done{ background:#E5F5E8; color:#1F7A33; }
@@ -524,8 +525,10 @@
   }
 
   function cardHtml(q){
-    var modeBadge = q.mode==='ai' ? '<span class="badge b-ai">🤖 AI</span>' : '<span class="badge b-teacher">🧑‍🏫 선생님요청</span>';
-    var privBadge = q.isPrivate ? '<span class="badge b-priv">🔒 비밀</span>' : '';
+    var isInq = (q.kind==='inquiry');
+    var kindBadge = isInq ? '<span class="badge b-inq">📩 문의</span>' : '';
+    var modeBadge = isInq ? '' : (q.mode==='ai' ? '<span class="badge b-ai">🤖 AI</span>' : '<span class="badge b-teacher">🧑‍🏫 선생님요청</span>');
+    var privBadge = (q.isPrivate && !isInq) ? '<span class="badge b-priv">🔒 비밀</span>' : '';
     var statBadge = q.status==='pending' ? '<span class="badge b-pending">미답변</span>' : '<span class="badge b-done">답변완료</span>';
     var titleHtml = q.title ? '<div class="qtitle">'+esc(q.title)+'</div>' : '';
     var photoHtml = q.image ? '<div class="qphoto"><img src="'+esc(q.image)+'" alt="첨부 사진" loading="lazy" onclick="openPhoto(this.src)"></div>' : '';
@@ -563,7 +566,7 @@
     return '<div class="card'+(q.status==='pending'?' pending':'')+'">'+
       '<div class="chead">'+
         '<span class="nm">'+esc(q.authorName||'학생')+'</span>'+
-        modeBadge + privBadge + statBadge +
+        kindBadge + modeBadge + privBadge + statBadge +
         '<span class="meta">'+fmtDate(q.createdAt)+'</span>'+
       '</div>'+
       titleHtml +

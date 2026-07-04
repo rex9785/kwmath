@@ -68,6 +68,8 @@ async function ensureTable(env) {
   ).run();
   // 사진 첨부(6/23 추가) — 기존 테이블이면 컬럼만 추가. 이미 있으면 throw → 무시.
   try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN image TEXT').run(); } catch (_) {}
+  // 질문/문의 구분(kind) — 'question'(수학 질문) | 'inquiry'(학원·수업 문의). 기존 테이블이면 컬럼만 추가.
+  try { await env.DB.prepare("ALTER TABLE qna ADD COLUMN kind TEXT DEFAULT 'question'").run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_qna_phone ON qna(author_phone)').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_qna_created ON qna(created_at)').run(); } catch (_) {}
   // 토큰 사용량(6/23 추가) — AI 답변 1건당 사용 토큰. 기존 테이블이면 컬럼만 추가.
@@ -107,6 +109,7 @@ function rowOut(r, opts = {}) {
     id: r.id,
     authorName: showName,
     mode: r.mode || 'teacher',
+    kind: r.kind || 'question',
     isPrivate: priv,
     title: r.title || '',
     question: r.question || '',
@@ -236,20 +239,21 @@ async function askGemini(env, question, studentMeta, image) {
 function notifyAdminNewQuestion(context, env, q) {
   try {
     const who = (q.authorName || '학생').toString().slice(0, 20);
+    const isInquiry = (q.kind === 'inquiry');
     let detail;
-    if (q.isPrivate) {
+    if (q.isPrivate && !isInquiry) {
       detail = '🔒 비밀 질문이 등록됐어요';
     } else {
       const t = (q.title || '').toString().trim();
       const qbody = (q.question && q.question !== '[사진으로 질문]') ? q.question.toString().trim() : '';
-      const preview = t || qbody || (q.hasImage ? '사진 질문' : '새 질문');
+      const preview = t || qbody || (q.hasImage ? '사진 질문' : (isInquiry ? '새 문의' : '새 질문'));
       detail = preview.slice(0, 50);
     }
     const p = sendPushToUsers(env, ADMIN_PUSH_USERS, {
-      title: '💬 새 질문이 등록됐어요',
-      body: who + ' 학생 · ' + detail,
+      title: isInquiry ? '📩 새 문의가 등록됐어요' : '💬 새 질문이 등록됐어요',
+      body: who + (isInquiry ? ' · ' : ' 학생 · ') + detail,
       url: '/admin-qna.html',
-      tag: 'kwmath-qna-new',
+      tag: isInquiry ? 'kwmath-inquiry-new' : 'kwmath-qna-new',
     });
     if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
     else if (p && typeof p.catch === 'function') p.catch(() => {});
@@ -385,8 +389,11 @@ export async function onRequest(context) {
       const student = access.student || {};
 
       const body = await request.json().catch(() => ({}));
-      const mode = (body.mode === 'ai') ? 'ai' : 'teacher';
-      const isPrivate = body.isPrivate === true || body.isPrivate === 1 ? 1 : 0;
+      const kind = (body.kind === 'inquiry') ? 'inquiry' : 'question';
+      let mode = (body.mode === 'ai') ? 'ai' : 'teacher';
+      if (kind === 'inquiry') mode = 'teacher';                 // 문의는 AI 없이 항상 선생님/관우T가 답변
+      let isPrivate = body.isPrivate === true || body.isPrivate === 1 ? 1 : 0;
+      if (kind === 'inquiry') isPrivate = 1;                     // 문의는 비공개(본인·관리자만 열람)
       const title = (body.title || '').toString().trim().slice(0, 80);
       const question = (body.question || '').toString().trim();
 
@@ -439,13 +446,13 @@ export async function onRequest(context) {
         });
       }
 
-      // ── 선생님/조교 모드: 대기글 저장 (사진 첨부 포함) ──
+      // ── 선생님/조교 모드(질문) · 문의 모드: 대기글 저장 (사진 첨부 포함) ──
       const res = await env.DB.prepare(
-        'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-      ).bind(student.id || null, phone, authorName, 'teacher', isPrivate, title, storedQuestion, imageToStore, null, null, 'pending', today, now, null).run();
-      notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: !!imageToStore });
-      return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id, mode: 'teacher', status: 'pending' });
+        'INSERT INTO qna (student_id, author_phone, author_name, mode, kind, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+      ).bind(student.id || null, phone, authorName, 'teacher', kind, isPrivate, title, storedQuestion, imageToStore, null, null, 'pending', today, now, null).run();
+      notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: !!imageToStore, kind });
+      return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id, mode: 'teacher', kind, status: 'pending' });
     }
 
     // ─────────────────────────── PATCH (관리자 답변) ───────────────────────────
