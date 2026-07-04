@@ -18,7 +18,7 @@
 <link rel="canonical" href="https://kwmath.co.kr/">
 <link rel="icon" href="세로로고.jpg">
 <link rel="apple-touch-icon" href="세로로고.jpg">
-<meta name="theme-color" content="#862633">
+<meta name="theme-color" content="#6B2A33">
 <!-- Open Graph (카카오톡/페이스북 공유 미리보기) -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="이관우 수학연구소">
@@ -67,21 +67,30 @@
 </script>
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+  /* 명조 헤드라인 — 반드시 500/600/700/900만 로드(800은 시스템 명조로 폴백돼 글자 잘림) */
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
-    --primary:#862633;--primary-light:#F5F1EE;--primary-mid:#701E29;
-    --text:#181818;--text-light:#6B6560;--bg:#FFF;--bg2:#F7F5F3;--border:#E7E3DE;
+    /* 새 디자인 팔레트 — 기존 변수명 리매핑(전 사이트 즉시 적용) */
+    --primary:#6B2A33;--primary-light:#F4EAEA;--primary-mid:#511F26;
+    --text:#221C19;--text-light:#6F665E;--bg:#FAF7F3;--bg2:#F3EDE4;--border:#EEE5DB;
+    /* 새 디자인 전용 추가 변수 */
+    --wine:#6B2A33;--wine-deep:#511F26;--wine-tint:#F4EAEA;--wine-tint-bd:#E2C9CB;
+    --paper:#FAF7F3;--beige:#F3EDE4;--card:#FFFFFF;--dark:#241712;--footer-bg:#1A110D;
+    --ink:#221C19;--muted:#6F665E;--muted-2:#9A8E83;--line:#EEE5DB;--line-2:#EAE1D6;
+    --eyebrow:#B0857A;--rose:#E4CACB;--star:#C79A3C;--success:#2E8B57;--success-bg:#E7F3EC;
+    --serif:'Noto Serif KR',serif;--sans:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
   }
   html{scroll-behavior:smooth;}
   body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--text);background:var(--bg);word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
   /* D-DAY 배너 */
-  .dday-bar{position:fixed;top:0;left:0;right:0;z-index:200;background:var(--primary);color:#fff;text-align:center;padding:7px 5%;font-size:0.82rem;font-weight:700;letter-spacing:0.5px;}
+  .dday-bar{position:fixed;top:0;left:0;right:0;z-index:200;background:var(--wine-deep);color:#F4E3DF;text-align:center;padding:8px 5%;font-size:0.82rem;font-weight:600;letter-spacing:0.3px;}
   .dday-bar span{margin:0 6px;opacity:0.75;font-weight:400;}
   .dday-num{font-size:1rem;font-weight:800;margin:0 4px;}
 
   /* NAV */
-  nav{position:fixed;top:33px;left:0;right:0;z-index:100;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 5%;}
+  nav{position:fixed;top:34px;left:0;right:0;z-index:100;background:rgba(250,247,243,0.9);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--border);padding:0 5%;}
   .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:62px;}
   .nav-logo{display:flex;align-items:center;}
   .nav-logo img{height:38px;width:auto;object-fit:contain;display:block;}
@@ -95,7 +104,7 @@
   .hero{min-height:100vh;display:flex;align-items:center;padding:120px 5% 60px;background:linear-gradient(180deg,#FAF8F6 0%,#FFFFFF 60%);}
   .hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
   .hero-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.8rem;font-weight:700;padding:6px 14px;border-radius:12px;margin-bottom:20px;border:1px solid var(--border);}
-  .hero h1{font-size:3rem;font-weight:800;line-height:1.25;letter-spacing:-1.5px;margin-bottom:16px;}
+  .hero h1{font-family:var(--serif);font-size:3.4rem;font-weight:900;line-height:1.12;letter-spacing:-1.5px;margin-bottom:16px;}
   .hero h1 .point{color:var(--primary);}
   .hero-sub{font-size:1rem;color:var(--text-light);line-height:2;margin-bottom:12px;}
   .hero-emphasis{font-size:1rem;font-weight:800;color:var(--primary);margin-bottom:32px;}
@@ -105,11 +114,11 @@
   .btn-outline{border:2px solid var(--primary);color:var(--primary);padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all .2s;display:inline-block;}
   .btn-outline:hover{background:var(--primary-light);}
   .hero-card{background:#fff;border-radius:14px;padding:36px;box-shadow:0 20px 60px rgba(30,28,26,0.09);border:1px solid var(--border);}
-  .hero-card h3{text-align:center;font-size:1.2rem;font-weight:800;margin-bottom:4px;}
-  .hero-card p{text-align:center;color:var(--text-light);font-size:0.83rem;margin-bottom:22px;letter-spacing:0.5px;}
+  .hero-card h3{text-align:center;font-family:var(--serif);font-size:1.35rem;font-weight:700;margin-bottom:5px;}
+  .hero-card p{text-align:center;color:var(--primary);font-size:0.83rem;font-weight:600;margin-bottom:22px;letter-spacing:0.2px;}
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .stat-item{background:var(--bg2);border-radius:12px;padding:14px;text-align:center;}
-  .stat-num{font-size:1.5rem;font-weight:800;color:var(--primary);}
+  .stat-num{font-family:var(--serif);font-size:1.15rem;font-weight:700;color:var(--primary);line-height:1.3;}
   .stat-label{font-size:0.73rem;color:var(--text-light);margin-top:2px;}
 
   /* SECTION BASE */
@@ -117,15 +126,15 @@
   .section-inner{max-width:1100px;margin:0 auto;}
   .section-tag{font-size:0.75rem;font-weight:700;color:var(--primary);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
   .section-divider{width:44px;height:3px;background:var(--primary);border-radius:2px;margin-bottom:18px;}
-  .section-title{font-size:2rem;font-weight:800;letter-spacing:-1px;margin-bottom:14px;line-height:1.3;}
+  .section-title{font-family:var(--serif);font-size:2.2rem;font-weight:700;letter-spacing:-0.5px;margin-bottom:14px;line-height:1.25;}
   .section-desc{font-size:0.95rem;color:var(--text-light);line-height:1.9;max-width:600px;}
 
   /* WHY */
   .why{background:var(--bg2);}
   .why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:40px;}
   .why-card{background:#fff;border-radius:12px;padding:26px 28px;border:1px solid var(--border);box-shadow:0 2px 10px rgba(30,28,26,0.05);}
-  .why-num{font-size:0.82rem;font-weight:700;color:var(--primary);margin-bottom:8px;}
-  .why-title{font-size:1rem;font-weight:800;margin-bottom:8px;}
+  .why-num{font-family:var(--serif);font-size:2.2rem;font-weight:900;color:var(--rose);line-height:1;margin-bottom:10px;}
+  .why-title{font-family:var(--serif);font-size:1.15rem;font-weight:700;margin-bottom:8px;}
   .why-desc{font-size:0.87rem;color:var(--text-light);line-height:1.7;}
 
   /* FEATURES */
@@ -133,17 +142,33 @@
   .feat-card{display:flex;gap:18px;align-items:flex-start;background:var(--bg2);border-radius:12px;padding:24px;border:1px solid var(--border);}
   .feat-icon{font-size:1.6rem;width:50px;height:50px;background:var(--primary-light);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .feat-icon svg{width:26px;height:26px;stroke:var(--primary);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
-  .feat-title{font-weight:800;font-size:0.97rem;margin-bottom:6px;}
+  .feat-title{font-family:var(--serif);font-weight:700;font-size:1.05rem;margin-bottom:6px;}
   .feat-desc{font-size:0.85rem;color:var(--text-light);line-height:1.7;}
+  /* FEATURES 다크 밴드 */
+  .features-dark{background:var(--dark);}
+  .features-dark .section-tag{color:#CDA08F;}
+  .features-dark .section-divider{background:#CDA08F;}
+  .features-dark .section-title{color:#FBF2EC;}
+  .features-dark .section-desc{color:#C6B3A8;}
+  .features-dark .feat-card{background:rgba(255,255,255,0.045);border-color:rgba(233,196,182,0.16);}
+  .features-dark .feat-icon{background:rgba(255,255,255,0.07);}
+  .features-dark .feat-icon svg{stroke:#E8C4B6;}
+  .features-dark .feat-title{color:#FBF2EC;}
+  .features-dark .feat-desc{color:#B7A497;}
+  .features-dark .feat-accent{background:var(--wine);border-color:var(--wine);}
+  .features-dark .feat-accent .feat-icon{background:rgba(255,255,255,0.15);}
+  .features-dark .feat-accent .feat-icon svg{stroke:#fff;}
+  .features-dark .feat-accent .feat-title{color:#fff;}
+  .features-dark .feat-accent .feat-desc{color:#EAD3D6;}
 
   /* PROGRAM */
-  .program{background:var(--bg2);}
+  .program{background:var(--paper);}
   .program-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:40px;}
   .prog-card{background:#fff;border-radius:12px;padding:28px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(30,28,26,0.06);}
   .prog-icon-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
   .prog-icon{width:44px;height:44px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
   .prog-icon svg{width:23px;height:23px;stroke:#fff;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
-  .prog-title{font-weight:800;font-size:1rem;color:var(--primary);}
+  .prog-title{font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--primary);letter-spacing:-0.2px;}
   .prog-desc{font-size:0.87rem;color:var(--text-light);line-height:1.75;}
   .system-table-wrap{margin-top:40px;overflow-x:auto;}
   .system-intro{font-size:0.95rem;color:var(--text-light);line-height:1.9;margin-bottom:28px;max-width:700px;}
@@ -161,7 +186,7 @@
   .cycle-badge{width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:0.95rem;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;letter-spacing:0;}
   .cycle-icon{font-size:1.8rem;margin-bottom:8px;line-height:1;}
   .cycle-icon svg{width:32px;height:32px;stroke:var(--primary);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:middle;}
-  .cycle-name{font-weight:800;font-size:1.05rem;color:var(--primary);margin-bottom:8px;}
+  .cycle-name{font-family:var(--serif);font-weight:700;font-size:1.1rem;color:var(--primary);margin-bottom:8px;letter-spacing:-0.2px;}
   .cycle-desc{font-size:0.82rem;color:var(--text-light);line-height:1.7;}
   .cycle-loop{margin-top:22px;text-align:center;font-size:0.9rem;color:var(--primary);font-weight:700;background:var(--primary-light);padding:14px 18px;border-radius:12px;letter-spacing:0.2px;}
   @media (max-width: 700px){.system-cycle{grid-template-columns:repeat(2,1fr);}}
@@ -203,8 +228,8 @@
   .tt-card.highlight{border-color:var(--primary);background:var(--primary-light);}
   .tt-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
   .tt-badge{background:var(--primary);color:#fff;font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:12px;}
-  .tt-badge.soon{background:#ff8c00;}
-  .tt-name{font-size:1.05rem;font-weight:800;}
+  .tt-badge.soon{background:var(--star);}
+  .tt-name{font-family:var(--serif);font-size:1.12rem;font-weight:700;letter-spacing:-0.2px;}
   .tt-loc{font-size:0.82rem;color:var(--text-light);}
   .tt-row{display:flex;align-items:flex-start;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);}
   .tt-row:last-child{border-bottom:none;}
@@ -228,7 +253,7 @@
   .reviews{background:var(--bg2);}
   .review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:46px;}
   .review-card{background:#fff;border-radius:12px;padding:26px;box-shadow:0 4px 16px rgba(30,28,26,0.06);border:1px solid var(--border);}
-  .stars{color:var(--primary);font-size:0.88rem;margin-bottom:10px;letter-spacing:2px;}
+  .stars{color:var(--star);font-size:0.9rem;margin-bottom:10px;letter-spacing:2px;}
   .review-text{font-size:0.87rem;line-height:1.9;color:var(--text);margin-bottom:14px;}
   .review-author{display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:12px;}
   .author-avatar{width:34px;height:34px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:0.77rem;color:#fff;font-weight:700;flex-shrink:0;}
@@ -237,7 +262,7 @@
 
   /* CONTACT */
   .contact-wrap{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:50px;align-items:start;}
-  .contact-info h3{font-size:1.4rem;font-weight:800;margin-bottom:14px;line-height:1.5;}
+  .contact-info h3{font-family:var(--serif);font-size:1.5rem;font-weight:700;margin-bottom:14px;line-height:1.5;letter-spacing:-0.3px;}
   .contact-info p{color:var(--text-light);line-height:1.9;margin-bottom:26px;font-size:0.93rem;}
   .contact-item{display:flex;gap:14px;align-items:center;padding:16px;background:var(--bg2);border-radius:12px;margin-bottom:12px;border:1px solid var(--border);}
   .contact-icon{font-size:1.1rem;width:40px;height:40px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -252,6 +277,28 @@
   .form-row textarea{resize:vertical;min-height:100px;}
   .form-submit{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;}
   .form-submit:hover{background:var(--primary-mid);}
+  /* CONTACT — 다크 밴드 */
+  .contact-dark{background:var(--dark);}
+  .contact-dark .section-tag{color:#CDA08F;}
+  .contact-dark .section-divider{background:#CDA08F;}
+  .contact-dark .section-title{color:#FBF2EC;}
+  .contact-dark .section-desc{color:#C6B3A8;}
+  .contact-dark .contact-info h3{color:#FBF2EC;}
+  .contact-dark .contact-info p{color:#C6B3A8;}
+  .contact-dark .contact-item{background:rgba(255,255,255,0.04);border-color:rgba(233,196,182,0.16);}
+  .contact-dark .contact-icon{background:rgba(255,255,255,0.08);}
+  .contact-dark .contact-icon svg{stroke:#CDA08F;}
+  .contact-dark .contact-label{color:#A88E82;}
+  .contact-dark .contact-val{color:#F3E7DF;}
+  .contact-dark .contact-val a{color:#E9C4B6!important;}
+  .contact-dark .contact-form{background:rgba(255,255,255,0.045);border-color:rgba(233,196,182,0.16);}
+  .contact-dark .form-row label{color:#C6B3A8;}
+  .contact-dark .form-row input,.contact-dark .form-row textarea,.contact-dark .form-row select{background:rgba(0,0,0,0.18);border-color:rgba(233,196,182,0.22);color:#fff;}
+  .contact-dark .form-row input::placeholder,.contact-dark .form-row textarea::placeholder{color:#8E7F74;}
+  .contact-dark .form-row input:focus,.contact-dark .form-row textarea:focus,.contact-dark .form-row select:focus{border-color:#CDA08F;background:rgba(0,0,0,0.28);}
+  .contact-dark .form-submit{background:var(--wine);}
+  .contact-dark .form-submit:hover{background:#843B45;}
+  .contact-dark .contact-form p{color:#A88E82!important;}
 
   /* 문의 전송 안내 모달 (제출 후) */
   .send-overlay{position:fixed;inset:0;z-index:1000;background:rgba(30,12,15,0.55);display:none;align-items:center;justify-content:center;padding:20px;}
@@ -270,8 +317,8 @@
   .send-card .copied-tag{display:inline-block;background:#E9F7EF;color:#1d7a44;font-size:0.74rem;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:14px;}
 
   /* FOOTER */
-  footer{background:#1a0a0f;color:#9A7A82;padding:36px 5%;text-align:center;}
-  .footer-logo{color:#fff;font-size:1rem;font-weight:800;margin-bottom:3px;}
+  footer{background:var(--footer-bg);color:#B7A497;padding:44px 5%;text-align:center;}
+  .footer-logo{font-family:var(--serif);color:#F3E7DF;font-size:1.15rem;font-weight:700;margin-bottom:4px;letter-spacing:-0.2px;}
   .footer-sub{color:#A98A91;font-size:0.72rem;letter-spacing:1.5px;margin-bottom:12px;}
   footer p{font-size:0.81rem;line-height:2;}
 
@@ -294,7 +341,7 @@
   .faq-item.open .faq-a{max-height:400px;}
 
   /* 성적향상 파노라마 */
-  .panorama{padding:80px 0 90px;background:linear-gradient(180deg,#FFF 0%,#F7F5F3 100%);overflow:hidden;}
+  .panorama{padding:80px 0 90px;background:var(--beige);overflow:hidden;}
   .panorama-head{max-width:1100px;margin:0 auto 40px;padding:0 5%;}
   .panorama-viewport{overflow:hidden;width:100%;
     -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%,#000 94%,transparent 100%);
@@ -309,7 +356,7 @@
   .pano-badge.b-orange{background:#FFEFE5;color:#FF7A2A;}
   .pano-badge.b-purple{background:#F1ECFE;color:#7B4CE3;}
   .pano-pin{font-size:0.78rem;color:var(--text-light);margin-bottom:4px;font-weight:500;}
-  .pano-title{font-size:1.05rem;font-weight:800;margin-bottom:22px;color:var(--text);line-height:1.4;}
+  .pano-title{font-family:var(--serif);font-size:1.12rem;font-weight:700;margin-bottom:22px;color:var(--text);line-height:1.4;letter-spacing:-0.2px;}
   .pano-row{display:flex;align-items:center;justify-content:space-between;gap:18px;}
   .pano-num-wrap{display:flex;align-items:baseline;}
   .pano-num{font-size:4.4rem;font-weight:800;line-height:1;letter-spacing:-3px;}
@@ -365,7 +412,7 @@
 <nav>
   <div class="nav-inner">
     <a href="#home" class="nav-logo">
-      <img src="가로로고.jpg" alt="이관우 수학연구소 로고">
+      <img src="가로로고_투명.png" alt="이관우 수학연구소 로고">
     </a>
     <ul class="nav-links">
       <li><a href="#program">수업소개</a></li>
@@ -640,7 +687,7 @@
 </section>
 
 <!-- FEATURES -->
-<section id="features">
+<section id="features" class="features-dark">
   <div class="section-inner">
     <div class="section-tag">FEATURES</div>
     <div class="section-divider"></div>
@@ -682,10 +729,10 @@
           <div class="feat-desc">숙제를 날짜별로 배분하고 주간 테스트와 학습 진단 리포트로 학습이 '밀리지 않도록' 관리하며, 학습 공백을 그 주 안에 메꾸어 다음 단원으로 자연스럽게 연결합니다.</div>
         </div>
       </div>
-      <div class="feat-card" style="background:var(--primary-light);border-color:var(--border);">
-        <div class="feat-icon" style="background:#fff;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
+      <div class="feat-card feat-accent">
+        <div class="feat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
         <div>
-          <div class="feat-title" style="color:var(--primary);">성적 향상을 향한 5가지 집중</div>
+          <div class="feat-title">성적 향상을 향한 5가지 집중</div>
           <div class="feat-desc">원리 중심 수업 · 학습법 코칭 · 질의응답 · 자체교재 · 학생관리 시스템이 하나로 연결되어 성적 향상을 만들어냅니다.</div>
         </div>
       </div>
@@ -1034,7 +1081,7 @@
 </section>
 
 <!-- CONTACT -->
-<section id="contact">
+<section id="contact" class="contact-dark">
   <div class="section-inner">
     <div class="section-tag">CONTACT</div>
     <div class="section-divider"></div>
