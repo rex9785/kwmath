@@ -68,11 +68,12 @@
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
   /* 명조 헤드라인 — 반드시 500/600/700/900만 로드(800은 시스템 명조로 폴백돼 글자 잘림) */
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
-    /* --primary·--primary-light은 JS 인젝션 마크업(LIVE 후기 배지)이 참조 — 삭제 금지 */
-    --primary:#6B2A33;--primary-light:#F3E7E6;
+    /* 기존 변수명 유지(JS 인라인 스타일이 참조) + v2 토큰 */
+    --primary:#6B2A33;--primary-light:#F3E7E6;--primary-mid:#511F26;
+    --text:#211914;--text-light:#71675E;--bg:#FBF8F4;--bg2:#F1EAE0;--border:#E8DED2;
     --wine:#6B2A33;--wine-deep:#511F26;--wine-tint:#F3E7E6;
     --ink:#211914;--muted:#71675E;--muted2:#9C9086;
     --paper:#FBF8F4;--beige:#F1EAE0;--card:#FFFFFF;
@@ -381,14 +382,11 @@
     .sys-steps::before{display:none;}
     .review-grid{grid-template-columns:1fr 1fr;}
     .clips-grid{grid-template-columns:1fr 1fr;}
-    /* D-day 칩: 모바일에서도 유지(라벨만 줄임) */
-    .dday-chip{font-size:.66rem;padding:4px 9px;}
-    .dday-chip .dd-l{display:none;}
-    .dday-chip b{font-size:.78rem;}
-    /* 네비: 메뉴는 숨기고 .nav-keep(포털 로그인·상담 신청)만 유지 */
+    .dday-chip{display:none;}
+    /* 네비: 메뉴는 숨기고 포털 로그인 + 상담 신청만 유지 */
     .nav-links{gap:8px;}
     .nav-links > li{display:none;}
-    .nav-links > li.nav-keep{display:list-item;}
+    .nav-links > li:nth-last-child(-n+2){display:list-item;}
     .nav-portal{padding:7px 12px;font-size:.76rem!important;}
     .nav-cta{padding:8px 14px;font-size:.78rem!important;}
   }
@@ -408,7 +406,7 @@
   <div class="nav-inner">
     <div class="nav-left">
       <a href="#home" class="nav-logo"><img src="가로로고_투명.png" alt="이관우 수학연구소 로고"></a>
-      <span class="dday-chip" title="2027 수능까지 — 매일 한 문제씩 더!"><span class="dd-l">2027 수능 </span><b>D-<span id="ddayNum">??</span></b></span>
+      <span class="dday-chip">2027 수능 <b>D-<span id="ddayNum">??</span></b></span>
     </div>
     <ul class="nav-links">
       <li><a href="#program">수업소개</a></li>
@@ -417,8 +415,8 @@
       <li><a href="#video">샘플강의</a></li>
       <li><a href="/lectures">공개강의</a></li>
       <li><a href="/materials">자료실</a></li>
-      <li class="nav-keep"><a href="/portal" class="nav-portal">포털 로그인</a></li>
-      <li class="nav-keep"><a href="#contact" class="nav-cta">상담 신청</a></li>
+      <li><a href="/portal" class="nav-portal">포털 로그인</a></li>
+      <li><a href="#contact" class="nav-cta">상담 신청</a></li>
     </ul>
   </div>
 </header>
@@ -1288,7 +1286,7 @@ const FAQ_DATA = [
 })();
 </script>
 
-<!-- ===== 📱 앱 출시 카드 — 동작은 라이브와 동일(자동 오픈 + 오늘 하루 안 보기). 자동 오픈을 끄려면 아래 스크립트의 setTimeout(op,900)을 reopen.style.display='block'으로 교체 ===== -->
+<!-- ===== 📱 앱 출시 카드 — v3 변경: 자동 오픈 안 함(재열기 버튼만 상시 노출) ===== -->
 <style>
   .kwapapp-card{position:fixed;z-index:100001;left:18px;bottom:18px;width:300px;max-width:calc(100vw - 36px);background:#fff;border-radius:6px;box-shadow:0 14px 40px rgba(0,0,0,0.34);text-align:center;padding:22px 18px 16px;box-sizing:border-box;display:none;border:1px solid #E8DED2;}
   .kwapapp-card.show{display:block;}
@@ -1299,7 +1297,6 @@ const FAQ_DATA = [
   .kwapapp-btns{display:flex;flex-direction:column;gap:8px;}
   .kwapapp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;border-radius:6px;font-weight:700;font-size:0.88rem;text-decoration:none;background:#20140F;color:#fff;box-sizing:border-box;}
   .kwapapp-foot{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:14px;}
-  .kwapapp-foot label{font-size:11px;color:#9C9086;display:flex;align-items:center;gap:5px;cursor:pointer;}
   .kwapapp-foot button{font-size:11px;color:#9C9086;background:none;border:none;cursor:pointer;}
   .kwapapp-reopen{position:fixed;left:18px;bottom:18px;z-index:99998;background:#6B2A33;color:#fff;border:none;border-radius:999px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,0.28);display:none;}
   @media (max-width:560px){
@@ -1317,23 +1314,21 @@ const FAQ_DATA = [
     <a class="kwapapp-btn" href="https://apps.apple.com/kr/app/id6778222395" target="_blank" rel="noopener">App Store</a>
   </div>
   <div class="kwapapp-foot">
-    <label><input type="checkbox" id="kwapappDnd"> 오늘 하루 보지 않기</label>
     <button id="kwapappClose">닫기</button>
   </div>
 </div>
 <button class="kwapapp-reopen" id="kwapappReopen">앱 설치</button>
 <script>
 (function(){
-  var card=document.getElementById('kwapappCard'),reopen=document.getElementById('kwapappReopen'),dnd=document.getElementById('kwapappDnd');
-  var KEY='kwmath_apppopup_hide_until';
-  function today(){return new Date().toISOString().slice(0,10);}
+  // v3: 앱 카드는 자동으로 열지 않음 — 첫인상 레이어를 수강신청 팝업 1개로 제한.
+  // '앱 설치' 재열기 버튼은 항상 노출, 누르면 카드가 열림.
+  var card=document.getElementById('kwapappCard'),reopen=document.getElementById('kwapappReopen');
   function op(){card.classList.add('show');reopen.style.display='none';}
-  function cl(){card.classList.remove('show');reopen.style.display='block';if(dnd&&dnd.checked){try{localStorage.setItem(KEY,today());}catch(e){}}}
+  function cl(){card.classList.remove('show');reopen.style.display='block';}
   document.getElementById('kwapappX').onclick=cl;
   document.getElementById('kwapappClose').onclick=cl;
   reopen.onclick=op;
-  var hidden=false;try{hidden=(localStorage.getItem(KEY)===today());}catch(e){}
-  if(hidden){reopen.style.display='block';}else{setTimeout(op,900);}
+  reopen.style.display='block';
 })();
 </script>
 
