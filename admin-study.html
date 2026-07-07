@@ -68,7 +68,7 @@
 </div>
 <div class="toast" id="toast"></div>
 <script>
-  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   var options = { academies: [], classes: {}, counts: {} };
   var period = 'week';
 

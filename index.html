@@ -1206,8 +1206,7 @@ const FAQ_DATA = [
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
         f.reset();
-        show('✅ 문의가 접수됐어요! 관우T가 확인 후 <b>' + name + '</b>님께 곧 연락드릴게요.<br>' +
-             '<span style="font-size:0.82rem;">더 빠른 상담을 원하시면 ' + kakaoLink + '로도 문의하실 수 있어요.</span>', true);
+        show('✅ 문의가 접수됐어요! 관우T가 확인 후 <b>' + name + '</b>님께 곧 연락드릴게요.', true);
       } else {
         show((data.error || '접수에 실패했어요.') + ' 잠시 후 다시 시도하거나 ' + kakaoLink + '로 문의해 주세요.', false);
       }

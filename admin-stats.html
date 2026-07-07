@@ -44,7 +44,7 @@
   <div class="note" id="note"></div>
 </div>
 <script>
-  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
 
   function $(id){ return document.getElementById(id); }
   function fmt(n){ return (n || 0).toLocaleString('ko-KR'); }

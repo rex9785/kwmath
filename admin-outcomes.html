@@ -74,7 +74,7 @@
   </div>
 </div>
 <script>
-  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   var rows = [], openIdx = null, q = '';
 
   function $(id){ return document.getElementById(id); }

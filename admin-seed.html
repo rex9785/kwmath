@@ -45,7 +45,7 @@
   </div>
 </div>
 <script>
-  var token = sessionStorage.getItem('kwmath_admin_pw') || null;
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
