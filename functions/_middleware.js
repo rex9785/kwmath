@@ -43,6 +43,7 @@ const STAFF_GET_BLOCK = new Set([
   '/api/admin-seed-demo',
   '/api/admin-seed-test',
   '/api/inquiry',          // 홈페이지 상담 문의(리드=학부모 연락처) — 원장 전용
+  '/api/surveys',          // 설문/조사 (응답=학생·학부모 개인정보) — 원장 전용
 ]);
 const STAFF_WRITE_ALLOW = new Set([
   '/api/push-subscribe',   // 조교 본인 알림 구독/해제

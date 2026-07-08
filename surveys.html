@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>설문 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --primary-mid:#A83040;
+         --text:#2A2320; --text-light:#8a847e; --line:#ece7e3; --bg:#faf8f6; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+        background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%; }
+  header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
+          padding:calc(env(safe-area-inset-top) + 14px) 16px 14px; display:flex; align-items:center; gap:10px; }
+  header h1{ font-size:1.05rem; margin:0; flex:1; }
+  header button{ border:1px solid var(--line); background:#fff; color:var(--text); border-radius:9px;
+                 padding:7px 12px; font-size:0.85rem; cursor:pointer; }
+  header button:active{ background:var(--primary-light); }
+  .wrap{ max-width:640px; margin:0 auto; padding:16px 14px calc(env(safe-area-inset-bottom) + 40px); }
+  .state{ text-align:center; color:var(--text-light); padding:48px 20px; font-size:0.95rem; line-height:1.6; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 17px; margin-bottom:12px;
+         box-shadow:0 1px 3px rgba(0,0,0,0.03); }
+  .card.done{ opacity:0.66; }
+  .row1{ display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+  .nm{ font-weight:700; font-size:1.08rem; flex:1; }
+  .badge{ font-size:0.72rem; font-weight:700; border-radius:999px; padding:2px 9px; }
+  .badge.done{ background:#eef1ee; color:#6b7d6b; }
+  .badge.anon{ background:#FEF7E0; color:#8a6d00; }
+  .badge.quiz{ background:#EDE7F6; color:#5E35B1; }
+  /* 퀴즈 결과 */
+  .scoreBig{ text-align:center; padding:8px 0 4px; }
+  .scoreBig .n{ font-size:2.4rem; font-weight:800; color:var(--primary); }
+  .scoreBig .d{ font-size:1rem; color:var(--text-light); }
+  .qr{ border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+  .qr .lab{ font-weight:600; margin-bottom:6px; font-size:0.96rem; line-height:1.5; }
+  .qr .mine{ font-size:0.9rem; }
+  .qr .ans{ font-size:0.86rem; color:#137333; margin-top:3px; }
+  .tag{ font-size:0.76rem; font-weight:700; border-radius:6px; padding:1px 7px; margin-left:6px; }
+  .tag.o{ background:#E6F4EA; color:#137333; }
+  .tag.x{ background:#FCE8E6; color:#C5221F; }
+  .desc{ font-size:0.92rem; color:#4a423d; margin:5px 0 8px; line-height:1.55; white-space:pre-wrap; }
+  .sub{ font-size:0.82rem; color:var(--text-light); }
+  .listbtn{ margin-top:10px; border:none; border-radius:10px; padding:11px 15px; font-size:0.9rem; font-weight:700;
+            cursor:pointer; background:var(--primary); color:#fff; width:100%; }
+  .listbtn.done{ background:#eef1ee; color:#6b7d6b; }
+  /* 응답 폼 */
+  .q{ margin-bottom:20px; }
+  .q .ql{ font-weight:600; font-size:1rem; margin-bottom:9px; line-height:1.5; }
+  .q .ql .req{ color:var(--primary); margin-left:3px; }
+  .opts{ display:flex; flex-direction:column; gap:8px; }
+  .opt{ display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:11px;
+        padding:11px 13px; cursor:pointer; background:#fff; font-size:0.95rem; }
+  .opt.sel{ border-color:var(--primary); background:var(--primary-light); }
+  .opt input{ width:19px; height:19px; flex:0 0 auto; accent-color:var(--primary); }
+  input[type=text].ti, textarea.ti, select.ti{ width:100%; border:1px solid var(--line); border-radius:10px;
+        padding:11px 13px; font-size:0.98rem; font-family:inherit; background:#fff; }
+  textarea.ti{ min-height:90px; resize:vertical; line-height:1.55; }
+  .scale{ display:flex; gap:7px; justify-content:space-between; }
+  .scale button{ flex:1; border:1px solid var(--line); background:#fff; border-radius:11px; padding:12px 0;
+                 font-size:1rem; font-weight:700; cursor:pointer; color:var(--text); }
+  .scale button.sel{ border-color:var(--primary); background:var(--primary); color:#fff; }
+  .scaleLbl{ display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-light); margin-top:6px; }
+  .submitBar{ position:sticky; bottom:0; background:#fff; border-top:1px solid var(--line);
+              padding:12px 14px calc(env(safe-area-inset-bottom) + 12px); }
+  .submitBar button{ width:100%; border:none; border-radius:12px; padding:14px; font-size:1rem; font-weight:700;
+                     cursor:pointer; background:var(--primary); color:#fff; }
+  .submitBar button:disabled{ opacity:0.5; }
+  .toast{ position:fixed; left:50%; bottom:80px; transform:translateX(-50%); background:#2A2320; color:#fff;
+          padding:11px 18px; border-radius:10px; font-size:0.88rem; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50; }
+  .toast.show{ opacity:0.95; }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <button id="backBtn" class="hidden">← 목록</button>
+  <h1 id="hTitle">설문</h1>
+</header>
+<div class="wrap">
+  <div id="view"><div class="state">불러오는 중…</div></div>
+</div>
+<div id="submitBar" class="submitBar hidden">
+  <button id="submitBtn">응답 제출</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─────────────── 인증 가드 (portal과 동일 키) ───────────────
+  var TOKEN_KEY = 'kwmath_portal_token';
+  var token = '';
+  try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch(e){}
+  if (!token) { location.replace('/portal?next=/surveys'); }
+
+  // 자녀 선택(여러 자녀 학부모) — 포털에서 저장해둔 선택 학생 이름을 쿼리로 넘김
+  var selectedName = '';
+  try { var s = sessionStorage.getItem('kwmath_selected_student'); if(s){ var o = JSON.parse(s); selectedName = (o && o.name) || ''; } } catch(e){}
+  function nameQ(prefix){ return selectedName ? (prefix + 'name=' + encodeURIComponent(selectedName)) : ''; }
+
+  var viewEl = document.getElementById('view');
+  var toastEl = document.getElementById('toast');
+  var backBtn = document.getElementById('backBtn');
+  var hTitle = document.getElementById('hTitle');
+  var submitBar = document.getElementById('submitBar');
+  var submitBtn = document.getElementById('submitBtn');
+  var toastT = null;
+  var current = null;     // 현재 응답 중인 설문
+  var answers = {};       // { qid: value }
+
+  function toast(m){ toastEl.textContent = m; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200); }
+  function esc(s){ var d = document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
+  function api(method, qs, body){
+    var opts = { method:method, headers:{} };
+    if(token) opts.headers['Authorization'] = 'Bearer ' + token;
+    if(body){ opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch('/api/surveys' + (qs||''), opts);
+  }
+
+  // ─────────────── 목록 ───────────────
+  function loadList(){
+    hTitle.textContent = '설문'; backBtn.classList.add('hidden'); submitBar.classList.add('hidden');
+    current = null; answers = {};
+    viewEl.innerHTML = '<div class="state">불러오는 중…</div>';
+    api('GET', '?mine=1' + nameQ('&')).then(function(r){
+      if(r.status === 401){ location.replace('/portal?next=/surveys'); return null; }
+      return r.json();
+    }).then(function(data){
+      if(!data) return;
+      if(!data.ok){ viewEl.innerHTML = '<div class="state">' + esc(data.error || '불러오지 못했어요.') + '</div>'; return; }
+      renderList(data.surveys || []);
+    }).catch(function(){ viewEl.innerHTML = '<div class="state">네트워크 오류로 불러오지 못했어요.</div>'; });
+  }
+
+  function renderList(items){
+    if(!items.length){
+      viewEl.innerHTML = '<div class="state">지금 참여할 수 있는 설문이 없어요.<br>새 설문이 열리면 알림으로 알려드릴게요.</div>';
+      return;
+    }
+    viewEl.innerHTML = '';
+    items.forEach(function(s){
+      var card = document.createElement('div'); card.className = 'card' + (s.answered?' done':'');
+      var h = '<div class="row1"><span class="nm">' + esc(s.title) + '</span>';
+      if(s.quiz) h += '<span class="badge quiz">퀴즈</span>';
+      if(s.answered) h += '<span class="badge done">완료</span>';
+      if(s.anonymous) h += '<span class="badge anon">익명</span>';
+      h += '</div>';
+      if(s.description) h += '<div class="desc">' + esc(s.description) + '</div>';
+      h += '<div class="sub">질문 ' + (s.questionCount||0) + '개</div>';
+      h += '<button class="listbtn' + (s.answered?' done':'') + '">' + (s.answered?'응답 완료':'응답하기') + '</button>';
+      card.innerHTML = h;
+      card.querySelector('.listbtn').addEventListener('click', function(){
+        if(s.answered){ toast('이미 응답한 설문이에요. 감사합니다!'); return; }
+        openSurvey(s.id);
+      });
+      viewEl.appendChild(card);
+    });
+  }
+
+  // ─────────────── 응답 폼 ───────────────
+  function openSurvey(id){
+    viewEl.innerHTML = '<div class="state">불러오는 중…</div>';
+    api('GET', '?id=' + id + nameQ('&')).then(function(r){ return r.json(); }).then(function(data){
+      if(!data || !data.ok){ toast((data&&data.error)||'불러오기 실패'); loadList(); return; }
+      if(data.answered){ toast('이미 응답한 설문이에요.'); loadList(); return; }
+      current = data.survey; answers = {};
+      renderForm();
+    }).catch(function(){ toast('불러오기 실패'); loadList(); });
+  }
+
+  function renderForm(){
+    hTitle.textContent = '설문 응답'; backBtn.classList.remove('hidden'); submitBar.classList.remove('hidden');
+    var qs = current.questions || [];
+    viewEl.innerHTML = '';
+    var head = document.createElement('div'); head.className = 'card';
+    var hh = '<div class="row1"><span class="nm">' + esc(current.title) + '</span>' + (current.quiz?'<span class="badge quiz">퀴즈</span>':'') + '</div>';
+    if(current.description) hh += '<div class="desc">' + esc(current.description) + '</div>';
+    if(current.quiz) hh += '<div class="sub">제출하면 바로 채점돼서 점수를 확인할 수 있어요.</div>';
+    if(current.anonymous) hh += '<div class="sub">이 설문은 익명이에요. 누가 응답했는지 저장되지 않아요.</div>';
+    head.innerHTML = hh;
+    viewEl.appendChild(head);
+
+    qs.forEach(function(q){
+      var box = document.createElement('div'); box.className = 'q card';
+      var ql = '<div class="ql">' + esc(q.label) + (q.required?'<span class="req">*</span>':'') + '</div>';
+      box.innerHTML = ql;
+      var body = document.createElement('div');
+
+      if(q.type==='single'){
+        answers[q.id] = '';
+        var wrap = document.createElement('div'); wrap.className = 'opts';
+        (q.options||[]).forEach(function(opt){
+          var el = document.createElement('label'); el.className = 'opt';
+          el.innerHTML = '<input type="radio" name="' + q.id + '"><span>' + esc(opt) + '</span>';
+          el.querySelector('input').addEventListener('change', function(){
+            answers[q.id] = opt;
+            wrap.querySelectorAll('.opt').forEach(function(o){ o.classList.remove('sel'); });
+            el.classList.add('sel');
+          });
+          wrap.appendChild(el);
+        });
+        body.appendChild(wrap);
+      } else if(q.type==='multi'){
+        answers[q.id] = [];
+        var wrap2 = document.createElement('div'); wrap2.className = 'opts';
+        (q.options||[]).forEach(function(opt){
+          var el = document.createElement('label'); el.className = 'opt';
+          el.innerHTML = '<input type="checkbox"><span>' + esc(opt) + '</span>';
+          el.querySelector('input').addEventListener('change', function(e){
+            var arr = answers[q.id];
+            if(e.target.checked){ if(arr.indexOf(opt)<0) arr.push(opt); el.classList.add('sel'); }
+            else { var i = arr.indexOf(opt); if(i>=0) arr.splice(i,1); el.classList.remove('sel'); }
+          });
+          wrap2.appendChild(el);
+        });
+        body.appendChild(wrap2);
+      } else if(q.type==='dropdown'){
+        answers[q.id] = '';
+        var sel = document.createElement('select'); sel.className = 'ti';
+        sel.innerHTML = '<option value="">선택하세요</option>' + (q.options||[]).map(function(o){ return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join('');
+        sel.addEventListener('change', function(){ answers[q.id] = sel.value; });
+        body.appendChild(sel);
+      } else if(q.type==='scale'){
+        answers[q.id] = '';
+        var sc = document.createElement('div'); sc.className = 'scale';
+        for(var v=q.scaleMin; v<=q.scaleMax; v++){
+          (function(val){
+            var b = document.createElement('button'); b.type='button'; b.textContent = val;
+            b.addEventListener('click', function(){
+              answers[q.id] = val;
+              sc.querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
+              b.classList.add('sel');
+            });
+            sc.appendChild(b);
+          })(v);
+        }
+        body.appendChild(sc);
+        if(q.scaleMinLabel || q.scaleMaxLabel){
+          var lbl = document.createElement('div'); lbl.className = 'scaleLbl';
+          lbl.innerHTML = '<span>' + esc(q.scaleMinLabel||'') + '</span><span>' + esc(q.scaleMaxLabel||'') + '</span>';
+          body.appendChild(lbl);
+        }
+      } else if(q.type==='long'){
+        answers[q.id] = '';
+        var ta = document.createElement('textarea'); ta.className = 'ti'; ta.placeholder = '자유롭게 적어 주세요';
+        ta.addEventListener('input', function(){ answers[q.id] = ta.value; });
+        body.appendChild(ta);
+      } else { // short
+        answers[q.id] = '';
+        var ti = document.createElement('input'); ti.type='text'; ti.className = 'ti'; ti.placeholder = '답변을 입력하세요';
+        ti.addEventListener('input', function(){ answers[q.id] = ti.value; });
+        body.appendChild(ti);
+      }
+      box.appendChild(body);
+      viewEl.appendChild(box);
+    });
+    window.scrollTo(0,0);
+  }
+
+  function submit(){
+    var qs = current.questions || [];
+    for(var i=0;i<qs.length;i++){
+      var q = qs[i]; if(!q.required) continue;
+      var a = answers[q.id];
+      var empty = (q.type==='multi') ? (!a || !a.length) : (a===''||a==null);
+      if(empty){ toast('"' + q.label + '" 문항에 답해 주세요.'); return; }
+    }
+    var sent = {}; for(var k in answers){ sent[k] = answers[k]; }   // 채점 화면용 스냅샷
+    submitBtn.disabled = true; submitBtn.textContent = '제출 중…';
+    api('POST', '?id=' + current.id + '&respond=1' + nameQ('&'), { name: selectedName, answers: answers })
+      .then(function(r){ return r.json(); }).then(function(data){
+        submitBtn.disabled = false; submitBtn.textContent = '응답 제출';
+        if(data && data.ok){
+          if(data.quiz){ renderQuizResult(data, sent); }
+          else { toast('응답이 제출됐어요. 감사합니다!'); setTimeout(loadList, 900); }
+        }
+        else toast((data && data.error) || '제출 실패');
+      }).catch(function(){ submitBtn.disabled = false; submitBtn.textContent = '응답 제출'; toast('제출 실패'); });
+  }
+
+  function fmtAns(a){
+    if(a==null || a==='') return '(무응답)';
+    if(Array.isArray(a)) return a.length ? a.map(esc).join(', ') : '(무응답)';
+    return esc('' + a);
+  }
+
+  // 퀴즈 자동채점 결과 화면
+  function renderQuizResult(data, sent){
+    hTitle.textContent = '채점 결과'; backBtn.classList.remove('hidden'); submitBar.classList.add('hidden');
+    var qs = current.questions || [];
+    var detail = data.detail || {};
+    viewEl.innerHTML = '';
+
+    var head = document.createElement('div'); head.className = 'card';
+    head.innerHTML = '<div class="row1"><span class="nm">' + esc(current.title) + '</span>'
+      + '<span class="badge quiz">퀴즈</span></div>'
+      + '<div class="scoreBig"><span class="n">' + (data.score||0) + '</span>'
+      + '<span class="d"> / ' + (data.maxScore||0) + '점</span></div>';
+    viewEl.appendChild(head);
+
+    qs.forEach(function(q){
+      var d = detail[q.id];
+      if(!d) return;   // 채점 대상(정답 설정된 문항)만 표시
+      var qr = document.createElement('div'); qr.className = 'qr';
+      var tag = d.correct ? '<span class="tag o">✔ 정답</span>' : '<span class="tag x">✕ 오답</span>';
+      var h = '<div class="lab">' + esc(q.label) + tag + '</div>';
+      h += '<div class="mine">내 답: ' + fmtAns(sent[q.id]) + '</div>';
+      if(!d.correct) h += '<div class="ans">정답: ' + fmtAns(d.answer) + '</div>';
+      qr.innerHTML = h;
+      viewEl.appendChild(qr);
+    });
+
+    var done = document.createElement('button'); done.className = 'listbtn'; done.textContent = '목록으로';
+    done.style.cssText = 'width:100%;margin-top:4px;';
+    done.addEventListener('click', loadList);
+    viewEl.appendChild(done);
+    window.scrollTo(0,0);
+  }
+
+  backBtn.addEventListener('click', loadList);
+  submitBtn.addEventListener('click', submit);
+  loadList();
+</script>
+</body>
+</html>

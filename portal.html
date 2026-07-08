@@ -197,12 +197,39 @@
       </div>
     </div>
 
+    <!-- 설문·조사 얇은 배너 (열린 설문이 있을 때만 노출) -->
+    <a id="surveyBanner" href="/surveys" style="display:none;align-items:center;gap:10px;text-decoration:none;
+       background:linear-gradient(135deg,#FBE2E8,#F5C6D0);border:1px solid #8B1A35;border-radius:14px;
+       padding:12px 16px;margin-bottom:16px;color:#8B1A35;box-shadow:0 4px 14px rgba(139,26,53,0.07);">
+      <span style="font-size:1.2rem;">📋</span>
+      <span style="flex:1;min-width:0;">
+        <span style="display:block;font-weight:800;font-size:0.92rem;" id="surveyBannerTitle">진행 중인 설문이 있어요</span>
+        <span style="display:block;font-size:0.78rem;color:#A34A5E;" id="surveyBannerSub">눌러서 응답하기</span>
+      </span>
+      <span style="font-size:0.8rem;font-weight:800;background:#8B1A35;color:#fff;border-radius:20px;padding:5px 12px;white-space:nowrap;">응답하기 ›</span>
+    </a>
+
     <!-- 학원 공지/안내 박스 -->
     <div id="noticeBox" class="notice-box" style="display:none;">
       <div class="head">
         <h3>📢 학원 공지·안내 <span class="count" id="noticeCount">0</span></h3>
       </div>
       <div id="noticeList"></div>
+    </div>
+
+    <!-- 설문 안내 팝업 (로그인 후 열린 설문이 있으면 1회 노출) -->
+    <div id="surveyPopup" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.45);
+         align-items:center;justify-content:center;padding:24px;">
+      <div style="background:#fff;border-radius:20px;max-width:340px;width:100%;padding:24px 22px 20px;
+           box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center;">
+        <div style="font-size:2.4rem;line-height:1;margin-bottom:10px;">📋</div>
+        <div id="surveyPopupTitle" style="font-weight:800;font-size:1.08rem;color:#8B1A35;margin-bottom:6px;">새 설문이 있어요</div>
+        <div id="surveyPopupSub" style="font-size:0.88rem;color:#6b5d57;line-height:1.55;margin-bottom:18px;">응답해 주시면 큰 도움이 돼요.</div>
+        <a id="surveyPopupGo" href="/surveys" style="display:block;background:#8B1A35;color:#fff;text-decoration:none;
+           font-weight:800;font-size:0.95rem;padding:13px;border-radius:12px;margin-bottom:9px;">응답하러 가기</a>
+        <button type="button" onclick="dismissSurveyPopup()" style="background:none;border:none;color:#999;
+           font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;padding:6px;">나중에</button>
+      </div>
     </div>
 
     <!-- 기능 버튼 그리드 -->
@@ -237,6 +264,7 @@
         <span class="feat-title">수강 후기</span>
         <span class="feat-desc">한 줄 후기 작성·조회</span>
       </a>
+      <!-- 설문·조사: 상시 카드 제거. 열린 설문이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). -->
       <!-- ⚠️ 질문방: 심사 중 숨김. 심사 통과 후 아래 QNA_ENABLED=true 로 바꾸고 배포하면 즉시 노출됨 -->
       <a href="/qna" class="feat-btn" data-feat="qna" id="qnaFeatBtn" style="display:none;">
         <span class="feat-icon">💬</span>
@@ -1286,6 +1314,62 @@
       el.style.display = 'inline-block';
     } catch (e) { /* silent */ }
   }
+  // ─── 설문·조사 안내 (열린 설문 있을 때만 팝업+배너) ───
+  let _surveyAlertDone = false;
+  async function loadSurveyAlert() {
+    try {
+      const tk = (function(){
+        try { return sessionStorage.getItem('kwmath_portal_token') || localStorage.getItem('kwmath_portal_token') || ''; } catch(e){ return ''; }
+      })();
+      if (!tk) return;
+      const res = await fetch('/api/surveys?mine=1', { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.ok || !Array.isArray(data.surveys)) return;
+      const open = data.surveys.filter(s => !s.answered);   // 아직 응답 안 한 열린 설문
+      const banner = document.getElementById('surveyBanner');
+
+      if (!open.length) { if (banner) banner.style.display = 'none'; return; }
+
+      // 얇은 배너 — 열린 설문이 있는 동안 상시
+      if (banner) {
+        const t = document.getElementById('surveyBannerTitle');
+        const sub = document.getElementById('surveyBannerSub');
+        const anyQuiz = open.some(s => s.quiz);
+        if (t) t.textContent = open.length > 1
+          ? ('응답할 ' + (anyQuiz ? '퀴즈·설문' : '설문') + '이 ' + open.length + '개 있어요')
+          : ('“' + (open[0].title || '설문') + '”' + (open[0].quiz ? ' 퀴즈' : '') + ' 응답을 기다리고 있어요');
+        if (sub) sub.textContent = '눌러서 ' + (anyQuiz ? '풀어보기' : '응답하기');
+        banner.style.display = 'flex';
+      }
+
+      // 팝업 — 아직 안 본(=dismiss 안 한) 새 설문이 있을 때 1회
+      let dismissed = [];
+      try { dismissed = JSON.parse(localStorage.getItem('kwmath_survey_dismissed') || '[]') || []; } catch(_) {}
+      const fresh = open.filter(s => dismissed.indexOf(s.id) < 0);
+      if (fresh.length && !_surveyAlertDone) {
+        _surveyAlertDone = true;
+        const anyQuiz = fresh.some(s => s.quiz);
+        const pt = document.getElementById('surveyPopupTitle');
+        const ps = document.getElementById('surveyPopupSub');
+        const go = document.getElementById('surveyPopupGo');
+        if (pt) pt.textContent = fresh.length > 1
+          ? ('새 ' + (anyQuiz ? '퀴즈·설문' : '설문') + '이 ' + fresh.length + '개 있어요')
+          : ('“' + (fresh[0].title || '설문') + '”' + (anyQuiz ? ' 퀴즈' : ''));
+        if (ps) ps.textContent = anyQuiz ? '지금 풀면 바로 채점돼서 점수를 볼 수 있어요.' : '응답해 주시면 큰 도움이 돼요.';
+        if (go) go.textContent = anyQuiz ? '퀴즈 풀러 가기' : '응답하러 가기';
+        // 다음부터 이 설문들로는 다시 안 뜨게 기억
+        try { localStorage.setItem('kwmath_survey_dismissed', JSON.stringify(open.map(s => s.id))); } catch(_) {}
+        const pop = document.getElementById('surveyPopup');
+        if (pop) pop.style.display = 'flex';
+      }
+    } catch (e) { /* silent */ }
+  }
+  function dismissSurveyPopup() {
+    const pop = document.getElementById('surveyPopup');
+    if (pop) pop.style.display = 'none';
+  }
+
   // 로그인 후 메인 화면이 보이면 자동 호출
   (function(){
     const obs = new MutationObserver(function(){
@@ -1293,6 +1377,7 @@
       if (m && m.style.display !== 'none') {
         loadTodayStudyBadge();
         loadNoticesBox();
+        loadSurveyAlert();
       }
     });
     const ms = document.getElementById('mainScreen');
@@ -1300,6 +1385,7 @@
     // 초기 로드 시에도 한 번
     setTimeout(loadTodayStudyBadge, 1000);
     setTimeout(loadNoticesBox, 1100);
+    setTimeout(loadSurveyAlert, 1200);
   })();
 </script>
 <script>
