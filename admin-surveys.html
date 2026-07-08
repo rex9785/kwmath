@@ -104,6 +104,14 @@
   <h1 id="hTitle">설문·조사</h1>
   <button id="newBtn" class="primary">+ 새 설문</button>
 </header>
+<!-- 조교 콘솔 네비게이션 (조교일 때만 노출) -->
+<div id="staffNav" style="display:none;gap:6px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--border);background:#fff;">
+  <a href="/admin-qna" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">💬 질문 답변</a>
+  <a href="/staff-students" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">🎓 학생</a>
+  <a href="/staff-scores" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">📈 성적</a>
+  <a href="/admin-surveys" style="text-decoration:none;color:var(--primary);font-weight:800;font-size:0.82rem;padding:4px 8px;">📝 퀴즈</a>
+  <a href="/staff-worklog" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">🗓️ 근무기록</a>
+</div>
 <div class="wrap">
   <div id="view"><div class="state">불러오는 중…</div></div>
 </div>
@@ -119,6 +127,8 @@
            || localStorage.getItem('kwmath_admin_pw')
            || localStorage.getItem('kwmath_admin_token')
            || null;
+  // 조교(ast_) 세션이면 '퀴즈 전용' 모드 — 목록은 서버가 퀴즈만 내려주고, 새 항목은 퀴즈 강제.
+  var isStaff = /^ast_/.test(token || '');
 
   var viewEl = document.getElementById('view');
   var toastEl = document.getElementById('toast');
@@ -154,9 +164,9 @@
   }
   function setMode(mode){
     // mode: list | build | results
-    if(mode === 'list'){ hTitle.textContent = '설문·조사'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
-    if(mode === 'build'){ hTitle.textContent = draft && draft.id ? '설문 수정' : '새 설문'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.remove('hidden'); }
-    if(mode === 'results'){ hTitle.textContent = '설문 결과'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.add('hidden'); }
+    if(mode === 'list'){ hTitle.textContent = isStaff ? '퀴즈' : '설문·조사'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
+    if(mode === 'build'){ hTitle.textContent = isStaff ? (draft && draft.id ? '퀴즈 수정' : '새 퀴즈') : (draft && draft.id ? '설문 수정' : '새 설문'); backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.remove('hidden'); }
+    if(mode === 'results'){ hTitle.textContent = isStaff ? '퀴즈 결과' : '설문 결과'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.add('hidden'); }
   }
 
   // ─────────────── 목록 ───────────────
@@ -230,7 +240,7 @@
     return q;
   }
   function startNew(){
-    draft = { title:'', description:'', audience:'all', anonymous:false, quiz:false, status:'draft', questions:[ newQuestion('single') ] };
+    draft = { title:'', description:'', audience:'all', anonymous:false, quiz:isStaff ? true : false, status:'draft', questions:[ newQuestion('single') ] };
     renderBuilder();
   }
   function loadForEdit(id){
@@ -281,6 +291,7 @@
     document.getElementById('fAnon').checked = !!draft.anonymous;
     var fQuiz = document.getElementById('fQuiz');
     fQuiz.checked = !!draft.quiz;
+    if(isStaff){ draft.quiz = true; fQuiz.checked = true; fQuiz.disabled = true; }  // 조교는 퀴즈 전용(해제 불가)
     updateQuizHint();
     fQuiz.addEventListener('change', function(e){ draft.quiz = e.target.checked; updateQuizHint(); renderQuestions(); });
 
@@ -620,6 +631,10 @@
   }
 
   // ─────────────── 이벤트 ───────────────
+  if(isStaff){
+    newBtn.textContent = '+ 새 퀴즈';   // 조교: 퀴즈 전용
+    var sn = document.getElementById('staffNav'); if(sn) sn.style.display = 'flex';   // 조교 콘솔 네비 노출
+  }
   newBtn.addEventListener('click', startNew);
   backBtn.addEventListener('click', function(){ draft = null; loadList(); });
   document.getElementById('cancelBuild').addEventListener('click', function(){ draft = null; loadList(); });

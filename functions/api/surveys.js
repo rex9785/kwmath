@@ -22,7 +22,9 @@
 //   GET    /api/surveys?id=X              설문 1개(응답용) — 열려있고 대상이 맞아야
 //   POST   /api/surveys?id=X&respond=1    응답 제출 { name?, answers:{qid:value} }
 //
-//  ※ 조교(ast_)는 _middleware.js STAFF_GET_BLOCK에서 /api/surveys GET을 차단(설문=원장 전용).
+//  ※ 조교(ast_) : 퀴즈(quiz=1)만 열람·생성·수정·삭제·결과 가능. X-Staff-Phone 헤더로 판별.
+//     일반 설문·모든 응답(학생·학부모 개인정보)은 원장 전용. (미들웨어는 /api/surveys를 조교에 허용,
+//     실제 퀴즈전용 제한은 여기 surveys.js에서 X-Staff-Phone 존재로 강제.)
 // ───────────────────────────────────────────────────────────
 import { sendPushToUsers } from './_push.js';
 import { requireStudentAccess } from './_auth.js';
@@ -280,6 +282,10 @@ export async function onRequest(context) {
   const method = request.method.toUpperCase();
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   const isAdmin = !!env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
+  // 조교(ast_)는 미들웨어가 Bearer ADMIN_PASSWORD로 번역하되 검증된 X-Staff-Phone를 실어 보낸다.
+  //   → 이 헤더가 있으면 '조교'로 보고 퀴즈(quiz=1) 전용으로만 허용(일반 설문·응답은 원장 전용).
+  const staffPhone = (request.headers.get('x-staff-phone') || '').trim();
+  const isStaff = isAdmin && !!staffPhone;   // 퀴즈만 가능한 제한 관리자
 
   try { await ensureTables(env); }
   catch (e) { return jsonErr('설문 DB 초기화에 실패했습니다.', 500); }
@@ -293,6 +299,7 @@ export async function onRequest(context) {
         if (id) {
           const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
           if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
+          if (isStaff && s.quiz !== 1) return jsonErr('조교는 퀴즈만 볼 수 있어요.', 403);
           const { results } = await env.DB.prepare(
             'SELECT * FROM survey_responses WHERE survey_id=? ORDER BY created_at DESC, id DESC'
           ).bind(id).all();
@@ -303,7 +310,11 @@ export async function onRequest(context) {
             responses: (results || []).map(r => responseOut(r, anon)),
           });
         }
-        const { results } = await env.DB.prepare('SELECT * FROM surveys ORDER BY id DESC').all();
+        const { results } = await env.DB.prepare(
+          isStaff
+            ? 'SELECT * FROM surveys WHERE quiz=1 ORDER BY id DESC'   // 조교: 퀴즈만
+            : 'SELECT * FROM surveys ORDER BY id DESC'
+        ).all();
         const rows = results || [];
         // 응답수 집계
         const counts = {};
@@ -325,7 +336,8 @@ export async function onRequest(context) {
         const description = clean(body.description, MAX_DESC);
         const audience = AUDIENCES.has(body.audience) ? body.audience : 'all';
         const anonymous = (body.anonymous === true || body.anonymous === 1) ? 1 : 0;
-        const quiz = (body.quiz === true || body.quiz === 1) ? 1 : 0;
+        // 조교는 퀴즈만 생성 가능 — quiz=1 강제
+        const quiz = isStaff ? 1 : ((body.quiz === true || body.quiz === 1) ? 1 : 0);
         const status = STATUSES.has(body.status) ? body.status : 'draft';
         const questions = sanitizeQuestions(body.questions);
         if (!questions.length) return jsonErr('질문을 하나 이상 추가해 주세요.');
@@ -341,8 +353,9 @@ export async function onRequest(context) {
       if (method === 'PATCH') {
         const id = url.searchParams.get('id');
         if (!id) return jsonErr('id가 필요합니다.');
-        const ex = await env.DB.prepare('SELECT id FROM surveys WHERE id=?').bind(id).first();
+        const ex = await env.DB.prepare('SELECT id, quiz FROM surveys WHERE id=?').bind(id).first();
         if (!ex) return jsonErr('설문을 찾을 수 없습니다.', 404);
+        if (isStaff && ex.quiz !== 1) return jsonErr('조교는 퀴즈만 수정할 수 있어요.', 403);
         const body = await request.json().catch(() => ({}));
         const sets = [], vals = [];
         if (body.title !== undefined) {
@@ -353,7 +366,8 @@ export async function onRequest(context) {
         if (body.description !== undefined) { sets.push('description=?'); vals.push(clean(body.description, MAX_DESC)); }
         if (body.audience !== undefined) { sets.push('audience=?'); vals.push(AUDIENCES.has(body.audience) ? body.audience : 'all'); }
         if (body.anonymous !== undefined) { sets.push('anonymous=?'); vals.push((body.anonymous === true || body.anonymous === 1) ? 1 : 0); }
-        if (body.quiz !== undefined) { sets.push('quiz=?'); vals.push((body.quiz === true || body.quiz === 1) ? 1 : 0); }
+        // 조교는 퀴즈 해제 불가(quiz=0 전환 차단). 원장만 quiz 토글 가능.
+        if (body.quiz !== undefined && !isStaff) { sets.push('quiz=?'); vals.push((body.quiz === true || body.quiz === 1) ? 1 : 0); }
         if (body.status !== undefined) { sets.push('status=?'); vals.push(STATUSES.has(body.status) ? body.status : 'draft'); }
         if (body.questions !== undefined) {
           const qs = sanitizeQuestions(body.questions);
@@ -371,6 +385,11 @@ export async function onRequest(context) {
       if (method === 'DELETE') {
         const id = url.searchParams.get('id');
         if (!id) return jsonErr('id가 필요합니다.');
+        if (isStaff) {
+          const ex = await env.DB.prepare('SELECT quiz FROM surveys WHERE id=?').bind(id).first();
+          if (!ex) return jsonErr('설문을 찾을 수 없습니다.', 404);
+          if (ex.quiz !== 1) return jsonErr('조교는 퀴즈만 삭제할 수 있어요.', 403);
+        }
         await env.DB.prepare('DELETE FROM survey_responses WHERE survey_id=?').bind(id).run();
         await env.DB.prepare('DELETE FROM surveys WHERE id=?').bind(id).run();
         return jsonOk({ ok: true, removed: 1 });

@@ -43,7 +43,7 @@ const STAFF_GET_BLOCK = new Set([
   '/api/admin-seed-demo',
   '/api/admin-seed-test',
   '/api/inquiry',          // 홈페이지 상담 문의(리드=학부모 연락처) — 원장 전용
-  '/api/surveys',          // 설문/조사 (응답=학생·학부모 개인정보) — 원장 전용
+  // '/api/surveys'는 staffAllowed 특례로 처리(조교=퀴즈만). surveys.js가 X-Staff-Phone로 quiz=1 전용 강제.
 ]);
 const STAFF_WRITE_ALLOW = new Set([
   '/api/push-subscribe',   // 조교 본인 알림 구독/해제
@@ -60,6 +60,12 @@ function staffAllowed(url, method) {
   if (pathname === '/api/qna') {
     if (url.searchParams.get('usage') === '1') return false;   // AI 사용량·비용·한도 = 원장 전용
     return method === 'GET' || method === 'PATCH';
+  }
+  // 설문/조사: 조교는 '퀴즈만' 만들고 채점결과까지 볼 수 있게 허용(GET·POST·PATCH·DELETE).
+  //   ⚠️ 일반 설문·모든 응답(학생·학부모 개인정보)은 원장 전용 — 이 퀴즈전용 제한은 surveys.js가
+  //      X-Staff-Phone(검증된 조교 신원) 존재로 quiz=1만 통과시켜 서버측에서 강제한다.
+  if (pathname === '/api/surveys') {
+    return method === 'GET' || method === 'POST' || method === 'PATCH' || method === 'DELETE';
   }
   if (method === 'GET') return !STAFF_GET_BLOCK.has(pathname);  // 열람 전반 허용
   return STAFF_WRITE_ALLOW.has(pathname);                      // 쓰기는 화이트리스트만
