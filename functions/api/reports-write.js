@@ -1,5 +1,6 @@
 // /api/reports-write — admin 전용 리포트 생성/수정/삭제 (Cloudflare D1 reports, 이전엔 Notion 82ef)
-//   POST   { studentName, phone4, date, school?, content?, homework?, notes? } — 생성 + 학부모 푸쉬
+//   POST   { studentName, phone4?, date, school?, content?, homework?, notes? } — 생성 + 학부모 푸쉬
+//     (phone4는 옛 '이름+끝4자리' 열람 인증의 잔재 — 지금은 포털 토큰 인증이라 선택값. 2026-07-09)
 //   PATCH  { pageId, date?, school?, content?, homework?, notes? }             — 수정 (pageId = D1 id)
 //   DELETE { pageId }                                                          — 삭제
 // pageId는 문자열로 와도 숫자로 변환해서 D1 조회.
@@ -26,8 +27,8 @@ export async function onRequest({ request, env }) {
     let body = {};
     try { body = await request.json(); } catch {}
     const { studentName, phone4, date, school, content, homework, notes } = body;
-    if (!studentName || !phone4 || !date)
-      return Response.json({ error: '학생 이름, 전화번호 끝 4자리, 수업 날짜는 필수입니다.' }, { status: 400 });
+    if (!studentName || !date)
+      return Response.json({ error: '학생 이름과 수업 날짜는 필수입니다.' }, { status: 400 });
 
     const r = await createReport(env, { studentName, phone4, date, school, content, homework, notes });
     if (!r.ok) return safeError(r.error || 'createReport failed', env, { message: '리포트 저장에 실패했습니다.' });
