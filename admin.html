@@ -222,19 +222,20 @@
       @media (max-width:480px){ #adminMenu{gap:9px;} .admin-card{padding:14px 11px;} .admin-card b{font-size:0.86rem;} .admin-card span{font-size:0.68rem;} }
     </style>
     <div id="adminMenu">
+      <!-- 카드 순서 = 관우T 업무 흐름 (2026-07-09 재배열): ①응대(문의·질문) ②수업 운영(출결·리포트·퀴즈) ③학생·성적 ④콘텐츠(공지·자료·영상) ⑤모니터링·설정 -->
       <button type="button" class="admin-card" onclick="location.href='/admin-inquiries'">📩<b>상담 문의함</b><span>홈페이지 수업 문의</span></button>
-      <button type="button" class="admin-card" onclick="location.href='/admin-surveys'">🗳️<b>설문·조사</b><span>설문 만들기·결과</span></button>
-      <button type="button" class="admin-card" onclick="openSection('notices')">📢<b>공지사항 관리</b><span>공지 작성·수정</span></button>
-      <button type="button" class="admin-card" onclick="openSection('reports')">📋<b>리포트 조회</b><span>학생 리포트</span></button>
-      <button type="button" class="admin-card" onclick="openSection('students')">👨‍🎓<b>학생 목록</b><span>등록·승인·반 변경</span></button>
+      <button type="button" class="admin-card" onclick="location.href='/admin-qna'">💬<b>질문 관리</b><span>학생 질문·문의 답변</span></button>
       <button type="button" class="admin-card" onclick="openSection('attendance')">📅<b>출결/숙제</b><span>출석·숙제 관리</span></button>
+      <button type="button" class="admin-card" onclick="openSection('reports')">📋<b>리포트 조회</b><span>학생 리포트</span></button>
+      <button type="button" class="admin-card" onclick="location.href='/admin-surveys'">🗳️<b>설문·조사</b><span>퀴즈·설문 만들기·채점</span></button>
+      <button type="button" class="admin-card" onclick="openSection('students')">👨‍🎓<b>학생 목록</b><span>등록·승인·반 변경</span></button>
+      <button type="button" class="admin-card" onclick="location.href='/admin-scores'">📈<b>성적 관리</b><span>시험 성적·추이</span></button>
+      <button type="button" class="admin-card" onclick="openSection('notices')">📢<b>공지사항 관리</b><span>공지 작성·수정</span></button>
       <button type="button" class="admin-card" onclick="openSection('files')">📁<b>자료실 관리</b><span>파일 업로드·삭제</span></button>
       <button type="button" class="admin-card" onclick="openSection('videos')">📺<b>영상 관리</b><span>수업 영상</span></button>
-      <button type="button" class="admin-card" onclick="location.href='/admin-stats'">📊<b>방문 통계</b><span>사이트 방문자 수</span></button>
-      <button type="button" class="admin-card" onclick="location.href='/admin-scores'">📈<b>성적 관리</b><span>시험 성적·추이</span></button>
-      <button type="button" class="admin-card" onclick="location.href='/admin-outcomes'">📤<b>퇴원생 기록</b><span>성적·출결·학습 보관</span></button>
-      <button type="button" class="admin-card" onclick="location.href='/admin-qna'">💬<b>질문 관리</b><span>학생 질문 답변</span></button>
       <button type="button" class="admin-card" onclick="location.href='/admin-study'">🏆<b>공부 랭킹</b><span>반별 공부시간 순위(실명)</span></button>
+      <button type="button" class="admin-card" onclick="location.href='/admin-stats'">📊<b>방문 통계</b><span>사이트 방문자 수</span></button>
+      <button type="button" class="admin-card" onclick="location.href='/admin-outcomes'">📤<b>퇴원생 기록</b><span>성적·출결·학습 보관</span></button>
       <button type="button" class="admin-card" onclick="location.href='/admin-staff'">🧑‍🏫<b>운영진 관리</b><span>조교 가입 승인·거부</span></button>
       <button type="button" class="admin-card" onclick="openSection('appversion')">📲<b>앱 강제업데이트</b><span>구버전 차단 최소버전</span></button>
     </div>
