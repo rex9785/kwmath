@@ -597,8 +597,10 @@
   }
 
   // ─────────────── 결과 ───────────────
+  var _openResp = [];   // 응답자별 점수에서 펼쳐둔 응답 id (재렌더 시 유지)
   function loadResults(id){
     setMode('results');
+    _openResp = [];
     viewEl.innerHTML = '<div class="state">불러오는 중…</div>';
     api('GET', '?admin=1&id=' + id).then(function(r){ return r.json(); }).then(function(data){
       if(!data || !data.ok){ viewEl.innerHTML = '<div class="state">' + esc((data&&data.error)||'불러오지 못했어요.') + '</div>'; return; }
@@ -642,21 +644,141 @@
       return n;
     }
 
-    // 퀴즈: 응답자별 점수 목록 (익명이면 순번만)
+    // ── 퀴즈 공통 헬퍼: 정오 판정(표시용) · O/X 버튼 · 채점 저장 ──
+    function normA(s){ return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' '); }
+    function isRight(q, a){   // true/false/null(판정불가·무응답)
+      if(!survey.quiz || q.correct==null) return null;
+      if(q.type==='multi'){
+        var c = (Array.isArray(q.correct)?q.correct:[q.correct]).map(String).slice().sort();
+        var v = (Array.isArray(a)?a:(a!=null&&a!==''?[a]:[])).map(String).slice().sort();
+        if(!v.length) return null;
+        return c.length===v.length && c.every(function(x,i){ return x===v[i]; });
+      }
+      if(a==null || String(a).trim()==='') return null;
+      return normA(a)===normA(q.correct);
+    }
+    function essaySplit(r){   // 서버 점수에서 서술형만 떼어내기 (총점=자동+서술 이므로 역산)
+      var eScore=0, eMax=0;
+      longQs.forEach(function(q){ eMax += q.points; if((r.manual||{})[q.id]===1) eScore += q.points; });
+      var t = (typeof r.score==='number') ? r.score : 0;
+      var tm = (typeof r.maxScore==='number') ? r.maxScore : 0;
+      return { aScore:t-eScore, aMax:tm-eMax, eScore:eScore, eMax:eMax };
+    }
+    function oxBtns(r, q){
+      var m = (r.manual||{})[q.id];
+      var bBase = 'border:1px solid var(--line);border-radius:8px;padding:4px 13px;cursor:pointer;font-weight:800;margin-left:5px;background:#fff;color:var(--muted);';
+      var bO = bBase + (m===1 ? 'background:#E6F4EA;color:#137333;border-color:#137333;' : '');
+      var bX = bBase + (m===0 ? 'background:#FCE8E6;color:#C5221F;border-color:#C5221F;' : '');
+      return '<button class="oxbtn" data-rid="' + r.id + '" data-qid="' + escAttr(q.id) + '" data-v="1" style="' + bO + '">O</button>'
+           + '<button class="oxbtn" data-rid="' + r.id + '" data-qid="' + escAttr(q.id) + '" data-v="0" style="' + bX + '">X</button>';
+    }
+    function attachOx(el){
+      el.querySelectorAll('.oxbtn').forEach(function(b){
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation();   // 학생 행 펼침 토글과 겹치지 않게
+          var rid = parseInt(b.dataset.rid,10), qid = b.dataset.qid, v = (b.dataset.v==='1');
+          var r = null;
+          responses.forEach(function(x){ if(x.id===rid) r = x; });
+          if(!r) return;
+          var cur = (r.manual||{})[qid];
+          var next = (cur === (v?1:0)) ? null : v;   // 같은 판정 다시 누르면 취소
+          var marks = {}; marks[qid] = next;
+          api('PATCH', '?id=' + survey.id + '&grade=1', { responseId: rid, marks: marks })
+            .then(function(x){ return x.json(); }).then(function(d){
+              if(!d || !d.ok){ toast((d && d.error) || '채점 저장 실패'); return; }
+              r.manual = d.manual || {}; r.score = d.score; r.maxScore = d.maxScore;
+              var y = window.scrollY;
+              renderResults(survey, responses);
+              window.scrollTo(0, y);
+            }).catch(function(){ toast('채점 저장 실패'); });
+        });
+      });
+    }
+    function whoOf(r, i){ return survey.anonymous ? ('응답 ' + (i+1)) : (esc(r.respondentName) || ('응답 ' + (i+1))); }
+
+    // ── 퀴즈: ✍️ 채점 대기 — 서술형 미채점 답안만 모아서 (채점 끝나면 목록에서 빠짐) ──
+    if(survey.quiz && longQs.length){
+      var pendList = [];
+      responses.forEach(function(r, i){ if(pendingCount(r) > 0) pendList.push({ r:r, i:i }); });
+      var gc = document.createElement('div'); gc.className = 'qres';
+      if(!pendList.length){
+        gc.innerHTML = '<h4>✍️ 채점 대기</h4><div class="sub" style="color:#137333;font-weight:700;">서술형 채점이 모두 끝났어요 🎉</div>';
+      } else {
+        var gh = '<h4>✍️ 채점 대기 <span style="color:#B26A00;">' + pendList.length + '명</span></h4>'
+          + '<div class="sub" style="margin:-4px 0 8px;">O·X를 누르면 바로 저장돼요 (O=배점 합산 · X=0점 · 같은 버튼 다시 누르면 취소). 채점이 끝난 학생은 이 목록에서 빠져요.</div>';
+        pendList.forEach(function(p){
+          gh += '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
+            + '<div style="font-weight:800;margin-bottom:6px;">' + whoOf(p.r, p.i) + '</div>';
+          longQs.forEach(function(q){
+            var m = (p.r.manual||{})[q.id];
+            if(m===0 || m===1) return;   // 이미 채점된 문항은 안 보임
+            var a = p.r.answers[q.id];
+            var aTxt = (a && String(a).trim()) ? esc(a) : '<span class="sub">(무응답)</span>';
+            gh += '<div class="textans" style="display:flex;align-items:flex-start;gap:8px;">'
+              + '<span style="flex:1;"><span class="who">' + esc(q.label) + ' (' + q.points + '점)</span>' + aTxt + '</span>'
+              + '<span style="white-space:nowrap;">' + oxBtns(p.r, q) + '</span></div>';
+          });
+          gh += '</div>';
+        });
+        gc.innerHTML = gh;
+      }
+      viewEl.appendChild(gc);
+      attachOx(gc);
+    }
+
+    // ── 퀴즈: 응답자별 점수 (이름 클릭 → 답안 전체 펼침, 단답형·서술형 분리 표시) ──
     if(survey.quiz){
+      function respDetail(r){
+        var s = '';
+        qs.forEach(function(q){
+          var a = r.answers[q.id];
+          var aTxt = Array.isArray(a) ? a.join(', ') : (a==null?'':String(a));
+          var mark = '', ox = '';
+          if(q.type==='long' && q.points!=null){
+            var m = (r.manual||{})[q.id];
+            mark = (m===1) ? '<span class="ok">✔ O (+' + q.points + '점)</span>'
+                 : (m===0) ? '<span class="no">✕ X</span>'
+                 : '<span style="color:#B26A00;font-weight:700;">⏳ 채점 대기</span>';
+            ox = '<span style="white-space:nowrap;margin-left:6px;">' + oxBtns(r, q) + '</span>';
+          } else {
+            var rt = isRight(q, a);
+            if(rt===true) mark = '<span class="ok">✔</span>';
+            else if(rt===false) mark = '<span class="no">✗</span>';
+          }
+          s += '<div style="padding:6px 2px;border-bottom:1px solid #f0e6e9;font-size:0.85rem;display:flex;align-items:flex-start;gap:8px;">'
+            + '<span style="flex:1;"><span class="who">' + esc(q.label) + ((q.points!=null)?(' (' + q.points + '점)'):'') + '</span>'
+            + (aTxt.trim() ? esc(aTxt) : '<span class="sub">(무응답)</span>') + ' ' + mark + '</span>' + ox + '</div>';
+        });
+        return s;
+      }
       var sc = document.createElement('div'); sc.className = 'qres';
-      var sch = '<h4>응답자별 점수</h4>';
-      if(longQs.length) sch += '<div class="sub" style="margin:-4px 0 6px;">서술형 ' + longQs.length + '문항은 아래에서 O·X를 누르면 점수에 합산돼요.</div>';
+      var sch = '<h4>응답자별 점수 <span class="sub" style="font-weight:400;">— 이름을 누르면 답안이 펼쳐져요</span></h4>';
       responses.forEach(function(r, i){
-        var who = survey.anonymous ? ('응답 ' + (i+1)) : (esc(r.respondentName) || ('응답 ' + (i+1)));
         var pd = longQs.length ? pendingCount(r) : 0;
-        var sTxt = (typeof r.score==='number') ? (r.score + (typeof r.maxScore==='number'?(' / ' + r.maxScore):'') + '점') : '-';
-        sch += '<div class="scoreItem"><span>' + who
+        var open = _openResp.indexOf(r.id) >= 0;
+        var sTxt = (typeof r.score==='number') ? ('<b>' + r.score + (typeof r.maxScore==='number'?(' / ' + r.maxScore):'') + '점</b>') : '-';
+        if(longQs.length && typeof r.score==='number'){
+          var sp = essaySplit(r);
+          sTxt += '<br><span class="sub" style="font-size:0.74rem;">단답 ' + sp.aScore + '/' + sp.aMax + ' · 서술 ' + sp.eScore + '/' + sp.eMax + '</span>';
+        }
+        sch += '<div class="scoreItem" data-toggle="' + r.id + '" style="cursor:pointer;"><span>' + (open?'▾':'▸') + ' ' + whoOf(r, i)
           + (pd ? ' <span style="font-size:0.76rem;color:#B26A00;font-weight:700;">서술 채점 전 ' + pd + '</span>' : '')
-          + '</span><span><b>' + sTxt + '</b></span></div>';
+          + '</span><span style="text-align:right;">' + sTxt + '</span></div>';
+        if(open) sch += '<div style="padding:6px 10px 12px;background:#FBF7F2;border-radius:0 0 10px 10px;margin-bottom:4px;">' + respDetail(r) + '</div>';
       });
       sc.innerHTML = sch;
       viewEl.appendChild(sc);
+      sc.querySelectorAll('[data-toggle]').forEach(function(el){
+        el.addEventListener('click', function(){
+          var rid = parseInt(el.dataset.toggle,10);
+          var ix = _openResp.indexOf(rid);
+          if(ix>=0) _openResp.splice(ix,1); else _openResp.push(rid);
+          var y = window.scrollY;
+          renderResults(survey, responses);
+          window.scrollTo(0, y);
+        });
+      });
+      attachOx(sc);
     }
 
     // 개인별 응답 블록(비익명 전용) — 선택형·척도에서 "누가 뭘 골랐는지" 접이식 표시
@@ -695,42 +817,25 @@
           h += '<div class="bar"><div class="lbl"><span>' + esc(o) + mk + '</span><span>' + n + '명 (' + pct + '%)</span></div>' +
                '<div class="track"><div class="fill" style="width:' + pct + '%;"></div></div></div>';
         });
-        h += perPersonBlock(q, function(a){ return Array.isArray(a) ? a.join(', ') : a; });
+        // 퀴즈: 정답률 표시 / 개인별 응답 접이식은 일반 설문에서만 (퀴즈는 응답자별 점수에서 펼침)
+        if(survey.quiz && q.correct!=null){
+          var okC = 0, ansC = 0;
+          responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansC++; if(rt) okC++; } });
+          h += '<div class="rsummary" style="margin-top:6px;">정답률 <b>' + (ansC?Math.round(okC/ansC*100):0) + '%</b> (' + okC + '/' + ansC + '명)</div>';
+        }
+        if(!survey.quiz) h += perPersonBlock(q, function(a){ return Array.isArray(a) ? a.join(', ') : a; });
       } else if(survey.quiz && q.type==='short' && q.correct!=null){
-        h += '<div class="rsummary">정답: <b>' + esc(q.correct) + '</b></div>';
-        var anyS = false;
-        responses.forEach(function(r){
-          var a = r.answers[q.id];
-          if(a && String(a).trim()){
-            anyS = true;
-            var ok = String(a).trim().toLowerCase().replace(/\s+/g,' ') === String(q.correct).trim().toLowerCase().replace(/\s+/g,' ');
-            var who = survey.anonymous ? '' : (r.respondentName || '');
-            h += '<div class="textans">' + (who?'<span class="who">' + esc(who) + '</span>':'') + esc(a) +
-                 ' <span class="' + (ok?'ok':'no') + '">' + (ok?'✔':'✗') + '</span></div>';
-          }
-        });
-        if(!anyS) h += '<div class="sub">응답 없음</div>';
+        // 단답형(퀴즈): 답이 제각각이라 나열하지 않고 정답률만 — 개별 답안은 응답자별 점수에서
+        var okS = 0, ansS = 0;
+        responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansS++; if(rt) okS++; } });
+        h += '<div class="rsummary">정답: <b>' + esc(q.correct) + '</b> · 정답률 <b>' + (ansS?Math.round(okS/ansS*100):0) + '%</b> (' + okS + '/' + ansS + '명 응답)</div>';
+        h += '<div class="sub">개별 답안은 위 "응답자별 점수"에서 이름을 누르면 보여요.</div>';
       } else if(survey.quiz && q.type==='long' && q.points!=null){
-        // 서술형 수동 채점 — O를 누르면 배점 합산, X는 0점, 같은 버튼 다시 누르면 판정 취소
-        h += '<div class="rsummary">서술형 · 배점 <b>' + q.points + '점</b> — 답안을 읽고 O·X를 눌러 주세요 (O=합산, X=0점)</div>';
-        var anyL = false;
-        responses.forEach(function(r, ri){
-          var a = r.answers[q.id];
-          if(!(a && String(a).trim())) return;
-          anyL = true;
-          var who = survey.anonymous ? ('응답 ' + (ri+1)) : (r.respondentName || '(이름없음)');
-          var m = (r.manual||{})[q.id];
-          var bBase = 'border:1px solid var(--line);border-radius:8px;padding:4px 13px;cursor:pointer;font-weight:800;margin-left:5px;background:#fff;color:var(--muted);';
-          var bO = bBase + (m===1 ? 'background:#E6F4EA;color:#137333;border-color:#137333;' : '');
-          var bX = bBase + (m===0 ? 'background:#FCE8E6;color:#C5221F;border-color:#C5221F;' : '');
-          h += '<div class="textans" style="display:flex;align-items:flex-start;gap:8px;">'
-            + '<span style="flex:1;"><span class="who">' + esc(who) + '</span>' + esc(a) + '</span>'
-            + '<span style="white-space:nowrap;">'
-            + '<button class="oxbtn" data-rid="' + r.id + '" data-qid="' + escAttr(q.id) + '" data-v="1" style="' + bO + '">O</button>'
-            + '<button class="oxbtn" data-rid="' + r.id + '" data-qid="' + escAttr(q.id) + '" data-v="0" style="' + bX + '">X</button>'
-            + '</span></div>';
-        });
-        if(!anyL) h += '<div class="sub">응답 없음</div>';
+        // 서술형(퀴즈): 여기선 채점 현황 요약만 — 채점은 맨 위 "✍️ 채점 대기"에서
+        var oN=0, xN=0, pN=0;
+        responses.forEach(function(r){ var m=(r.manual||{})[q.id]; if(m===1) oN++; else if(m===0) xN++; else pN++; });
+        h += '<div class="rsummary">서술형 · 배점 <b>' + q.points + '점</b> — <span class="ok">O ' + oN + '</span> · <span class="no">X ' + xN + '</span> · <span style="color:#B26A00;font-weight:700;">채점 대기 ' + pN + '</span></div>';
+        h += '<div class="sub">채점은 맨 위 "✍️ 채점 대기"에서, 개별 답안은 "응답자별 점수"에서 이름을 눌러 보세요.</div>';
       } else if(q.type==='scale'){
         var sum=0, cnt=0, dist={};
         for(var v=q.scaleMin; v<=q.scaleMax; v++) dist[v]=0;
@@ -742,7 +847,7 @@
           h += '<div class="bar"><div class="lbl"><span>' + v2 + '점</span><span>' + n2 + '명</span></div>' +
                '<div class="track"><div class="fill" style="width:' + pct2 + '%;"></div></div></div>';
         }
-        h += perPersonBlock(q, function(a){ var n=parseInt(a,10); return Number.isFinite(n) ? (n + '점') : ''; });
+        if(!survey.quiz) h += perPersonBlock(q, function(a){ var n=parseInt(a,10); return Number.isFinite(n) ? (n + '점') : ''; });
       } else {
         var any = false;
         responses.forEach(function(r){
@@ -758,26 +863,7 @@
       box.innerHTML = h;
       viewEl.appendChild(box);
 
-      // 서술형 O·X 채점 버튼 — 저장 후 점수·배지 즉시 갱신(전체 재렌더, 스크롤 유지)
-      box.querySelectorAll('.oxbtn').forEach(function(b){
-        b.addEventListener('click', function(){
-          var rid = parseInt(b.dataset.rid,10), qid = b.dataset.qid, v = (b.dataset.v==='1');
-          var r = null;
-          responses.forEach(function(x){ if(x.id===rid) r = x; });
-          if(!r) return;
-          var cur = (r.manual||{})[qid];
-          var next = (cur === (v?1:0)) ? null : v;   // 같은 판정 다시 누르면 취소
-          var marks = {}; marks[qid] = next;
-          api('PATCH', '?id=' + survey.id + '&grade=1', { responseId: rid, marks: marks })
-            .then(function(x){ return x.json(); }).then(function(d){
-              if(!d || !d.ok){ toast((d && d.error) || '채점 저장 실패'); return; }
-              r.manual = d.manual || {}; r.score = d.score; r.maxScore = d.maxScore;
-              var y = window.scrollY;
-              renderResults(survey, responses);
-              window.scrollTo(0, y);
-            }).catch(function(){ toast('채점 저장 실패'); });
-        });
-      });
+      attachOx(box);   // (문항 블록엔 이제 O·X 버튼이 없지만, 혹시 남아있어도 동작하게)
     });
   }
 
