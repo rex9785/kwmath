@@ -16,6 +16,21 @@ export async function onRequest({ request, env }) {
   return Response.json({ error: 'POST 또는 DELETE만 허용' }, { status: 405 });
 }
 
+// 예약(시스템) userId 보호 — push-subscribe.js와 동일 규약.
+//   '__' 접두 id(__admin__ 등)는 관리자/조교 인증(Bearer ADMIN_PASSWORD, 미들웨어 번역)이 있을 때만 조작 허용.
+//   학생 전화번호 id는 종전대로 무인증 허용.
+function isReservedUserId(id) { return typeof id === 'string' && id.startsWith('__'); }
+function adminAuthed(request, env) {
+  const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
+  return !!env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
+}
+function reservedGuard(userId, request, env) {
+  if (isReservedUserId(userId) && !adminAuthed(request, env)) {
+    return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
+  }
+  return null;
+}
+
 // ───────── POST: 토큰 등록 ─────────
 async function handleRegister(request, env) {
   let body = {};
@@ -25,6 +40,8 @@ async function handleRegister(request, env) {
   const token  = String(body.token  || '').trim();
 
   if (!userId) return Response.json({ error: 'userId 필수' }, { status: 400 });
+  const guard = reservedGuard(userId, request, env);
+  if (guard) return guard;
   if (!token)  return Response.json({ error: 'token 필수' }, { status: 400 });
 
   const key = `fcm-tokens/${encodeURIComponent(userId)}.json`;
@@ -69,6 +86,8 @@ async function handleUnregister(request, env) {
   const token  = String(body.token  || '').trim();
 
   if (!userId) return Response.json({ error: 'userId 필수' }, { status: 400 });
+  const guard = reservedGuard(userId, request, env);
+  if (guard) return guard;
 
   const key = `fcm-tokens/${encodeURIComponent(userId)}.json`;
 

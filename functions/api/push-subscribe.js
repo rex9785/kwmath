@@ -16,6 +16,24 @@ export async function onRequest({ request, env }) {
   return Response.json({ error: 'POST 또는 DELETE만 허용' }, { status: 405 });
 }
 
+// 예약(시스템) userId 보호.
+//   '__' 접두 id(예: __admin__)는 새 질문·문의 알림 수신자다. 무인증이면 아무나
+//   그 id로 자기 기기를 구독(알림 가로채기)하거나 전체 해제(알림 끊기)할 수 있으므로,
+//   관리자/조교 인증이 있을 때만 조작을 허용한다.
+//   미들웨어가 adm_/ast_ 세션을 Bearer ADMIN_PASSWORD로 번역하므로 그 값만 통과.
+//   학생 전화번호 id(숫자, '__' 아님)는 종전대로 무인증 허용 → portal 흐름 무변경.
+function isReservedUserId(id) { return typeof id === 'string' && id.startsWith('__'); }
+function adminAuthed(request, env) {
+  const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
+  return !!env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
+}
+function reservedGuard(userId, request, env) {
+  if (isReservedUserId(userId) && !adminAuthed(request, env)) {
+    return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
+  }
+  return null;
+}
+
 // ───────── POST: 구독 등록 ─────────
 async function handleSubscribe(request, env) {
   let body = {};
@@ -26,6 +44,8 @@ async function handleSubscribe(request, env) {
 
   if (!userId)
     return Response.json({ error: 'userId 필수' }, { status: 400 });
+  const guard = reservedGuard(userId, request, env);
+  if (guard) return guard;
   if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth)
     return Response.json({ error: 'subscription 형식 오류' }, { status: 400 });
 
@@ -78,6 +98,8 @@ async function handleUnsubscribe(request, env) {
 
   if (!userId)
     return Response.json({ error: 'userId 필수' }, { status: 400 });
+  const guard = reservedGuard(userId, request, env);
+  if (guard) return guard;
 
   const key = `push-subs/${encodeURIComponent(userId)}.json`;
 

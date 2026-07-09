@@ -251,7 +251,7 @@
       _appPushWired=true;
       PN.addListener('registration', function(t){
         var tok=t&&t.value; if(!tok||!_appPushUserId) return;
-        fetch('/api/push-register-fcm',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:_appPushUserId, token:tok }) })
+        fetch('/api/push-register-fcm',{ method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ userId:_appPushUserId, token:tok }) })
           .then(function(){ _appPushDone=true; refreshPushBtn(); }).catch(function(){});
       });
       PN.addListener('registrationError', function(){});
@@ -368,7 +368,7 @@
       var btn=$('pushBtn'); if(btn){ btn.disabled=true; btn.style.opacity='0.6'; btn.textContent='⏳ 처리 중…'; }
       try{
         await existing.unsubscribe();
-        try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
+        try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
         showToast('알림을 껐어요.');
       }catch(e){ showToast('알림 끄기 오류: '+((e&&e.message)||'')); }
       finally{ _pushBusy=false; if(btn){ btn.disabled=false; btn.style.opacity=''; } refreshPushBtn(); }
@@ -377,7 +377,7 @@
     // desync(구독은 있는데 권한이 빠짐 — 폰이 권한 회수) → 낡은 구독 정리 후 재등록
     if(existing){
       try{ await existing.unsubscribe(); }catch(_){}
-      try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
+      try{ await fetch('/api/push-subscribe',{ method:'DELETE', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, endpoint:existing.endpoint }) }); }catch(_){}
     }
     // 새로 켜기: 권한창이 새로 뜰 상황(default)이면 안내 모달 먼저
     if(Notification.permission==='default'){ showPushExplainModal(); return; }
@@ -410,7 +410,7 @@
         else{ showToast('알림 구독 실패: '+((err&&err.message)||'')); }
         return;
       }
-      var sRes=await fetch('/api/push-subscribe',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, subscription:sub.toJSON() }) });
+      var sRes=await fetch('/api/push-subscribe',{ method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, subscription:sub.toJSON() }) });
       if(!sRes.ok){ showToast('구독 저장 실패. 잠시 후 다시 시도해주세요.'); return; }
       showToast('🔔 이제 새 질문이 오면 알림이 와요!');
     }catch(e){ showToast('알림 설정 오류: '+((e&&e.message)||'')); }
