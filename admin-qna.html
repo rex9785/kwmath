@@ -469,6 +469,10 @@
     var pct = limit>0 ? Math.min(100, Math.round(usedToday/limit*100)) : 0;
     var avg = Number(d.avgTokensPerQuestion)||0, avgKrw = Number(d.avgCostKrwPerQuestion)||0;
     var monthKrw = Number(m.costKrw)||0;
+    // 토큰 예산(참고용) — 우리가 실제 쓴 토큰은 정확히 집계됨(today.tokens). 무료등급 실측 잔량은 AI Studio가 정답.
+    var tokLimit=Number(d.dailyTokenLimit)||0, tokUsed=Number(t.tokens)||0;
+    var tokRem=(d.remainingTodayTokens!=null)?Number(d.remainingTodayTokens):Math.max(0,tokLimit-tokUsed);
+    var tokPct = tokLimit>0 ? Math.min(100, Math.round(tokUsed/tokLimit*100)) : 0;
     return ''+
       '<div class="ucard">'+
         '<div style="font-size:13px;color:#1e8e3e;margin-bottom:8px;font-weight:600;">현재 무료 등급 · 실제 청구 ₩0</div>'+
@@ -478,6 +482,16 @@
         '<div class="uedit"><label>무료 일일 한도(요청수)</label>'+
           '<input type="number" id="limitInput" value="'+limit+'" min="0" step="10">'+
           '<button class="send" onclick="saveDailyLimit()">저장</button></div>'+
+      '</div>'+
+      '<div class="ucard">'+
+        '<div class="urow"><span>오늘 사용 토큰</span><b>'+fmtTok(tokUsed)+' <span class="udim">/ '+fmtTok(tokLimit)+'</span></b></div>'+
+        '<div class="ubar"><i style="width:'+tokPct+'%;'+(tokPct>=80?'background:#c0392b;':'')+'"></i></div>'+
+        '<div class="ubig">오늘 예산 <b>약 '+fmtTok(tokRem)+'</b> 남음 <span class="udim">('+tokPct+'% 사용)</span></div>'+
+        '<div class="uedit"><label>하루 토큰 예산(참고)</label>'+
+          '<input type="number" id="tokLimitInput" value="'+tokLimit+'" min="0" step="100000">'+
+          '<button class="send" onclick="saveTokenLimit()">저장</button></div>'+
+        '<div class="unote" style="margin-top:6px;">※ 이 토큰 예산은 <b>관우T가 정하는 참고값</b>입니다. 무료등급의 실제 남은 양은 API가 알려주지 않아요 — 정확한 잔량은 '+
+          '<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600;">Google AI Studio</a>의 API 키 옆 사용량에서 확인하세요. 위 "오늘 사용 토큰"은 우리가 실제 쓴 양이라 정확합니다.</div>'+
       '</div>'+
       '<div class="ugrid">'+
         statBox('오늘', t.questions, t.tokens, null)+
@@ -501,6 +515,19 @@
       var d = await r.json();
       if(!r.ok){ showToast(d.error||'저장 실패'); return; }
       showToast('✅ 일일 한도를 저장했어요.');
+      renderUsage();
+    }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
+  }
+
+  async function saveTokenLimit(){
+    var el=$('tokLimitInput'); if(!el) return;
+    var v = parseInt(String(el.value||'').replace(/[^0-9]/g,''),10);
+    if(isNaN(v)||v<0){ showToast('토큰 예산을 숫자로 입력하세요.'); return; }
+    try{
+      var r = await api('/api/qna?usage=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dailyTokenLimit: v }) });
+      var d = await r.json();
+      if(!r.ok){ showToast(d.error||'저장 실패'); return; }
+      showToast('✅ 토큰 예산을 저장했어요.');
       renderUsage();
     }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
   }

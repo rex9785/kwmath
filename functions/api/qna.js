@@ -29,7 +29,8 @@ const ADMIN_PUSH_USERS = ['__admin__'];
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const DEFAULT_DAILY_LIMIT = 10;  // 6/23 3→5→10 상향(학생 수 적어 토큰 비용 영향 미미, 나중에 조정 가능)
 const MAX_Q_LEN = 1200;     // 질문 글자 제한
-const MAX_A_LEN = 12000;    // 저장 답변 글자 제한(안전여유 — 정상 답은 이보다 훨씬 짧음)
+const MAX_A_LEN = 20000;    // 저장 답변 글자 제한. 출력토큰 여유(maxOutputTokens-thinking≈1만토큰≈2만자)에 맞춤 —
+                            // 모델이 끝까지 완성한 답(finishReason STOP)이 여기서 잘려 \boxed·LaTeX가 깨지지 않게.
 const MAX_IMG_B64 = 2_600_000;  // 첨부 사진 base64 최대 길이(약 1.9MB 바이너리). 클라이언트가 리사이즈해 보내므로 보통 그 한참 아래.
 
 // ── 토큰 사용량/비용 추정용 상수 (6/23 추가) ──
@@ -40,6 +41,9 @@ const USD_KRW = 1350;          // 환율 대략치(비용은 추정)
 const DEFAULT_MONTHLY_TOKEN_BUDGET = 2_000_000; // 월 토큰 예산 기본값(참고용)
 // 무료 등급은 돈이 아니라 '하루 요청수(RPD)'로 제한됨. 2.5 Flash 무료 일일 한도 대략치(프로젝트/시점마다 다름·AI Studio가 정답).
 const DEFAULT_DAILY_REQUEST_LIMIT = 250;
+// 하루 토큰 예산(soft budget) — 우리가 실제 쓴 토큰(정확히 집계됨) 대비 남은 토큰 표시용.
+// 무료등급 실측 잔량은 API가 안 주므로(AI Studio가 정답) 이 값은 관우T가 설정하는 참고 예산이다.
+const DEFAULT_DAILY_TOKEN_LIMIT = 1_000_000;
 
 // 데이터URL("data:image/jpeg;base64,...") → { mimeType, data(base64), dataUrl } 또는 null
 function parseImage(raw) {
@@ -154,6 +158,7 @@ async function askGemini(env, question, studentMeta, image) {
     '6) 단계별로 줄을 바꿔 써라. 각 단계는 새 줄에서 시작하고, 단계 사이에는 빈 줄을 한 줄 넣어 읽기 쉽게 해라.\n' +
     '7) 생각(사고 과정)은 전부 머릿속(내부 사고)에서 끝내라. 최종 답변에는 되돌이·자기수정·"만약 …이면/아니면" 식 경우 나열·시행착오·검산 과정을 절대 쓰지 마라. 여러 경우를 따져야 하는 문제라도, 내부에서 다 따진 뒤 답변에는 정답으로 이어지는 하나의 깔끔한 풀이 흐름만 남겨라.\n' +
     '8) 답변은 짧고 콤팩트하게. 목표는 핵심 단계 5~10줄 안팎이다. 웬만한 문제는 그 안에 끝난다. 사소한 대입·계산은 결과만 적고 과정을 장황하게 늘어놓지 마라.\n' +
+    '8-1) 후보(정수·경우 등)를 하나씩 전부 대입해 보는 방식은 절대 쓰지 마라. 대신 조건(부등식 범위·완전제곱수·판별식·근과 계수의 관계·정수 조건 등)으로 후보를 먼저 좁힌 뒤, 남은 소수의 경우만 확인해라. 예: "정수근 조건 → $-c$가 완전제곱수 → $c\\in\\{0,-1,-4\\}$" 처럼 한 번에 좁혀라. $c=-8,-7,\\dots$ 를 하나씩 나열하는 답은 틀린 형식이다.\n' +
     '9) 마지막 줄에는 반드시 $$\\boxed{최종답}$$ 형태로 최종 답을 분명히 적어 끝맺어라. 절대 중간에서 끊지 말고 답까지 완성해라.\n' +
     '10) 따뜻하고 격려하는 말투를 유지하되 인사·서론은 한 줄 이내로 짧게 해라.\n' +
     '\n' +
@@ -315,6 +320,10 @@ export async function onRequest(context) {
         const lRow = await env.DB.prepare("SELECT value FROM qna_settings WHERE key='daily_request_limit'").first();
         const dailyRequestLimit = (lRow && lRow.value != null && lRow.value !== '')
           ? Math.max(0, parseInt(lRow.value, 10) || 0) : DEFAULT_DAILY_REQUEST_LIMIT;
+        // 하루 토큰 예산(참고용 soft budget) — 우리가 실제 쓴 토큰은 정확히 집계됨. 무료등급 실측 잔량은 API가 안 줌(AI Studio가 정답).
+        const tRow = await env.DB.prepare("SELECT value FROM qna_settings WHERE key='daily_token_limit'").first();
+        const dailyTokenLimit = (tRow && tRow.value != null && tRow.value !== '')
+          ? Math.max(0, parseInt(tRow.value, 10) || 0) : DEFAULT_DAILY_TOKEN_LIMIT;
         const num = (v) => Number(v) || 0;
         const usdCost = (tin, tout) => (num(tin) / 1e6) * PRICE_IN_PER_M + (num(tout) / 1e6) * PRICE_OUT_PER_M;
         const totQ = num(totalRow && totalRow.q);
@@ -339,6 +348,8 @@ export async function onRequest(context) {
           avgCostUsdPerQuestion: Number(avgUsd.toFixed(5)),
           dailyRequestLimit,
           remainingTodayRequests: remTodayReq,
+          dailyTokenLimit,
+          remainingTodayTokens: Math.max(0, dailyTokenLimit - num(todayRow && todayRow.tok)),
           pricing: { inPerMillionUsd: PRICE_IN_PER_M, outPerMillionUsd: PRICE_OUT_PER_M, usdKrw: USD_KRW },
         });
       }
@@ -386,12 +397,24 @@ export async function onRequest(context) {
       if (url.searchParams.get('usage') === '1') {
         if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
         const sb = await request.json().catch(() => ({}));
-        const val = Math.max(0, parseInt(sb.dailyRequestLimit, 10) || 0);
-        await env.DB.prepare(
-          "INSERT INTO qna_settings (key, value) VALUES ('daily_request_limit', ?) " +
-          "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
-        ).bind(String(val)).run();
-        return jsonOk({ ok: true, dailyRequestLimit: val });
+        const out = {};
+        if (sb.dailyRequestLimit != null) {
+          const val = Math.max(0, parseInt(sb.dailyRequestLimit, 10) || 0);
+          await env.DB.prepare(
+            "INSERT INTO qna_settings (key, value) VALUES ('daily_request_limit', ?) " +
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+          ).bind(String(val)).run();
+          out.dailyRequestLimit = val;
+        }
+        if (sb.dailyTokenLimit != null) {
+          const tval = Math.max(0, parseInt(sb.dailyTokenLimit, 10) || 0);
+          await env.DB.prepare(
+            "INSERT INTO qna_settings (key, value) VALUES ('daily_token_limit', ?) " +
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+          ).bind(String(tval)).run();
+          out.dailyTokenLimit = tval;
+        }
+        return jsonOk({ ok: true, ...out });
       }
 
       const access = await requireStudentAccess(env, request);
