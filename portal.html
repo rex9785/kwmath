@@ -122,14 +122,15 @@
       <div class="login-title">이관우 수학연구소</div>
       <div class="login-sub">학부모·학생 전용 페이지<br>휴대폰 번호로 로그인하세요</div>
     </div>
+    <form id="loginForm" autocomplete="on" onsubmit="return doLogin(event);">
     <div class="login-field">
       <label>휴대폰 번호</label>
-      <input id="loginPhone" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)" autocomplete="username">
+      <input id="loginPhone" name="username" type="tel" inputmode="numeric" pattern="[0-9\-]*" maxlength="13" placeholder="010-1234-5678" oninput="formatPhone(this)" autocomplete="username">
     </div>
     <div class="login-field">
       <label>비밀번호</label>
       <div class="pw-wrap">
-        <input id="loginPw" type="password" placeholder="••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <input id="loginPw" name="password" type="password" placeholder="••••" autocomplete="current-password">
         <button type="button" class="pw-toggle" onclick="togglePwVisibility('loginPw', this)" title="비밀번호 보기">👁</button>
       </div>
     </div>
@@ -137,7 +138,10 @@
       <input id="trustDevice" type="checkbox" checked style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--primary);cursor:pointer;">
       <span>이 기기 신뢰 — 자동 로그인 유지 <span style="color:var(--text-light);opacity:.8;">(공용 기기면 체크 해제)</span></span>
     </label>
-    <button id="loginBtn" class="login-btn" onclick="doLogin()">로그인 →</button>
+    <button id="loginBtn" type="submit" class="login-btn">로그인 →</button>
+    </form>
+    <!-- Face ID 재시도: 앱 + 잠금 켜짐 + 저장된 세션 있을 때만 노출(생체취소 후 재시도용) -->
+    <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="retryFaceUnlock()">🔒 Face ID로 잠금 해제</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
       처음이세요? 초기 비밀번호는 <b>0000</b>입니다.<br>
@@ -467,6 +471,39 @@
       const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
       fab.classList.toggle('show', !standalone);
     }
+    // Face ID 재시도 버튼: 앱 + 잠금 활성 + 저장된 세션 있을 때만 노출
+    (async function(){
+      try {
+        const rb = $('faceRetryBtn'); if (!rb) return;
+        const tok = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+        rb.style.display = (tok && window.KWNative && await KWNative.faceLockActive()) ? 'block' : 'none';
+      } catch (_) {}
+    })();
+  }
+
+  // Face ID 재시도: 생체인증을 취소해 로그인 화면으로 떨어졌을 때, 앱 재실행 없이 다시 잠금 해제.
+  async function retryFaceUnlock() {
+    try {
+      const savedToken = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+      const savedPhone = localStorage.getItem(PHONE_KEY) || sessionStorage.getItem(PHONE_KEY);
+      if (!savedToken) { showToast('저장된 로그인이 없어요. 번호로 로그인해 주세요.', 3500); return; }
+      if (window.KWNative) {
+        const r = await KWNative.authenticate({ reason: '이관우 수학연구소 — 잠금 해제를 위해 인증해 주세요.' });
+        if (!r || !r.success) { showToast('인증이 취소되었습니다.', 3000); return; }
+      }
+      const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(PHONE_KEY);
+        sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(PHONE_KEY);
+        showToast('세션이 만료되었어요. 다시 로그인해 주세요.', 3500); return;
+      }
+      currentToken = savedToken;
+      currentPhone = data.phone || savedPhone || '';
+      currentStudents = Array.isArray(data.students) ? data.students : [];
+      enterMain(data.mustChangePassword);
+      { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
+    } catch (e) { showToast('오류가 발생했어요. 번호로 로그인해 주세요.', 3500); }
   }
   function showMainScreen() {
     $('loginScreen').style.display = 'none';
@@ -475,7 +512,8 @@
   }
 
   // ════════ 로그인 ════════
-  async function doLogin() {
+  async function doLogin(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();   // form 제출 기본동작(새로고침) 차단
     const phone = normalizePhone($('loginPhone').value);
     const password = $('loginPw').value;
     showErr('loginErr', '');

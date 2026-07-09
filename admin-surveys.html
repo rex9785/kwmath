@@ -148,6 +148,7 @@
     clearTimeout(toastT); toastT = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
   }
   function esc(s){ var d = document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
+  function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function fmt(iso){
     if(!iso) return '';
     try{ return new Date(iso).toLocaleString('ko-KR',{ timeZone:'Asia/Seoul', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }); }
@@ -240,14 +241,14 @@
     return q;
   }
   function startNew(){
-    draft = { title:'', description:'', audience:'all', anonymous:false, quiz:isStaff ? true : false, status:'draft', questions:[ newQuestion('single') ] };
+    draft = { title:'', description:'', audience:'all', audAcademy:[], audClass:[], anonymous:false, quiz:isStaff ? true : false, status:'draft', questions:[ newQuestion('single') ] };
     renderBuilder();
   }
   function loadForEdit(id){
     api('GET', '?admin=1&id=' + id).then(function(r){ return r.json(); }).then(function(data){
       if(!data || !data.ok){ toast('불러오기 실패'); return; }
       var s = data.survey;
-      draft = { id:s.id, title:s.title, description:s.description, audience:s.audience, anonymous:s.anonymous, quiz:!!s.quiz, status:s.status, questions:(s.questions||[]).map(function(q){ return q; }) };
+      draft = { id:s.id, title:s.title, description:s.description, audience:s.audience, audAcademy:s.audAcademy||[], audClass:s.audClass||[], anonymous:s.anonymous, quiz:!!s.quiz, status:s.status, questions:(s.questions||[]).map(function(q){ return q; }) };
       if(!draft.questions.length) draft.questions = [ newQuestion('single') ];
       renderBuilder();
     }).catch(function(){ toast('불러오기 실패'); });
@@ -272,7 +273,9 @@
       '</div>' +
       '<label class="chk"><input type="checkbox" id="fAnon"> 익명 응답 (누가 답했는지 저장·표시 안 함)</label>' +
       '<label class="chk"><input type="checkbox" id="fQuiz"> 퀴즈 모드 (정답·배점 설정 → 제출 즉시 자동 채점)</label>' +
-      '<div class="qhint" id="quizHint"></div>';
+      '<div class="qhint" id="quizHint"></div>' +
+      '<div class="fld" style="margin-top:12px;">대상 학원·반 <span style="font-weight:400;color:var(--muted);">(아무것도 안 고르면 전체 대상)</span></div>' +
+      '<div id="fTargetWrap" data-loaded="0" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:0.85rem;color:var(--muted);">불러오는 중…</div>';
     box.appendChild(head);
 
     var qwrap = document.createElement('div'); qwrap.id = 'qwrap';
@@ -295,7 +298,42 @@
     updateQuizHint();
     fQuiz.addEventListener('change', function(e){ draft.quiz = e.target.checked; updateQuizHint(); renderQuestions(); });
 
+    loadTargetOptions();
     renderQuestions();
+  }
+
+  // 대상 학원·반 체크박스 로드 — /api/class-options(학원·반 목록) 기반. 아무것도 안 고르면 전체.
+  function loadTargetOptions(){
+    var wrap = document.getElementById('fTargetWrap');
+    if(!wrap) return;
+    var selA = (draft && draft.audAcademy) || [];
+    var selC = (draft && draft.audClass) || [];
+    var opts = { headers:{} };
+    if(token) opts.headers['Authorization'] = 'Bearer ' + token;
+    fetch('/api/class-options', opts).then(function(r){ return r.json(); }).then(function(data){
+      var academies = (data && data.academies) || [];
+      var classes = (data && data.classes) || {};
+      if(!academies.length){ wrap.innerHTML = '<span style="color:var(--muted);">등록된 학원·반이 없어요. (학생 등록 후 표시됩니다)</span>'; wrap.dataset.loaded='1'; return; }
+      var h = '';
+      academies.forEach(function(ac){
+        var acChk = selA.indexOf(ac) >= 0 ? ' checked' : '';
+        h += '<div style="margin-bottom:8px;">'
+          + '<label class="chk" style="font-weight:700;color:var(--text);"><input type="checkbox" class="fTargetAcademy" value="' + escAttr(ac) + '"' + acChk + '> 🏫 ' + esc(ac) + '</label>';
+        var cls = classes[ac] || [];
+        if(cls.length){
+          h += '<div style="padding-left:20px;display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;">';
+          cls.forEach(function(cl){
+            var clChk = selC.indexOf(cl) >= 0 ? ' checked' : '';
+            h += '<label class="chk" style="font-weight:400;"><input type="checkbox" class="fTargetClass" value="' + escAttr(cl) + '"' + clChk + '> ' + esc(cl) + '</label>';
+          });
+          h += '</div>';
+        }
+        h += '</div>';
+      });
+      h += '<div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">학원을 고르면 그 학원 학생만, 반을 고르면 그 반 학생만 대상이 됩니다. 아무것도 안 고르면 전체.</div>';
+      wrap.innerHTML = h;
+      wrap.dataset.loaded = '1';
+    }).catch(function(){ wrap.innerHTML = '<span style="color:var(--muted);">학원·반 목록을 불러오지 못했어요. (전체 대상으로 저장됩니다)</span>'; wrap.dataset.loaded='1'; });
   }
 
   function updateQuizHint(){
@@ -448,6 +486,12 @@
     draft.status = document.getElementById('fStatus').value;
     draft.anonymous = document.getElementById('fAnon').checked;
     var fq = document.getElementById('fQuiz'); if(fq) draft.quiz = fq.checked;
+    // 대상 학원·반 — 옵션이 로드됐을 때만 읽어 draft 갱신(로드 전 syncFromForm이 초기화하는 것 방지)
+    var tw = document.getElementById('fTargetWrap');
+    if(tw && tw.dataset.loaded === '1'){
+      draft.audAcademy = Array.prototype.slice.call(document.querySelectorAll('.fTargetAcademy:checked')).map(function(c){ return c.value; });
+      draft.audClass = Array.prototype.slice.call(document.querySelectorAll('.fTargetClass:checked')).map(function(c){ return c.value; });
+    }
   }
 
   function saveBuilder(){
@@ -480,7 +524,7 @@
     });
     if(!qs.length){ toast('질문과 선택지를 채워 주세요'); return; }
 
-    var payload = { title:draft.title.trim(), description:draft.description.trim(), audience:draft.audience, anonymous:draft.anonymous, quiz:!!draft.quiz, status:draft.status, questions:qs };
+    var payload = { title:draft.title.trim(), description:draft.description.trim(), audience:draft.audience, audAcademy:draft.audAcademy||[], audClass:draft.audClass||[], anonymous:draft.anonymous, quiz:!!draft.quiz, status:draft.status, questions:qs };
     var saving = draft.id ? api('PATCH', '?id=' + draft.id, payload) : api('POST', '', payload);
     saving.then(function(r){ return r.json(); }).then(function(data){
       if(data && data.ok){ toast('저장했어요'); draft = null; loadList(); }
@@ -539,6 +583,21 @@
       viewEl.appendChild(sc);
     }
 
+    // 개인별 응답 블록(비익명 전용) — 선택형·척도에서 "누가 뭘 골랐는지" 접이식 표시
+    function perPersonBlock(q, valFn){
+      if(survey.anonymous) return '';
+      var rows = [];
+      responses.forEach(function(r){
+        var v = valFn(r.answers[q.id]);
+        if(v!=null && v!=='') rows.push({ who: esc(r.respondentName||'(이름없음)'), val: esc(String(v)) });
+      });
+      if(!rows.length) return '';
+      var s = '<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:0.82rem;color:#8B1A35;font-weight:700;">개인별 응답 (' + rows.length + '명) ▾</summary><div style="margin-top:6px;">';
+      rows.forEach(function(x){ s += '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 2px;border-bottom:1px solid #f0e6e9;font-size:0.85rem;"><span>' + x.who + '</span><span><b>' + x.val + '</b></span></div>'; });
+      s += '</div></details>';
+      return s;
+    }
+
     qs.forEach(function(q){
       var box = document.createElement('div'); box.className = 'qres';
       var isCorrectOpt = function(o){
@@ -560,6 +619,7 @@
           h += '<div class="bar"><div class="lbl"><span>' + esc(o) + mk + '</span><span>' + n + '명 (' + pct + '%)</span></div>' +
                '<div class="track"><div class="fill" style="width:' + pct + '%;"></div></div></div>';
         });
+        h += perPersonBlock(q, function(a){ return Array.isArray(a) ? a.join(', ') : a; });
       } else if(survey.quiz && q.type==='short' && q.correct!=null){
         h += '<div class="rsummary">정답: <b>' + esc(q.correct) + '</b></div>';
         var anyS = false;
@@ -585,6 +645,7 @@
           h += '<div class="bar"><div class="lbl"><span>' + v2 + '점</span><span>' + n2 + '명</span></div>' +
                '<div class="track"><div class="fill" style="width:' + pct2 + '%;"></div></div></div>';
         }
+        h += perPersonBlock(q, function(a){ var n=parseInt(a,10); return Number.isFinite(n) ? (n + '점') : ''; });
       } else {
         var any = false;
         responses.forEach(function(r){

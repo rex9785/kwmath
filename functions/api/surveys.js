@@ -81,6 +81,9 @@ async function ensureTables(env) {
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN quiz INTEGER NOT NULL DEFAULT 0').run(); } catch (_) {}
   try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN score INTEGER').run(); } catch (_) {}
   try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN max_score INTEGER').run(); } catch (_) {}
+  // 학원별·반별 대상 지정(선택) — JSON 배열 문자열로 저장. 비어있으면 전체 학원·반.
+  try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_academy TEXT').run(); } catch (_) {}
+  try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_class TEXT').run(); } catch (_) {}
   _surveysReady = true;
 }
 
@@ -226,6 +229,8 @@ function surveyOut(r, responseCount) {
     title: r.title || '',
     description: r.description || '',
     audience: r.audience || 'all',
+    audAcademy: parseList(r.aud_academy),
+    audClass: parseList(r.aud_class),
     anonymous: r.anonymous === 1,
     quiz: r.quiz === 1,
     status: r.status || 'draft',
@@ -251,11 +256,38 @@ function responseOut(r, anonymous) {
   };
 }
 
-// 로그인 응답자가 이 설문 대상인지 — audience 매칭
-function audienceMatches(audience, roles) {
-  if (audience === 'all' || !audience) return true;
-  if (audience === 'student') return roles.has('student');
-  if (audience === 'parent') return roles.has('parent');
+// JSON 배열 문자열 → 문자열 배열(안전 파싱)
+function parseList(v) {
+  if (Array.isArray(v)) return v.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim());
+  try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : []; }
+  catch (_) { return []; }
+}
+
+// 관리자 입력 대상 목록 살균 — 최대 50개, 각 60자
+function cleanList(raw) {
+  const arr = Array.isArray(raw) ? raw : [];
+  const out = [];
+  for (const v of arr) {
+    const s = clean(v, 60);
+    if (s && out.indexOf(s) < 0) out.push(s);
+    if (out.length >= 50) break;
+  }
+  return out;
+}
+
+// 로그인 응답자가 이 설문 대상인지 — 역할(all/student/parent) + 학원 + 반 매칭.
+//   학원/반 목록이 비어있으면 그 축은 제한 없음(전체). 지정돼 있으면 응답자의 학생 중
+//   하나라도 그 학원/반에 속하면 통과.
+function audienceMatchesStudents(s, students) {
+  const list = students || [];
+  const roles = new Set(list.map(x => x.role));
+  const audience = s.audience || 'all';
+  if (audience === 'student' && !roles.has('student')) return false;
+  if (audience === 'parent' && !roles.has('parent')) return false;
+  const acs = parseList(s.aud_academy);
+  if (acs.length && !list.some(x => acs.indexOf(x.academy) >= 0)) return false;
+  const cls = parseList(s.aud_class);
+  if (cls.length && !list.some(x => cls.indexOf(x.className) >= 0)) return false;
   return true;
 }
 
@@ -335,6 +367,8 @@ export async function onRequest(context) {
         if (!title) return jsonErr('설문 제목을 입력해 주세요.');
         const description = clean(body.description, MAX_DESC);
         const audience = AUDIENCES.has(body.audience) ? body.audience : 'all';
+        const audAcademy = cleanList(body.audAcademy);
+        const audClass = cleanList(body.audClass);
         const anonymous = (body.anonymous === true || body.anonymous === 1) ? 1 : 0;
         // 조교는 퀴즈만 생성 가능 — quiz=1 강제
         const quiz = isStaff ? 1 : ((body.quiz === true || body.quiz === 1) ? 1 : 0);
@@ -343,9 +377,9 @@ export async function onRequest(context) {
         if (!questions.length) return jsonErr('질문을 하나 이상 추가해 주세요.');
         const now = nowIso();
         const res = await env.DB.prepare(
-          'INSERT INTO surveys (title, description, audience, anonymous, quiz, status, questions, created_at, updated_at) ' +
-          'VALUES (?,?,?,?,?,?,?,?,?)'
-        ).bind(title, description, audience, anonymous, quiz, status, JSON.stringify(questions), now, now).run();
+          'INSERT INTO surveys (title, description, audience, aud_academy, aud_class, anonymous, quiz, status, questions, created_at, updated_at) ' +
+          'VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+        ).bind(title, description, audience, JSON.stringify(audAcademy), JSON.stringify(audClass), anonymous, quiz, status, JSON.stringify(questions), now, now).run();
         return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id });
       }
 
@@ -365,6 +399,8 @@ export async function onRequest(context) {
         }
         if (body.description !== undefined) { sets.push('description=?'); vals.push(clean(body.description, MAX_DESC)); }
         if (body.audience !== undefined) { sets.push('audience=?'); vals.push(AUDIENCES.has(body.audience) ? body.audience : 'all'); }
+        if (body.audAcademy !== undefined) { sets.push('aud_academy=?'); vals.push(JSON.stringify(cleanList(body.audAcademy))); }
+        if (body.audClass !== undefined) { sets.push('aud_class=?'); vals.push(JSON.stringify(cleanList(body.audClass))); }
         if (body.anonymous !== undefined) { sets.push('anonymous=?'); vals.push((body.anonymous === true || body.anonymous === 1) ? 1 : 0); }
         // 조교는 퀴즈 해제 불가(quiz=0 전환 차단). 원장만 quiz 토글 가능.
         if (body.quiz !== undefined && !isStaff) { sets.push('quiz=?'); vals.push((body.quiz === true || body.quiz === 1) ? 1 : 0); }
@@ -413,7 +449,7 @@ export async function onRequest(context) {
       const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
       if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
       if (s.status !== 'open') return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
-      if (!audienceMatches(s.audience, roles)) return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
+      if (!audienceMatchesStudents(s, access.students)) return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
 
       // 중복 응답 차단 — 휴대폰 1개당 설문 1회
       const dup = await env.DB.prepare(
@@ -461,7 +497,7 @@ export async function onRequest(context) {
       const { results } = await env.DB.prepare(
         "SELECT * FROM surveys WHERE status='open' ORDER BY id DESC"
       ).all();
-      const rows = (results || []).filter(r => audienceMatches(r.audience, roles));
+      const rows = (results || []).filter(r => audienceMatchesStudents(r, access.students));
       // 이미 응답한 설문 표시
       let answered = new Set();
       if (rows.length) {
@@ -492,7 +528,7 @@ export async function onRequest(context) {
       const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
       if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
       if (s.status !== 'open') return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
-      if (!audienceMatches(s.audience, roles)) return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
+      if (!audienceMatchesStudents(s, access.students)) return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
       const dup = await env.DB.prepare(
         'SELECT id FROM survey_responses WHERE survey_id=? AND respondent_phone=?'
       ).bind(id, access.phone).first();
