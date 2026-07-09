@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>리포트·테스트 확인 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ok:#1F7A33; --ok-light:#E5F5E8; --warn:#B07A00; --warn-light:#FFF7E0; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:4px; }
+  h1{ font-size:1.3rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.82rem; margin-bottom:14px; }
+  .back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; }
+  .nav{ display:flex; gap:8px; margin-bottom:13px; flex-wrap:wrap; }
+  .nav a{ flex:1; min-width:110px; text-align:center; text-decoration:none; background:#fff; border:1.5px solid var(--border); border-radius:10px; padding:9px 10px; font-weight:700; font-size:0.82rem; color:var(--ink); }
+  .nav a.cur{ border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
+  .bar{ display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+  .bar input[type=date]{ padding:8px 10px; border:1.5px solid var(--border); border-radius:9px; font-size:0.88rem; font-family:inherit; outline:none; background:#fff; }
+  .bar input[type=date]:focus{ border-color:var(--primary); }
+  .search{ flex:1; min-width:140px; padding:8px 12px; border:1.5px solid var(--border); border-radius:9px; font-size:0.9rem; font-family:inherit; outline:none; }
+  .search:focus{ border-color:var(--primary); }
+  .sumbox{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:12px 15px; margin-bottom:12px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .sumbox .s{ font-size:0.86rem; font-weight:700; } .sumbox .s b{ color:var(--primary); }
+  .copybtn{ margin-left:auto; background:var(--primary); color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:0.8rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .copybtn:hover{ opacity:0.92; }
+  .hint{ font-size:0.74rem; color:var(--muted); width:100%; }
+  .clshead{ font-weight:800; font-size:0.95rem; margin:16px 2px 8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .clshead .cnt{ font-size:0.74rem; font-weight:700; color:var(--muted); }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:12px 15px; margin-bottom:8px; }
+  .row{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .nm{ font-weight:800; font-size:0.96rem; }
+  .meta{ font-size:0.74rem; color:var(--muted); }
+  .badge{ display:inline-block; font-size:0.72rem; font-weight:700; padding:3px 10px; border-radius:10px; white-space:nowrap; }
+  .b-ok{ background:var(--ok-light); color:var(--ok); }
+  .b-no{ background:var(--warn-light); color:var(--warn); }
+  .b-none{ background:#F2EDEE; color:#999; }
+  button.mini{ margin-left:auto; background:#fff; color:var(--muted); border:1px solid var(--border); border-radius:7px; padding:5px 11px; font-size:0.76rem; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  button.mini:hover{ border-color:var(--primary); color:var(--primary); }
+  .detail{ display:none; margin-top:10px; border-top:1px dashed var(--border); padding-top:10px; }
+  .detail.show{ display:block; }
+  .rep{ background:var(--bg); border-radius:9px; padding:10px 12px; margin-bottom:7px; font-size:0.83rem; }
+  .rep .rd{ font-weight:800; color:var(--primary); font-size:0.8rem; margin-bottom:4px; }
+  .rep .rk{ color:var(--muted); font-size:0.72rem; display:block; margin-top:6px; }
+  .rep .rv{ white-space:pre-wrap; line-height:1.55; }
+  .file{ display:flex; align-items:center; gap:8px; font-size:0.82rem; padding:6px 2px; }
+  .file a{ color:var(--primary); font-weight:700; text-decoration:none; cursor:pointer; }
+  .file .fm{ color:var(--muted); font-size:0.72rem; }
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
+  .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
+  .toast.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>📋 리포트·테스트 확인</h1><div class="sub">선택한 날짜에 수업 리포트·테스트 결과가 올라왔는지 확인해요 · 안 올라온 학생은 원장님께 보고</div></div>
+    <button class="back" onclick="logout()">로그아웃</button>
+  </div>
+  <div class="nav">
+    <a href="/admin-qna">💬 질문 답변</a>
+    <a href="/staff-students">🎓 학생</a>
+    <a href="/staff-scores">📈 성적</a>
+    <a href="/staff-reports" class="cur">📋 리포트</a>
+    <a href="/admin-surveys">📝 퀴즈</a>
+    <a href="/staff-worklog">🗓️ 근무기록</a>
+  </div>
+  <div class="bar">
+    <input type="date" id="dateSel" onchange="render()">
+    <input class="search" id="search" placeholder="이름·반 검색" oninput="render()">
+  </div>
+  <div class="sumbox" id="sumbox" style="display:none;">
+    <div class="s" id="sumRep"></div>
+    <div class="s" id="sumTest"></div>
+    <button class="copybtn" onclick="copyReport()">📤 보고 문구 복사</button>
+    <div class="hint">💡 이 날짜에 수업이 없던 반은 복사한 문구에서 지우고 원장님께 보내세요.</div>
+  </div>
+  <div id="content"><div class="msg">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  if (!token) location.href = '/portal';
+  var students = [], reportsByName = {}, filesByName = {}, filesLoaded = false;
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
+  function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function localYmd(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return ''; return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function mdLabel(ymd){ if(!ymd) return ''; var p=ymd.split('-'); return p.length===3 ? (Number(p[1])+'/'+Number(p[2])) : ymd; }
+
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401){ logout(); throw new Error('401'); }
+    return r;
+  }
+
+  async function loadAll(){
+    $('dateSel').value = todayStr();
+    try {
+      var rs = await api('/api/students');
+      var all = await rs.json();
+      if (!rs.ok) throw new Error(all.error || '학생 목록 실패');
+      students = (Array.isArray(all) ? all : []).filter(function(s){
+        return s.approvalStatus !== '대기중' && s.approvalStatus !== '거부';
+      });
+      var rr = await api('/api/reports');
+      var rd = await rr.json();
+      if (!rr.ok) throw new Error(rd.error || '리포트 실패');
+      reportsByName = {};
+      (rd.reports || []).forEach(function(r){
+        if (!reportsByName[r.studentName]) reportsByName[r.studentName] = [];
+        reportsByName[r.studentName].push(r);
+      });
+      render();
+      loadFiles();   // 테스트 결과 파일은 뒤에서 채움 (학생 수만큼 조회)
+    } catch(e) {
+      $('content').innerHTML = '<div class="msg">불러오지 못했어요: '+esc(e.message)+'</div>';
+    }
+  }
+
+  async function loadFiles(){
+    var names = students.map(function(s){ return s.name; }).filter(Boolean);
+    var i = 0;
+    async function worker(){
+      while (i < names.length) {
+        var name = names[i++];
+        try {
+          var r = await api('/api/list-files?folder=' + encodeURIComponent('test-results/' + name));
+          var d = await r.json();
+          filesByName[name] = (r.ok && Array.isArray(d)) ? d : [];
+        } catch(e) { filesByName[name] = []; }
+      }
+    }
+    var workers = []; for (var w = 0; w < 5; w++) workers.push(worker());
+    await Promise.all(workers);
+    filesLoaded = true;
+    render();
+  }
+
+  function stat(s, day){
+    var reps = reportsByName[s.name] || [];
+    var repToday = reps.filter(function(r){ return (r.date||'').slice(0,10) === day; });
+    var lastRep = reps.length ? (reps[0].date||'').slice(0,10) : '';
+    var files = filesByName[s.name] || [];
+    var fToday = files.filter(function(f){ return localYmd(f.lastModified) === day; });
+    var lastFile = '';
+    files.forEach(function(f){ var d = localYmd(f.lastModified); if (d > lastFile) lastFile = d; });
+    return { repToday:repToday, lastRep:lastRep, fToday:fToday, lastFile:lastFile, reps:reps, files:files };
+  }
+
+  function render(){
+    var day = $('dateSel').value || todayStr();
+    var q = ($('search').value || '').trim();
+    var list = students.filter(function(s){ return !q || (s.name||'').indexOf(q)>=0 || (s.className||'').indexOf(q)>=0; });
+    if (!students.length){ $('content').innerHTML = '<div class="msg">담당 학원에 학생이 없어요.</div>'; return; }
+
+    var byCls = {};
+    list.forEach(function(s){ var c = s.className || '반 미지정'; (byCls[c] = byCls[c] || []).push(s); });
+
+    var repOk = 0, testOk = 0;
+    students.forEach(function(s){ var t = stat(s, day); if (t.repToday.length) repOk++; if (t.fToday.length) testOk++; });
+    $('sumbox').style.display = 'flex';
+    $('sumRep').innerHTML = '📋 리포트 <b>' + repOk + '</b>/' + students.length + '명';
+    $('sumTest').innerHTML = '📊 테스트 결과 ' + (filesLoaded ? ('<b>' + testOk + '</b>/' + students.length + '명') : '확인 중…');
+
+    var html = '';
+    Object.keys(byCls).sort().forEach(function(cls){
+      var arr = byCls[cls];
+      var cRep = 0, cTest = 0;
+      arr.forEach(function(s){ var t = stat(s, day); if (t.repToday.length) cRep++; if (t.fToday.length) cTest++; });
+      html += '<div class="clshead">' + esc(cls) + ' <span class="cnt">리포트 ' + cRep + '/' + arr.length + (filesLoaded ? ' · 테스트 ' + cTest + '/' + arr.length : '') + '</span></div>';
+      arr.forEach(function(s){
+        var t = stat(s, day);
+        var repBadge = t.repToday.length
+          ? '<span class="badge b-ok">📋 리포트 ✓</span>'
+          : (t.lastRep ? '<span class="badge b-no">📋 리포트 없음 · 최근 ' + mdLabel(t.lastRep) + '</span>' : '<span class="badge b-none">📋 리포트 기록 없음</span>');
+        var testBadge = !filesLoaded
+          ? '<span class="badge b-none">📊 확인 중…</span>'
+          : (t.fToday.length
+            ? '<span class="badge b-ok">📊 테스트 ✓ ' + t.fToday.length + '개</span>'
+            : (t.lastFile ? '<span class="badge b-no">📊 테스트 없음 · 최근 ' + mdLabel(t.lastFile) + '</span>' : '<span class="badge b-none">📊 테스트 기록 없음</span>'));
+        html += '<div class="card">' +
+          '<div class="row"><span class="nm">' + esc(s.name) + '</span>' + repBadge + testBadge +
+          '<button class="mini" onclick="toggleDetail(this,\'' + esc(s.name).replace(/'/g,'&#39;') + '\')">내용 보기</button></div>' +
+          '<div class="detail" data-name="' + esc(s.name) + '"></div>' +
+        '</div>';
+      });
+    });
+    $('content').innerHTML = html || '<div class="msg">검색 결과가 없어요.</div>';
+  }
+
+  function toggleDetail(btn, name){
+    var box = btn.parentNode.parentNode.querySelector('.detail');
+    if (box.classList.contains('show')){ box.classList.remove('show'); btn.textContent = '내용 보기'; return; }
+    var reps = (reportsByName[name] || []).slice(0, 5);
+    var files = (filesByName[name] || []).slice().sort(function(a,b){ return new Date(b.lastModified) - new Date(a.lastModified); }).slice(0, 5);
+    var h = '';
+    if (reps.length){
+      h += reps.map(function(r){
+        return '<div class="rep"><div class="rd">📋 ' + esc((r.date||'').slice(0,10)) + ' 수업 리포트</div>' +
+          (r.content ? '<span class="rk">수업 내용</span><div class="rv">' + esc(r.content) + '</div>' : '') +
+          (r.homework ? '<span class="rk">숙제</span><div class="rv">' + esc(r.homework) + '</div>' : '') +
+          (r.notes ? '<span class="rk">메모</span><div class="rv">' + esc(r.notes) + '</div>' : '') +
+        '</div>';
+      }).join('');
+    } else { h += '<div class="rep">아직 수업 리포트가 없어요.</div>'; }
+    if (files.length){
+      h += files.map(function(f, idx){
+        return '<div class="file">📊 <a onclick="openFile(\'' + esc(f.key).replace(/'/g,'&#39;') + '\')">' + esc(f.displayName) + '</a><span class="fm">' + mdLabel(localYmd(f.lastModified)) + ' · ' + esc(f.sizeLabel||'') + '</span></div>';
+      }).join('');
+    }
+    box.innerHTML = h;
+    box.classList.add('show');
+    btn.textContent = '접기';
+  }
+
+  async function openFile(key){
+    try {
+      showToast('파일 여는 중…');
+      var r = await api('/api/download-file?key=' + encodeURIComponent(key));
+      if (!r.ok) { showToast('파일을 열 수 없어요'); return; }
+      var blob = await r.blob();
+      window.open(URL.createObjectURL(blob), '_blank');
+    } catch(e) { showToast('파일을 열 수 없어요'); }
+  }
+
+  function copyReport(){
+    var day = $('dateSel').value || todayStr();
+    var noRep = [], noTest = [];
+    var byCls = {};
+    students.forEach(function(s){ var c = s.className || '반 미지정'; (byCls[c] = byCls[c] || []).push(s); });
+    Object.keys(byCls).sort().forEach(function(cls){
+      var a = [], b = [];
+      byCls[cls].forEach(function(s){
+        var t = stat(s, day);
+        if (!t.repToday.length) a.push(s.name);
+        if (filesLoaded && !t.fToday.length) b.push(s.name);
+      });
+      if (a.length) noRep.push(cls + ': ' + a.join(', '));
+      if (b.length) noTest.push(cls + ': ' + b.join(', '));
+    });
+    var msg = '[' + mdLabel(day) + ' 업로드 확인]\n';
+    msg += noRep.length ? ('📋 리포트 안 올라온 학생\n- ' + noRep.join('\n- ') + '\n') : '📋 리포트: 전원 업로드 완료 ✓\n';
+    if (filesLoaded) msg += noTest.length ? ('📊 테스트 결과 안 올라온 학생\n- ' + noTest.join('\n- ')) : '📊 테스트 결과: 전원 업로드 완료 ✓';
+    msg += '\n(수업 없던 반은 지우고 보냅니다)';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(msg).then(function(){ showToast('복사됐어요 — 원장님께 붙여넣어 보내세요'); }, function(){ showToast('복사 실패'); });
+    } else { showToast('복사를 지원하지 않는 브라우저예요'); }
+  }
+
+  loadAll();
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@
 
 import { requireStudentAccess } from './_auth.js';
 import { getReportsForStudent, listStudents } from './_db.js';
+import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 
 export async function onRequest({ request, env }) {
@@ -39,12 +40,21 @@ export async function onRequest({ request, env }) {
     let reports = await getReportsForStudent(env, opts);
     reports = reports.map(r => ({ ...r, id: r.id == null ? '' : String(r.id) }));
 
-    // admin 전체 조회 — D1 학생 명단으로 학원/반 채움
-    if (isAdmin && !targetName && reports.length) {
+    // admin/조교 조회 — D1 학생 명단으로 학원/반 채움 + 조교는 담당 학원 학생 리포트만
+    //   staffAcademy: null=원장(스코프 없음) / ''=미배정 조교(빈 결과) / '학원명'=그 학원만
+    const staffAcademy = isAdmin ? await staffScopeAcademy(env, request) : null;
+    if (isAdmin && reports.length && (staffAcademy !== null || !targetName)) {
       const nameToClass = {};
       const students = await listStudents(env);
       for (const s of students) {
         if (s.name) nameToClass[s.name] = { school: s.academy || '', class_name: s.className || '' };
+      }
+      if (staffAcademy !== null) {
+        reports = staffAcademy
+          ? reports.filter(r => (nameToClass[r.studentName] || {}).school === staffAcademy)
+          : [];
+        // 조교에겐 학부모 연락 단서(전화 뒷4자리) 제거 — staff-students의 연락처 가림과 동일 원칙
+        reports = reports.map(({ phone4, ...rest }) => rest);
       }
       reports = reports.map(r => {
         const info = nameToClass[r.studentName] || {};
