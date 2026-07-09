@@ -40,7 +40,7 @@ const MAX_LABEL = 300;
 const MAX_OPTION = 200;
 const MAX_ANSWER = 3000;
 const MAX_NAME = 60;
-const MAX_POINTS = 1000;
+// (MAX_POINTS 폐지 — 배점은 sanitizeQuestions가 총 100점으로 자동 배분)
 
 const AUDIENCES = new Set(['all', 'student', 'parent']);
 const STATUSES = new Set(['draft', 'open', 'closed']);
@@ -81,6 +81,8 @@ async function ensureTables(env) {
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN quiz INTEGER NOT NULL DEFAULT 0').run(); } catch (_) {}
   try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN score INTEGER').run(); } catch (_) {}
   try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN max_score INTEGER').run(); } catch (_) {}
+  // 장문형 수동채점(O·X) 결과 — { qid: 1|0 } JSON. O=배점 합산, X=0점. (2026-07-09)
+  try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN manual TEXT').run(); } catch (_) {}
   // 학원별·반별 대상 지정(선택) — JSON 배열 문자열로 저장. 비어있으면 전체 학원·반.
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_academy TEXT').run(); } catch (_) {}
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_class TEXT').run(); } catch (_) {}
@@ -90,7 +92,8 @@ async function ensureTables(env) {
 function nowIso() { return new Date().toISOString(); }
 
 // ── 질문 정의 살균 — 관리자가 만든 questions[] 를 안전한 형태로 정규화 ──
-function sanitizeQuestions(raw) {
+//   quiz=true면 배점을 자동 배분(수동 배점 폐지 — 2026-07-09 관우T 지시).
+function sanitizeQuestions(raw, quiz) {
   if (!Array.isArray(raw)) return [];
   const out = [];
   raw.slice(0, MAX_QUESTIONS).forEach((q, i) => {
@@ -119,9 +122,10 @@ function sanitizeQuestions(raw) {
       item.scaleMinLabel = clean(q.scaleMinLabel, 40);
       item.scaleMaxLabel = clean(q.scaleMaxLabel, 40);
     }
-    // ── 퀴즈: 정답·배점(있을 때만 저장) ──
+    // ── 퀴즈: 정답(있을 때만 저장) ──
     //   single/dropdown = 정답 1개(선택지 중), multi = 정답 여러개(선택지 부분집합),
-    //   short = 정답 텍스트(대소문자·공백 무시 비교). scale/long은 채점 대상 아님.
+    //   short = 정답 텍스트(대소문자·공백 무시 비교).
+    //   scale은 채점 제외. long(장문형)은 정답 없이 배점만 받아 제출 후 수동 O·X 채점.
     if (type === 'single' || type === 'dropdown') {
       const c = clean(q.correct, MAX_OPTION);
       if (c && item.options.includes(c)) item.correct = c;
@@ -134,13 +138,28 @@ function sanitizeQuestions(raw) {
       const c = clean(q.correct, MAX_ANSWER);
       if (c) item.correct = c;
     }
-    if (item.correct !== undefined) {
-      let p = parseInt(q.points, 10);
-      if (!Number.isFinite(p) || p < 0) p = 1;
-      item.points = Math.min(MAX_POINTS, p);
-    }
     out.push(item);
   });
+  // ── 퀴즈 자동 배점 — 총 100점을 채점 문항에 배분. 장문형=가중치 2배, 나머지=1. ──
+  //   예) 단답 4 + 장문 3 → 단위 4+3×2=10 → 단답 10점 · 장문 20점.
+  //   정수 배분(큰 나머지 우선)이라 합계는 항상 정확히 100점.
+  if (quiz) {
+    const idxs = [], weights = [];
+    out.forEach((item, i) => {
+      if (item.type === 'long') { idxs.push(i); weights.push(2); }
+      else if (item.correct !== undefined) { idxs.push(i); weights.push(1); }
+    });
+    const units = weights.reduce((a, b) => a + b, 0);
+    if (units > 0) {
+      const raw100 = weights.map(w => w * 100 / units);
+      const base = raw100.map(Math.floor);
+      let left = 100 - base.reduce((a, b) => a + b, 0);
+      raw100.map((v, i) => ({ i, frac: v - Math.floor(v) }))
+        .sort((a, b) => b.frac - a.frac || a.i - b.i)
+        .forEach(o => { if (left > 0) { base[o.i]++; left--; } });
+      idxs.forEach((qi, k) => { out[qi].points = base[k]; });
+    }
+  }
   return out;
 }
 
@@ -197,11 +216,20 @@ function normText(s) {
 
 // ── 자동 채점 ──
 //   반환: { score, maxScore, detail:{ qid:{ correct:bool, answer(정답), points } } }
-//   correct가 정의된 문항만 채점 대상(maxScore에 합산).
+//   correct가 정의된 문항 = 자동 채점(maxScore에 합산).
+//   long(장문형) + 배점 有 = 채점 대상이지만 제출 시점엔 미채점(pending, 0점) —
+//     조교/원장이 결과 화면에서 O·X 판정하면 점수에 합산(PATCH ?grade=1).
+//     배점 없는 옛 장문형(자동배점 도입 전 퀴즈)은 기존대로 채점 제외.
 function gradeAnswers(questions, answers) {
   let score = 0, maxScore = 0;
   const detail = {};
   for (const q of questions) {
+    if (q.type === 'long') {
+      if (!Number.isFinite(q.points)) continue;
+      maxScore += q.points;
+      detail[q.id] = { pending: true, points: q.points };
+      continue;
+    }
     if (q.correct === undefined || q.correct === null) continue;
     const pts = Number.isFinite(q.points) ? q.points : 1;
     maxScore += pts;
@@ -245,6 +273,8 @@ function surveyOut(r, responseCount) {
 function responseOut(r, anonymous) {
   let answers = {};
   try { answers = JSON.parse(r.answers || '{}'); } catch (_) {}
+  let manual = null;
+  try { manual = r.manual ? JSON.parse(r.manual) : null; } catch (_) {}
   return {
     id: r.id,
     respondentName: anonymous ? '' : (r.respondent_name || ''),
@@ -252,6 +282,7 @@ function responseOut(r, anonymous) {
     answers,
     score: (r.score == null ? undefined : r.score),
     maxScore: (r.max_score == null ? undefined : r.max_score),
+    manual: manual || undefined,   // 장문형 O·X 판정 { qid: 1|0 }
     createdAt: r.created_at || '',
   };
 }
@@ -373,7 +404,7 @@ export async function onRequest(context) {
         // 조교는 퀴즈만 생성 가능 — quiz=1 강제
         const quiz = isStaff ? 1 : ((body.quiz === true || body.quiz === 1) ? 1 : 0);
         const status = STATUSES.has(body.status) ? body.status : 'draft';
-        const questions = sanitizeQuestions(body.questions);
+        const questions = sanitizeQuestions(body.questions, quiz === 1);
         if (!questions.length) return jsonErr('질문을 하나 이상 추가해 주세요.');
         const now = nowIso();
         const res = await env.DB.prepare(
@@ -381,6 +412,48 @@ export async function onRequest(context) {
           'VALUES (?,?,?,?,?,?,?,?,?,?,?)'
         ).bind(title, description, audience, JSON.stringify(audAcademy), JSON.stringify(audClass), anonymous, quiz, status, JSON.stringify(questions), now, now).run();
         return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id });
+      }
+
+      // ── PATCH ?grade=1 (장문형 수동 채점 O·X) — 원장 + 조교(퀴즈) ──
+      //   body { responseId, marks:{ qid: true|false|null } } — null이면 판정 취소.
+      //   점수 재계산 = 자동채점 점수 + (O 판정된 장문형 배점 합). 결과를 응답 row에 저장.
+      if (method === 'PATCH' && url.searchParams.get('grade') === '1') {
+        const id = url.searchParams.get('id');
+        if (!id) return jsonErr('id가 필요합니다.');
+        const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
+        if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
+        if (s.quiz !== 1) return jsonErr('퀴즈가 아닌 설문은 채점할 수 없어요.');
+        const body = await request.json().catch(() => ({}));
+        const rid = parseInt(body.responseId, 10);
+        if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
+        const resp = await env.DB.prepare(
+          'SELECT * FROM survey_responses WHERE id=? AND survey_id=?'
+        ).bind(rid, id).first();
+        if (!resp) return jsonErr('응답을 찾을 수 없습니다.', 404);
+        const questions = parseQuestions(s.questions);
+        const longIds = new Set(
+          questions.filter(q => q.type === 'long' && Number.isFinite(q.points)).map(q => q.id)
+        );
+        let manual = {};
+        try { manual = JSON.parse(resp.manual || '{}') || {}; } catch (_) {}
+        const marks = (body.marks && typeof body.marks === 'object') ? body.marks : {};
+        for (const qid of Object.keys(marks)) {
+          if (!longIds.has(qid)) continue;   // 배점 있는 장문형 문항만 판정 가능
+          const v = marks[qid];
+          if (v === null || v === undefined || v === '') delete manual[qid];
+          else manual[qid] = (v === true || v === 1) ? 1 : 0;
+        }
+        let answers = {};
+        try { answers = JSON.parse(resp.answers || '{}'); } catch (_) {}
+        const graded = gradeAnswers(questions, answers);   // 장문형은 pending(0점)으로 계산됨
+        let manualScore = 0;
+        for (const q of questions) {
+          if (q.type === 'long' && manual[q.id] === 1 && Number.isFinite(q.points)) manualScore += q.points;
+        }
+        const score = graded.score + manualScore;
+        await env.DB.prepare('UPDATE survey_responses SET score=?, max_score=?, manual=? WHERE id=?')
+          .bind(score, graded.maxScore, JSON.stringify(manual), rid).run();
+        return jsonOk({ ok: true, responseId: rid, score, maxScore: graded.maxScore, manual });
       }
 
       // ── PATCH (설문 수정) ──
@@ -406,7 +479,10 @@ export async function onRequest(context) {
         if (body.quiz !== undefined && !isStaff) { sets.push('quiz=?'); vals.push((body.quiz === true || body.quiz === 1) ? 1 : 0); }
         if (body.status !== undefined) { sets.push('status=?'); vals.push(STATUSES.has(body.status) ? body.status : 'draft'); }
         if (body.questions !== undefined) {
-          const qs = sanitizeQuestions(body.questions);
+          // 자동 배점은 퀴즈에만 — 이번 요청 반영 후의 quiz 상태 기준
+          const effQuiz = isStaff ? true
+            : (body.quiz !== undefined ? (body.quiz === true || body.quiz === 1) : ex.quiz === 1);
+          const qs = sanitizeQuestions(body.questions, effQuiz);
           if (!qs.length) return jsonErr('질문을 하나 이상 추가해 주세요.');
           sets.push('questions=?'); vals.push(JSON.stringify(qs));
         }

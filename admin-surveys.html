@@ -340,8 +340,41 @@
   function updateQuizHint(){
     var el = document.getElementById('quizHint'); if(!el) return;
     el.textContent = draft.quiz
-      ? '각 문항에서 정답(✔)과 배점을 정해 주세요. 객관식·드롭다운·단답만 자동 채점돼요(척도·장문은 채점 제외).'
+      ? '정답(✔)만 표시하세요 — 배점은 자동 배분돼요(총 100점, 장문형은 다른 문항의 2배). 장문형은 결과 화면에서 O·X 채점하면 점수에 합산. (척도는 채점 제외)'
       : '';
+  }
+  // 자동 배점 계산 — 서버(sanitizeQuestions)와 동일 규칙: 총 100점, 장문형 가중 2배, 큰 나머지 우선 정수 배분
+  function calcAutoPoints(){
+    var idxs=[], ws=[];
+    draft.questions.forEach(function(q,i){
+      if(q.type==='long'){ idxs.push(i); ws.push(2); return; }
+      var has = false;
+      if(q.type==='single'||q.type==='dropdown') has = (typeof q._ci==='number' && q._ci>=0);
+      else if(q.type==='multi') has = !!(q._cis && q._cis.length);
+      else if(q.type==='short') has = !!((q._ct||'').trim());
+      if(has){ idxs.push(i); ws.push(1); }
+    });
+    var units = ws.reduce(function(a,b){ return a+b; }, 0);
+    var map = {};
+    if(!units) return map;
+    var raw = ws.map(function(w){ return w*100/units; });
+    var base = raw.map(Math.floor);
+    var left = 100 - base.reduce(function(a,b){ return a+b; }, 0);
+    raw.map(function(v,i){ return { i:i, f:v-Math.floor(v) }; })
+       .sort(function(a,b){ return b.f-a.f || a.i-b.i; })
+       .forEach(function(o){ if(left>0){ base[o.i]++; left--; } });
+    idxs.forEach(function(qi,k){ map[qi] = base[k]; });
+    return map;
+  }
+  function refreshAutoPoints(){
+    if(!draft || !draft.quiz) return;
+    var map = calcAutoPoints();
+    document.querySelectorAll('.autoPts').forEach(function(el){
+      var i = parseInt(el.dataset.qi,10); var q = draft.questions[i]; if(!q) return;
+      if(map[i]===undefined){ el.textContent = '정답(✔)을 표시하면 배점이 자동으로 매겨져요'; return; }
+      el.innerHTML = '배점 <b>' + map[i] + '점</b> (자동 배분)'
+        + (q.type==='long' ? ' · 2배 가중 — 제출 후 결과 화면에서 O·X 채점' : '');
+    });
   }
   // 편집 로드 시 저장된 정답/배점 → 빌더 내부상태(_ci/_cis/_ct/_pts)로 복원
   function ensureQuizState(q){
@@ -356,7 +389,7 @@
     } else if(q.type==='short'){
       if(q._ct===undefined) q._ct = (typeof q.correct==='string') ? q.correct : '';
     }
-    if(q._pts===undefined) q._pts = (typeof q.points==='number' && isFinite(q.points)) ? q.points : 1;
+    // (배점 상태 _pts 폐지 — 배점은 자동 배분)
   }
 
   function renderQuestions(){
@@ -381,15 +414,14 @@
       // 선택지 / 척도 영역
       var extra = document.createElement('div');
 
-      // 퀴즈: 배점 입력 (채점 대상 문항만)
-      if(draft.quiz && gradable){
-        var pr = document.createElement('div'); pr.className = 'ptsWrap'; pr.style.margin = '2px 0 6px';
-        pr.innerHTML = '배점 <input type="text" class="ptsIn" inputmode="numeric" value="' + esc(q._pts) + '"> 점';
-        pr.querySelector('input').addEventListener('input', function(e){ q._pts = e.target.value; });
+      // 퀴즈: 자동 배점 표시 (수동 입력 폐지 — 총 100점, 장문형 2배 가중)
+      if(draft.quiz && (gradable || q.type==='long')){
+        var pr = document.createElement('div'); pr.className = 'qhint'; pr.style.margin = '2px 0 6px';
+        pr.innerHTML = '<span class="autoPts" data-qi="' + idx + '"></span>';
         extra.appendChild(pr);
-      } else if(draft.quiz && (q.type==='scale'||q.type==='long')){
+      } else if(draft.quiz && q.type==='scale'){
         var nn = document.createElement('div'); nn.className = 'qhint'; nn.style.marginBottom = '6px';
-        nn.textContent = '(이 문항 유형은 자동 채점 대상이 아니에요)';
+        nn.textContent = '(척도 문항은 채점 대상이 아니에요)';
         extra.appendChild(nn);
       }
 
@@ -436,7 +468,7 @@
       } else if(draft.quiz && q.type==='short'){
         var cr = document.createElement('div'); cr.className = 'qcorrect';
         cr.innerHTML = '<input type="text" placeholder="정답 (대소문자·공백 무시하고 채점)" value="' + esc(q._ct||'') + '">';
-        cr.querySelector('input').addEventListener('input', function(e){ q._ct = e.target.value; });
+        cr.querySelector('input').addEventListener('input', function(e){ q._ct = e.target.value; refreshAutoPoints(); });
         extra.appendChild(cr);
       }
       if(q.type==='scale'){
@@ -477,6 +509,7 @@
 
       qwrap.appendChild(qc);
     });
+    refreshAutoPoints();
   }
 
   function syncFromForm(){
@@ -503,18 +536,17 @@
       var o = { id:q.id, type:q.type, label:(q.label||'').trim(), required:!!q.required };
       if(q.type==='single'||q.type==='multi'||q.type==='dropdown') o.options = (q.options||[]).map(function(x){return (x||'').trim();}).filter(Boolean);
       if(q.type==='scale'){ o.scaleMin=parseInt(q.scaleMin,10)||1; o.scaleMax=parseInt(q.scaleMax,10)||5; o.scaleMinLabel=(q.scaleMinLabel||'').trim(); o.scaleMaxLabel=(q.scaleMaxLabel||'').trim(); }
-      // 퀴즈: 정답·배점 실어보내기 (채점 대상 문항만)
+      // 퀴즈: 정답만 실어보내기 — 배점은 서버가 자동 배분(총 100점, 장문형 2배)
       if(draft.quiz){
-        var pts = parseInt(q._pts,10); if(!isFinite(pts) || pts<0) pts = 1;
         if(q.type==='single'||q.type==='dropdown'){
           var c = (typeof q._ci==='number' && q._ci>=0 && q.options) ? (q.options[q._ci]||'').trim() : '';
-          if(c){ o.correct = c; o.points = pts; }
+          if(c) o.correct = c;
         } else if(q.type==='multi'){
           var cs = (q._cis||[]).map(function(i){ return (q.options[i]||'').trim(); }).filter(Boolean);
-          if(cs.length){ o.correct = cs; o.points = pts; }
+          if(cs.length) o.correct = cs;
         } else if(q.type==='short'){
           var ct = (q._ct||'').trim();
-          if(ct){ o.correct = ct; o.points = pts; }
+          if(ct) o.correct = ct;
         }
       }
       return o;
@@ -571,14 +603,26 @@
       viewEl.appendChild(e); return;
     }
 
+    // 장문형(배점 있는) 문항 — 수동 O·X 채점 대상
+    var longQs = survey.quiz ? qs.filter(function(q){ return q.type==='long' && q.points!=null; }) : [];
+    function pendingCount(r){
+      var n = 0;
+      longQs.forEach(function(q){ var m = r.manual || {}; if(m[q.id]!==0 && m[q.id]!==1) n++; });
+      return n;
+    }
+
     // 퀴즈: 응답자별 점수 목록 (익명이면 순번만)
     if(survey.quiz){
       var sc = document.createElement('div'); sc.className = 'qres';
       var sch = '<h4>응답자별 점수</h4>';
+      if(longQs.length) sch += '<div class="sub" style="margin:-4px 0 6px;">서술형 ' + longQs.length + '문항은 아래에서 O·X를 누르면 점수에 합산돼요.</div>';
       responses.forEach(function(r, i){
         var who = survey.anonymous ? ('응답 ' + (i+1)) : (esc(r.respondentName) || ('응답 ' + (i+1)));
+        var pd = longQs.length ? pendingCount(r) : 0;
         var sTxt = (typeof r.score==='number') ? (r.score + (typeof r.maxScore==='number'?(' / ' + r.maxScore):'') + '점') : '-';
-        sch += '<div class="scoreItem"><span>' + who + '</span><span><b>' + sTxt + '</b></span></div>';
+        sch += '<div class="scoreItem"><span>' + who
+          + (pd ? ' <span style="font-size:0.76rem;color:#B26A00;font-weight:700;">서술 채점 전 ' + pd + '</span>' : '')
+          + '</span><span><b>' + sTxt + '</b></span></div>';
       });
       sc.innerHTML = sch;
       viewEl.appendChild(sc);
@@ -635,6 +679,27 @@
           }
         });
         if(!anyS) h += '<div class="sub">응답 없음</div>';
+      } else if(survey.quiz && q.type==='long' && q.points!=null){
+        // 서술형 수동 채점 — O를 누르면 배점 합산, X는 0점, 같은 버튼 다시 누르면 판정 취소
+        h += '<div class="rsummary">서술형 · 배점 <b>' + q.points + '점</b> — 답안을 읽고 O·X를 눌러 주세요 (O=합산, X=0점)</div>';
+        var anyL = false;
+        responses.forEach(function(r, ri){
+          var a = r.answers[q.id];
+          if(!(a && String(a).trim())) return;
+          anyL = true;
+          var who = survey.anonymous ? ('응답 ' + (ri+1)) : (r.respondentName || '(이름없음)');
+          var m = (r.manual||{})[q.id];
+          var bBase = 'border:1px solid var(--line);border-radius:8px;padding:4px 13px;cursor:pointer;font-weight:800;margin-left:5px;background:#fff;color:var(--muted);';
+          var bO = bBase + (m===1 ? 'background:#E6F4EA;color:#137333;border-color:#137333;' : '');
+          var bX = bBase + (m===0 ? 'background:#FCE8E6;color:#C5221F;border-color:#C5221F;' : '');
+          h += '<div class="textans" style="display:flex;align-items:flex-start;gap:8px;">'
+            + '<span style="flex:1;"><span class="who">' + esc(who) + '</span>' + esc(a) + '</span>'
+            + '<span style="white-space:nowrap;">'
+            + '<button class="oxbtn" data-rid="' + r.id + '" data-qid="' + escAttr(q.id) + '" data-v="1" style="' + bO + '">O</button>'
+            + '<button class="oxbtn" data-rid="' + r.id + '" data-qid="' + escAttr(q.id) + '" data-v="0" style="' + bX + '">X</button>'
+            + '</span></div>';
+        });
+        if(!anyL) h += '<div class="sub">응답 없음</div>';
       } else if(q.type==='scale'){
         var sum=0, cnt=0, dist={};
         for(var v=q.scaleMin; v<=q.scaleMax; v++) dist[v]=0;
@@ -661,6 +726,27 @@
       }
       box.innerHTML = h;
       viewEl.appendChild(box);
+
+      // 서술형 O·X 채점 버튼 — 저장 후 점수·배지 즉시 갱신(전체 재렌더, 스크롤 유지)
+      box.querySelectorAll('.oxbtn').forEach(function(b){
+        b.addEventListener('click', function(){
+          var rid = parseInt(b.dataset.rid,10), qid = b.dataset.qid, v = (b.dataset.v==='1');
+          var r = null;
+          responses.forEach(function(x){ if(x.id===rid) r = x; });
+          if(!r) return;
+          var cur = (r.manual||{})[qid];
+          var next = (cur === (v?1:0)) ? null : v;   // 같은 판정 다시 누르면 취소
+          var marks = {}; marks[qid] = next;
+          api('PATCH', '?id=' + survey.id + '&grade=1', { responseId: rid, marks: marks })
+            .then(function(x){ return x.json(); }).then(function(d){
+              if(!d || !d.ok){ toast((d && d.error) || '채점 저장 실패'); return; }
+              r.manual = d.manual || {}; r.score = d.score; r.maxScore = d.maxScore;
+              var y = window.scrollY;
+              renderResults(survey, responses);
+              window.scrollTo(0, y);
+            }).catch(function(){ toast('채점 저장 실패'); });
+        });
+      });
     });
   }
 

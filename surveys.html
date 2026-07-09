@@ -39,6 +39,7 @@
   .tag{ font-size:0.76rem; font-weight:700; border-radius:6px; padding:1px 7px; margin-left:6px; }
   .tag.o{ background:#E6F4EA; color:#137333; }
   .tag.x{ background:#FCE8E6; color:#C5221F; }
+  .tag.p{ background:#FEF7E0; color:#8a6d00; }
   .desc{ font-size:0.92rem; color:#4a423d; margin:5px 0 8px; line-height:1.55; white-space:pre-wrap; }
   .sub{ font-size:0.82rem; color:var(--text-light); }
   .listbtn{ margin-top:10px; border:none; border-radius:10px; padding:11px 15px; font-size:0.9rem; font-weight:700;
@@ -290,21 +291,27 @@
     var detail = data.detail || {};
     viewEl.innerHTML = '';
 
+    // 서술형(pending) 문항 — 선생님이 O·X 채점하면 점수에 합산되는 몫
+    var pend = 0, pendPts = 0;
+    qs.forEach(function(q){ var d = detail[q.id]; if(d && d.pending){ pend++; pendPts += (d.points||0); } });
+
     var head = document.createElement('div'); head.className = 'card';
     head.innerHTML = '<div class="row1"><span class="nm">' + esc(current.title) + '</span>'
       + '<span class="badge quiz">퀴즈</span></div>'
       + '<div class="scoreBig"><span class="n">' + (data.score||0) + '</span>'
-      + '<span class="d"> / ' + (data.maxScore||0) + '점</span></div>';
+      + '<span class="d"> / ' + (data.maxScore||0) + '점</span></div>'
+      + (pend ? '<div class="sub" style="text-align:center;padding:2px 0 6px;">✍️ 서술형 ' + pend + '문항(' + pendPts + '점)은 선생님이 채점하면 점수에 더해져요</div>' : '');
     viewEl.appendChild(head);
 
     qs.forEach(function(q){
       var d = detail[q.id];
-      if(!d) return;   // 채점 대상(정답 설정된 문항)만 표시
+      if(!d) return;   // 채점 대상 문항만 표시
       var qr = document.createElement('div'); qr.className = 'qr';
-      var tag = d.correct ? '<span class="tag o">✔ 정답</span>' : '<span class="tag x">✕ 오답</span>';
+      var tag = d.pending ? '<span class="tag p">✍️ 채점 대기</span>'
+              : d.correct ? '<span class="tag o">✔ 정답</span>' : '<span class="tag x">✕ 오답</span>';
       var h = '<div class="lab">' + esc(q.label) + tag + '</div>';
       h += '<div class="mine">내 답: ' + fmtAns(sent[q.id]) + '</div>';
-      if(!d.correct) h += '<div class="ans">정답: ' + fmtAns(d.answer) + '</div>';
+      if(!d.pending && !d.correct) h += '<div class="ans">정답: ' + fmtAns(d.answer) + '</div>';
       qr.innerHTML = h;
       viewEl.appendChild(qr);
     });
