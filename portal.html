@@ -141,7 +141,7 @@
     <button id="loginBtn" type="submit" class="login-btn">로그인 →</button>
     </form>
     <!-- Face ID 재시도: 앱 + 잠금 켜짐 + 저장된 세션 있을 때만 노출(생체취소 후 재시도용) -->
-    <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="retryFaceUnlock()">🔒 Face ID로 잠금 해제</button>
+    <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="retryFaceUnlock()">🔒 Face ID로 로그인</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
       처음이세요? 초기 비밀번호는 <b>0000</b>입니다.<br>
@@ -296,7 +296,7 @@
       <span style="color:var(--border);">|</span>
       <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">📤 앱 공유</a>
       <span id="faceLockSep" style="color:var(--border);display:none;">|</span>
-      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">🔒 Face ID 잠금</a>
+      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">🔒 Face ID 간편로그인</a>
     </div>
 
     <!-- 법적 고지 (스토어 심사 요건) -->
@@ -384,6 +384,8 @@
   // ════════ 상태 ════════
   const TOKEN_KEY = 'kwmath_portal_token';
   const PHONE_KEY = 'kwmath_portal_phone';
+  // Face ID 간편로그인 — 등록 시 토큰을 여기 보관. 로그아웃해도 남아 첫 화면에서 Face ID로 재로그인 가능.
+  const QUICK_KEY = 'kwmath_quick_token';
   const DEMO_PHONE = '010-1234-1234'; // 배포용 데모 계정 (비밀번호 변경 불가)
   let currentToken = '';
   let currentPhone = '';
@@ -471,24 +473,26 @@
       const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
       fab.classList.toggle('show', !standalone);
     }
-    // Face ID 재시도 버튼: 앱 + 잠금 활성 + 저장된 세션 있을 때만 노출
+    // Face ID 로그인 버튼: 앱 + 생체 사용가능 + (간편로그인 등록 or 저장된 세션) 있을 때 노출
     (async function(){
       try {
         const rb = $('faceRetryBtn'); if (!rb) return;
-        const tok = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
-        rb.style.display = (tok && window.KWNative && await KWNative.faceLockActive()) ? 'block' : 'none';
+        const tok = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(QUICK_KEY);
+        const ok = tok && window.KWNative && KWNative.available() && await KWNative.biometryAvailable();
+        rb.style.display = ok ? 'block' : 'none';
       } catch (_) {}
     })();
   }
 
-  // Face ID 재시도: 생체인증을 취소해 로그인 화면으로 떨어졌을 때, 앱 재실행 없이 다시 잠금 해제.
+  // Face ID로 로그인: 저장된 세션(TOKEN_KEY) 또는 간편로그인 등록 토큰(QUICK_KEY)으로 생체인증 후 재로그인.
+  //   로그아웃해도 QUICK_KEY는 남으므로 첫 화면에서 이 버튼으로 다시 들어올 수 있음(은행앱 방식).
   async function retryFaceUnlock() {
     try {
-      const savedToken = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+      const savedToken = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(QUICK_KEY);
       const savedPhone = localStorage.getItem(PHONE_KEY) || sessionStorage.getItem(PHONE_KEY);
       if (!savedToken) { showToast('저장된 로그인이 없어요. 번호로 로그인해 주세요.', 3500); return; }
       if (window.KWNative) {
-        const r = await KWNative.authenticate({ reason: '이관우 수학연구소 — 잠금 해제를 위해 인증해 주세요.' });
+        const r = await KWNative.authenticate({ reason: '이관우 수학연구소 — Face ID로 로그인합니다.' });
         if (!r || !r.success) { showToast('인증이 취소되었습니다.', 3000); return; }
       }
       const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
@@ -496,11 +500,15 @@
       if (!res.ok || !data.ok) {
         localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(PHONE_KEY);
         sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(PHONE_KEY);
+        localStorage.removeItem(QUICK_KEY);   // 만료된 간편로그인 등록도 함께 정리
         showToast('세션이 만료되었어요. 다시 로그인해 주세요.', 3500); return;
       }
       currentToken = savedToken;
       currentPhone = data.phone || savedPhone || '';
       currentStudents = Array.isArray(data.students) ? data.students : [];
+      // 다른 페이지(설문·Q&A)는 TOKEN_KEY를 보므로, 간편로그인으로 들어온 경우에도 세션 저장소를 채워준다.
+      localStorage.setItem(TOKEN_KEY, savedToken);
+      localStorage.setItem(PHONE_KEY, currentPhone);
       enterMain(data.mustChangePassword);
       { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
     } catch (e) { showToast('오류가 발생했어요. 번호로 로그인해 주세요.', 3500); }
@@ -561,6 +569,8 @@
       _sess.setItem(PHONE_KEY, currentPhone);
       _other.removeItem(TOKEN_KEY);
       _other.removeItem(PHONE_KEY);
+      // 간편로그인 등록되어 있으면 새 토큰으로 갱신(만료 방지). 등록 안 했으면 건드리지 않음.
+      try { if (window.KWNative && KWNative.faceLockEnabled()) localStorage.setItem(QUICK_KEY, currentToken); } catch (_) {}
 
       enterMain(data.mustChangePassword);
       { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
@@ -613,17 +623,23 @@
     } catch (_) {}
   }
 
-  // Face ID 잠금 토글: 저장된 로그인 세션을 앱 재실행 시 생체인증으로 잠글지 On/Off.
+  // Face ID 간편로그인 토글: 켜면 현재 토큰을 QUICK_KEY에 저장 → 로그아웃해도 첫 화면 'Face ID로 로그인' 버튼 유지.
   //   켤 때 즉시 1회 생체인증으로 사용 가능 여부를 확인(안 되면 켜지 않음).
   async function toggleFaceLock() {
     try {
       if (KWNative.faceLockEnabled()) {
         KWNative.setFaceLock(false);
-        showToast('Face ID 잠금을 껐습니다.');
+        localStorage.removeItem(QUICK_KEY);
+        showToast('Face ID 간편로그인을 껐습니다.');
       } else {
-        const r = await KWNative.authenticate({ reason: 'Face ID 잠금을 켜기 위해 인증해 주세요.' });
-        if (r && r.success) { KWNative.setFaceLock(true); showToast('Face ID 잠금을 켰습니다. 앱을 다시 열 때 인증이 필요합니다.'); }
-        else { showToast('인증에 실패해 잠금을 켜지 못했습니다.', 4000); }
+        const r = await KWNative.authenticate({ reason: 'Face ID 간편로그인을 켜기 위해 인증해 주세요.' });
+        if (r && r.success) {
+          KWNative.setFaceLock(true);
+          if (currentToken) localStorage.setItem(QUICK_KEY, currentToken);
+          showToast('Face ID 간편로그인을 켰습니다. 로그아웃해도 첫 화면에서 Face ID로 로그인할 수 있어요.', 4500);
+        } else {
+          showToast('인증에 실패해 간편로그인을 켜지 못했습니다.', 4000);
+        }
       }
     } catch (_) {}
     updateFaceLockLink();
@@ -638,7 +654,7 @@
     try { show = !!(window.KWNative && KWNative.available() && await KWNative.biometryAvailable()); } catch (_) { show = false; }
     link.style.display = show ? '' : 'none';
     sep.style.display = show ? '' : 'none';
-    if (show) link.textContent = KWNative.faceLockEnabled() ? '🔒 Face ID 잠금 끄기' : '🔓 Face ID 잠금 켜기';
+    if (show) link.textContent = KWNative.faceLockEnabled() ? '🔒 Face ID 간편로그인 끄기' : '🔓 Face ID 간편로그인 켜기';
   }
 
   // ════════ 환영 메시지 + 자녀 선택 ════════
