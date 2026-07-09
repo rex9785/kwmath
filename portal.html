@@ -389,6 +389,9 @@
   const QUICK_KEY = 'kwmath_quick_token';
   // 로그인 후 '생체인증 로그인 설정할까요?' 1회만 물어봄 (수락/거절 후 이 플래그로 다시 안 물음).
   const BIO_PROMPTED = 'kwmath_bio_prompted';
+  // 앱 1회 실행당 생체인증 1번만. sessionStorage라 페이지 이동(테스트결과·내정보→포털)엔 유지되고,
+  //   앱을 완전히 껐다 다시 켤 때만 초기화 → 그때 한 번 더 인증. (매 페이지 재인증 방지)
+  const UNLOCK_KEY = 'kwmath_unlocked';
   const DEMO_PHONE = '010-1234-1234'; // 배포용 데모 계정 (비밀번호 변경 불가)
   let currentToken = '';
   let currentPhone = '';
@@ -512,6 +515,7 @@
       // 다른 페이지(설문·Q&A)는 TOKEN_KEY를 보므로, 간편로그인으로 들어온 경우에도 세션 저장소를 채워준다.
       localStorage.setItem(TOKEN_KEY, savedToken);
       localStorage.setItem(PHONE_KEY, currentPhone);
+      try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}   // 방금 생체인증함 = 이번 실행 잠금 해제됨
       enterMain(data.mustChangePassword);
       { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
     } catch (e) { showToast('오류가 발생했어요. 번호로 로그인해 주세요.', 3500); }
@@ -574,6 +578,7 @@
       _other.removeItem(PHONE_KEY);
       // 간편로그인 등록되어 있으면 새 토큰으로 갱신(만료 방지). 등록 안 했으면 건드리지 않음.
       try { if (window.KWNative && KWNative.faceLockEnabled()) localStorage.setItem(QUICK_KEY, currentToken); } catch (_) {}
+      try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}   // 방금 로그인 = 이번 실행 잠금 해제됨(재인증 방지)
 
       enterMain(data.mustChangePassword);
       { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
@@ -608,6 +613,7 @@
     localStorage.removeItem(PHONE_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(PHONE_KEY);
+    sessionStorage.removeItem(UNLOCK_KEY);   // 로그아웃하면 이번 실행 잠금해제 표시도 초기화(다음 진입 때 재인증)
     currentToken = ''; currentPhone = ''; currentStudents = []; selectedStudent = null;
     $('loginPw').value = '';
     showLoginScreen();
@@ -1279,12 +1285,15 @@
     const savedToken = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
     const savedPhone = localStorage.getItem(PHONE_KEY) || sessionStorage.getItem(PHONE_KEY);
     if (!savedToken) { showLoginScreen(); return; }
-    // Face ID 잠금: 저장된 세션을 복원하기 전에 생체인증을 요구(앱 + 사용자가 켠 경우 + 생체 사용가능일 때만).
+    // 생체인증 잠금: 저장된 세션을 복원하기 전에 생체인증을 요구(앱 + 사용자가 켠 경우 + 생체 사용가능일 때만).
+    //   ⚠️ 단, 앱 1회 실행당 1번만. 이미 이번 실행에서 인증했으면(sessionStorage UNLOCK_KEY) 페이지 이동 시
+    //      재인증하지 않는다 → 테스트결과·내정보에서 포털로 돌아올 때마다 뜨던 재인증 제거.
     //   실패/취소하면 자동복원을 막고 로그인 화면으로. 웹/PWA/생체불가에선 이 블록을 자동 통과(fail-open).
     try {
-      if (window.KWNative && await KWNative.faceLockActive()) {
+      if (window.KWNative && sessionStorage.getItem(UNLOCK_KEY) !== '1' && await KWNative.faceLockActive()) {
         const _fr = await KWNative.authenticate({ reason: '이관우 수학연구소 — 잠금 해제를 위해 인증해 주세요.' });
         if (!_fr || !_fr.success) { showLoginScreen(); showToast('인증이 취소되어 로그인 화면으로 돌아갑니다.', 4500); return; }
+        try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}   // 이번 실행은 잠금 해제됨
       }
     } catch (_) {}
     try {
