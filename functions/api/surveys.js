@@ -568,6 +568,76 @@ export async function onRequest(context) {
       return jsonOk(out);
     }
 
+    // ── GET ?results=1 (내 퀴즈 결과 다시보기 — 학생·학부모) ──
+    //   /test-results 페이지용. 내(이 계정 휴대폰)가 제출한 퀴즈 응답 +
+    //   내 계정에 연결된 자녀 이름으로 제출된 퀴즈 응답(익명 설문 제외)을 모두 반환.
+    //   (응답은 제출한 기기의 계정 휴대폰으로 저장되므로, 학부모 계정에서는
+    //    자녀가 자기 폰으로 제출한 응답을 이름 매칭으로 찾아야 함 — 2026-07-09)
+    //   문항별로 O/X/채점대기 + 내 답 + (틀린 문항만) 정답을 담아 단답/서술 점수를 분리 계산.
+    if (method === 'GET' && url.searchParams.get('results') === '1') {
+      const names = Array.from(new Set(
+        (access.students || []).map(x => (x.name || '').trim()).filter(Boolean)
+      )).slice(0, 10);
+      let sql =
+        'SELECT r.id, r.survey_id, r.respondent_name, r.answers, r.manual, r.created_at, ' +
+        's.title, s.questions, s.anonymous ' +
+        'FROM survey_responses r JOIN surveys s ON s.id = r.survey_id ' +
+        'WHERE s.quiz = 1 AND (r.respondent_phone = ?';
+      const binds = [access.phone];
+      if (names.length) {
+        sql += ' OR (s.anonymous = 0 AND r.respondent_name IN (' + names.map(() => '?').join(',') + '))';
+        binds.push(...names);
+      }
+      sql += ') ORDER BY r.created_at DESC, r.id DESC LIMIT 100';
+      const { results } = await env.DB.prepare(sql).bind(...binds).all();
+      const items = (results || []).map(r => {
+        const questions = parseQuestions(r.questions);
+        let answers = {};
+        try { answers = JSON.parse(r.answers || '{}'); } catch (_) {}
+        let manual = {};
+        try { manual = JSON.parse(r.manual || '{}') || {}; } catch (_) {}
+        const graded = gradeAnswers(questions, answers);
+        let autoScore = 0, autoMax = 0, essayScore = 0, essayMax = 0, pendingCount = 0;
+        const qs = [];
+        for (const q of questions) {
+          const d = graded.detail[q.id];
+          const a = answers[q.id];
+          const mine = Array.isArray(a) ? a.join(', ') : (a == null ? '' : String(a));
+          const item = { id: q.id, label: q.label, type: q.type, mine };
+          if (d && d.pending) {                       // 서술형(장문) — 수동 O·X
+            essayMax += d.points;
+            item.points = d.points;
+            const m = manual[q.id];
+            if (m === 1) { essayScore += d.points; item.status = 'o'; }
+            else if (m === 0) { item.status = 'x'; }
+            else { item.status = 'pending'; pendingCount++; }
+          } else if (d) {                             // 자동 채점 문항
+            autoMax += d.points;
+            item.points = d.points;
+            if (d.correct) { autoScore += d.points; item.status = 'o'; }
+            else {
+              item.status = 'x';
+              item.answer = Array.isArray(d.answer) ? d.answer.join(', ') : String(d.answer == null ? '' : d.answer);
+            }
+          }                                            // 채점 제외(척도 등)는 status 없음
+          qs.push(item);
+        }
+        return {
+          responseId: r.id,
+          surveyId: r.survey_id,
+          title: r.title || '',
+          respondentName: r.respondent_name || '',
+          createdAt: r.created_at || '',
+          score: autoScore + essayScore,
+          maxScore: autoMax + essayMax,
+          auto: { score: autoScore, max: autoMax },
+          essay: { score: essayScore, max: essayMax, pending: pendingCount },
+          questions: qs,
+        };
+      });
+      return jsonOk({ ok: true, results: items });
+    }
+
     // ── GET ?mine=1 (나에게 열린 설문 목록) ──
     if (method === 'GET' && url.searchParams.get('mine') === '1') {
       const { results } = await env.DB.prepare(

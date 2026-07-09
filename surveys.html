@@ -147,10 +147,14 @@
       h += '</div>';
       if(s.description) h += '<div class="desc">' + esc(s.description) + '</div>';
       h += '<div class="sub">질문 ' + (s.questionCount||0) + '개</div>';
-      h += '<button class="listbtn' + (s.answered?' done':'') + '">' + (s.answered?'응답 완료':'응답하기') + '</button>';
+      h += '<button class="listbtn' + (s.answered?' done':'') + '">' + (s.answered ? (s.quiz ? '결과 다시보기' : '응답 완료') : '응답하기') + '</button>';
       card.innerHTML = h;
       card.querySelector('.listbtn').addEventListener('click', function(){
-        if(s.answered){ toast('이미 응답한 설문이에요. 감사합니다!'); return; }
+        // 응답 완료한 퀴즈 → 테스트 결과 페이지에서 문항별 정오·점수 다시보기 (2026-07-09)
+        if(s.answered){
+          if(s.quiz){ location.href = '/test-results'; return; }
+          toast('이미 응답한 설문이에요. 감사합니다!'); return;
+        }
         openSurvey(s.id);
       });
       viewEl.appendChild(card);
