@@ -139,7 +139,11 @@
   var builderBar = document.getElementById('builderBar');
   var toastT = null;
 
-  var QTYPE_LABEL = { single:'객관식(1개)', multi:'객관식(여러개)', short:'단답', long:'장문', scale:'척도', dropdown:'드롭다운' };
+  // ox는 빌더 전용 가상 유형 — 저장 시엔 single + 선택지 ['O','X']로 나감(서버·학생화면 무수정)
+  var QTYPE_LABEL = { single:'객관식(1개)', multi:'객관식(여러개)', ox:'OX형(참/거짓)', short:'단답', long:'장문', scale:'척도', dropdown:'드롭다운' };
+  function isOXQuestion(q){
+    return q.type==='single' && Array.isArray(q.options) && q.options.length===2 && q.options[0]==='O' && q.options[1]==='X';
+  }
   var AUD_LABEL = { all:'전체', student:'학생', parent:'학부모' };
 
   var draft = null;   // 빌더 편집 중인 설문 { id?, title, description, audience, anonymous, status, questions:[] }
@@ -242,6 +246,7 @@
     return q;
   }
   function startNew(){
+    // 상태 기본값 = 초안 (관우T 2026-07-09 확정: "초안 있는 게 낫겠다 — 미리 만들어두고 공개하게")
     draft = { title:'', description:'', audience:'all', audAcademy:[], audClass:[], anonymous:false, quiz:isStaff ? true : false, status:'draft', questions:[ newQuestion('single') ] };
     renderBuilder();
   }
@@ -270,7 +275,7 @@
         '<div><label class="fld">응답 대상</label>' +
           '<select id="fAud"><option value="all">전체(학생·학부모)</option><option value="student">학생만</option><option value="parent">학부모만</option></select></div>' +
         '<div><label class="fld">상태</label>' +
-          '<select id="fStatus"><option value="draft">초안(비공개)</option><option value="open">공개(응답 받기)</option><option value="closed">종료</option></select></div>' +
+          '<select id="fStatus"><option value="draft">초안(저장만 · 학생에게 안 보임)</option><option value="open">공개(응답 받기)</option><option value="closed">종료(응답 마감)</option></select></div>' +
       '</div>' +
       '<label class="chk"><input type="checkbox" id="fAnon"> 익명 응답 (누가 답했는지 저장·표시 안 함)</label>' +
       '<label class="chk"><input type="checkbox" id="fQuiz"> 퀴즈 모드 (정답·배점 설정 → 제출 즉시 자동 채점)</label>' +
@@ -398,9 +403,11 @@
     draft.questions.forEach(function(q, idx){
       if(draft.quiz) ensureQuizState(q);
       var gradable = (q.type==='single'||q.type==='multi'||q.type==='dropdown'||q.type==='short');
+      var isOX = isOXQuestion(q);   // OX형 = single + 고정 선택지 O/X (표시만 'OX형')
       var qc = document.createElement('div'); qc.className = 'qcard';
+      var dispType = isOX ? 'ox' : q.type;
       var typeOpts = Object.keys(QTYPE_LABEL).map(function(t){
-        return '<option value="' + t + '"' + (q.type===t?' selected':'') + '>' + QTYPE_LABEL[t] + '</option>';
+        return '<option value="' + t + '"' + (dispType===t?' selected':'') + '>' + QTYPE_LABEL[t] + '</option>';
       }).join('');
       var h = '';
       h += '<div class="qhead"><span class="qn">Q' + (idx+1) + '</span>';
@@ -425,7 +432,25 @@
         extra.appendChild(nn);
       }
 
-      if(q.type==='single'||q.type==='multi'||q.type==='dropdown'){
+      if(isOX){
+        // OX형 — 선택지 O/X 고정(수정·삭제·추가 불가), 퀴즈 모드면 ✔로 정답 표시
+        q.options.forEach(function(opt, oi){
+          var row = document.createElement('div'); row.className = 'opt';
+          var markHtml = '';
+          if(draft.quiz){
+            var on = (q._ci===oi);
+            markHtml = '<button class="ansmark' + (on?' on':'') + '" title="정답으로 표시">✔</button>';
+          }
+          row.innerHTML = markHtml + '<span style="flex:1;font-weight:800;padding:8px 4px;">' + esc(opt) + '</span>';
+          if(draft.quiz){
+            row.querySelector('.ansmark').addEventListener('click', function(){
+              q._ci = (q._ci===oi) ? -1 : oi;
+              renderQuestions();
+            });
+          }
+          extra.appendChild(row);
+        });
+      } else if(q.type==='single'||q.type==='multi'||q.type==='dropdown'){
         (q.options||[]).forEach(function(opt, oi){
           var row = document.createElement('div'); row.className = 'opt';
           var markHtml = '';
@@ -494,8 +519,14 @@
 
       qc.querySelector('[data-q="type"]').addEventListener('change', function(e){
         var nt = e.target.value;
+        if(nt==='ox'){
+          // OX형 = single + 선택지 O/X 고정
+          q.type = 'single'; q.options = ['O','X']; q._ci = -1; q._cis = [];
+          renderQuestions(); return;
+        }
+        var wasOX = isOXQuestion(q);
         q.type = nt;
-        if((nt==='single'||nt==='multi'||nt==='dropdown') && !Array.isArray(q.options)) q.options = ['',''];
+        if((nt==='single'||nt==='multi'||nt==='dropdown') && (!Array.isArray(q.options) || wasOX)) q.options = ['',''];
         if(nt==='scale' && q.scaleMin===undefined){ q.scaleMin=1; q.scaleMax=5; }
         renderQuestions();
       });

@@ -76,6 +76,7 @@
 <body>
 <header>
   <button id="backBtn" class="hidden">← 목록</button>
+  <button id="portalBtn" onclick="location.href='/portal'">← 포털</button>
   <h1 id="hTitle">설문</h1>
 </header>
 <div class="wrap">
@@ -101,6 +102,7 @@
   var viewEl = document.getElementById('view');
   var toastEl = document.getElementById('toast');
   var backBtn = document.getElementById('backBtn');
+  var portalBtn = document.getElementById('portalBtn');
   var hTitle = document.getElementById('hTitle');
   var submitBar = document.getElementById('submitBar');
   var submitBtn = document.getElementById('submitBtn');
@@ -119,7 +121,7 @@
 
   // ─────────────── 목록 ───────────────
   function loadList(){
-    hTitle.textContent = '설문'; backBtn.classList.add('hidden'); submitBar.classList.add('hidden');
+    hTitle.textContent = '설문'; backBtn.classList.add('hidden'); portalBtn.classList.remove('hidden'); submitBar.classList.add('hidden');
     current = null; answers = {};
     viewEl.innerHTML = '<div class="state">불러오는 중…</div>';
     api('GET', '?mine=1' + nameQ('&')).then(function(r){
@@ -173,7 +175,7 @@
   }
 
   function renderForm(){
-    hTitle.textContent = '설문 응답'; backBtn.classList.remove('hidden'); submitBar.classList.remove('hidden');
+    hTitle.textContent = '설문 응답'; backBtn.classList.remove('hidden'); portalBtn.classList.add('hidden'); submitBar.classList.remove('hidden');
     var qs = current.questions || [];
     viewEl.innerHTML = '';
     var head = document.createElement('div'); head.className = 'card';
@@ -290,7 +292,7 @@
 
   // 퀴즈 자동채점 결과 화면
   function renderQuizResult(data, sent){
-    hTitle.textContent = '채점 결과'; backBtn.classList.remove('hidden'); submitBar.classList.add('hidden');
+    hTitle.textContent = '채점 결과'; backBtn.classList.remove('hidden'); portalBtn.classList.add('hidden'); submitBar.classList.add('hidden');
     var qs = current.questions || [];
     var detail = data.detail || {};
     viewEl.innerHTML = '';

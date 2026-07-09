@@ -140,8 +140,8 @@
     </label>
     <button id="loginBtn" type="submit" class="login-btn">로그인 →</button>
     </form>
-    <!-- Face ID 재시도: 앱 + 잠금 켜짐 + 저장된 세션 있을 때만 노출(생체취소 후 재시도용) -->
-    <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="retryFaceUnlock()">🔒 Face ID로 로그인</button>
+    <!-- 생체인증 로그인: 앱 + 생체가능 + (등록됨 or 저장된 세션) 있을 때만 노출 -->
+    <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="retryFaceUnlock()">🔐 생체인증으로 로그인</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
       처음이세요? 초기 비밀번호는 <b>0000</b>입니다.<br>
@@ -157,10 +157,11 @@
 <!-- ═══════════════════════════ 메인 화면 ═══════════════════════════ -->
 <div id="mainScreen" style="display:none;">
   <div class="topbar">
-    <a href="/" class="topbar-title" style="text-decoration:none;color:#fff;" title="학원 홈페이지로">
+    <!-- 로고 = 링크 아님 (관우T 2026-07-09: 로고 누르면 홈페이지로 나가버림 → 앱 안에만 머물게) -->
+    <span class="topbar-title" style="color:#fff;">
       <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
       <span>이관우 수학연구소</span>
-    </a>
+    </span>
     <a href="/me" class="topbar-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
       <span style="font-size:0.9rem;">👤</span>
       <span>내 정보</span>
@@ -296,7 +297,7 @@
       <span style="color:var(--border);">|</span>
       <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">📤 앱 공유</a>
       <span id="faceLockSep" style="color:var(--border);display:none;">|</span>
-      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">🔒 Face ID 간편로그인</a>
+      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">🔐 생체인증 로그인</a>
     </div>
 
     <!-- 법적 고지 (스토어 심사 요건) -->
@@ -384,8 +385,10 @@
   // ════════ 상태 ════════
   const TOKEN_KEY = 'kwmath_portal_token';
   const PHONE_KEY = 'kwmath_portal_phone';
-  // Face ID 간편로그인 — 등록 시 토큰을 여기 보관. 로그아웃해도 남아 첫 화면에서 Face ID로 재로그인 가능.
+  // 생체인증 로그인 — 등록 시 토큰을 여기 보관. 로그아웃해도 남아 첫 화면에서 생체인증으로 재로그인 가능.
   const QUICK_KEY = 'kwmath_quick_token';
+  // 로그인 후 '생체인증 로그인 설정할까요?' 1회만 물어봄 (수락/거절 후 이 플래그로 다시 안 물음).
+  const BIO_PROMPTED = 'kwmath_bio_prompted';
   const DEMO_PHONE = '010-1234-1234'; // 배포용 데모 계정 (비밀번호 변경 불가)
   let currentToken = '';
   let currentPhone = '';
@@ -492,7 +495,7 @@
       const savedPhone = localStorage.getItem(PHONE_KEY) || sessionStorage.getItem(PHONE_KEY);
       if (!savedToken) { showToast('저장된 로그인이 없어요. 번호로 로그인해 주세요.', 3500); return; }
       if (window.KWNative) {
-        const r = await KWNative.authenticate({ reason: '이관우 수학연구소 — Face ID로 로그인합니다.' });
+        const r = await KWNative.authenticate({ reason: '이관우 수학연구소 — 생체인증으로 로그인합니다.' });
         if (!r || !r.success) { showToast('인증이 취소되었습니다.', 3000); return; }
       }
       const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + savedToken } });
@@ -574,6 +577,8 @@
 
       enterMain(data.mustChangePassword);
       { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
+      // 비번 변경 강제가 아니면, 생체인증 로그인 미등록 사용자에게 1회 설정 제안(수동 토글 안 찾아도 되게).
+      if (!data.mustChangePassword) { try { maybeOfferBiometricLogin(); } catch (_) {} }
     } catch (e) {
       showErr('loginErr', '서버 통신 오류: ' + (e.message || '알 수 없는 오류'));
     } finally {
@@ -630,15 +635,15 @@
       if (KWNative.faceLockEnabled()) {
         KWNative.setFaceLock(false);
         localStorage.removeItem(QUICK_KEY);
-        showToast('Face ID 간편로그인을 껐습니다.');
+        showToast('생체인증 로그인을 껐습니다.');
       } else {
-        const r = await KWNative.authenticate({ reason: 'Face ID 간편로그인을 켜기 위해 인증해 주세요.' });
+        const r = await KWNative.authenticate({ reason: '생체인증 로그인을 켜기 위해 인증해 주세요.' });
         if (r && r.success) {
           KWNative.setFaceLock(true);
           if (currentToken) localStorage.setItem(QUICK_KEY, currentToken);
-          showToast('Face ID 간편로그인을 켰습니다. 로그아웃해도 첫 화면에서 Face ID로 로그인할 수 있어요.', 4500);
+          showToast('생체인증 로그인을 켰습니다. 로그아웃해도 첫 화면에서 생체인증으로 로그인할 수 있어요.', 4500);
         } else {
-          showToast('인증에 실패해 간편로그인을 켜지 못했습니다.', 4000);
+          showToast('인증에 실패해 생체인증 로그인을 켜지 못했습니다.', 4000);
         }
       }
     } catch (_) {}
@@ -654,7 +659,30 @@
     try { show = !!(window.KWNative && KWNative.available() && await KWNative.biometryAvailable()); } catch (_) { show = false; }
     link.style.display = show ? '' : 'none';
     sep.style.display = show ? '' : 'none';
-    if (show) link.textContent = KWNative.faceLockEnabled() ? '🔒 Face ID 간편로그인 끄기' : '🔓 Face ID 간편로그인 켜기';
+    if (show) link.textContent = KWNative.faceLockEnabled() ? '🔐 생체인증 로그인 끄기' : '🔓 생체인증 로그인 켜기';
+  }
+
+  // 로그인 직후 1회 제안: 앱 + 생체가능 + 아직 미등록 + 안 물어본 사용자에게만.
+  //   수락 시 생체인증 1회 → 등록(토큰 보관) → 다음부터 첫 화면 '생체인증으로 로그인' 버튼으로 재로그인.
+  //   거절해도 이후 계정관리의 '생체인증 로그인 켜기'로 언제든 켤 수 있음.
+  async function maybeOfferBiometricLogin() {
+    try {
+      if (!(window.KWNative && KWNative.available())) return;   // 앱 아님 → 제안 안 함
+      if (KWNative.faceLockEnabled()) return;                   // 이미 등록됨
+      if (localStorage.getItem(BIO_PROMPTED)) return;           // 이미 물어봄
+      if (!(await KWNative.biometryAvailable())) return;        // 기기에 생체인증 미설정
+      localStorage.setItem(BIO_PROMPTED, '1');                  // 물어봄 표시(수락/거절 무관, 다시 안 물음)
+      if (!confirm('다음부터 생체인증(Face ID·지문)으로 간편하게 로그인하시겠어요?')) return;
+      const r = await KWNative.authenticate({ reason: '생체인증 로그인을 설정합니다.' });
+      if (r && r.success) {
+        KWNative.setFaceLock(true);
+        if (currentToken) localStorage.setItem(QUICK_KEY, currentToken);
+        showToast('생체인증 로그인을 켰어요. 다음부터 첫 화면에서 바로 로그인할 수 있어요.', 4500);
+      } else {
+        showToast('생체인증에 실패해 설정하지 못했어요. 나중에 계정관리에서 켤 수 있어요.', 4000);
+      }
+      try { updateFaceLockLink(); } catch (_) {}
+    } catch (_) {}
   }
 
   // ════════ 환영 메시지 + 자녀 선택 ════════
@@ -855,11 +883,20 @@
       });
     }
     try {
-      let perm = await PN.checkPermissions();
-      if (perm.receive !== 'granted') perm = await PN.requestPermissions();
-      if (perm.receive !== 'granted') { showToast('휴대폰 알림 권한이 꺼져 있어요. 설정에서 켜주세요.', 4500); return; }
-      await PN.register();
-    } catch (e) { showToast('앱 알림 설정 오류: ' + ((e && e.message) || ''), 4000); }
+      // ⚠️ iPad 오탐 방지: 권한이 실제로 켜져 있어도 플러그인이 'granted'가 아닌 애매한 값('prompt'·빈값)을
+      //   돌려주는 경우가 있어, 예전엔 그걸 "꺼짐"으로 오판해 무조건 막았다.
+      //   → 이제 '명시적 denied'일 때만 막고, 그 외(granted·prompt·불명)엔 등록을 시도한다.
+      //     iOS는 getToken(register)이 실제 권한을 최종 검증하므로, 진짜 꺼져 있으면 여기서 실패한다.
+      let st = null;
+      try { const p = await PN.checkPermissions(); st = p && p.receive; } catch (_) {}
+      if (st !== 'granted') {
+        try { const q = await PN.requestPermissions(); if (q && q.receive) st = q.receive; } catch (_) {}
+      }
+      if (st === 'denied') { showToast('휴대폰 알림이 꺼져 있어요. 설정 > 알림에서 켜주세요.', 4500); return; }
+      await PN.register();   // 성공 시 registration 리스너가 서버에 토큰 저장 → 배너 자동 숨김
+    } catch (e) {
+      showToast('앱 알림 설정 오류' + (e && e.message ? ' (' + e.message + ')' : '') + ' — 설정 > 알림에서 켜져 있는지 확인해 주세요.', 5000);
+    }
   }
 
   // ════════ 푸쉬 알림 (PWA) ════════
