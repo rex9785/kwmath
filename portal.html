@@ -273,13 +273,8 @@
       <!-- ⚠️ 질문방: 심사 중 숨김. 심사 통과 후 아래 QNA_ENABLED=true 로 바꾸고 배포하면 즉시 노출됨 -->
       <a href="/qna" class="feat-btn" data-feat="qna" id="qnaFeatBtn" style="display:none;">
         <span class="feat-icon">💬</span>
-        <span class="feat-title">질문방</span>
-        <span class="feat-desc">AI·선생님께 수학 질문</span>
-      </a>
-      <a href="/admin" class="feat-btn" data-feat="admin" id="adminFeatBtn" style="display:none;grid-column:1/-1;background:#2A4A8C;border-color:#2A4A8C;">
-        <span class="feat-icon">🔧</span>
-        <span class="feat-title" style="color:#fff;">관리자</span>
-        <span class="feat-desc" style="color:rgba(255,255,255,.85);">관우T 전용 · 학생·자료·공지 관리</span>
+        <span class="feat-title">질문/문의방</span>
+        <span class="feat-desc">AI·선생님께 수학 질문 · 수업/결제 문의</span>
       </a>
     </div>
 
@@ -427,7 +422,6 @@
     if (el.value !== f) el.value = f;
   }
   // 호환용 — 이전에 추가했던 함수, 이제 formatPhone에 위임
-  function stripToDigits(el) { formatPhone(el); }
 
   function normalizePhone(raw) {
     const d = (raw || '').replace(/[^0-9]/g, '');
@@ -517,7 +511,6 @@
       localStorage.setItem(PHONE_KEY, currentPhone);
       try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}   // 방금 생체인증함 = 이번 실행 잠금 해제됨
       enterMain(data.mustChangePassword);
-      { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
     } catch (e) { showToast('오류가 발생했어요. 번호로 로그인해 주세요.', 3500); }
   }
   function showMainScreen() {
@@ -581,7 +574,6 @@
       try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}   // 방금 로그인 = 이번 실행 잠금 해제됨(재인증 방지)
 
       enterMain(data.mustChangePassword);
-      { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
       // 비번 변경 강제가 아니면, 생체인증 로그인 미등록 사용자에게 1회 설정 제안(수동 토글 안 찾아도 되게).
       if (!data.mustChangePassword) { try { maybeOfferBiometricLogin(); } catch (_) {} }
     } catch (e) {
@@ -1311,7 +1303,6 @@
       currentPhone = data.phone || savedPhone || '';
       currentStudents = Array.isArray(data.students) ? data.students : [];
       enterMain(data.mustChangePassword);
-      { const _a = document.getElementById('adminFeatBtn'); if (_a) _a.style.display = data.isAdmin ? '' : 'none'; }
     } catch (e) {
       currentToken = savedToken;
       currentPhone = savedPhone || '';

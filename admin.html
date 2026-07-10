@@ -517,14 +517,6 @@
             <input id="fileInput" type="file" multiple accept=".pdf,.hwp,.hwpx,.docx,.xlsx,.pptx,.zip,.png,.jpg"
               style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;">
           </div>
-          <div id="categoryWrap">
-            <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">카테고리</label>
-            <select id="fileCategorySelect" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
-              <option value="수업자료">📚 수업자료</option>
-              <option value="교재">📖 교재</option>
-              <option value="기타">📎 기타</option>
-            </select>
-          </div>
           <div>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 표시 이름 <span style="color:var(--text-light);font-weight:400;">(단일 파일일 때만, 비워두면 파일명 사용)</span></label>
             <input id="fileTitle" type="text" placeholder="예: 2026년 5월 수업자료"
@@ -1328,8 +1320,6 @@
     const folder = document.getElementById('fileFolder').value;
     document.getElementById('reportStudentWrap').style.display = folder === 'reports' ? 'block' : 'none';
     document.getElementById('classSharedWrap').style.display = folder === 'class-shared' ? 'block' : 'none';
-    // 학생 리포트/반 공통 모두 카테고리 입력 불필요
-    document.getElementById('categoryWrap').style.display = 'none';
     // 반 공통 자료 선택 시 날짜 기본값 오늘
     if (folder === 'class-shared') {
       const dEl = document.getElementById('csDate');
