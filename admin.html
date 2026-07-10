@@ -1638,9 +1638,15 @@
           const cnt = getClassStudentCount(acad, cls);
           const canDelete = cnt === 0;
           const code = (data.codes || {})[acad + '/' + cls] || '—';
+          const sched = (data.schedules || {})[acad + '/' + cls] || null;
+          const schedLabel = formatClassSchedule(sched);
+          const schedStyle = sched
+            ? 'background:#E3F2E6;color:#1B5E20;'
+            : 'background:#f0f1f4;color:#999;';
           html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f9fafc;border-radius:6px;font-size:0.85rem;">
             <span>${esc(cls)}
               <span onclick="copyClassCode('${esc(code).replace(/'/g,'\\x27')}')" title="탭하면 복사" style="display:inline-block;margin-left:6px;background:#E8EAF6;color:#283593;font-weight:800;font-size:0.78rem;letter-spacing:1px;padding:1px 7px;border-radius:5px;cursor:pointer;font-family:monospace;">🔑 ${esc(code)}</span>
+              <span onclick="openScheduleModal('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="수업 요일·시간 설정" style="display:inline-block;margin-left:6px;${schedStyle}font-weight:700;font-size:0.78rem;padding:1px 7px;border-radius:5px;cursor:pointer;">🕘 ${esc(schedLabel)}</span>
               <span style="color:#888;font-size:0.78rem;margin-left:6px;">학생 ${cnt}명</span>
             </span>
             <button class="del-btn" ${canDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${canDelete ? '반 삭제' : '학생 있어서 삭제 불가'}" style="padding:4px 10px;font-size:0.78rem;">🗑 삭제</button>
@@ -1651,6 +1657,86 @@
       html += '</div>';
     }
     list.innerHTML = html;
+  }
+  // ⏰ 수업 스케줄 (요일·시간) — 반별 설정. 관리자 리마인드 알림(리포트 미생성·출결 미입력 체크)의 기준 데이터.
+  const SCHED_DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+  function formatClassSchedule(sch) {
+    if (!sch || !Array.isArray(sch.days) || !sch.days.length) return '시간 미설정';
+    const days = sch.days.map(d => SCHED_DAY_NAMES[d] || '?').join('·');
+    return days + ' ' + (sch.start || '') + '~' + (sch.end || '');
+  }
+  let _schedTarget = null;
+  function openScheduleModal(academy, className) {
+    _schedTarget = { academy: academy, className: className };
+    let el = document.getElementById('schedModal');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'schedModal';
+      el.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;align-items:center;justify-content:center;padding:16px;';
+      let dayBoxes = '';
+      for (let d = 0; d < 7; d++) {
+        dayBoxes += '<label style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:0.8rem;font-weight:700;color:#444;">' +
+          '<input type="checkbox" id="schedDay' + d + '" style="width:18px;height:18px;cursor:pointer;">' + SCHED_DAY_NAMES[d] + '</label>';
+      }
+      el.innerHTML = '<div style="background:#fff;border-radius:12px;padding:18px;width:100%;max-width:340px;box-shadow:0 8px 30px rgba(0,0,0,0.25);">' +
+        '<div style="font-weight:800;color:#3949AB;margin-bottom:4px;">🕘 수업 요일·시간 설정</div>' +
+        '<div id="schedModalTitle" style="font-size:0.85rem;color:#666;margin-bottom:12px;"></div>' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:14px;">' + dayBoxes + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">' +
+          '<input type="time" id="schedStart" style="flex:1;padding:7px;border:1.5px solid #d8e0ec;border-radius:7px;font-size:0.9rem;">' +
+          '<span style="color:#888;">~</span>' +
+          '<input type="time" id="schedEnd" style="flex:1;padding:7px;border:1.5px solid #d8e0ec;border-radius:7px;font-size:0.9rem;">' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button onclick="saveClassSchedule(false)" style="flex:1;background:#3949AB;color:#fff;border:none;border-radius:7px;padding:9px 0;font-weight:700;cursor:pointer;">저장</button>' +
+          '<button onclick="saveClassSchedule(true)" style="background:#fff;color:#c62828;border:1.5px solid #ef9a9a;border-radius:7px;padding:9px 12px;font-weight:700;cursor:pointer;">해제</button>' +
+          '<button onclick="closeScheduleModal()" style="background:#f0f1f4;color:#555;border:none;border-radius:7px;padding:9px 12px;font-weight:700;cursor:pointer;">취소</button>' +
+        '</div></div>';
+      el.addEventListener('click', (e) => { if (e.target === el) closeScheduleModal(); });
+      document.body.appendChild(el);
+    }
+    const sch = ((_classOptionsCache || {}).schedules || {})[academy + '/' + className] || null;
+    document.getElementById('schedModalTitle').textContent = academy + ' · ' + className;
+    for (let d = 0; d < 7; d++) {
+      document.getElementById('schedDay' + d).checked = !!(sch && sch.days && sch.days.includes(d));
+    }
+    document.getElementById('schedStart').value = (sch && sch.start) || '09:30';
+    document.getElementById('schedEnd').value = (sch && sch.end) || '13:30';
+    el.style.display = 'flex';
+  }
+  function closeScheduleModal() {
+    const el = document.getElementById('schedModal');
+    if (el) el.style.display = 'none';
+    _schedTarget = null;
+  }
+  async function saveClassSchedule(clear) {
+    if (!_schedTarget) return;
+    let schedule = null;
+    if (!clear) {
+      const days = [];
+      for (let d = 0; d < 7; d++) { if (document.getElementById('schedDay' + d).checked) days.push(d); }
+      const start = document.getElementById('schedStart').value;
+      const end = document.getElementById('schedEnd').value;
+      if (!days.length) { showToast('요일을 1개 이상 선택해 주세요.'); return; }
+      if (!start || !end) { showToast('시작·종료 시각을 입력해 주세요.'); return; }
+      if (end <= start) { showToast('종료 시각이 시작 시각보다 늦어야 합니다.'); return; }
+      schedule = { days: days, start: start, end: end };
+    }
+    try {
+      const res = await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'set-schedule', academy: _schedTarget.academy, className: _schedTarget.className, schedule: schedule }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '저장 실패')); return; }
+      showToast(clear ? '🕘 수업 시간 해제됨' : ('🕘 저장됨: ' + formatClassSchedule(schedule)));
+      closeScheduleModal();
+      await loadClassOptionsFromServer();
+      renderClassManager();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
   }
   // 🔑 반코드 탭 → 클립보드 복사
   function copyClassCode(code) {

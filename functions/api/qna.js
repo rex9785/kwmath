@@ -276,6 +276,35 @@ function notifyAdminNewQuestion(context, env, q) {
   } catch (_) { /* best-effort */ }
 }
 
+// 🔔 D4: 일일 AI 토큰 사용량이 한도(daily_token_limit, 기본 100만)의 80% 도달 시 관리자 푸시.
+// 멱등: qna_settings.token_alert_date 에 오늘(KST) 날짜 기록 — 하루 1회만 발송.
+// 하드 차단 아님(요청은 계속 허용) — 관우T 결정(2026-07-10).
+async function checkTokenBudgetAlert(env) {
+  const today = kstDateStr();
+  const tRow = await env.DB.prepare("SELECT value FROM qna_settings WHERE key='daily_token_limit'").first();
+  const dailyTokenLimit = (tRow && tRow.value != null && tRow.value !== '')
+    ? Math.max(0, parseInt(tRow.value, 10) || 0) : DEFAULT_DAILY_TOKEN_LIMIT;
+  if (!dailyTokenLimit) return;  // 0 = 한도 없음 → 알림도 없음
+  const row = await env.DB.prepare(
+    "SELECT COALESCE(SUM(tokens_total),0) AS tok FROM qna WHERE mode='ai' AND tokens_total IS NOT NULL AND qdate=?"
+  ).bind(today).first();
+  const usedTok = Number(row && row.tok) || 0;
+  if (usedTok < dailyTokenLimit * 0.8) return;
+  const sent = await env.DB.prepare("SELECT value FROM qna_settings WHERE key='token_alert_date'").first();
+  if (sent && sent.value === today) return;  // 오늘 이미 발송함
+  await env.DB.prepare(
+    "INSERT INTO qna_settings (key, value) VALUES ('token_alert_date', ?) " +
+    "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+  ).bind(today).run();
+  const pct = Math.min(999, Math.round((usedTok / dailyTokenLimit) * 100));
+  await sendPushToUsers(env, ADMIN_PUSH_USERS, {
+    title: '🔔 질문방 AI 토큰 ' + pct + '% 소진',
+    body: '오늘 사용 ' + usedTok.toLocaleString('en-US') + ' / 한도 ' + dailyTokenLimit.toLocaleString('en-US') + ' 토큰',
+    url: '/admin-qna.html',
+    tag: 'kwmath-token-budget',
+  });
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -472,6 +501,9 @@ export async function onRequest(context) {
           'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at, tokens_total, tokens_in, tokens_out) ' +
           "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         ).bind(student.id || null, phone, authorName, 'ai', isPrivate, title, storedQuestion, imageToStore, ai.text, 'AI', 'answered', today, now, now, u.total, u.in, u.out).run();
+        // 토큰 80% 경고 체크 (응답 지연 없이 백그라운드)
+        const budgetP = checkTokenBudgetAlert(env).catch(() => {});
+        if (context && typeof context.waitUntil === 'function') context.waitUntil(budgetP);
         const usedAfter = used + 1;
         return jsonOk({
           ok: true, id: res.meta && res.meta.last_row_id, mode: 'ai', status: 'answered',

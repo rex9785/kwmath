@@ -1,10 +1,13 @@
 import { listStudents } from './_db.js';
 // /api/class-options
 //   GET  — 공개 (누구나 호출). R2의 학원/반 옵션 + 실제 학생 데이터에서 사용 중인 옵션 합집합 반환
-//   POST — admin only. body: { action: 'add-class'|'delete-class'|'add-academy'|'delete-academy', academy, className? }
+//   POST — admin only. body: { action: 'add-class'|'delete-class'|'add-academy'|'delete-academy'|'set-schedule', academy, className?, schedule? }
 //
 // 저장 위치: R2 key `auth/class-options.json`
-// 형식: { academies: [...], classes: { [academy]: [class1, class2, ...] } }
+// 형식: { academies: [...], classes: { [academy]: [class1, ...] },
+//         codes: { "학원/반": "12345" },
+//         schedules: { "학원/반": { days: [1,3,5], start: "09:30", end: "13:30" } } }
+//   ⏰ schedules — 수업 요일(0=일 ~ 6=토)·시작/종료 시각(KST, HH:MM). 관리자 알림(리포트 미생성·출결 미입력 체크)의 기준 데이터.
 // R2에 없으면 학생 데이터에서 시드(seed)
 
 const STUDENTS_DB = '559465b73e2f4b76b7df441fd0058bfb';
@@ -75,6 +78,19 @@ function ensureCodes(saved) {
   return changed;
 }
 
+// ⏰ 수업 스케줄 검증 — { days: [0~6], start: 'HH:MM', end: 'HH:MM' } 형태만 허용. 아니면 null.
+function validSchedule(s) {
+  if (!s || typeof s !== 'object') return null;
+  const days = Array.isArray(s.days)
+    ? [...new Set(s.days.map(Number))].filter(d => Number.isInteger(d) && d >= 0 && d <= 6).sort((a, b) => a - b)
+    : [];
+  const hm = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const start = String(s.start || '');
+  const end = String(s.end || '');
+  if (!days.length || !hm.test(start) || !hm.test(end) || end <= start) return null;
+  return { days, start, end };
+}
+
 // 학생 데이터에서 실제 사용 중인 학원/반 추출 (active만)
 // 학생 데이터(D1)에서 실제 사용 중인 학원/반 추출
 async function getUsedFromStudents(env) {
@@ -110,6 +126,7 @@ function mergeOptions(saved, used) {
   result.academies = Array.from(allAcademies).sort();
   result.counts = used.counts;
   result.codes = saved.codes || {};
+  result.schedules = saved.schedules || {};
   return result;
 }
 
@@ -165,6 +182,7 @@ export async function onRequest({ request, env }) {
     if (!isAdmin(request, env)) {
       delete merged.counts;
       delete merged.codes;
+      delete merged.schedules;  // 수업 시간표(내부 운영 정보)도 admin 전용
     }
     return Response.json(merged);
   }
@@ -198,6 +216,7 @@ export async function onRequest({ request, env }) {
       saved.academies = saved.academies.filter(a => a !== academy);
       delete saved.classes[academy];
       if (saved.codes) for (const k of Object.keys(saved.codes)) { if (k.startsWith(academy + '/')) delete saved.codes[k]; }
+      if (saved.schedules) for (const k of Object.keys(saved.schedules)) { if (k.startsWith(academy + '/')) delete saved.schedules[k]; }
       await saveOptions(env, saved);
       return Response.json({ ok: true, action, academy });
     }
@@ -225,11 +244,31 @@ export async function onRequest({ request, env }) {
       }
       saved.classes[academy] = (saved.classes[academy] || []).filter(c => c !== className);
       if (saved.codes) delete saved.codes[academy + '/' + className];
+      if (saved.schedules) delete saved.schedules[academy + '/' + className];
       await saveOptions(env, saved);
       return Response.json({ ok: true, action, academy, className });
     }
 
-    return Response.json({ error: 'action: add-class | delete-class | add-academy | delete-academy' }, { status: 400 });
+    // ⏰ 수업 스케줄 설정/해제 — body.schedule = { days, start, end } 또는 null(해제)
+    if (action === 'set-schedule') {
+      if (!academy || !className) return Response.json({ error: 'academy, className 둘 다 필요' }, { status: 400 });
+      const exists = (saved.classes[academy] || []).includes(className);
+      if (!exists) return Response.json({ error: `[${academy} · ${className}] 반이 없습니다. 먼저 반을 추가하세요.` }, { status: 404 });
+      saved.schedules = saved.schedules || {};
+      const skey = academy + '/' + className;
+      if (body.schedule == null) {
+        delete saved.schedules[skey];
+        await saveOptions(env, saved);
+        return Response.json({ ok: true, action, academy, className, schedule: null });
+      }
+      const sch = validSchedule(body.schedule);
+      if (!sch) return Response.json({ error: '스케줄 형식 오류 — days(요일 1개 이상, 0=일~6=토), start/end(HH:MM, 시작<종료) 필요' }, { status: 400 });
+      saved.schedules[skey] = sch;
+      await saveOptions(env, saved);
+      return Response.json({ ok: true, action, academy, className, schedule: sch });
+    }
+
+    return Response.json({ error: 'action: add-class | delete-class | add-academy | delete-academy | set-schedule' }, { status: 400 });
   }
 
   return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
@@ -248,4 +287,12 @@ export async function resolveClassCode(env, code) {
     }
   }
   return null;
+}
+
+// ⏰ 관리자 리마인드 체크(추후 /api/admin-reminders 등)에서 import.
+//   반환: { "학원/반": { days: [1,3,5], start: "09:30", end: "13:30" }, ... }
+//   사용 예: KST 오늘 요일이 days에 포함된 반만 골라 출결/리포트 존재 여부를 D1에서 확인 → 없으면 __admin__ 푸시.
+export async function loadClassSchedules(env) {
+  const saved = await loadOptions(env);
+  return saved.schedules || {};
 }
