@@ -176,12 +176,14 @@ async function askGemini(env, question, studentMeta, image) {
     systemInstruction: { parts: [{ text: sys }] },
     contents: [{ role: 'user', parts: userParts }],
     // 7/9: thinkingBudget이 2048로 작아 모델이 '답변 본문'에서 경우 나열로 헤매다 잘리던 문제를,
-    //      사고예산을 넉넉히(10240) 주고 출력상한을 크게(20480) 올려 해결했었음.
-    // 7/11: Pro(gemini-2.5-pro) 전환에 맞춰 값 하향. Pro는 '5~10줄' 지시를 잘 지켜
-    //      flash처럼 답변을 폭주(2만자)시키지 않으므로: 사고예산 10240→8192, 출력상한 20480→12288.
-    //      (thinking 8192 제외해도 답변 가용 ~4096토큰 ≈ 8천자 → 짧고 콤팩트한 답엔 넉넉, 끊김 없음.)
-    //      thinking 토큰은 output 요금으로 과금되므로 하향이 비용 절감도 됨.
-    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 12288, thinkingConfig: { thinkingBudget: 8192 } },
+    //      사고예산을 넉넉히 주고 출력상한을 크게 올려 해결.
+    // 7/11: Pro(gemini-2.5-pro) 전환. 답변 '길이'는 프롬프트(규칙8 '5~10줄')와 모델이 정한다.
+    //      maxOutputTokens는 '목표'가 아니라 '천장'일 뿐 — 실제 생성 토큰만 과금되므로 높게 둬도 비용 안 늘고,
+    //      낮추면 Pro(사고형)가 thinking에 예산을 다 써 답이 잘려(finishReason=MAX_TOKENS/빈답) '선생님 대기글'로
+    //      빠지는 사고만 난다(12288로 낮췄더니 실제로 이 증상 발생). 그래서 상한은 넉넉히 20480 유지.
+    //      비용 절감은 상한이 아니라 '사고예산'으로: thinkingBudget 10240→8192(사고 토큰이 output 단가로 과금됨).
+    //      (max 20480 − thinking 8192 = 답변 가용 ~12288토큰 → 5~10줄 답은 절대 안 잘림.)
+    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 20480, thinkingConfig: { thinkingBudget: 8192 } },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },

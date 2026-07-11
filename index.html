@@ -385,18 +385,41 @@
     .dday-chip{font-size:.66rem;padding:4px 9px;}
     .dday-chip .dd-l{display:none;}
     .dday-chip b{font-size:.78rem;}
-    /* 네비: 메뉴는 숨기고 .nav-keep(포털 로그인·상담 신청)만 유지 */
-    .nav-links{gap:8px;}
+    /* 네비: 메뉴는 숨기고 .nav-keep(포털 로그인·상담 신청)만 유지 + 로고·칩·버튼 겹침 방지 압축 */
+    .nav-inner{padding:0 4%;gap:10px;}
+    .nav-left{gap:10px;}
+    .nav-logo img{height:30px;}
+    .nav-links{gap:6px;}
     .nav-links > li{display:none;}
     .nav-links > li.nav-keep{display:list-item;}
-    .nav-portal{padding:7px 12px;font-size:.76rem!important;}
-    .nav-cta{padding:8px 14px;font-size:.78rem!important;}
+    .nav-portal{padding:7px 10px;font-size:.72rem!important;}
+    .nav-cta{padding:8px 12px;font-size:.74rem!important;}
   }
   @media (max-width:640px){
     .review-grid{grid-template-columns:1fr;}
     .openclass-grid{grid-template-columns:1fr;}
-    .panorama-card{width:300px;padding:24px 24px 22px;}
-    .pano-num{font-size:3.2rem;}
+    /* 헤더 초압축(작은 폰): 로고·D-day칩·버튼 2개가 한 줄에 겹치지 않게 */
+    .nav-inner{gap:8px;}
+    .nav-left{gap:8px;}
+    .nav-logo img{height:26px;}
+    .dday-chip{font-size:.6rem;padding:3px 7px;}
+    .dday-chip b{font-size:.7rem;}
+    .nav-links{gap:5px;}
+    .nav-portal{padding:6px 8px;font-size:.68rem!important;}
+    .nav-cta{padding:7px 10px;font-size:.7rem!important;}
+    /* 파노라마 카드: 숫자·막대차트·레이더가 카드 폭 밖으로 안 삐져나오게 축소 */
+    .panorama-card{width:300px;padding:22px 18px 20px;}
+    .pano-title{font-size:1.05rem;}
+    .pano-num{font-size:2.7rem;letter-spacing:-1px;}
+    .pano-suffix{font-size:1.05rem;}
+    .pano-row{gap:12px!important;}
+    .pano-mini-chart{gap:8px;}
+    .pano-bar-stem{width:22px;}
+    .pano-bar-num{font-size:.72rem;}
+    .pano-bar-num.now{font-size:.84rem;}
+    .pano-bar-label{font-size:.64rem;}
+    .pano-radar svg{width:100px;height:100px;}
+    .pano-metrics{font-size:.78rem;}
     section{padding:88px 5%;}
   }
 </style>
