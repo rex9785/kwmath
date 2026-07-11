@@ -16,7 +16,7 @@
 //  DELETE /api/qna?id=...       본인 질문(또는 admin) 삭제
 //
 //  ⚙️ 환경변수: GEMINI_API_KEY(필수, AI 답변용) ·
-//     GEMINI_MODEL(선택, 기본 gemini-2.5-flash) · QNA_AI_DAILY_LIMIT(선택, 기본 10)
+//     GEMINI_MODEL(선택, 기본 gemini-3.1-pro-preview) · QNA_AI_DAILY_LIMIT(선택, 기본 10)
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
 import { sendPushToUsers } from './_push.js';
@@ -26,18 +26,18 @@ import { sendPushToUsers } from './_push.js';
 // (나중에 조교용 id를 배열에 추가하면 조교에게도 동시 발송됨)
 const ADMIN_PUSH_USERS = ['__admin__'];
 
-const DEFAULT_MODEL = 'gemini-2.5-pro';   // 2026-07-11: 유료 전환 후 flash→pro 승격(더 정확한 풀이). env GEMINI_MODEL 있으면 그게 우선.
+const DEFAULT_MODEL = 'gemini-3.1-pro-preview';   // 2026-07-11: gemini-2.5-pro가 '신규 사용자에게 더 이상 제공 안 됨'(HTTP 404)이라 실패 → 현행 최신 flagship gemini-3.1-pro-preview로 교체(AI Studio 모델목록에서 정확한 ID 확인). env GEMINI_MODEL 있으면 그게 우선(현재 미설정). 문제 시 롤백: 'gemini-2.5-flash'(같은 키·게이트웨이로 200 확인됨).
 const DEFAULT_DAILY_LIMIT = 10;  // 6/23 3→5→10 상향(학생 수 적어 토큰 비용 영향 미미, 나중에 조정 가능)
 const MAX_Q_LEN = 1200;     // 질문 글자 제한
 const MAX_A_LEN = 20000;    // 저장 답변 글자 제한. 출력토큰 여유(maxOutputTokens-thinking≈1만토큰≈2만자)에 맞춤 —
                             // 모델이 끝까지 완성한 답(finishReason STOP)이 여기서 잘려 \boxed·LaTeX가 깨지지 않게.
 const MAX_IMG_B64 = 2_600_000;  // 첨부 사진 base64 최대 길이(약 1.9MB 바이너리). 클라이언트가 리사이즈해 보내므로 보통 그 한참 아래.
 
-// ── 토큰 사용량/비용 추정용 상수 (6/23 추가 · 7/11 Pro 단가로 갱신) ──
-// Gemini 2.5 Pro 단가(2026-07 기준, USD per 1M tokens, ≤200k 컨텍스트 표준 티어). 바뀌면 여기만 수정.
-// (flash 시절 0.30/2.50 → Pro는 약 4배: 사고 토큰이 출력 단가로 과금되므로 사용량 패널 정확도 위해 갱신)
-const PRICE_IN_PER_M = 1.25;   // 입력 토큰
-const PRICE_OUT_PER_M = 10.00; // 출력(+사고) 토큰
+// ── 토큰 사용량/비용 추정용 상수 (6/23 추가 · 7/11 gemini-3.1-pro-preview 단가로 갱신) ──
+// gemini-3.1-pro-preview 단가(2026-07 기준, USD per 1M tokens, ≤200k 컨텍스트 표준 티어). 바뀌면 여기만 수정.
+// (>200k 구간은 4.00/18.00로 더 비싸지만 우리 질문은 항상 ≤200k라 표준 티어로 계산. 이 값은 사용량 패널 표시 전용·비기능.)
+const PRICE_IN_PER_M = 2.00;   // 입력 토큰
+const PRICE_OUT_PER_M = 12.00; // 출력(+사고) 토큰
 const USD_KRW = 1350;          // 환율 대략치(비용은 추정)
 const DEFAULT_MONTHLY_TOKEN_BUDGET = 2_000_000; // 월 토큰 예산 기본값(참고용)
 // 무료 등급은 돈이 아니라 '하루 요청수(RPD)'로 제한됨. 2.5 Flash 무료 일일 한도 대략치(프로젝트/시점마다 다름·AI Studio가 정답).
@@ -178,13 +178,15 @@ async function askGemini(env, question, studentMeta, image) {
     contents: [{ role: 'user', parts: userParts }],
     // 7/9: thinkingBudget이 2048로 작아 모델이 '답변 본문'에서 경우 나열로 헤매다 잘리던 문제를,
     //      사고예산을 넉넉히 주고 출력상한을 크게 올려 해결.
-    // 7/11: Pro(gemini-2.5-pro) 전환. 답변 '길이'는 프롬프트(규칙8 '5~10줄')와 모델이 정한다.
+    // 7/11: Pro 전환(gemini-2.5-pro→gemini-3.1-pro-preview). 답변 '길이'는 프롬프트(규칙8 '5~10줄')와 모델이 정한다.
     //      maxOutputTokens는 '목표'가 아니라 '천장'일 뿐 — 실제 생성 토큰만 과금되므로 높게 둬도 비용 안 늘고,
     //      낮추면 Pro(사고형)가 thinking에 예산을 다 써 답이 잘려(finishReason=MAX_TOKENS/빈답) '선생님 대기글'로
     //      빠지는 사고만 난다(12288로 낮췄더니 실제로 이 증상 발생). 그래서 상한은 넉넉히 20480 유지.
-    //      비용 절감은 상한이 아니라 '사고예산'으로: thinkingBudget 10240→8192(사고 토큰이 output 단가로 과금됨).
-    //      (max 20480 − thinking 8192 = 답변 가용 ~12288토큰 → 5~10줄 답은 절대 안 잘림.)
-    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 20480, thinkingConfig: { thinkingBudget: 8192 } },
+    //      비용/품질은 상한이 아니라 '사고수준'으로 조절: Gemini 3는 thinkingBudget(토큰수)이 아니라
+    //      thinkingLevel(low/medium/high)을 쓴다 — 둘 다 넣으면 에러. 기본값 high는 사고를 가장 많이 해 비싸므로
+    //      균형점 medium 채택(low=가장 저렴·빠름, high=킬러문항 최상). 사고 토큰은 output 단가로 과금됨.
+    //      비용/품질 튜닝은 아래 thinkingLevel 한 단어만 low↔medium↔high로 바꾸면 됨.
+    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 20480, thinkingConfig: { thinkingLevel: 'medium' } },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
@@ -275,6 +277,26 @@ function notifyAdminNewQuestion(context, env, q) {
       body: who + (isInquiry ? ' · ' : ' 학생 · ') + detail,
       url: '/admin-qna.html',
       tag: isInquiry ? 'kwmath-inquiry-new' : 'kwmath-qna-new',
+    });
+    if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+    else if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (_) { /* best-effort */ }
+}
+
+// ── 선생님/조교 답변 등록 시 질문 작성 학생에게 푸시 알림 (best-effort, 절대 throw 안 함) ──
+//   AI 즉답(POST mode='ai')은 학생이 화면에서 바로 보므로 푸시 안 함 — 이 함수는 PATCH에서만 호출.
+function notifyStudentAnswered(context, env, row, answeredBy) {
+  try {
+    if (!row || !row.author_phone) return;
+    const isInquiry = (row.kind === 'inquiry');
+    const t = (row.title || '').toString().trim();
+    const qbody = (row.question && row.question !== '[사진으로 질문]') ? row.question.toString().trim() : '';
+    const preview = (t || qbody || (isInquiry ? '문의' : '질문')).slice(0, 40);
+    const p = sendPushToUsers(env, [row.author_phone], {
+      title: isInquiry ? '📩 문의에 답변이 왔어요' : '✅ 질문에 답변이 달렸어요',
+      body: answeredBy + ' 답변 · ' + preview,
+      url: '/qna',
+      tag: 'kwmath-qna-answered',
     });
     if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
     else if (p && typeof p.catch === 'function') p.catch(() => {});
@@ -537,12 +559,13 @@ export async function onRequest(context) {
       if (answer.length > MAX_A_LEN) return jsonErr(`답변은 ${MAX_A_LEN}자 이하로 작성해주세요.`);
       const answeredBy = (body.answeredBy === '조교') ? '조교' : '선생님';
 
-      const ex = await env.DB.prepare('SELECT id FROM qna WHERE id=?').bind(id).first();
+      const ex = await env.DB.prepare('SELECT id, author_phone, kind, title, question FROM qna WHERE id=?').bind(id).first();
       if (!ex) return jsonErr('질문을 찾을 수 없습니다.', 404);
 
       await env.DB.prepare(
         "UPDATE qna SET answer=?, answered_by=?, status='answered', answered_at=? WHERE id=?"
       ).bind(answer, answeredBy, new Date().toISOString(), id).run();
+      notifyStudentAnswered(context, env, ex, answeredBy);
       return jsonOk({ ok: true, id, status: 'answered', answeredBy });
     }
 

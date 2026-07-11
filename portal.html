@@ -193,7 +193,7 @@
     <div id="pushBanner" style="display:none;background:linear-gradient(135deg,#FFF8DC 0%,#FFE8A8 100%);border:1.5px solid #E8C56C;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:10px;flex-wrap:wrap;">
       <span style="font-size:1.2rem;">🔔</span>
       <div style="flex:1;min-width:180px;">
-        <div id="pushBannerTitle" style="font-size:0.86rem;font-weight:700;color:#854F0B;">새 리포트·공지 알림 받기</div>
+        <div id="pushBannerTitle" style="font-size:0.86rem;font-weight:700;color:#854F0B;">새 리포트·공지·답변 알림 받기</div>
         <div id="pushBannerDesc" style="font-size:0.74rem;color:#854F0B;opacity:0.85;margin-top:2px;">한 번 켜두면 새 소식이 휴대폰 알림으로 와요</div>
       </div>
       <div style="display:flex;gap:6px;">
@@ -924,7 +924,7 @@
       if (d) d.textContent = '탭하면 다시 켜는 방법을 알려드려요';
       if (b) b.textContent = '푸는 법';
     } else {
-      if (t) t.textContent = '새 리포트·공지 알림 받기';
+      if (t) t.textContent = '새 리포트·공지·답변 알림 받기';
       if (d) d.textContent = '한 번 켜두면 새 소식이 휴대폰 알림으로 와요';
       if (b) b.textContent = '켜기';
     }
@@ -1016,7 +1016,7 @@
     $('pushHelpTitle').textContent = '🔔 알림을 켤게요';
     $('pushHelpBody').innerHTML =
       '잠시 후 <b>"알림을 보내도록 허용하시겠어요?"</b> 창이 떠요.<br>'
-      + '<b>"허용"</b>을 눌러야 새 리포트·공지 알림을 받을 수 있어요.';
+      + '<b>"허용"</b>을 눌러야 새 리포트·공지·답변 알림을 받을 수 있어요.';
     $('pushHelpCancel').style.display = '';
     $('pushHelpOk').textContent = '허용하러 가기';
     $('pushHelpOk').onclick = function () { closePushHelp(); proceedEnablePush(); };
