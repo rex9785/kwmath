@@ -33,10 +33,11 @@ const MAX_A_LEN = 20000;    // 저장 답변 글자 제한. 출력토큰 여유(
                             // 모델이 끝까지 완성한 답(finishReason STOP)이 여기서 잘려 \boxed·LaTeX가 깨지지 않게.
 const MAX_IMG_B64 = 2_600_000;  // 첨부 사진 base64 최대 길이(약 1.9MB 바이너리). 클라이언트가 리사이즈해 보내므로 보통 그 한참 아래.
 
-// ── 토큰 사용량/비용 추정용 상수 (6/23 추가) ──
-// Gemini 2.5 Flash 단가(2026-06 기준, USD per 1M tokens). 바뀌면 여기만 수정.
-const PRICE_IN_PER_M = 0.30;   // 입력 토큰
-const PRICE_OUT_PER_M = 2.50;  // 출력(+사고) 토큰
+// ── 토큰 사용량/비용 추정용 상수 (6/23 추가 · 7/11 Pro 단가로 갱신) ──
+// Gemini 2.5 Pro 단가(2026-07 기준, USD per 1M tokens, ≤200k 컨텍스트 표준 티어). 바뀌면 여기만 수정.
+// (flash 시절 0.30/2.50 → Pro는 약 4배: 사고 토큰이 출력 단가로 과금되므로 사용량 패널 정확도 위해 갱신)
+const PRICE_IN_PER_M = 1.25;   // 입력 토큰
+const PRICE_OUT_PER_M = 10.00; // 출력(+사고) 토큰
 const USD_KRW = 1350;          // 환율 대략치(비용은 추정)
 const DEFAULT_MONTHLY_TOKEN_BUDGET = 2_000_000; // 월 토큰 예산 기본값(참고용)
 // 무료 등급은 돈이 아니라 '하루 요청수(RPD)'로 제한됨. 2.5 Flash 무료 일일 한도 대략치(프로젝트/시점마다 다름·AI Studio가 정답).
