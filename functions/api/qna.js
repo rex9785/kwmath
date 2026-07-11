@@ -391,7 +391,7 @@ export async function onRequest(context) {
         const monthUsd = usdCost(monthRow && monthRow.tin, monthRow && monthRow.tout);
         return jsonOk({
           ok: true,
-          tier: 'free',  // 현재 무료 등급(실제 청구 ₩0). 비용 값은 '유료 전환 시 예상'.
+          tier: 'paid',  // 2026-07-11 유료(선불 Tier1) 전환. 비용 값은 '실비 추정'(선불 충전액 내에서만 과금 · 초과 청구 없음).
           today: { questions: todayQ, tokens: num(todayRow && todayRow.tok) },
           month: {
             questions: num(monthRow && monthRow.q), tokens: num(monthRow && monthRow.tok),
