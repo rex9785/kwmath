@@ -26,7 +26,7 @@ import { sendPushToUsers } from './_push.js';
 // (나중에 조교용 id를 배열에 추가하면 조교에게도 동시 발송됨)
 const ADMIN_PUSH_USERS = ['__admin__'];
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-2.5-pro';   // 2026-07-11: 유료 전환 후 flash→pro 승격(더 정확한 풀이). env GEMINI_MODEL 있으면 그게 우선.
 const DEFAULT_DAILY_LIMIT = 10;  // 6/23 3→5→10 상향(학생 수 적어 토큰 비용 영향 미미, 나중에 조정 가능)
 const MAX_Q_LEN = 1200;     // 질문 글자 제한
 const MAX_A_LEN = 20000;    // 저장 답변 글자 제한. 출력토큰 여유(maxOutputTokens-thinking≈1만토큰≈2만자)에 맞춤 —
@@ -175,11 +175,13 @@ async function askGemini(env, question, studentMeta, image) {
   const body = {
     systemInstruction: { parts: [{ text: sys }] },
     contents: [{ role: 'user', parts: userParts }],
-    // 7/9: 사고예산이 2048로 작아 모델이 어려운 문제를 '답변 본문'에서 경우 나열로 헤매다
-    //      8000자 캡에 걸려 LaTeX 중간에 잘리던 문제 수정. 사고예산을 넉넉히(10240) 줘서
-    //      경우 따지기는 전부 '내부 사고'에서 끝내게 하고, 출력 상한도 20480으로 올려
-    //      (사고 빼고도 ~1만 토큰 가용) 정상 답변(짧고 콤팩트)이 끝까지 완성되게 함.
-    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 20480, thinkingConfig: { thinkingBudget: 10240 } },
+    // 7/9: thinkingBudget이 2048로 작아 모델이 '답변 본문'에서 경우 나열로 헤매다 잘리던 문제를,
+    //      사고예산을 넉넉히(10240) 주고 출력상한을 크게(20480) 올려 해결했었음.
+    // 7/11: Pro(gemini-2.5-pro) 전환에 맞춰 값 하향. Pro는 '5~10줄' 지시를 잘 지켜
+    //      flash처럼 답변을 폭주(2만자)시키지 않으므로: 사고예산 10240→8192, 출력상한 20480→12288.
+    //      (thinking 8192 제외해도 답변 가용 ~4096토큰 ≈ 8천자 → 짧고 콤팩트한 답엔 넉넉, 끊김 없음.)
+    //      thinking 토큰은 output 요금으로 과금되므로 하향이 비용 절감도 됨.
+    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 12288, thinkingConfig: { thinkingBudget: 8192 } },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
