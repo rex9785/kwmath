@@ -70,6 +70,9 @@
   .ptsIn{ width:52px !important; flex:0 0 auto !important; font-size:0.8rem; padding:5px 6px; text-align:center; }
   .ptsWrap{ display:flex; align-items:center; gap:5px; font-size:0.78rem; color:var(--text-light); flex:0 0 auto; }
   .qcorrect{ margin-top:6px; }
+  .qcorrect math-field{ display:block; width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:1.25rem; background:#fff; }
+  .qcorrect math-field:focus-within{ border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+  math-field[read-only]{ border:none; padding:0 2px; font-size:1.05rem; background:transparent; width:auto; display:inline-block; vertical-align:middle; box-shadow:none; }
   .qhint{ font-size:0.76rem; color:var(--text-light); margin-top:5px; }
   .badge.quiz{ background:#EDE7F6; color:#5E35B1; }
   .ok{ color:#137333; font-weight:700; font-size:0.76rem; }
@@ -122,6 +125,12 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- 수식(math) 문제유형 입력용 — MathLive 웹컴포넌트. 로드 실패해도 나머지 빌더는 정상 동작. -->
+<script type="module">
+  try { await import('https://cdn.jsdelivr.net/npm/mathlive/+esm'); }
+  catch (e) { console.warn('[admin-surveys] MathLive 로드 실패:', e); }
+</script>
+
 <script>
 (function(){
   var token = sessionStorage.getItem('kwmath_admin_pw')
@@ -140,7 +149,7 @@
   var toastT = null;
 
   // ox는 빌더 전용 가상 유형 — 저장 시엔 single + 선택지 ['O','X']로 나감(서버·학생화면 무수정)
-  var QTYPE_LABEL = { single:'객관식(1개)', multi:'객관식(여러개)', ox:'OX형(참/거짓)', short:'단답', long:'장문', scale:'척도', dropdown:'드롭다운' };
+  var QTYPE_LABEL = { single:'객관식(1개)', multi:'객관식(여러개)', ox:'OX형(참/거짓)', short:'단답', math:'수식(분수·루트)', long:'장문', scale:'척도', dropdown:'드롭다운' };
   function isOXQuestion(q){
     return q.type==='single' && Array.isArray(q.options) && q.options.length===2 && q.options[0]==='O' && q.options[1]==='X';
   }
@@ -356,7 +365,7 @@
       var has = false;
       if(q.type==='single'||q.type==='dropdown') has = (typeof q._ci==='number' && q._ci>=0);
       else if(q.type==='multi') has = !!(q._cis && q._cis.length);
-      else if(q.type==='short') has = !!((q._ct||'').trim());
+      else if(q.type==='short'||q.type==='math') has = !!((q._ct||'').trim());
       if(has){ idxs.push(i); ws.push(1); }
     });
     var units = ws.reduce(function(a,b){ return a+b; }, 0);
@@ -391,7 +400,7 @@
         if(Array.isArray(q.correct) && Array.isArray(q.options)) q.correct.forEach(function(c){ var i=q.options.indexOf(c); if(i>=0) set.push(i); });
         q._cis = set;
       }
-    } else if(q.type==='short'){
+    } else if(q.type==='short'||q.type==='math'){
       if(q._ct===undefined) q._ct = (typeof q.correct==='string') ? q.correct : '';
     }
     // (배점 상태 _pts 폐지 — 배점은 자동 배분)
@@ -402,7 +411,7 @@
     qwrap.innerHTML = '';
     draft.questions.forEach(function(q, idx){
       if(draft.quiz) ensureQuizState(q);
-      var gradable = (q.type==='single'||q.type==='multi'||q.type==='dropdown'||q.type==='short');
+      var gradable = (q.type==='single'||q.type==='multi'||q.type==='dropdown'||q.type==='short'||q.type==='math');
       var isOX = isOXQuestion(q);   // OX형 = single + 고정 선택지 O/X (표시만 'OX형')
       var qc = document.createElement('div'); qc.className = 'qcard';
       var dispType = isOX ? 'ox' : q.type;
@@ -495,6 +504,20 @@
         cr.innerHTML = '<input type="text" placeholder="정답 (대소문자·공백 무시하고 채점)" value="' + esc(q._ct||'') + '">';
         cr.querySelector('input').addEventListener('input', function(e){ q._ct = e.target.value; refreshAutoPoints(); });
         extra.appendChild(cr);
+      } else if(draft.quiz && q.type==='math'){
+        // 수식 정답 — MathLive로 분수·루트 입력(LaTeX 저장). 학생 답이 형태가 달라도 수학적으로 같으면 서버가 정답 처리.
+        var mcr = document.createElement('div'); mcr.className = 'qcorrect';
+        var mf = document.createElement('math-field');
+        mf.setAttribute('math-virtual-keyboard-policy','onfocus');
+        (function(mfEl, qq){
+          customElements.whenDefined('math-field').then(function(){ try{ mfEl.value = qq._ct || ''; }catch(_){} });
+          mfEl.addEventListener('input', function(){ qq._ct = mfEl.value; refreshAutoPoints(); });
+        })(mf, q);
+        mcr.appendChild(mf);
+        var mh = document.createElement('div'); mh.className = 'qhint';
+        mh.textContent = '칸을 누르면 수학 키패드가 떠요. 형태가 달라도(예: 2/4 = 1/2) 수학적으로 같으면 정답 처리됩니다.';
+        mcr.appendChild(mh);
+        extra.appendChild(mcr);
       }
       if(q.type==='scale'){
         var sr = document.createElement('div'); sr.className = 'scaleRow';
@@ -575,7 +598,7 @@
         } else if(q.type==='multi'){
           var cs = (q._cis||[]).map(function(i){ return (q.options[i]||'').trim(); }).filter(Boolean);
           if(cs.length) o.correct = cs;
-        } else if(q.type==='short'){
+        } else if(q.type==='short'||q.type==='math'){
           var ct = (q._ct||'').trim();
           if(ct) o.correct = ct;
         }
@@ -644,6 +667,80 @@
       return n;
     }
 
+    // ── math(수식) 동치 판정 — surveys.js(서버)와 동일 로직의 클라 복제본 ──
+    //   교사 결과뷰(정답률·개별 O/X)를 서버 채점과 일치시키기 위함. 2/4=1/2, √8=2√2 등.
+    function normTextLatex(s){
+      return String(s==null?'':s)
+        .replace(/\\left|\\right/g,'')
+        .replace(/\\dfrac|\\tfrac/g,'\\frac')
+        .replace(/\\cdot|\\times/g,'*')
+        .replace(/\s+/g,'')
+        .toLowerCase();
+    }
+    function latexToNumber(src){
+      if(src==null) return null;
+      var s=String(src), tokens=[], i=0;
+      while(i<s.length){
+        var ch=s[i];
+        if(ch===' '||ch==='\t'||ch==='\n'){ i++; continue; }
+        if(ch==='\\'){
+          var j=i+1, name='';
+          while(j<s.length && /[a-zA-Z]/.test(s[j])){ name+=s[j]; j++; }
+          if(name===''){ if(s[j]===','||s[j]===' '||s[j]===';'||s[j]==='!'){ i=j+1; continue; } return null; }
+          i=j;
+          switch(name){
+            case 'left': case 'right': continue;
+            case 'frac': case 'dfrac': case 'tfrac': tokens.push({type:'frac'}); continue;
+            case 'sqrt': tokens.push({type:'sqrt'}); continue;
+            case 'cdot': case 'times': tokens.push({type:'*'}); continue;
+            case 'pi': tokens.push({type:'num', value:Math.PI}); continue;
+            default: return null;
+          }
+        }
+        if(/[0-9.]/.test(ch)){ var num=''; while(i<s.length && /[0-9.]/.test(s[i])){ num+=s[i]; i++; } var nv=parseFloat(num); if(!isFinite(nv)) return null; tokens.push({type:'num', value:nv}); continue; }
+        if('+-*/^(){}[]'.indexOf(ch)>=0){ tokens.push({type:ch}); i++; continue; }
+        if(/[a-zA-Z]/.test(ch)) return null;
+        return null;
+      }
+      var p=0, failed=false;
+      function peek(){ return tokens[p]; }
+      function nextT(){ return tokens[p++]; }
+      var NUM_START={num:true,'(':true,'{':true,frac:true,sqrt:true};
+      function fail(){ failed=true; return 0; }
+      function parseExpr(){ var v=parseTerm(); while(peek() && (peek().type==='+'||peek().type==='-')){ var op=nextT().type; var r=parseTerm(); v=(op==='+')?v+r:v-r; } return v; }
+      function parseTerm(){ var v=parseFactor(); while(peek()){ var t=peek().type; if(t==='*'||t==='/'){ nextT(); var r=parseFactor(); v=(t==='*')?v*r:v/r; } else if(NUM_START[t]===true){ var r2=parseFactor(); v=v*r2; } else break; } return v; }
+      function parseFactor(){ var sign=1; while(peek() && (peek().type==='-'||peek().type==='+')){ if(nextT().type==='-') sign=-sign; } var base=parseAtom(); if(peek() && peek().type==='^'){ nextT(); var exp=parseFactor(); base=Math.pow(base,exp); } return sign*base; }
+      function parseAtom(){
+        var t=peek(); if(!t) return fail();
+        if(t.type==='num'){ nextT(); return t.value; }
+        if(t.type==='('){ nextT(); var v=parseExpr(); if(peek() && peek().type===')') nextT(); else return fail(); return v; }
+        if(t.type==='{'){ nextT(); var v2=parseExpr(); if(peek() && peek().type==='}') nextT(); else return fail(); return v2; }
+        if(t.type==='frac'){ nextT(); var fa=parseGroup(); var fb=parseGroup(); return fa/fb; }
+        if(t.type==='sqrt'){ nextT(); if(peek() && peek().type==='['){ nextT(); var n=parseExpr(); if(peek() && peek().type===']') nextT(); else return fail(); var sa=parseGroup(); return Math.pow(sa, 1/n); } var sa2=parseGroup(); return Math.sqrt(sa2); }
+        return fail();
+      }
+      function parseGroup(){ var t=peek(); if(t && t.type==='{'){ nextT(); var v=parseExpr(); if(peek() && peek().type==='}') nextT(); else return fail(); return v; } return parseAtom(); }
+      var result=parseExpr();
+      if(failed) return null;
+      if(p!==tokens.length) return null;
+      if(typeof result!=='number' || !isFinite(result)) return null;
+      return result;
+    }
+    function mathEqual(studentLatex, correctLatex){
+      if(studentLatex==null || String(studentLatex).trim()==='') return false;
+      var a=latexToNumber(studentLatex), b=latexToNumber(correctLatex);
+      if(a!=null && b!=null){ var scale=Math.max(1, Math.abs(a), Math.abs(b)); return Math.abs(a-b) <= 1e-9*scale; }
+      var na=normTextLatex(studentLatex), nb=normTextLatex(correctLatex);
+      return na!=='' && na===nb;
+    }
+    // math 정답을 예쁘게(read-only 수식) 표시 — MathLive 미로드 시 원본 문자열
+    function fmtMathA(v){
+      var s=(v==null)?'':(''+v);
+      if(s==='') return '<span class="sub">(무응답)</span>';
+      if(window.customElements && customElements.get('math-field')) return '<math-field read-only>'+esc(s)+'</math-field>';
+      return esc(s);
+    }
+
     // ── 퀴즈 공통 헬퍼: 정오 판정(표시용) · O/X 버튼 · 채점 저장 ──
     function normA(s){ return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' '); }
     function isRight(q, a){   // true/false/null(판정불가·무응답)
@@ -655,6 +752,7 @@
         return c.length===v.length && c.every(function(x,i){ return x===v[i]; });
       }
       if(a==null || String(a).trim()==='') return null;
+      if(q.type==='math') return mathEqual(a, q.correct);
       return normA(a)===normA(q.correct);
     }
     function essaySplit(r){   // 서버 점수에서 서술형만 떼어내기 (총점=자동+서술 이므로 역산)
@@ -747,7 +845,7 @@
           }
           s += '<div style="padding:6px 2px;border-bottom:1px solid #f0e6e9;font-size:0.85rem;display:flex;align-items:flex-start;gap:8px;">'
             + '<span style="flex:1;"><span class="who">' + esc(q.label) + ((q.points!=null)?(' (' + q.points + '점)'):'') + '</span>'
-            + (aTxt.trim() ? esc(aTxt) : '<span class="sub">(무응답)</span>') + ' ' + mark + '</span>' + ox + '</div>';
+            + (q.type==='math' ? fmtMathA(a) : (aTxt.trim() ? esc(aTxt) : '<span class="sub">(무응답)</span>')) + ' ' + mark + '</span>' + ox + '</div>';
         });
         return s;
       }
@@ -830,6 +928,12 @@
         responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansS++; if(rt) okS++; } });
         h += '<div class="rsummary">정답: <b>' + esc(q.correct) + '</b> · 정답률 <b>' + (ansS?Math.round(okS/ansS*100):0) + '%</b> (' + okS + '/' + ansS + '명 응답)</div>';
         h += '<div class="sub">개별 답안은 위 "응답자별 점수"에서 이름을 누르면 보여요.</div>';
+      } else if(survey.quiz && q.type==='math' && q.correct!=null){
+        // 수식(퀴즈): 형태가 달라도 수학적으로 같으면 정답 — 정답률만, 개별 답안은 응답자별 점수에서
+        var okM = 0, ansM = 0;
+        responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansM++; if(rt) okM++; } });
+        h += '<div class="rsummary">정답: <b>' + fmtMathA(q.correct) + '</b> · 정답률 <b>' + (ansM?Math.round(okM/ansM*100):0) + '%</b> (' + okM + '/' + ansM + '명 응답)</div>';
+        h += '<div class="sub">형태가 달라도 수학적으로 같으면 정답으로 채점돼요. 개별 답안은 위 "응답자별 점수"에서 이름을 누르면 보여요.</div>';
       } else if(survey.quiz && q.type==='long' && q.points!=null){
         // 서술형(퀴즈): 여기선 채점 현황 요약만 — 채점은 맨 위 "✍️ 채점 대기"에서
         var oN=0, xN=0, pN=0;

@@ -44,7 +44,7 @@ const MAX_NAME = 60;
 
 const AUDIENCES = new Set(['all', 'student', 'parent']);
 const STATUSES = new Set(['draft', 'open', 'closed']);
-const QTYPES = new Set(['single', 'multi', 'short', 'long', 'scale', 'dropdown']);
+const QTYPES = new Set(['single', 'multi', 'short', 'long', 'scale', 'dropdown', 'math']);
 
 function jsonOk(data, status = 200) { return Response.json(data, { status }); }
 function jsonErr(msg, status = 400) { return Response.json({ error: msg }, { status }); }
@@ -134,7 +134,8 @@ function sanitizeQuestions(raw, quiz) {
         ? q.correct.map(x => clean(x, MAX_OPTION)).filter(x => item.options.includes(x))
         : [];
       if (cs.length) item.correct = Array.from(new Set(cs));
-    } else if (type === 'short') {
+    } else if (type === 'short' || type === 'math') {
+      // short=텍스트 정답, math=수식(LaTeX) 정답 — 둘 다 문자열로 저장(서버 채점 시 비교)
       const c = clean(q.correct, MAX_ANSWER);
       if (c) item.correct = c;
     }
@@ -214,6 +215,74 @@ function normText(s) {
   return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+// ── math(수식) 정답 채점 — 순수 JS, 외부 의존성 없음(Cloudflare Worker 안전, eval 미사용) ──
+//   형태가 달라도 수학적으로 같으면 정답: 2/4=1/2, √8=2√2, 0.5=1/2, ∛8=2 등.
+//   지원: 정수·소수, + - * / ^, ( ), \frac, \sqrt(및 \sqrt[n]), \cdot·\times, \pi, 암묵적 곱(2\sqrt2).
+//   숫자로 환원 불가(변수 포함 등)하면 정규화 문자열 비교로 폴백. 대수적 전개((x+1)^2=x^2+2x+1)는 v1 미지원.
+function normTextLatex(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\left|\\right/g, '')
+    .replace(/\\dfrac|\\tfrac/g, '\\frac')
+    .replace(/\\cdot|\\times/g, '*')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+function latexToNumber(src) {
+  if (src == null) return null;
+  const s = String(src); const tokens = []; let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === ' ' || ch === '\t' || ch === '\n') { i++; continue; }
+    if (ch === '\\') {
+      let j = i + 1, name = '';
+      while (j < s.length && /[a-zA-Z]/.test(s[j])) { name += s[j]; j++; }
+      if (name === '') { if (s[j] === ',' || s[j] === ' ' || s[j] === ';' || s[j] === '!') { i = j + 1; continue; } return null; }
+      i = j;
+      switch (name) {
+        case 'left': case 'right': continue;
+        case 'frac': case 'dfrac': case 'tfrac': tokens.push({ type: 'frac' }); continue;
+        case 'sqrt': tokens.push({ type: 'sqrt' }); continue;
+        case 'cdot': case 'times': tokens.push({ type: '*' }); continue;
+        case 'pi': tokens.push({ type: 'num', value: Math.PI }); continue;
+        default: return null;
+      }
+    }
+    if (/[0-9.]/.test(ch)) { let num = ''; while (i < s.length && /[0-9.]/.test(s[i])) { num += s[i]; i++; } const v = parseFloat(num); if (!isFinite(v)) return null; tokens.push({ type: 'num', value: v }); continue; }
+    if ('+-*/^(){}[]'.includes(ch)) { tokens.push({ type: ch }); i++; continue; }
+    if (/[a-zA-Z]/.test(ch)) return null;
+    return null;
+  }
+  let p = 0; let failed = false;
+  const peek = () => tokens[p]; const next = () => tokens[p++];
+  const NUM_START = new Set(['num', '(', '{', 'frac', 'sqrt']);
+  const fail = () => { failed = true; return 0; };
+  function parseExpr() { let v = parseTerm(); while (peek() && (peek().type === '+' || peek().type === '-')) { const op = next().type; const r = parseTerm(); v = op === '+' ? v + r : v - r; } return v; }
+  function parseTerm() { let v = parseFactor(); while (peek()) { const t = peek().type; if (t === '*' || t === '/') { next(); const r = parseFactor(); v = t === '*' ? v * r : v / r; } else if (NUM_START.has(t)) { const r = parseFactor(); v = v * r; } else break; } return v; }
+  function parseFactor() { let sign = 1; while (peek() && (peek().type === '-' || peek().type === '+')) { if (next().type === '-') sign = -sign; } let base = parseAtom(); if (peek() && peek().type === '^') { next(); const exp = parseFactor(); base = Math.pow(base, exp); } return sign * base; }
+  function parseAtom() {
+    const t = peek(); if (!t) return fail();
+    if (t.type === 'num') { next(); return t.value; }
+    if (t.type === '(') { next(); const v = parseExpr(); if (peek() && peek().type === ')') next(); else return fail(); return v; }
+    if (t.type === '{') { next(); const v = parseExpr(); if (peek() && peek().type === '}') next(); else return fail(); return v; }
+    if (t.type === 'frac') { next(); const a = parseGroup(); const b = parseGroup(); return a / b; }
+    if (t.type === 'sqrt') { next(); if (peek() && peek().type === '[') { next(); const n = parseExpr(); if (peek() && peek().type === ']') next(); else return fail(); const a = parseGroup(); return Math.pow(a, 1 / n); } const a = parseGroup(); return Math.sqrt(a); }
+    return fail();
+  }
+  function parseGroup() { const t = peek(); if (t && t.type === '{') { next(); const v = parseExpr(); if (peek() && peek().type === '}') next(); else return fail(); return v; } return parseAtom(); }
+  const result = parseExpr();
+  if (failed) return null;
+  if (p !== tokens.length) return null;
+  if (typeof result !== 'number' || !isFinite(result)) return null;
+  return result;
+}
+function mathEqual(studentLatex, correctLatex) {
+  if (studentLatex == null || String(studentLatex).trim() === '') return false;
+  const a = latexToNumber(studentLatex), b = latexToNumber(correctLatex);
+  if (a != null && b != null) { const scale = Math.max(1, Math.abs(a), Math.abs(b)); return Math.abs(a - b) <= 1e-9 * scale; }
+  const na = normTextLatex(studentLatex), nb = normTextLatex(correctLatex);
+  return na !== '' && na === nb;
+}
+
 // ── 자동 채점 ──
 //   반환: { score, maxScore, detail:{ qid:{ correct:bool, answer(정답), points } } }
 //   correct가 정의된 문항 = 자동 채점(maxScore에 합산).
@@ -243,6 +312,8 @@ function gradeAnswers(questions, answers) {
       ok = as.size === cs.length && cs.every(x => as.has(x));
     } else if (q.type === 'short') {
       ok = !!normText(a) && normText(a) === normText(q.correct);
+    } else if (q.type === 'math') {
+      ok = mathEqual(a, q.correct);
     }
     if (ok) score += pts;
     detail[q.id] = { correct: ok, answer: q.correct, points: pts };

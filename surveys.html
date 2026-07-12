@@ -62,6 +62,9 @@
                  font-size:1rem; font-weight:700; cursor:pointer; color:var(--text); }
   .scale button.sel{ border-color:var(--primary); background:var(--primary); color:#fff; }
   .scaleLbl{ display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-light); margin-top:6px; }
+  math-field{ width:100%; font-size:1.4rem; border:1px solid var(--line); border-radius:11px; padding:10px 12px; background:#fff; }
+  math-field:focus-within{ border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+  math-field[read-only]{ border:none; padding:0 2px; font-size:1.1rem; background:transparent; width:auto; display:inline-block; vertical-align:middle; box-shadow:none; }
   .submitBar{ position:sticky; bottom:0; background:#fff; border-top:1px solid var(--line);
               padding:12px 14px calc(env(safe-area-inset-bottom) + 12px); }
   .submitBar button{ width:100%; border:none; border-radius:12px; padding:14px; font-size:1rem; font-weight:700;
@@ -86,6 +89,12 @@
   <button id="submitBtn">응답 제출</button>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- 수식(math) 문제 응시·표시용 — MathLive 웹컴포넌트. 로드 실패 시 math 문항은 일반 입력칸으로 폴백. -->
+<script type="module">
+  try { await import('https://cdn.jsdelivr.net/npm/mathlive/+esm'); }
+  catch (e) { console.warn('[surveys] MathLive 로드 실패:', e); }
+</script>
 
 <script>
   // ─────────────── 인증 가드 (portal과 동일 키) ───────────────
@@ -251,6 +260,26 @@
         var ta = document.createElement('textarea'); ta.className = 'ti'; ta.placeholder = '자유롭게 적어 주세요';
         ta.addEventListener('input', function(){ answers[q.id] = ta.value; });
         body.appendChild(ta);
+      } else if(q.type==='math'){
+        answers[q.id] = '';
+        var mf = document.createElement('math-field');
+        mf.setAttribute('math-virtual-keyboard-policy','onfocus');
+        mf.addEventListener('input', function(){ answers[q.id] = mf.value; });
+        body.appendChild(mf);
+        var mfh = document.createElement('div'); mfh.className = 'scaleLbl'; mfh.style.marginTop = '7px';
+        mfh.innerHTML = '<span>칸을 누르면 수학 키패드가 떠요 · 분수·루트 입력 가능</span>';
+        body.appendChild(mfh);
+        // MathLive 로드 실패(CDN 차단 등) 대비 — 컴포넌트가 안 뜨면 일반 입력칸으로 폴백
+        (function(mfEl, qid){
+          setTimeout(function(){
+            if(!(window.customElements && customElements.get('math-field'))){
+              var fb = document.createElement('input'); fb.type='text'; fb.className='ti';
+              fb.placeholder='답을 입력하세요';
+              fb.addEventListener('input', function(){ answers[qid] = fb.value; });
+              if(mfEl.parentNode) mfEl.parentNode.replaceChild(fb, mfEl);
+            }
+          }, 2500);
+        })(mf, q.id);
       } else { // short
         answers[q.id] = '';
         var ti = document.createElement('input'); ti.type='text'; ti.className = 'ti'; ti.placeholder = '답변을 입력하세요';
@@ -289,6 +318,13 @@
     if(Array.isArray(a)) return a.length ? a.map(esc).join(', ') : '(무응답)';
     return esc('' + a);
   }
+  // math 문항 값 표시 — LaTeX를 읽기전용 수식으로 렌더(MathLive 미로드 시 원문 텍스트 폴백)
+  function fmtMathVal(a){
+    var s = (a==null) ? '' : ('' + a);
+    if(s==='') return '(무응답)';
+    if(window.customElements && customElements.get('math-field')) return '<math-field read-only>' + esc(s) + '</math-field>';
+    return esc(s);
+  }
 
   // 퀴즈 자동채점 결과 화면
   function renderQuizResult(data, sent){
@@ -315,9 +351,10 @@
       var qr = document.createElement('div'); qr.className = 'qr';
       var tag = d.pending ? '<span class="tag p">✍️ 채점 대기</span>'
               : d.correct ? '<span class="tag o">✔ 정답</span>' : '<span class="tag x">✕ 오답</span>';
+      var isMath = (q.type==='math');
       var h = '<div class="lab">' + esc(q.label) + tag + '</div>';
-      h += '<div class="mine">내 답: ' + fmtAns(sent[q.id]) + '</div>';
-      if(!d.pending && !d.correct) h += '<div class="ans">정답: ' + fmtAns(d.answer) + '</div>';
+      h += '<div class="mine">내 답: ' + (isMath ? fmtMathVal(sent[q.id]) : fmtAns(sent[q.id])) + '</div>';
+      if(!d.pending && !d.correct) h += '<div class="ans">정답: ' + (isMath ? fmtMathVal(d.answer) : fmtAns(d.answer)) + '</div>';
       qr.innerHTML = h;
       viewEl.appendChild(qr);
     });
