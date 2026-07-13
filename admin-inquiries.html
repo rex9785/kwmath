@@ -12,7 +12,8 @@
   body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
         background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%; }
   header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
-          padding:calc(env(safe-area-inset-top) + 14px) 16px 14px; display:flex; align-items:center; gap:10px; }
+          padding:calc(env(safe-area-inset-top) + 14px) 0 14px; }
+  .headInner{ max-width:720px; margin:0 auto; padding:0 16px; display:flex; align-items:center; gap:10px; }
   header h1{ font-size:1.05rem; margin:0; flex:1; }
   header .count{ font-size:0.8rem; color:#fff; background:var(--primary); border-radius:999px; padding:3px 10px; font-weight:700; }
   header button{ border:1px solid var(--line); background:#fff; color:var(--text); border-radius:9px;
@@ -59,10 +60,12 @@
 </head>
 <body>
 <header>
-  <a class="back" href="/admin">← 관리자</a>
-  <h1>상담 문의함</h1>
-  <span class="count" id="count" style="display:none;">0</span>
-  <button id="refresh">새로고침</button>
+  <div class="headInner">
+    <a class="back" href="/admin">← 관리자</a>
+    <h1>상담 문의함</h1>
+    <span class="count" id="count" style="display:none;">0</span>
+    <button id="refresh">새로고침</button>
+  </div>
 </header>
 <div class="wrap">
   <div id="list"><div class="state">불러오는 중…</div></div>

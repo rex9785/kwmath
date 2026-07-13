@@ -12,7 +12,8 @@
   body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
         background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%; }
   header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
-          padding:calc(env(safe-area-inset-top) + 14px) 16px 14px; display:flex; align-items:center; gap:10px; }
+          padding:calc(env(safe-area-inset-top) + 14px) 0 14px; }
+  .headInner{ max-width:760px; margin:0 auto; padding:0 16px; display:flex; align-items:center; gap:10px; }
   header h1{ font-size:1.05rem; margin:0; flex:1; }
   header button{ border:1px solid var(--line); background:#fff; color:var(--text); border-radius:9px;
                  padding:7px 12px; font-size:0.85rem; cursor:pointer; }
@@ -109,10 +110,12 @@
 </head>
 <body>
 <header>
-  <a id="adminBack" class="adminBack hidden" href="/admin">← 관리자</a>
-  <button id="backBtn" class="hidden">← 뒤로</button>
-  <h1 id="hTitle">설문·조사 / 퀴즈</h1>
-  <button id="newBtn" class="primary">+ 새 설문/새 퀴즈</button>
+  <div class="headInner">
+    <a id="adminBack" class="adminBack hidden" href="/admin">← 관리자</a>
+    <button id="backBtn" class="hidden">← 뒤로</button>
+    <h1 id="hTitle">설문·조사 / 퀴즈</h1>
+    <button id="newBtn" class="primary">+ 새 설문/새 퀴즈</button>
+  </div>
 </header>
 <!-- 조교 콘솔 네비게이션 (조교일 때만 노출) -->
 <div id="staffNav" style="display:none;gap:6px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--border);background:#fff;">
