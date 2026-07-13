@@ -90,14 +90,18 @@ export async function onRequest(context) {
       // 관리자 발신 (클리닉 미참석 연락 등)
       if (action === 'create') {
         if (!isAdmin) return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
+        // 학생 식별은 id 우선(동명이인 안전 — D1 이주 때 정한 계약). 구버전 클라 대비 name도 fallback 허용.
+        const sid = (body.id == null ? '' : String(body.id)).trim();
         const name = (body.name || '').trim();
-        if (!name) return Response.json({ error: 'name 필수' }, { status: 400 });
-        const allowedNames = await staffNameScope(env, request);   // 조교면 Set, 원장이면 null
-        if (allowedNames && !allowedNames.has(name)) {
+        if (!sid && !name) return Response.json({ error: 'id 또는 name 필수' }, { status: 400 });
+        // 조교 스코프는 이름이 아니라 학원(academy)으로 판정 — 같은 이름이 다른 학원에 있어도 안 섞임.
+        const academy = await staffScopeAcademy(env, request);   // null=원장(제한없음) · ''=미배정 조교 · '학원명'
+        const st = sid ? await getStudentById(env, sid) : await getStudentByName(env, name);
+        if (!st) return Response.json({ error: '학생을 찾을 수 없습니다.' }, { status: 404 });
+        if (academy !== null && (!academy || (st.academy || '') !== academy)) {
           return Response.json({ error: '담당 학원 학생만 연락할 수 있어요.' }, { status: 403 });
         }
-        const st = await getStudentByName(env, name);
-        if (!st) return Response.json({ error: '학생을 찾을 수 없습니다.' }, { status: 404 });
+        const isOwner = (academy === null);   // 원장만 자유(manual) 알림 가능
 
         const type = (body.type || 'manual').trim();
         const date = (body.date || '').trim() || todayKST();
@@ -111,7 +115,7 @@ export async function onRequest(context) {
           audience = 'parent';   // 보고성 — 학부모 전용(푸시·알림함 모두 학생 제외)
         } else if (type === 'manual') {
           // 자유 문구는 원장만 (조교는 정형 알림만 발신)
-          if (allowedNames !== null) return Response.json({ error: '자유 알림은 원장만 보낼 수 있어요.' }, { status: 403 });
+          if (!isOwner) return Response.json({ error: '자유 알림은 원장만 보낼 수 있어요.' }, { status: 403 });
           title = (body.title || '').trim() || '📢 알림';
           bodyText = (body.body || '').trim();
           if (!bodyText) return Response.json({ error: '알림 내용을 입력해주세요.' }, { status: 400 });

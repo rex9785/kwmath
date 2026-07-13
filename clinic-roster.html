@@ -165,6 +165,7 @@
       ? '<span class="status ok">✅ 참석'+(e.clinicStatus==='지각'?'(지각)':'')+'</span>'
       : '<span class="status miss">⚠️ 미참석</span>';
     var nmEsc = esc(e.name).replace(/'/g,"\\'");
+    var sidEsc = String(e.studentId==null?'':e.studentId).replace(/'/g,"\\'");   // 연락은 id로(동명이인 안전)
     return ''+
     '<div class="card'+(did?' attended':'')+'">'+
       '<div class="main">'+
@@ -175,7 +176,7 @@
       '</div>'+
       statusHtml+
       '<div class="acts">'+
-        (did?'':'<button class="mini notify" onclick="doNotify(\''+nmEsc+'\')">📞 연락</button>')+
+        (did?'':'<button class="mini notify" onclick="doNotify(\''+sidEsc+'\',\''+nmEsc+'\')">📞 연락</button>')+
         '<button class="mini" onclick="doExclude(\''+nmEsc+'\')">제외</button>'+
       '</div>'+
     '</div>';
@@ -242,9 +243,9 @@
     }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); return false; }
   }
 
-  async function doNotify(name){
+  async function doNotify(sid, name){
     try{
-      var r=await api('/api/notifications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',type:'clinic_absent',name:name,date:viewDate})});
+      var r=await api('/api/notifications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',type:'clinic_absent',id:sid,date:viewDate})});
       var j=await r.json().catch(function(){return {};});
       if(!r.ok){ showToast(j.error||'연락에 실패했어요.'); return; }
       if(j.created===false){ showToast(name+' 학부모님께 이미 연락했어요.'); }
