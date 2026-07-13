@@ -47,6 +47,10 @@
   .inline > *{ flex:1; min-width:120px; }
   .chk{ display:flex; align-items:center; gap:8px; margin-top:10px; font-size:0.9rem; }
   .chk input{ width:18px; height:18px; }
+  .modeTabs{ display:flex; gap:0; margin-bottom:14px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .modeTab{ flex:1; text-align:center; padding:11px 0; font-size:0.98rem; font-weight:700; color:var(--text-light); background:#fff; border:none; cursor:pointer; font-family:inherit; }
+  .modeTab.on{ background:var(--primary); color:#fff; }
+  .modeTab:disabled{ opacity:.45; cursor:not-allowed; }
   .qcard{ background:var(--bg); border:1px solid var(--line); border-radius:11px; padding:12px 13px; margin-bottom:11px; }
   .qhead{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
   .qhead .qn{ font-weight:700; font-size:0.85rem; color:var(--primary); }
@@ -291,6 +295,10 @@
 
     var head = document.createElement('div'); head.className = 'card';
     head.innerHTML =
+      '<div class="modeTabs" id="modeTabs">' +
+        '<button type="button" class="modeTab" id="tabSurvey">설문</button>' +
+        '<button type="button" class="modeTab" id="tabQuiz">퀴즈</button>' +
+      '</div>' +
       '<label class="fld">설문 제목</label>' +
       '<input type="text" id="fTitle" placeholder="예: 3월 수업 만족도 조사">' +
       '<label class="fld">설명 (선택)</label>' +
@@ -302,7 +310,6 @@
           '<select id="fStatus"><option value="draft">초안(저장만 · 학생에게 안 보임)</option><option value="open">공개(응답 받기)</option><option value="closed">종료(응답 마감)</option></select></div>' +
       '</div>' +
       '<label class="chk"><input type="checkbox" id="fAnon"> 익명 응답 (누가 답했는지 저장·표시 안 함)</label>' +
-      '<label class="chk"><input type="checkbox" id="fQuiz"> 퀴즈 모드 (정답·배점 설정 → 제출 즉시 자동 채점)</label>' +
       '<div class="qhint" id="quizHint"></div>' +
       '<div class="fld" style="margin-top:12px;">대상 학원·반 <span style="font-weight:400;color:var(--muted);">(아무것도 안 고르면 전체 대상)</span></div>' +
       '<div id="fTargetWrap" data-loaded="0" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:0.85rem;color:var(--muted);">불러오는 중…</div>';
@@ -322,11 +329,8 @@
     document.getElementById('fAud').value = draft.audience || 'all';
     document.getElementById('fStatus').value = draft.status || 'draft';
     document.getElementById('fAnon').checked = !!draft.anonymous;
-    var fQuiz = document.getElementById('fQuiz');
-    fQuiz.checked = !!draft.quiz;
-    if(isStaff){ draft.quiz = true; fQuiz.checked = true; fQuiz.disabled = true; }  // 조교는 퀴즈 전용(해제 불가)
-    updateQuizHint();
-    fQuiz.addEventListener('change', function(e){ draft.quiz = e.target.checked; updateQuizHint(); renderQuestions(); });
+    if(isStaff){ draft.quiz = true; }  // 조교는 퀴즈 전용
+    setupModeTabs();
 
     loadTargetOptions();
     renderQuestions();
@@ -366,6 +370,26 @@
     }).catch(function(){ wrap.innerHTML = '<span style="color:var(--muted);">학원·반 목록을 불러오지 못했어요. (전체 대상으로 저장됩니다)</span>'; wrap.dataset.loaded='1'; });
   }
 
+  // 설문/퀴즈 탭 — 체크박스 대신 상단 탭으로 모드 선택. 퀴즈면 응답 대상=학생 고정.
+  function setupModeTabs(){
+    var ts = document.getElementById('tabSurvey'), tq = document.getElementById('tabQuiz');
+    if(!ts || !tq) return;
+    ts.addEventListener('click', function(){ if(isStaff || !draft.quiz) return; draft.quiz = false; applyModeUI(); renderQuestions(); });
+    tq.addEventListener('click', function(){ if(draft.quiz) return; draft.quiz = true; applyModeUI(); renderQuestions(); });
+    if(isStaff){ ts.disabled = true; ts.title = '조교 계정은 퀴즈 전용입니다'; }  // 설문 탭 잠금
+    applyModeUI();
+  }
+  function applyModeUI(){
+    var ts = document.getElementById('tabSurvey'), tq = document.getElementById('tabQuiz');
+    if(ts) ts.classList.toggle('on', !draft.quiz);
+    if(tq) tq.classList.toggle('on', !!draft.quiz);
+    var aud = document.getElementById('fAud');
+    if(aud){
+      if(draft.quiz){ draft.audience = 'student'; aud.value = 'student'; aud.disabled = true; }  // 퀴즈는 학생만 응답
+      else { aud.disabled = false; }
+    }
+    updateQuizHint();
+  }
   function updateQuizHint(){
     var el = document.getElementById('quizHint'); if(!el) return;
     el.textContent = draft.quiz
@@ -604,7 +628,7 @@
     draft.audience = document.getElementById('fAud').value;
     draft.status = document.getElementById('fStatus').value;
     draft.anonymous = document.getElementById('fAnon').checked;
-    var fq = document.getElementById('fQuiz'); if(fq) draft.quiz = fq.checked;
+    if(draft.quiz) draft.audience = 'student';  // draft.quiz는 설문/퀴즈 탭에서 관리 · 퀴즈면 대상은 학생 고정
     // 대상 학원·반 — 옵션이 로드됐을 때만 읽어 draft 갱신(로드 전 syncFromForm이 초기화하는 것 방지)
     var tw = document.getElementById('fTargetWrap');
     if(tw && tw.dataset.loaded === '1'){
