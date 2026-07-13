@@ -142,6 +142,50 @@ export async function onRequest(context) {
         return Response.json({ ok: true, created: created.created, id: created.id });
       }
 
+      // 관리자 다중 발신 — 학원/반/학생 골라 자유 알림 일괄 발송(원장 전용). admin-notify.html이 사용.
+      //   names[]는 클라이언트가 학원·반 필터로 펼친 최종 학생 이름 목록. 각 학생에 manual 알림 1건 + 대상 폰 푸시.
+      if (action === 'create_bulk') {
+        if (!isAdmin) return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
+        // 자유 알림은 원장만(조교는 정형 알림만). staffNameScope가 null이어야 원장.
+        const allowedNames = await staffNameScope(env, request);
+        if (allowedNames !== null) return Response.json({ error: '자유 알림은 원장만 보낼 수 있어요.' }, { status: 403 });
+
+        const names = Array.isArray(body.names)
+          ? [...new Set(body.names.map(n => String(n || '').trim()).filter(Boolean))]
+          : [];
+        if (!names.length) return Response.json({ error: '받을 학생을 선택해주세요.' }, { status: 400 });
+
+        const title = (body.title || '').trim() || '📢 알림';
+        const bodyText = (body.body || '').trim();
+        if (!bodyText) return Response.json({ error: '알림 내용을 입력해주세요.' }, { status: 400 });
+        const urlPath = body.url ? String(body.url) : '/portal';
+        // 받는 사람: parent(학부모)·student(학생)·all(둘 다). 기본 all.
+        const audience = ['parent', 'student', 'all'].includes((body.audience || '').trim()) ? (body.audience || '').trim() : 'all';
+
+        let sent = 0; const misses = []; const pushPhones = new Set();
+        for (const name of names) {
+          const st = await getStudentByName(env, name);
+          if (!st) { misses.push(name); continue; }
+          const created = await createNotification(env, {
+            studentId: st.id, type: 'manual', title, body: bodyText, url: urlPath, dedupKey: null, audience,
+          });
+          if (!created.ok) { misses.push(name); continue; }
+          sent++;
+          const targets = audience === 'parent' ? [st.parentPhone]
+                        : audience === 'student' ? [st.studentPhone]
+                        : [st.parentPhone, st.studentPhone];
+          for (const p of targets) { const d = String(p || '').replace(/\D/g, ''); if (d) pushPhones.add(d); }
+        }
+
+        // 문구가 모두 같으니 푸시는 한 번에(모든 대상 폰). best-effort — 발송 흐름과 분리.
+        if (pushPhones.size) {
+          const pp = sendPushToUsers(env, [...pushPhones], { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' });
+          if (context && typeof context.waitUntil === 'function') context.waitUntil(pp);
+          else if (pp && typeof pp.catch === 'function') pp.catch(() => {});
+        }
+        return Response.json({ ok: true, sent, misses });
+      }
+
       // 학생/학부모: 읽음 처리 (자녀 소유 + 수신대상 알림만)
       const access = await requireStudentAccess(env, request);
       if (!access.ok) return access.response;

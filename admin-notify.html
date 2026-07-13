@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>알림 보내기 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:760px; margin:0 auto; padding:max(20px,env(safe-area-inset-top,20px)) 18px 48px; }
+  a.back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; display:inline-block; margin-bottom:6px; }
+  h1{ font-size:1.35rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.84rem; margin-bottom:22px; line-height:1.5; }
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:28px 20px; text-align:center; color:var(--muted); line-height:1.6; }
+  .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:48px auto; text-align:center; }
+  .login input{ width:100%; padding:11px; border:1px solid var(--border); border-radius:10px; margin:12px 0; font-size:1rem; }
+  button{ background:var(--primary); color:#fff; border:none; border-radius:10px; padding:10px 18px; font-weight:700; cursor:pointer; font-size:0.92rem; }
+  button:disabled{ opacity:0.55; cursor:default; }
+  .field{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  .field > label{ display:block; font-weight:700; font-size:0.9rem; margin-bottom:8px; }
+  .field .opt{ color:var(--muted); font-weight:400; font-size:0.8rem; }
+  select, input[type=text], textarea{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; font-size:0.95rem; font-family:inherit; background:#fff; color:var(--ink); }
+  textarea{ resize:vertical; line-height:1.55; }
+  .stHead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .cnt{ color:var(--primary); font-weight:700; font-size:0.82rem; }
+  .mini{ padding:5px 12px; font-size:0.78rem; border-radius:8px; }
+  .studentGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px; max-height:260px; overflow-y:auto; padding:2px; }
+  .stItem{ display:flex; align-items:center; gap:7px; padding:8px 10px; border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.86rem; background:#fff; }
+  .stItem input{ margin:0; flex-shrink:0; }
+  .stItem .nm{ font-weight:600; }
+  .stItem .mt{ color:var(--muted); font-size:0.74rem; margin-left:auto; text-align:right; }
+  .empty{ color:var(--muted); font-size:0.85rem; padding:14px; text-align:center; }
+  .aud{ display:flex; gap:8px; flex-wrap:wrap; }
+  .aud .radio{ display:flex; align-items:center; gap:6px; padding:9px 14px; border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.88rem; }
+  .aud .radio input{ margin:0; }
+  .sendBar{ margin-top:6px; }
+  .sendBar button{ width:100%; padding:13px; font-size:1rem; }
+  .result{ margin-top:12px; border-radius:12px; padding:14px 16px; font-size:0.9rem; line-height:1.5; }
+  .result.ok{ background:var(--primary-light); color:var(--primary); border:1px solid var(--border); }
+  .result.err{ background:#fdecec; color:#c0392b; border:1px solid #f5c6c6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/admin">← 관리자</a>
+  <h1>📢 알림 보내기</h1>
+  <div class="sub">학원·반·학생을 골라 자유 알림을 보냅니다. 결석·숙제 알림과 달리 받는 사람(학부모·학생)을 매번 고를 수 있어요.</div>
+
+  <div id="login" class="login" style="display:none;">
+    <div style="font-weight:700;">관리자 비밀번호</div>
+    <input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" style="color:#c0392b;font-size:0.8rem;margin-bottom:8px;"></div>
+    <button onclick="doLogin()">확인</button>
+  </div>
+
+  <div id="loading" class="msg">불러오는 중…</div>
+
+  <div id="form" style="display:none;">
+    <div class="field">
+      <label>학원</label>
+      <select id="acSel" onchange="onAcademyChange()"></select>
+    </div>
+    <div class="field">
+      <label>반</label>
+      <select id="clSel" onchange="renderStudents()"></select>
+    </div>
+    <div class="field">
+      <div class="stHead">
+        <label style="margin:0;">학생 <span id="stCount" class="cnt"></span></label>
+        <button type="button" class="mini" id="allBtn" onclick="toggleAll()">전체 선택</button>
+      </div>
+      <div id="students" class="studentGrid"></div>
+    </div>
+    <div class="field">
+      <label>제목 <span class="opt">(선택 · 비우면 “📢 알림”)</span></label>
+      <input type="text" id="title" maxlength="60" placeholder="📢 알림">
+    </div>
+    <div class="field">
+      <label>내용</label>
+      <textarea id="bodyText" rows="4" maxlength="1000" placeholder="보낼 알림 내용을 입력하세요."></textarea>
+    </div>
+    <div class="field">
+      <label>받는 사람</label>
+      <div class="aud">
+        <label class="radio"><input type="radio" name="aud" value="parent" checked> 학부모</label>
+        <label class="radio"><input type="radio" name="aud" value="student"> 학생</label>
+        <label class="radio"><input type="radio" name="aud" value="all"> 학부모 + 학생</label>
+      </div>
+    </div>
+    <div class="sendBar">
+      <button id="sendBtn" onclick="doSend()">보내기</button>
+    </div>
+    <div id="result" class="result" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  var roster = [];   // 승인된 재원생만
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function show(id, on){ $(id).style.display = on ? '' : 'none'; }
+  function uniq(arr){ return Array.from(new Set(arr)); }
+
+  function showLogin(err){
+    show('loading', false); show('form', false); show('login', true);
+    $('loginErr').textContent = err || '';
+    var p = $('pw'); if (p) p.focus();
+  }
+  function doLogin(){
+    token = ($('pw').value || '').trim();
+    if (!token) return;
+    sessionStorage.setItem('kwmath_admin_pw', token);
+    load();
+  }
+
+  async function load(){
+    show('login', false); show('form', false); show('loading', true);
+    $('loading').textContent = '불러오는 중…';
+    var headers = {}; if (token) headers['Authorization'] = 'Bearer ' + token;
+    var r;
+    try { r = await fetch('/api/students', { headers: headers, credentials: 'same-origin' }); }
+    catch (e) { $('loading').textContent = '네트워크 오류. 새로고침 해주세요.'; return; }
+    if (r.status === 401) {
+      sessionStorage.removeItem('kwmath_admin_pw');
+      var had = token; token = null;
+      showLogin(had ? '비밀번호가 틀렸습니다' : '');
+      return;
+    }
+    var d = await r.json().catch(function(){ return null; });
+    if (!Array.isArray(d)) { $('loading').textContent = '학생 목록을 불러오지 못했습니다.'; return; }
+    // 승인 학생만(대기중/거부 제외; 빈 값=옛 학생 통과). 퇴원생은 이미 목록에 없음.
+    roster = d.filter(function(s){ var st = (s.approvalStatus || ''); return st === '' || st === '승인'; });
+    show('loading', false); show('form', true);
+    buildAcademies(); onAcademyChange();
+  }
+
+  function academyLabel(a){ return a || '(학원 미지정)'; }
+
+  function buildAcademies(){
+    var acs = uniq(roster.map(function(s){ return s.academy || ''; })).sort();
+    var html = '<option value="__ALL__">전체 학원</option>';
+    acs.forEach(function(a){ html += '<option value="' + esc(a) + '">' + esc(academyLabel(a)) + '</option>'; });
+    $('acSel').innerHTML = html;
+  }
+  function onAcademyChange(){
+    var ac = $('acSel').value;
+    var pool = (ac === '__ALL__') ? roster : roster.filter(function(s){ return (s.academy || '') === ac; });
+    var cls = uniq(pool.map(function(s){ return s.className || ''; })).sort();
+    var html = '<option value="__ALL__">전체 반</option>';
+    cls.forEach(function(c){ html += '<option value="' + esc(c) + '">' + esc(c || '(반 미지정)') + '</option>'; });
+    $('clSel').innerHTML = html;
+    renderStudents();
+  }
+  function visibleStudents(){
+    var ac = $('acSel').value, cl = $('clSel').value;
+    return roster.filter(function(s){
+      if (ac !== '__ALL__' && (s.academy || '') !== ac) return false;
+      if (cl !== '__ALL__' && (s.className || '') !== cl) return false;
+      return true;
+    }).sort(function(a, b){ return (a.name || '').localeCompare(b.name || '', 'ko'); });
+  }
+  function renderStudents(){
+    var list = visibleStudents();
+    if (!list.length){ $('students').innerHTML = '<div class="empty">해당 조건의 학생이 없습니다.</div>'; updateCount(); return; }
+    var html = '';
+    list.forEach(function(s){
+      var nm = esc(s.name || '');
+      var meta = esc((s.className || '') + (s.grade ? (' · ' + s.grade) : ''));
+      html += '<label class="stItem"><input type="checkbox" class="stChk" value="' + nm + '" onchange="updateCount()"><span class="nm">' + nm + '</span><span class="mt">' + meta + '</span></label>';
+    });
+    $('students').innerHTML = html;
+    updateCount();
+  }
+  function checkedNames(){
+    return Array.prototype.slice.call(document.querySelectorAll('.stChk:checked')).map(function(c){ return c.value; });
+  }
+  function updateCount(){
+    var n = checkedNames().length, total = document.querySelectorAll('.stChk').length;
+    $('stCount').textContent = '(' + n + '/' + total + '명 선택)';
+    var allBtn = $('allBtn'); if (allBtn) allBtn.textContent = (n > 0 && n === total) ? '전체 해제' : '전체 선택';
+  }
+  function toggleAll(){
+    var chks = document.querySelectorAll('.stChk');
+    var n = checkedNames().length, total = chks.length;
+    var on = !(n > 0 && n === total);
+    Array.prototype.forEach.call(chks, function(c){ c.checked = on; });
+    updateCount();
+  }
+  function audValue(){
+    var r = document.querySelector('input[name="aud"]:checked'); return r ? r.value : 'all';
+  }
+  function audLabel(v){ return v === 'parent' ? '학부모' : v === 'student' ? '학생' : '학부모+학생'; }
+
+  function showResult(ok, msg){
+    var el = $('result'); el.style.display = ''; el.className = 'result ' + (ok ? 'ok' : 'err'); el.textContent = msg;
+  }
+
+  async function doSend(){
+    var names = checkedNames();
+    var bodyText = ($('bodyText').value || '').trim();
+    var title = ($('title').value || '').trim();
+    var aud = audValue();
+    if (!names.length){ alert('받을 학생을 선택해주세요.'); return; }
+    if (!bodyText){ alert('알림 내용을 입력해주세요.'); $('bodyText').focus(); return; }
+    if (!confirm('학생 ' + names.length + '명의 [' + audLabel(aud) + ']에게 알림을 보냅니다.\n\n보낼까요?')) return;
+
+    var btn = $('sendBtn'); btn.disabled = true; var old = btn.textContent; btn.textContent = '보내는 중…';
+    var headers = { 'Content-Type': 'application/json' }; if (token) headers['Authorization'] = 'Bearer ' + token;
+    var r, d;
+    try {
+      r = await fetch('/api/notifications', { method: 'POST', headers: headers, credentials: 'same-origin',
+        body: JSON.stringify({ action: 'create_bulk', names: names, title: title, body: bodyText, audience: aud }) });
+      d = await r.json().catch(function(){ return null; });
+    } catch (e) { btn.disabled = false; btn.textContent = old; showResult(false, '네트워크 오류로 보내지 못했습니다.'); return; }
+    btn.disabled = false; btn.textContent = old;
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
+    if (!d || !d.ok){ showResult(false, (d && d.error) || '발송에 실패했습니다.'); return; }
+    var msg = (d.sent || 0) + '명에게 보냈습니다.';
+    if (d.misses && d.misses.length) msg += ' (못 보냄: ' + d.misses.join(', ') + ')';
+    showResult(true, msg);
+    $('bodyText').value = ''; $('title').value = '';   // 대상 선택은 유지, 내용만 비움
+  }
+
+  load();
+</script>
+</body>
+</html>
