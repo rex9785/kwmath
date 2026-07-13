@@ -54,6 +54,9 @@
   /* 섹션 */
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
+  .stu-subtabs{display:inline-flex;gap:4px;background:#f4eff0;border:1.5px solid var(--border);border-radius:10px;padding:4px;margin-bottom:18px;}
+  .stu-subtab{padding:8px 20px;border:none;background:none;font-size:0.86rem;font-weight:800;color:var(--text-light);cursor:pointer;border-radius:7px;font-family:inherit;transition:all .15s;}
+  .stu-subtab.on{background:var(--primary);color:#fff;}
   .panel-title{font-size:1.2rem;font-weight:900;margin-bottom:20px;}
 
   /* 공통 카드 (자료실 업로드, 영상 카드 등에서 재사용) — 공지사항 폼과 동일한 여백 */
@@ -235,7 +238,6 @@
       <button type="button" class="admin-card" onclick="openSection('videos')">📺<b>영상 관리</b><span>수업 영상</span></button>
       <button type="button" class="admin-card" onclick="location.href='/admin-study'">🏆<b>공부 랭킹</b><span>반별 공부시간 순위(실명)</span></button>
       <button type="button" class="admin-card" onclick="location.href='/admin-stats'">📊<b>방문 통계</b><span>사이트 방문자 수</span></button>
-      <button type="button" class="admin-card" onclick="location.href='/admin-outcomes'">📤<b>퇴원생 기록</b><span>성적·출결·학습 보관</span></button>
       <button type="button" class="admin-card" onclick="location.href='/admin-staff'">🧑‍🏫<b>운영진 관리</b><span>조교 가입 승인·거부</span></button>
       <button type="button" class="admin-card" onclick="openSection('appversion')">📲<b>앱 강제업데이트</b><span>구버전 차단 최소버전</span></button>
     </div>
@@ -383,6 +385,11 @@
 
     <!-- 학생 목록 탭 -->
     <div class="tab-panel" id="tab-students">
+      <div class="stu-subtabs">
+        <button type="button" id="stuTabActive" class="stu-subtab on" onclick="switchStudentTab('active')">재원생</button>
+        <button type="button" id="stuTabLeft" class="stu-subtab" onclick="switchStudentTab('left')">퇴원생</button>
+      </div>
+      <div id="studentsActivePane">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <p class="panel-title" style="margin-bottom:0;">👨‍🎓 등록 학생 목록</p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -437,6 +444,10 @@
         <button class="edit-btn" onclick="clearBulkSelection()" style="white-space:nowrap;">선택 해제</button>
       </div>
       <div id="studentList"><div class="empty">불러오는 중...</div></div>
+      </div><!-- /studentsActivePane -->
+      <div id="studentsLeftPane" style="display:none;">
+        <div id="leftStudentsMount"><div class="empty">불러오는 중...</div></div>
+      </div>
     </div>
 
     <!-- 출결/숙제 탭 (신규) -->
@@ -729,6 +740,37 @@
     if (name === 'videos') loadVideos();
     if (name === 'appversion') loadAppVersion();
       }
+
+  // ── 학생 목록: 재원생 / 퇴원생 서브탭 ──
+  function switchStudentTab(which){
+    var active = which !== 'left';
+    var ta = document.getElementById('stuTabActive');
+    var tl = document.getElementById('stuTabLeft');
+    if (ta) ta.classList.toggle('on', active);
+    if (tl) tl.classList.toggle('on', !active);
+    var pa = document.getElementById('studentsActivePane');
+    var pl = document.getElementById('studentsLeftPane');
+    if (pa) pa.style.display = active ? '' : 'none';
+    if (pl) pl.style.display = active ? 'none' : '';
+    if (!active) ensureLeftStudentsLoaded();
+  }
+  function ensureLeftStudentsLoaded(){
+    var mount = document.getElementById('leftStudentsMount');
+    if (!mount || mount.dataset.loaded === '1') return;
+    mount.dataset.loaded = '1';
+    var ifr = document.createElement('iframe');
+    ifr.src = '/admin-outcomes?embed=1';
+    ifr.id = 'leftStudentsFrame';
+    ifr.style.cssText = 'width:100%;border:0;display:block;min-height:400px;';
+    mount.innerHTML = '';
+    mount.appendChild(ifr);
+  }
+  window.addEventListener('message', function(e){
+    if (e && e.origin === location.origin && e.data && typeof e.data.kwmathOutcomesHeight === 'number'){
+      var ifr = document.getElementById('leftStudentsFrame');
+      if (ifr) ifr.style.height = (e.data.kwmathOutcomesHeight + 24) + 'px';
+    }
+  });
 
   // ── 카드 메뉴 ↔ 섹션 전환 ──
   function openSection(name) {

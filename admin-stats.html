@@ -12,6 +12,7 @@
   .top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
   h1{ font-size:1.35rem; margin:6px 0 2px; }
   .sub{ color:var(--muted); font-size:0.84rem; margin-bottom:22px; }
+  a.back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; display:inline-block; margin-bottom:6px; }
   .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:8px; }
   .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 12px; text-align:center; }
   .card .lbl{ font-size:0.8rem; color:var(--muted); margin-bottom:8px; }
@@ -33,6 +34,7 @@
 </head>
 <body>
 <div class="wrap">
+  <a class="back" href="/admin">← 관리자</a>
   <div class="top">
     <div>
       <h1>📊 방문 통계</h1>

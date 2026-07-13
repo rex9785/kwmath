@@ -269,6 +269,26 @@
   function onSearch(v){ q=v; render(); }
   function wireSearch(){ var el=$('q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
 
+  function toggleHiddenView(){ showHidden = !showHidden; openIdx = null; q=''; render(); }
+
+  async function doHide(id, hide){
+    try{
+      await api('/api/outcomes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: hide?'hide':'unhide', id: id }) });
+      for(var k=0;k<rows.length;k++){ if(rows[k].id===id){ rows[k].hidden = hide?1:0; break; } }
+      openIdx = null; render();
+    }catch(e){ if(String(e.message)!=='401') alert('처리 중 오류가 발생했어요.'); }
+  }
+
+  async function doDelete(id){
+    var nm=''; for(var k=0;k<rows.length;k++){ if(rows[k].id===id){ nm=rows[k].name||''; break; } }
+    if(!confirm('⚠️ "'+(nm||'이 학생')+'" 기록을 완전 삭제할까요?\n\n퇴원생의 마지막 백업(실명·전화·성적·출결·학습)이 영구 삭제되며 복구할 수 없습니다.')) return;
+    try{
+      await api('/api/outcomes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', id: id }) });
+      rows = rows.filter(function(r){ return r.id!==id; });
+      openIdx = null; render();
+    }catch(e){ if(String(e.message)!=='401') alert('삭제 중 오류가 발생했어요.'); }
+  }
+
   if(token) boot(); else showLogin('');
 </script>
 </body>
