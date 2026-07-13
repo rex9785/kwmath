@@ -127,7 +127,21 @@
 
 <!-- 수식(math) 문제유형 입력용 — MathLive 웹컴포넌트. 로드 실패해도 나머지 빌더는 정상 동작. -->
 <script type="module">
-  try { await import('https://cdn.jsdelivr.net/npm/mathlive/+esm'); }
+  try {
+    await import('https://cdn.jsdelivr.net/npm/mathlive/+esm');
+    // 커스텀 간소 키패드: 분수·√·ⁿ√·xⁿ·행렬만 (적분·삼각·그리스문자 제외)
+    if (window.mathVirtualKeyboard) {
+      window.mathVirtualKeyboard.layouts = {
+        label: '수식', tooltip: '분수·루트·행렬',
+        rows: [
+          ['[7]','[8]','[9]',{class:'small',latex:'\\frac{#@}{#?}'},{latex:'\\sqrt{#0}'},{class:'small',latex:'\\sqrt[#?]{#?}'},{label:'[backspace]',width:1.5}],
+          ['[4]','[5]','[6]',{label:'x<sup>n</sup>',latex:'#@^{#?}'},'[(]','[)]','\\times'],
+          ['[1]','[2]','[3]','+','-',{class:'small',latex:'\\begin{pmatrix}#?&#?\\\\#?&#?\\end{pmatrix}'}],
+          [{label:'[0]',width:1.5},'[.]','[left]','[right]',{label:'[hide-keyboard]',width:1.5}]
+        ]
+      };
+    }
+  }
   catch (e) { console.warn('[admin-surveys] MathLive 로드 실패:', e); }
 </script>
 
