@@ -162,8 +162,9 @@
   var builderBar = document.getElementById('builderBar');
   var toastT = null;
 
-  // ox는 빌더 전용 가상 유형 — 저장 시엔 single + 선택지 ['O','X']로 나감(서버·학생화면 무수정)
-  var QTYPE_LABEL = { single:'객관식(1개)', multi:'객관식(여러개)', ox:'OX형(참/거짓)', short:'단답', math:'수식(분수·루트)', long:'장문', scale:'척도', dropdown:'드롭다운' };
+  // ox·multi는 빌더 전용 표시 처리 — ox 저장은 single+['O','X']. 객관식은 드롭다운 한 항목('객관식')으로 통합하고
+  // '복수 응답 허용' 토글로 single↔multi 전환. 내부 저장 type은 그대로 single/multi → 서버·학생화면 무수정.
+  var QTYPE_LABEL = { single:'객관식', ox:'OX형(참/거짓)', short:'단답', math:'수식(분수·루트)', long:'장문', scale:'척도', dropdown:'드롭다운' };
   function isOXQuestion(q){
     return q.type==='single' && Array.isArray(q.options) && q.options.length===2 && q.options[0]==='O' && q.options[1]==='X';
   }
@@ -428,7 +429,7 @@
       var gradable = (q.type==='single'||q.type==='multi'||q.type==='dropdown'||q.type==='short'||q.type==='math');
       var isOX = isOXQuestion(q);   // OX형 = single + 고정 선택지 O/X (표시만 'OX형')
       var qc = document.createElement('div'); qc.className = 'qcard';
-      var dispType = isOX ? 'ox' : q.type;
+      var dispType = isOX ? 'ox' : (q.type==='multi' ? 'single' : q.type);  // multi도 드롭다운은 '객관식'으로 표시
       var typeOpts = Object.keys(QTYPE_LABEL).map(function(t){
         return '<option value="' + t + '"' + (dispType===t?' selected':'') + '>' + QTYPE_LABEL[t] + '</option>';
       }).join('');
@@ -513,6 +514,22 @@
         var add = document.createElement('button'); add.className = 'addopt'; add.textContent = '+ 선택지 추가';
         add.addEventListener('click', function(){ q.options.push(''); renderQuestions(); });
         extra.appendChild(add);
+        // 객관식(single/multi)에서만 '복수 응답 허용' 토글 — 체크 시 multi, 해제 시 single (dropdown 제외)
+        if(q.type==='single' || q.type==='multi'){
+          var mlab = document.createElement('label'); mlab.className = 'qreq';
+          mlab.innerHTML = '<input type="checkbox"' + (q.type==='multi'?' checked':'') + '> 복수 응답 허용 (여러 개 선택)';
+          mlab.querySelector('input').addEventListener('change', function(e){
+            if(e.target.checked){
+              q.type = 'multi';
+              if(draft.quiz){ q._cis = (typeof q._ci==='number' && q._ci>=0) ? [q._ci] : (q._cis||[]); }
+            } else {
+              q.type = 'single';
+              if(draft.quiz){ q._ci = (q._cis && q._cis.length) ? q._cis[0] : (typeof q._ci==='number' ? q._ci : -1); }
+            }
+            renderQuestions();
+          });
+          extra.appendChild(mlab);
+        }
       } else if(draft.quiz && q.type==='short'){
         var cr = document.createElement('div'); cr.className = 'qcorrect';
         cr.innerHTML = '<input type="text" placeholder="정답 (대소문자·공백 무시하고 채점)" value="' + esc(q._ct||'') + '">';
