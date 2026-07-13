@@ -167,24 +167,25 @@
     if (!list.length){ $('students').innerHTML = '<div class="empty">해당 조건의 학생이 없습니다.</div>'; updateCount(); return; }
     var html = '';
     list.forEach(function(s){
+      var sid = esc(String(s.id == null ? '' : s.id));   // 체크박스 값=학생 id(동명이인 안전). 표시는 이름.
       var nm = esc(s.name || '');
       var meta = esc((s.className || '') + (s.grade ? (' · ' + s.grade) : ''));
-      html += '<label class="stItem"><input type="checkbox" class="stChk" value="' + nm + '" onchange="updateCount()"><span class="nm">' + nm + '</span><span class="mt">' + meta + '</span></label>';
+      html += '<label class="stItem"><input type="checkbox" class="stChk" value="' + sid + '" onchange="updateCount()"><span class="nm">' + nm + '</span><span class="mt">' + meta + '</span></label>';
     });
     $('students').innerHTML = html;
     updateCount();
   }
-  function checkedNames(){
+  function checkedIds(){
     return Array.prototype.slice.call(document.querySelectorAll('.stChk:checked')).map(function(c){ return c.value; });
   }
   function updateCount(){
-    var n = checkedNames().length, total = document.querySelectorAll('.stChk').length;
+    var n = checkedIds().length, total = document.querySelectorAll('.stChk').length;
     $('stCount').textContent = '(' + n + '/' + total + '명 선택)';
     var allBtn = $('allBtn'); if (allBtn) allBtn.textContent = (n > 0 && n === total) ? '전체 해제' : '전체 선택';
   }
   function toggleAll(){
     var chks = document.querySelectorAll('.stChk');
-    var n = checkedNames().length, total = chks.length;
+    var n = checkedIds().length, total = chks.length;
     var on = !(n > 0 && n === total);
     Array.prototype.forEach.call(chks, function(c){ c.checked = on; });
     updateCount();
@@ -199,27 +200,33 @@
   }
 
   async function doSend(){
-    var names = checkedNames();
+    var ids = checkedIds();
     var bodyText = ($('bodyText').value || '').trim();
     var title = ($('title').value || '').trim();
     var aud = audValue();
-    if (!names.length){ alert('받을 학생을 선택해주세요.'); return; }
+    if (!ids.length){ alert('받을 학생을 선택해주세요.'); return; }
     if (!bodyText){ alert('알림 내용을 입력해주세요.'); $('bodyText').focus(); return; }
-    if (!confirm('학생 ' + names.length + '명의 [' + audLabel(aud) + ']에게 알림을 보냅니다.\n\n보낼까요?')) return;
+    if (!confirm('학생 ' + ids.length + '명의 [' + audLabel(aud) + ']에게 알림을 보냅니다.\n\n보낼까요?')) return;
 
     var btn = $('sendBtn'); btn.disabled = true; var old = btn.textContent; btn.textContent = '보내는 중…';
     var headers = { 'Content-Type': 'application/json' }; if (token) headers['Authorization'] = 'Bearer ' + token;
     var r, d;
     try {
       r = await fetch('/api/notifications', { method: 'POST', headers: headers, credentials: 'same-origin',
-        body: JSON.stringify({ action: 'create_bulk', names: names, title: title, body: bodyText, audience: aud }) });
+        body: JSON.stringify({ action: 'create_bulk', ids: ids, title: title, body: bodyText, audience: aud }) });
       d = await r.json().catch(function(){ return null; });
     } catch (e) { btn.disabled = false; btn.textContent = old; showResult(false, '네트워크 오류로 보내지 못했습니다.'); return; }
     btn.disabled = false; btn.textContent = old;
     if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
     if (!d || !d.ok){ showResult(false, (d && d.error) || '발송에 실패했습니다.'); return; }
     var msg = (d.sent || 0) + '명에게 보냈습니다.';
-    if (d.misses && d.misses.length) msg += ' (못 보냄: ' + d.misses.join(', ') + ')';
+    if (d.misses && d.misses.length) {   // 서버는 못 찾은 id를 반환 → 화면엔 이름으로 표시
+      var missNames = d.misses.map(function(id){
+        var f = roster.find(function(s){ return String(s.id) === String(id); });
+        return f ? (f.name || String(id)) : String(id);
+      });
+      msg += ' (못 보냄: ' + missNames.join(', ') + ')';
+    }
     showResult(true, msg);
     $('bodyText').value = ''; $('title').value = '';   // 대상 선택은 유지, 내용만 비움
   }

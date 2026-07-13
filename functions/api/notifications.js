@@ -15,7 +15,7 @@
 //        → 알림 1건 생성(dedup 시 재삽입 안 함) + 학부모/학생 폰으로 푸시(best-effort).
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
-import { getStudentByName, listStudents } from './_db.js';
+import { getStudentByName, getStudentById, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { sendPushToUsers } from './_push.js';
 import { safeError } from './_errors.js';
@@ -143,17 +143,18 @@ export async function onRequest(context) {
       }
 
       // 관리자 다중 발신 — 학원/반/학생 골라 자유 알림 일괄 발송(원장 전용). admin-notify.html이 사용.
-      //   names[]는 클라이언트가 학원·반 필터로 펼친 최종 학생 이름 목록. 각 학생에 manual 알림 1건 + 대상 폰 푸시.
+      //   ids[]는 클라이언트가 학원·반 필터로 펼친 최종 학생 id 목록. 각 학생에 manual 알림 1건 + 대상 폰 푸시.
+      //   ⚠️ 학생 식별은 이름이 아니라 id로 — 동명이인 안전(D1 이주 때 정한 계약. admin 승인/수정/삭제도 문자열 id).
       if (action === 'create_bulk') {
         if (!isAdmin) return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
         // 자유 알림은 원장만(조교는 정형 알림만). staffNameScope가 null이어야 원장.
         const allowedNames = await staffNameScope(env, request);
         if (allowedNames !== null) return Response.json({ error: '자유 알림은 원장만 보낼 수 있어요.' }, { status: 403 });
 
-        const names = Array.isArray(body.names)
-          ? [...new Set(body.names.map(n => String(n || '').trim()).filter(Boolean))]
+        const ids = Array.isArray(body.ids)
+          ? [...new Set(body.ids.map(n => String(n == null ? '' : n).trim()).filter(Boolean))]
           : [];
-        if (!names.length) return Response.json({ error: '받을 학생을 선택해주세요.' }, { status: 400 });
+        if (!ids.length) return Response.json({ error: '받을 학생을 선택해주세요.' }, { status: 400 });
 
         const title = (body.title || '').trim() || '📢 알림';
         const bodyText = (body.body || '').trim();
@@ -163,13 +164,13 @@ export async function onRequest(context) {
         const audience = ['parent', 'student', 'all'].includes((body.audience || '').trim()) ? (body.audience || '').trim() : 'all';
 
         let sent = 0; const misses = []; const pushPhones = new Set();
-        for (const name of names) {
-          const st = await getStudentByName(env, name);
-          if (!st) { misses.push(name); continue; }
+        for (const id of ids) {
+          const st = await getStudentById(env, id);
+          if (!st) { misses.push(id); continue; }
           const created = await createNotification(env, {
             studentId: st.id, type: 'manual', title, body: bodyText, url: urlPath, dedupKey: null, audience,
           });
-          if (!created.ok) { misses.push(name); continue; }
+          if (!created.ok) { misses.push(id); continue; }
           sent++;
           const targets = audience === 'parent' ? [st.parentPhone]
                         : audience === 'student' ? [st.studentPhone]
