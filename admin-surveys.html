@@ -85,7 +85,8 @@
   .scoreItem{ display:flex; justify-content:space-between; font-size:0.86rem; padding:6px 0; border-bottom:1px solid var(--line); }
   .scoreItem:last-child{ border-bottom:none; }
   .builderBar{ position:sticky; bottom:0; background:#fff; border-top:1px solid var(--line);
-               padding:12px 14px calc(env(safe-area-inset-bottom) + 12px); display:flex; gap:9px; }
+               padding:12px 14px calc(env(safe-area-inset-bottom) + 12px); }
+  .builderBarInner{ max-width:760px; margin:0 auto; display:flex; gap:9px; }
   .builderBar button{ flex:1; border:none; border-radius:10px; padding:12px; font-size:0.95rem; font-weight:700; cursor:pointer; }
   .addQ{ border:1px dashed var(--primary); background:var(--primary-light); color:var(--primary);
          border-radius:10px; padding:11px; width:100%; font-size:0.9rem; font-weight:600; cursor:pointer; margin-top:4px; }
@@ -110,8 +111,8 @@
 <header>
   <a id="adminBack" class="adminBack hidden" href="/admin">← 관리자</a>
   <button id="backBtn" class="hidden">← 뒤로</button>
-  <h1 id="hTitle">설문·조사</h1>
-  <button id="newBtn" class="primary">+ 새 설문</button>
+  <h1 id="hTitle">설문·조사 / 퀴즈</h1>
+  <button id="newBtn" class="primary">+ 새 설문/새 퀴즈</button>
 </header>
 <!-- 조교 콘솔 네비게이션 (조교일 때만 노출) -->
 <div id="staffNav" style="display:none;gap:6px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--border);background:#fff;">
@@ -126,8 +127,10 @@
   <div id="view"><div class="state">불러오는 중…</div></div>
 </div>
 <div id="builderBar" class="builderBar hidden">
-  <button class="b-sec" id="cancelBuild" style="flex:0 0 96px;">취소</button>
-  <button class="b-pri" id="saveBuild">저장</button>
+  <div class="builderBarInner">
+    <button class="b-sec" id="cancelBuild" style="flex:0 0 96px;">취소</button>
+    <button class="b-pri" id="saveBuild">저장</button>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -200,7 +203,7 @@
   }
   function setMode(mode){
     // mode: list | build | results
-    if(mode === 'list'){ hTitle.textContent = isStaff ? '퀴즈' : '설문·조사'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
+    if(mode === 'list'){ hTitle.textContent = isStaff ? '퀴즈' : '설문·조사 / 퀴즈'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
     if(mode === 'build'){ hTitle.textContent = isStaff ? (draft && draft.id ? '퀴즈 수정' : '새 퀴즈') : (draft && draft.id ? '설문 수정' : '새 설문'); backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.remove('hidden'); }
     if(mode === 'results'){ hTitle.textContent = isStaff ? '퀴즈 결과' : '설문 결과'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.add('hidden'); }
   }
@@ -224,7 +227,9 @@
 
   function renderList(items){
     if(!items.length){
-      viewEl.innerHTML = '<div class="state">아직 만든 설문이 없어요.<br>오른쪽 위 <b>+ 새 설문</b>으로 첫 조사를 만들어 보세요.</div>';
+      viewEl.innerHTML = isStaff
+        ? '<div class="state">아직 만든 퀴즈가 없어요.<br>오른쪽 위 <b>+ 새 퀴즈</b> 버튼으로 첫 퀴즈를 만들어 보세요.</div>'
+        : '<div class="state">아직 만든 설문·조사나 퀴즈가 없어요.<br>오른쪽 위 <b>+ 새 설문/새 퀴즈</b> 버튼으로 첫 항목을 만들어 보세요.</div>';
       return;
     }
     viewEl.innerHTML = '';

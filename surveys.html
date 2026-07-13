@@ -67,6 +67,7 @@
   math-field[read-only]{ border:none; padding:0 2px; font-size:1.1rem; background:transparent; width:auto; display:inline-block; vertical-align:middle; box-shadow:none; }
   .submitBar{ position:sticky; bottom:0; background:#fff; border-top:1px solid var(--line);
               padding:12px 14px calc(env(safe-area-inset-bottom) + 12px); }
+  .submitBarInner{ max-width:640px; margin:0 auto; }
   .submitBar button{ width:100%; border:none; border-radius:12px; padding:14px; font-size:1rem; font-weight:700;
                      cursor:pointer; background:var(--primary); color:#fff; }
   .submitBar button:disabled{ opacity:0.5; }
@@ -86,7 +87,9 @@
   <div id="view"><div class="state">불러오는 중…</div></div>
 </div>
 <div id="submitBar" class="submitBar hidden">
-  <button id="submitBtn">응답 제출</button>
+  <div class="submitBarInner">
+    <button id="submitBtn">응답 제출</button>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
