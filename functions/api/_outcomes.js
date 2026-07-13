@@ -50,12 +50,14 @@ export async function ensureArchiveTable(env) {
     'name TEXT, parent_phone TEXT, student_phone TEXT, school TEXT, grade_level TEXT, ' +
     'enrolled_at TEXT, left_at TEXT, via TEXT, summary TEXT, ' +
     'score_count INTEGER, attendance_count INTEGER, study_count INTEGER, study_minutes INTEGER, ' +
-    'scores_json TEXT, attendance_json TEXT, study_json TEXT, note TEXT, created_at TEXT)'
+    'scores_json TEXT, attendance_json TEXT, study_json TEXT, note TEXT, created_at TEXT, ' +
+    'hidden INTEGER DEFAULT 0)'
   ).run();
   // 구버전 테이블에서 올라올 때 대비한 컬럼 추가 가드(이미 있으면 catch)
   for (const col of ['parent_phone TEXT', 'student_phone TEXT', 'via TEXT',
                      'attendance_json TEXT', 'study_json TEXT',
-                     'attendance_count INTEGER', 'study_count INTEGER', 'study_minutes INTEGER']) {
+                     'attendance_count INTEGER', 'study_count INTEGER', 'study_minutes INTEGER',
+                     'hidden INTEGER DEFAULT 0']) {
     try { await env.DB.prepare('ALTER TABLE student_archive ADD COLUMN ' + col).run(); } catch (_) {}
   }
 }

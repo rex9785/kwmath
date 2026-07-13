@@ -59,6 +59,21 @@
   .login button{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 16px; font-weight:700; cursor:pointer; font-family:inherit; }
   .err{ color:#c0392b; font-size:0.8rem; margin-bottom:8px; }
   .note{ font-size:0.74rem; color:var(--muted); margin-top:14px; line-height:1.5; }
+  button.mini.hide{ color:#8a6d3b; border-color:#d3b877; }
+  button.mini.hide:hover{ background:#fbf3e0; }
+  button.mini.restore{ color:#1f8a4c; border-color:#1f8a4c; }
+  button.mini.restore:hover{ background:#e9f7ee; }
+  button.mini.del{ color:#c0392b; border-color:#c0392b; }
+  button.mini.del:hover{ background:#fdecea; }
+  td.acts{ white-space:nowrap; }
+  td.acts button{ margin:2px 0; }
+  tr.main.hiddenrow td{ background:#faf6f6; }
+  .viewtoggle{ background:#fff; color:var(--muted); border:1px solid var(--border); border-radius:8px; padding:8px 13px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  .viewtoggle.on{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  /* 학생 목록 '퇴원생' 탭 안에 iframe으로 임베드될 때 — 자체 헤더/여백 제거 */
+  body.embed{ background:transparent; }
+  body.embed .top{ display:none; }
+  body.embed .wrap{ padding:4px 2px 12px; max-width:none; margin:0; }
 </style>
 </head>
 <body>
@@ -75,7 +90,16 @@
 </div>
 <script>
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
-  var rows = [], openIdx = null, q = '';
+  var rows = [], openIdx = null, q = '', showHidden = false;
+
+  // '학생 목록 > 퇴원생' 탭 안에 iframe으로 들어올 때(?embed=1): 자체 헤더 감추고, 렌더할 때마다 부모창에 높이 알림
+  var EMBED = /[?&]embed=1/.test(location.search);
+  if (EMBED) { try { document.body.classList.add('embed'); } catch (_) {} }
+  function notifyHeight(){
+    if (!EMBED) return;
+    try { parent.postMessage({ kwmathOutcomesHeight: document.body.scrollHeight }, location.origin); } catch (_) {}
+  }
+  window.addEventListener('resize', notifyHeight);
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
@@ -122,10 +146,13 @@
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
   }
 
+  function hiddenCount(){ var n=0; for(var i=0;i<rows.length;i++){ if(Number(rows[i].hidden)) n++; } return n; }
   function filtered(){
     var s=(q||'').trim();
-    if(!s) return rows.map(function(o,i){ return {o:o,i:i}; });
     return rows.map(function(o,i){ return {o:o,i:i}; }).filter(function(x){
+      // 숨김 보기 On이면 hidden=1 행만, Off(기본)면 hidden=0 행만
+      if(showHidden !== !!Number(x.o.hidden)) return false;
+      if(!s) return true;
       return String(x.o.name||'').indexOf(s)>-1 || String(x.o.school||'').indexOf(s)>-1
           || String(x.o.parent_phone||'').indexOf(s)>-1 || String(x.o.student_phone||'').indexOf(s)>-1;
     });
@@ -134,13 +161,23 @@
   function render(){
     $('footnote').style.display='block';
     var list = filtered();
+    var hc = hiddenCount();
     var head =
       '<div class="bar">'+
-        '<div class="count">퇴원생 <b>'+list.length+'</b>명'+(q?(' <span class="muted">/ 전체 '+rows.length+'</span>'):'')+'</div>'+
-        '<div class="search"><input id="q" type="text" placeholder="이름·학교 검색" value="'+esc(q)+'" oninput="onSearch(this.value)"><span class="ic">🔍</span></div>'+
+        '<div class="count">'+(showHidden?'숨긴 기록 ':'퇴원생 ')+'<b>'+list.length+'</b>명'+
+          (q?(' <span class="muted">/ 전체 '+(showHidden?hc:(rows.length-hc))+'</span>'):'')+'</div>'+
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
+          '<button class="viewtoggle'+(showHidden?' on':'')+'" onclick="toggleHiddenView()">'+
+            (showHidden ? '← 목록으로' : ('🗂 숨김 보기'+(hc?(' ('+hc+')'):'')))+'</button>'+
+          '<div class="search"><input id="q" type="text" placeholder="이름·학교 검색" value="'+esc(q)+'" oninput="onSearch(this.value)"><span class="ic">🔍</span></div>'+
+        '</div>'+
       '</div>';
 
-    if(!rows.length){ $('content').innerHTML = head + '<div class="msg">아직 퇴원생 기록이 없습니다.<br><span class="muted">학생을 퇴원 처리하면 이 목록에 전체 기록이 자동 보관됩니다.</span></div>'; wireSearch(); return; }
+    if(!rows.length){ $('content').innerHTML = head + '<div class="msg">아직 퇴원생 기록이 없습니다.<br><span class="muted">학생을 퇴원 처리하면 이 목록에 전체 기록이 자동 보관됩니다.</span></div>'; wireSearch(); notifyHeight(); return; }
+    if(!list.length){
+      var emptyMsg = showHidden ? '숨긴 기록이 없습니다.' : (q ? '검색 결과가 없습니다.' : '표시할 퇴원생 기록이 없습니다.');
+      $('content').innerHTML = head + '<div class="msg">'+emptyMsg+'</div>'; wireSearch(); notifyHeight(); return;
+    }
 
     var body = list.map(function(x){
       var o=x.o, i=x.i;
@@ -152,15 +189,22 @@
       if(o.parent_phone) phones.push('학부모 '+esc(o.parent_phone));
       if(o.student_phone) phones.push('학생 '+esc(o.student_phone));
       var phoneLine = phones.length ? '<div class="ph">'+phones.join('<br>')+'</div>' : '';
+      var acts = '<button class="mini" onclick="toggle('+i+')">'+(openIdx===i?'닫기':'상세보기')+'</button>';
+      if(showHidden){
+        acts += ' <button class="mini restore" onclick="doHide('+o.id+',false)">복구</button>'+
+                ' <button class="mini del" onclick="doDelete('+o.id+')">완전삭제</button>';
+      } else {
+        acts += ' <button class="mini hide" onclick="doHide('+o.id+',true)">숨김</button>';
+      }
       var main =
-        '<tr class="main">'+
+        '<tr class="main'+(showHidden?' hiddenrow':'')+'">'+
           '<td class="gr">'+esc(o.grade_level||'-')+'</td>'+
           '<td>'+stBadge+'</td>'+
           '<td class="nm">'+esc(o.name||'-')+phoneLine+'</td>'+
           '<td>'+esc(o.school||'-')+'</td>'+
           '<td class="muted" style="white-space:nowrap;">'+period(o)+'</td>'+
           '<td class="sum">'+sum+'<div class="chips" style="margin-top:4px;">'+chips+'</div></td>'+
-          '<td><button class="mini" onclick="toggle('+i+')">'+(openIdx===i?'닫기':'상세보기')+'</button></td>'+
+          '<td class="acts">'+acts+'</td>'+
         '</tr>';
       var detail = (openIdx===i) ? ('<tr class="detail"><td colspan="7"><div class="detail-inner">'+ detailHtml(o) +'</div></td></tr>') : '';
       return main + detail;
@@ -172,6 +216,7 @@
         '<tbody>'+body+'</tbody>'+
       '</table></div>';
     wireSearch();
+    notifyHeight();
   }
 
   function detailHtml(o){
