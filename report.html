@@ -215,10 +215,11 @@
     $('classFilesSection').style.display = 'none';
 
     try {
-      const [rRes, vRes, pdfRes] = await Promise.all([
+      const [rRes, vRes, pdfRes, scRes] = await Promise.all([
         fetch('/api/reports?name=' + nameQ, { headers: authHeaders() }),
         fetch('/api/class-videos?name=' + nameQ, { headers: authHeaders() }),
         fetch('/api/list-files?folder=reports/' + nameQ + '&name=' + nameQ, { headers: authHeaders() }),
+        fetch('/api/scores?name=' + nameQ, { headers: authHeaders() }),
       ]);
       const rData = await rRes.json();
       const reports = Array.isArray(rData) ? rData : (rData.reports || []);
@@ -231,6 +232,15 @@
       } catch (_) {}
 
       const pdfs = pdfRes.ok ? await pdfRes.json() : [];
+
+      // 테스트 성적(앱 퀴즈 자동 반영) — 회차(날짜)별로 카드에 붙일 용도
+      let testScores = [];
+      try {
+        const scData = await scRes.json();
+        const arr = (scData && Array.isArray(scData.scores)) ? scData.scores : [];
+        const TK = { '일일테스트':1, '주간테스트':1, '월말테스트':1 };
+        testScores = arr.filter(s => TK[s.examType]);
+      } catch (_) {}
 
       // 반 공통 자료
       let classFiles = [];
@@ -269,6 +279,13 @@
         if (!map[d]) map[d] = { date: d };
         // 한 날짜에 영상 여러 개면 첫 번째만 (보통은 회차당 하나)
         if (!map[d].video) map[d].video = v;
+      });
+      testScores.forEach(t => {
+        const d = (t.examDate || t.sortKey || '').slice(0,10);
+        if (!d) return;
+        if (!map[d]) map[d] = { date: d };
+        if (!map[d].tests) map[d].tests = [];
+        map[d].tests.push(t);
       });
       allLessons = Object.values(map).sort((a,b) => (b.date||'').localeCompare(a.date||''));
 
@@ -320,6 +337,40 @@
     }).join('');
   }
 
+  // 리포트 다운로드 — 새 창에 인쇄용 HTML을 그려 브라우저 'PDF로 저장'을 띄운다(외부 라이브러리 없음).
+  function downloadReport(idx){
+    const lesson = allLessons[idx]; if(!lesson) return;
+    const r = lesson.report || {};
+    const name = selectedStudent ? selectedStudent.name : '';
+    const dateStr = lesson.date ? lesson.date.replace(/-/g,'.') : '';
+    const box = (label, val) => val ? '<div class="box"><h3>'+escapeHtml(label)+'</h3><p>'+escapeHtml(val).replace(/\n/g,'<br>')+'</p></div>' : '';
+    let testHtml = '';
+    if(lesson.tests && lesson.tests.length){
+      testHtml = '<div class="box"><h3>오늘의 테스트</h3>' + lesson.tests.map(t =>
+        '<p><b>'+escapeHtml(t.examType)+'</b> — '+(t.rawScore!=null?escapeHtml(String(t.rawScore))+'점 / 100':'—')+
+        (t.label&&t.label!==t.examType?' · '+escapeHtml(t.label):'')+'</p>').join('') + '</div>';
+    }
+    const bodyHtml =
+      '<h1>'+escapeHtml(name)+' 학생 · '+escapeHtml(dateStr)+' 수업 리포트</h1>'+
+      box('수업 내용', r.content||'')+
+      box('숙제', r.homework||'')+
+      box('특이사항', r.notes||'')+
+      testHtml+
+      '<div class="ft">이관우 수학 · 리포트 출력</div>';
+    const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'+
+      '<title>'+escapeHtml(name+' '+dateStr+' 리포트')+'</title>'+
+      '<style>body{font-family:"Noto Sans KR","Apple SD Gothic Neo",sans-serif;padding:34px;color:#232323;line-height:1.65;}'+
+      'h1{font-size:19px;margin:0 0 18px;border-bottom:2px solid #8B1A35;padding-bottom:10px;}'+
+      'h3{margin:0 0 6px;color:#8B1A35;font-size:13.5px;}'+
+      '.box{border:1px solid #ececec;border-radius:9px;padding:12px 15px;margin-bottom:12px;}'+
+      'p{margin:2px 0;font-size:13px;} .ft{margin-top:22px;color:#aaa;font-size:11px;text-align:right;}</style>'+
+      '</head><body>'+bodyHtml+'</body></html>';
+    const w = window.open('', '_blank');
+    if(!w){ alert('팝업이 차단되어 있어요. 브라우저에서 팝업을 허용한 뒤 다시 눌러 주세요.'); return; }
+    w.document.open(); w.document.write(html); w.document.close(); w.focus();
+    setTimeout(function(){ try{ w.print(); }catch(_){} }, 350);
+  }
+
   function renderReportPage() {
     const listEl = $('reportList');
     if (!allLessons.length) { listEl.innerHTML = ''; return; }
@@ -343,6 +394,7 @@
       const icons = [];
       if (v) icons.push('🎥');
       if (r) icons.push('📋');
+      if (lesson.tests && lesson.tests.length) icons.push('📝');
       const iconBadge = icons.length ? `<span class="header-icons"><span>${icons.join(' ')}</span></span>` : '';
 
       // 영상 버튼 (펼친 본문 우측 상단, 작게)
@@ -379,6 +431,20 @@
         reportBody = `<div class="no-report-msg">📋 이 회차의 수업 레포트는 아직 등록되지 않았습니다.</div>`;
       }
 
+      // 오늘의 테스트(앱 퀴즈 자동 반영) — 회차 카드에 한 줄
+      let testRow = '';
+      if (lesson.tests && lesson.tests.length) {
+        testRow = lesson.tests.map(t => {
+          const sc = (t.rawScore != null) ? (escapeHtml(String(t.rawScore)) + '점 <span style="color:#999;font-size:0.82em;">/ 100</span>') : '—';
+          const extra = (t.label && t.label !== t.examType) ? ' <span style="color:#999;">· ' + escapeHtml(t.label) + '</span>' : '';
+          return `<div class="report-field"><div class="report-label">📝 오늘의 테스트</div><div class="report-val"><b>${escapeHtml(t.examType)}</b> — ${sc}${extra}</div></div>`;
+        }).join('');
+      }
+      // 리포트 다운로드(PDF) — 리포트나 테스트가 있을 때만
+      const downloadRow = (r || (lesson.tests && lesson.tests.length))
+        ? `<div style="margin-top:14px;text-align:right;"><button onclick="event.stopPropagation();downloadReport(${absoluteIdx})" style="background:#8B1A35;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.85rem;font-weight:700;font-family:inherit;cursor:pointer;">📥 리포트 다운로드 (PDF)</button></div>`
+        : '';
+
       return `
         <div class="report-card" id="rc-${absoluteIdx}">
           <div class="report-card-header" onclick="toggleReport(${absoluteIdx})">
@@ -395,6 +461,8 @@
           <div class="report-card-body">
             ${videoRow}
             ${reportBody}
+            ${testRow}
+            ${downloadRow}
           </div>
         </div>`;
     }).join('');

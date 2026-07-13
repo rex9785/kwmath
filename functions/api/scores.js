@@ -14,6 +14,7 @@
 import { requireStudentAccess } from './_auth.js';
 import { getStudentByName, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
+import { ensureExamScoresTable } from './_scores.js';   // 스키마 단일 출처(테스트 자동성적과 공유)
 
 // 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음).
 //   미배정 조교는 빈 Set → 아무 학생 성적도 못 봄/못 씀. (출결과 동일 패턴)
@@ -24,18 +25,7 @@ async function staffNameScope(env, request) {
   return new Set(roster.map(s => s.name));
 }
 
-async function ensureTable(env) {
-  await env.DB.prepare(
-    'CREATE TABLE IF NOT EXISTS exam_scores (' +
-    'id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL, ' +
-    'exam_type TEXT NOT NULL, grade_level TEXT, label TEXT NOT NULL, sort_key TEXT, ' +
-    'raw_score INTEGER, grade INTEGER, exam_date TEXT, memo TEXT, ' +
-    'created_at TEXT, updated_at TEXT)'
-  ).run();
-  try {
-    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_exam_scores_student ON exam_scores(student_id)').run();
-  } catch (_) { /* 비치명적 */ }
-}
+// exam_scores 스키마 보장은 _scores.js의 ensureExamScoresTable로 일원화(source_key 컬럼 포함).
 
 function rowOut(r) {
   return {
@@ -70,7 +60,7 @@ export async function onRequest({ request, env }) {
   const isAdmin = !!env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
   const url = new URL(request.url);
 
-  try { await ensureTable(env); }
+  try { await ensureExamScoresTable(env); }
   catch (e) { return Response.json({ error: '성적 DB 초기화에 실패했습니다.' }, { status: 500 }); }
 
   // 조교 학원 스코프 (원장이면 null). isAdmin 경로에서만 의미 있음(학생은 토큰으로 본인만).

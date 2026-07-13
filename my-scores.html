@@ -23,6 +23,7 @@
   .tabs button{flex:1;background:#fff;color:var(--text-light);border:1.5px solid var(--border);border-radius:11px;padding:11px;font-size:0.95rem;font-weight:700;font-family:inherit;cursor:pointer;}
   .tabs button.on.naesin{background:var(--primary);border-color:var(--primary);color:#fff;}
   .tabs button.on.mock{background:var(--mock);border-color:var(--mock);color:#fff;}
+  .tabs button.on.test{background:#2e7d32;border-color:#2e7d32;color:#fff;}
   .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
   .seg button{background:#fff;color:var(--text-light);border:none;padding:5px 12px;font-size:0.76rem;font-family:inherit;cursor:pointer;}
   .seg button.on{background:var(--primary);color:#fff;}
@@ -56,6 +57,9 @@
 
   var LABELS={ '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
                '모의':['3월','4월','5월','6월','7월','9월','10월','11월(수능)'] };
+  // 테스트 종류(앱 퀴즈 자동 반영) — 읽기 전용 탭. 이 examType들은 '테스트' 탭에서만 보인다.
+  var TEST_KINDS={ '일일테스트':1,'주간테스트':1,'월말테스트':1 };
+  function isTest(s){ return !!TEST_KINDS[s.examType]; }
   var MONTH={ '1학기 중간':'04','1학기 기말':'07','2학기 중간':'10','2학기 기말':'12',
               '3월':'03','4월':'04','5월':'05','6월':'06','7월':'07','9월':'09','10월':'10','11월(수능)':'11' };
 
@@ -103,26 +107,40 @@
   function setMetric(m){ metric=m; renderPanel(); }
 
   function renderPanel(){
-    var data = scores.filter(function(s){ return s.examType===tab; });
+    var testMode = (tab==='테스트');   // 테스트 탭은 읽기 전용(앱 퀴즈 자동 반영) — 추가·수정·삭제 없음
+    var data = scores.filter(function(s){ return testMode ? isTest(s) : s.examType===tab; });
     var tabRow='<div class="tabs">'+
       '<button class="'+(tab==='내신'?'on naesin':'')+'" onclick="switchTab(\'내신\')">내신</button>'+
-      '<button class="'+(tab==='모의'?'on mock':'')+'" onclick="switchTab(\'모의\')">모의고사</button></div>';
-    var chart='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
-      '<b style="font-size:0.9rem;">📊 '+tab+' 추이</b>'+
+      '<button class="'+(tab==='모의'?'on mock':'')+'" onclick="switchTab(\'모의\')">모의고사</button>'+
+      '<button class="'+(tab==='테스트'?'on test':'')+'" onclick="switchTab(\'테스트\')">테스트</button></div>';
+    var useMetric = testMode ? 'raw' : metric;   // 테스트는 등급이 없음 → 원점수(%)만
+    var metricSeg = testMode ? '' :
       '<span class="seg"><button class="'+(metric==='raw'?'on':'')+'" onclick="setMetric(\'raw\')">원점수</button>'+
-      '<button class="'+(metric==='grade'?'on':'')+'" onclick="setMetric(\'grade\')">등급</button></span></div>'+
-      '<div style="overflow-x:auto;margin:0 -4px;">'+chartSVG(data,metric)+'</div></div>';
+      '<button class="'+(metric==='grade'?'on':'')+'" onclick="setMetric(\'grade\')">등급</button></span>';
+    var chart='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
+      '<b style="font-size:0.9rem;">📊 '+tab+' 추이'+(testMode?' <span class="muted" style="font-weight:400;font-size:0.72rem;">(100점 만점)</span>':'')+'</b>'+
+      metricSeg+'</div>'+
+      '<div style="overflow-x:auto;margin:0 -4px;">'+chartSVG(data,useMetric)+'</div></div>';
     var rows=data.map(function(s){
+      if(testMode){
+        var meta=esc(s.examType)+(s.examDate?' · '+esc(s.examDate):'');
+        return '<div class="row"><span class="k">'+esc(s.label||s.examType)+'<br><span class="muted" style="font-size:0.72rem;">'+meta+'</span></span>'+
+          '<span class="v">'+(s.rawScore!=null?esc(s.rawScore)+'점':'—')+'</span></div>';
+      }
       var when=(s.gradeLevel?esc(s.gradeLevel)+' ':'')+esc(s.label);
       return '<div class="row"><span class="k">'+when+'</span><span class="v">'+esc(fmtScore(s))+
         ' <button class="mini" style="color:var(--primary);" onclick="editRow('+s.id+')">수정</button>'+
         '<button class="mini" style="color:#b23b3b;" onclick="delRow('+s.id+')">삭제</button></span></div>';
     }).join('');
+    var emptyMsg = testMode ? '아직 응시한 테스트가 없어요. 앱 퀴즈(테스트 종류 지정)를 채점하면 자동으로 쌓여요.'
+                            : '아직 입력된 '+tab+' 성적이 없어요. 아래에서 추가하세요.';
+    var listNote = testMode ? '표기: 100점 만점 환산 · 앱 테스트 채점 시 자동 반영'
+                            : '표기: 원점수(등급) — 예) 80(2)';
     var list='<div class="card"><b style="font-size:0.9rem;">📋 '+tab+' 목록</b>'+
-      (data.length? '<div style="margin-top:6px;">'+rows+'</div><div class="muted" style="margin-top:8px;font-size:0.74rem;">표기: 원점수(등급) — 예) 80(2)</div>'
-        : '<div class="muted" style="margin-top:8px;">아직 입력된 '+tab+' 성적이 없어요. 아래에서 추가하세요.</div>')+'</div>';
-    $('content').innerHTML = tabRow + chart + list + formCard();
-    syncLabels();
+      (data.length? '<div style="margin-top:6px;">'+rows+'</div><div class="muted" style="margin-top:8px;font-size:0.74rem;">'+listNote+'</div>'
+        : '<div class="muted" style="margin-top:8px;">'+emptyMsg+'</div>')+'</div>';
+    $('content').innerHTML = tabRow + chart + list + (testMode ? '' : formCard());
+    if(!testMode) syncLabels();
   }
   function formCard(){
     var y=new Date().getFullYear();
@@ -200,7 +218,7 @@
   function chartSVG(data,m){
     var pts=data.filter(function(s){ return m==='raw'? s.rawScore!=null : s.grade!=null; });
     if(!pts.length) return '<div class="muted" style="text-align:center;padding:20px;">표시할 데이터가 없어요.</div>';
-    var color = tab==='모의' ? '#1f6f78' : '#8B1A35';
+    var color = tab==='테스트' ? '#2e7d32' : (tab==='모의' ? '#1f6f78' : '#8B1A35');
     var W=Math.max(300, pts.length*62+46), H=215, pad={l:30,r:12,t:16,b:50};
     var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b, n=pts.length;
     function xF(i){ return pad.l+(n===1? iw/2 : iw*i/(n-1)); }
@@ -214,7 +232,7 @@
     pts.forEach(function(p,i){ var cx=xF(i), cy=yF(val(p));
       s+='<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+color+'"/>';
       s+='<text x="'+cx+'" y="'+(cy-8)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#444">'+val(p)+'</text>';
-      var lab=(p.label||'').replace('(수능)','수능');
+      var lab=(p.label||'').replace('(수능)','수능'); if(lab.length>8) lab=lab.slice(0,7)+'…';
       s+='<text x="'+cx+'" y="'+(H-28)+'" text-anchor="middle" font-size="9" fill="#888">'+esc(lab)+'</text>';
       if(p.gradeLevel) s+='<text x="'+cx+'" y="'+(H-15)+'" text-anchor="middle" font-size="8.5" fill="#bbb">'+esc(p.gradeLevel)+'</text>';
     });

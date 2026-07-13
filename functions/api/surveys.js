@@ -28,6 +28,7 @@
 // ───────────────────────────────────────────────────────────
 import { sendPushToUsers } from './_push.js';
 import { requireStudentAccess } from './_auth.js';
+import { upsertTestScore, TEST_KINDS } from './_scores.js';   // 테스트 종류 퀴즈 → 성적 자동 반영
 
 // 새 응답 알림을 받을 관리자 푸시 userId (inquiry.js와 동일 규약)
 const ADMIN_PUSH_USERS = ['__admin__'];
@@ -86,6 +87,8 @@ async function ensureTables(env) {
   // 학원별·반별 대상 지정(선택) — JSON 배열 문자열로 저장. 비어있으면 전체 학원·반.
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_academy TEXT').run(); } catch (_) {}
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_class TEXT').run(); } catch (_) {}
+  // 테스트 종류(일일/주간/월말테스트) — 지정된 퀴즈만 채점 결과가 성적표에 자동 반영. 빈값=일반 퀴즈.
+  try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN test_kind TEXT').run(); } catch (_) {}
   _surveysReady = true;
 }
 
@@ -333,6 +336,7 @@ function surveyOut(r, responseCount) {
     anonymous: r.anonymous === 1,
     quiz: r.quiz === 1,
     status: r.status || 'draft',
+    testKind: r.test_kind || '',   // 테스트 종류(일일/주간/월말테스트) — 빈값=일반 퀴즈
     questions: parseQuestions(r.questions),
     createdAt: r.created_at || '',
     updatedAt: r.updated_at || '',
@@ -477,11 +481,13 @@ export async function onRequest(context) {
         const status = STATUSES.has(body.status) ? body.status : 'draft';
         const questions = sanitizeQuestions(body.questions, quiz === 1);
         if (!questions.length) return jsonErr('질문을 하나 이상 추가해 주세요.');
+        // 테스트 종류: 퀴즈일 때만 유효(일일/주간/월말테스트). 지정 시 채점 결과가 성적표에 자동 반영.
+        const testKind = (quiz === 1 && TEST_KINDS.has(body.testKind)) ? body.testKind : '';
         const now = nowIso();
         const res = await env.DB.prepare(
-          'INSERT INTO surveys (title, description, audience, aud_academy, aud_class, anonymous, quiz, status, questions, created_at, updated_at) ' +
-          'VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-        ).bind(title, description, audience, JSON.stringify(audAcademy), JSON.stringify(audClass), anonymous, quiz, status, JSON.stringify(questions), now, now).run();
+          'INSERT INTO surveys (title, description, audience, aud_academy, aud_class, anonymous, quiz, status, questions, test_kind, created_at, updated_at) ' +
+          'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+        ).bind(title, description, audience, JSON.stringify(audAcademy), JSON.stringify(audClass), anonymous, quiz, status, JSON.stringify(questions), testKind, now, now).run();
         return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id });
       }
 
@@ -524,6 +530,16 @@ export async function onRequest(context) {
         const score = graded.score + manualScore;
         await env.DB.prepare('UPDATE survey_responses SET score=?, max_score=?, manual=? WHERE id=?')
           .bind(score, graded.maxScore, JSON.stringify(manual), rid).run();
+
+        // 장문형 O·X 확정으로 점수가 바뀌면 성적표도 같은 값으로 덮어쓴다(테스트 종류 지정 퀴즈만).
+        if (s.test_kind && s.anonymous !== 1 && resp.respondent_name) {
+          const p = upsertTestScore(env, {
+            survey: { id: s.id, title: s.title, testKind: s.test_kind, anonymous: s.anonymous === 1 },
+            respondentName: resp.respondent_name, score, maxScore: graded.maxScore,
+          });
+          if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+          else if (p && typeof p.catch === 'function') p.catch(() => {});
+        }
         return jsonOk({ ok: true, responseId: rid, score, maxScore: graded.maxScore, manual });
       }
 
@@ -549,6 +565,8 @@ export async function onRequest(context) {
         // 조교는 퀴즈 해제 불가(quiz=0 전환 차단). 원장만 quiz 토글 가능.
         if (body.quiz !== undefined && !isStaff) { sets.push('quiz=?'); vals.push((body.quiz === true || body.quiz === 1) ? 1 : 0); }
         if (body.status !== undefined) { sets.push('status=?'); vals.push(STATUSES.has(body.status) ? body.status : 'draft'); }
+        // 테스트 종류 수정 — 유효 값만 저장, 그 외(없음 선택 등)는 ''.
+        if (body.testKind !== undefined) { sets.push('test_kind=?'); vals.push(TEST_KINDS.has(body.testKind) ? body.testKind : ''); }
         if (body.questions !== undefined) {
           // 자동 배점은 퀴즈에만 — 이번 요청 반영 후의 quiz 상태 기준
           const effQuiz = isStaff ? true
@@ -629,6 +647,17 @@ export async function onRequest(context) {
       const anon = s.anonymous === 1;
       const who = anon ? '' : name;
       notifyAdmin(context, env, { id: s.id, title: s.title, quiz: isQuiz, score: graded && graded.score, maxScore: graded && graded.maxScore }, who);
+
+      // 테스트 종류가 지정된 퀴즈면 채점 결과를 성적표(exam_scores)에 자동 반영.
+      //   best-effort(제출 흐름을 막지 않음) — 익명·미매칭은 헬퍼가 알아서 스킵.
+      if (isQuiz && graded && s.test_kind && !anon) {
+        const p = upsertTestScore(env, {
+          survey: { id: s.id, title: s.title, testKind: s.test_kind, anonymous: anon },
+          respondentName: name, score: graded.score, maxScore: graded.maxScore,
+        });
+        if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+        else if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
       const out = { ok: true, message: '응답이 제출됐어요. 감사합니다!' };
       if (isQuiz && graded) {
         out.quiz = true;
