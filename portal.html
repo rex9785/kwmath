@@ -162,10 +162,16 @@
       <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
       <span>이관우 수학연구소</span>
     </span>
-    <a href="/me" class="topbar-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
-      <span style="font-size:0.9rem;">👤</span>
-      <span>내 정보</span>
-    </a>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button type="button" id="inboxBtn" class="topbar-btn" onclick="openInbox()" aria-label="알림함" style="position:relative;display:inline-flex;align-items:center;gap:4px;">
+        <span style="font-size:0.95rem;">🔔</span>
+        <span id="inboxBadge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;background:#c0392b;color:#fff;font-size:0.62rem;font-weight:800;line-height:16px;border-radius:9px;text-align:center;box-shadow:0 0 0 2px var(--primary);"></span>
+      </button>
+      <a href="/me" class="topbar-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+        <span style="font-size:0.9rem;">👤</span>
+        <span>내 정보</span>
+      </a>
+    </div>
   </div>
 
   <div class="page">
@@ -338,6 +344,22 @@
   </div>
 </div>
 
+<!-- 알림함(인박스): 학부모/학생이 받은 알림 시간순 기록 (결석·숙제·클리닉 등) -->
+<div class="modal-bg" id="inboxModal" onclick="if(event.target===this)closeInbox()">
+  <div class="modal-card" style="max-width:440px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:82vh;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <h2 style="font-size:1.1rem;font-weight:900;color:var(--primary);margin:0;">🔔 알림함</h2>
+      <button type="button" id="inboxReadAllBtn" onclick="markAllReadInbox()" style="background:none;border:none;color:var(--text-light);font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 6px;">모두 읽음</button>
+    </div>
+    <div id="inboxList" style="overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;">
+      <div class="inbox-empty">불러오는 중…</div>
+    </div>
+    <div style="padding:12px 22px 18px;border-top:1px solid var(--border);text-align:right;flex-shrink:0;">
+      <button class="btn-cancel" onclick="closeInbox()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <style>
@@ -369,6 +391,18 @@
   .feat-title{font-size:0.95rem;font-weight:800;color:var(--text);}
   .feat-desc{font-size:0.76rem;color:var(--text-light);}
   .feat-btn.disabled{opacity:.5;cursor:not-allowed;}
+
+  /* 알림함(인박스) 아이템 */
+  .inbox-item{padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
+  .inbox-item:first-child{border-top:none;}
+  .inbox-item.unread{background:#FFF8F0;}
+  .inbox-item .ib-dot{width:8px;height:8px;border-radius:50%;background:#c0392b;flex-shrink:0;margin-top:6px;visibility:hidden;}
+  .inbox-item.unread .ib-dot{visibility:visible;}
+  .inbox-item .ib-body{flex:1;min-width:0;}
+  .inbox-item .ib-title{font-size:0.88rem;font-weight:800;color:var(--text);margin-bottom:3px;}
+  .inbox-item .ib-text{font-size:0.8rem;color:var(--text-light);line-height:1.5;white-space:pre-line;word-break:break-word;}
+  .inbox-item .ib-date{font-size:0.7rem;color:var(--text-light);opacity:0.7;margin-top:5px;}
+  .inbox-empty{text-align:center;color:var(--text-light);font-size:0.85rem;padding:44px 20px;line-height:1.6;}
 </style>
 
 <script>
@@ -1381,6 +1415,85 @@
     btn.innerHTML = isHidden ? '접기 ▲' : ('+ ' + total + '개 더 보기 ▼');
   }
 
+  // ─── 알림함(인박스): 받은 알림 시간순 기록 ───
+  let _inboxCache = [];
+  function _inboxToken(){
+    try { return sessionStorage.getItem('kwmath_portal_token') || localStorage.getItem('kwmath_portal_token') || ''; } catch(e){ return ''; }
+  }
+  async function loadInbox(){
+    try {
+      const tk = _inboxToken();
+      if (!tk) return;
+      const res = await fetch('/api/notifications', { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (!res.ok) return;
+      const data = await res.json();
+      _inboxCache = Array.isArray(data.notifications) ? data.notifications : [];
+      const unread = Number(data.unread) || 0;
+      const badge = document.getElementById('inboxBadge');
+      if (badge) {
+        if (unread > 0) { badge.textContent = unread > 99 ? '99+' : String(unread); badge.style.display = 'block'; }
+        else { badge.style.display = 'none'; }
+      }
+      const modal = document.getElementById('inboxModal');
+      if (modal && modal.classList.contains('show')) renderInbox();  // 열려 있으면 목록도 갱신
+    } catch (e) { /* silent */ }
+  }
+  function renderInbox(){
+    const wrap = document.getElementById('inboxList');
+    if (!wrap) return;
+    const esc = (s) => String(s||'').replace(/[&<>\"\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+    if (!_inboxCache.length) {
+      wrap.innerHTML = '<div class="inbox-empty">아직 받은 알림이 없어요.<br>출결·숙제·클리닉 알림이 오면 여기에 쌓여요.</div>';
+      return;
+    }
+    const fmt = (iso) => {
+      try {
+        const d = new Date(iso); if (isNaN(d)) return '';
+        const k = new Date(d.getTime() + 9*3600*1000);  // UTC→KST
+        const mo = k.getUTCMonth()+1, da = k.getUTCDate();
+        let h = k.getUTCHours(); const mi = String(k.getUTCMinutes()).padStart(2,'0');
+        const ap = h < 12 ? '오전' : '오후'; h = h % 12; if (h === 0) h = 12;
+        return mo + '월 ' + da + '일 ' + ap + ' ' + h + ':' + mi;
+      } catch(e){ return ''; }
+    };
+    wrap.innerHTML = _inboxCache.map(n => {
+      return '<div class="inbox-item' + (n.read ? '' : ' unread') + '">'
+        + '<span class="ib-dot"></span>'
+        + '<div class="ib-body">'
+        + '<div class="ib-title">' + esc(n.title || '알림') + '</div>'
+        + '<div class="ib-text">' + esc(n.body || '') + '</div>'
+        + '<div class="ib-date">' + esc(fmt(n.createdAt)) + '</div>'
+        + '</div></div>';
+    }).join('');
+  }
+  function openInbox(){
+    const modal = document.getElementById('inboxModal');
+    if (!modal) return;
+    renderInbox();
+    modal.classList.add('show');
+    loadInbox();  // 열 때 최신화
+  }
+  function closeInbox(){
+    const modal = document.getElementById('inboxModal');
+    if (modal) modal.classList.remove('show');
+  }
+  async function markAllReadInbox(){
+    try {
+      const tk = _inboxToken();
+      if (tk) {
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + tk, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'read_all' })
+        });
+      }
+    } catch (e) { /* silent */ }
+    _inboxCache = _inboxCache.map(n => Object.assign({}, n, { read: true }));  // 로컬 즉시 반영
+    renderInbox();
+    const badge = document.getElementById('inboxBadge');
+    if (badge) badge.style.display = 'none';
+  }
+
   // ─── KW-Study 오늘 공부량 배지 ───
   async function loadTodayStudyBadge() {
     try {
@@ -1469,6 +1582,7 @@
         loadTodayStudyBadge();
         loadNoticesBox();
         loadSurveyAlert();
+        loadInbox();
       }
     });
     const ms = document.getElementById('mainScreen');
@@ -1477,6 +1591,7 @@
     setTimeout(loadTodayStudyBadge, 1000);
     setTimeout(loadNoticesBox, 1100);
     setTimeout(loadSurveyAlert, 1200);
+    setTimeout(loadInbox, 1300);
   })();
 </script>
 <script>

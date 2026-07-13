@@ -52,6 +52,8 @@ const STAFF_WRITE_ALLOW = new Set([
   '/api/attendance',       // 조교: 자기 학원 학생 출결 입력/삭제 (POST·DELETE) — 학원 스코프는 attendance.js가 X-Staff-Phone로 강제
   '/api/scores',           // 조교: 자기 학원 학생 성적 입력/삭제 (POST·DELETE) — 학원 스코프는 scores.js가 X-Staff-Phone로 강제
   '/api/clinic',           // 조교: 자기 학원 학생 클리닉 출결/성취도/시간 입력·삭제 (POST·DELETE) — 학원 스코프는 clinic.js가 X-Staff-Phone로 강제
+  '/api/clinic-roster',    // 조교: 자기 학원 학생 클리닉 필수명단 수동 추가/제외 (POST) — 학원 스코프는 clinic-roster.js가 X-Staff-Phone로 강제
+  '/api/notifications',    // 조교: 자기 학원 학생 클리닉 미참석 연락 (POST action=create type=clinic_absent) — 학원 스코프·정형알림 강제는 notifications.js가 X-Staff-Phone로 처리
 ]);
 function staffAllowed(url, method) {
   const pathname = url.pathname;

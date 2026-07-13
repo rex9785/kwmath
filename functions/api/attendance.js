@@ -13,6 +13,8 @@ import { requireStudentAccess } from './_auth.js';
 import { getStudentByName, getStudentsByPhone, getAttendance, upsertAttendance, deleteAttendance, listAllAttendance, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
+import { createNotification } from './_notifications.js';
+import { sendPushToUsers } from './_push.js';
 
 const VALID_STATUS = ['출석', '지각', '결석', '병결', '공결'];
 
@@ -25,7 +27,51 @@ async function staffNameScope(env, request) {
   return new Set(roster.map(s => s.name));
 }
 
-export async function onRequest({ request, env }) {
+// 출결 저장 후 자동 알림: 결석 또는 (지각 아닌) 숙제 25%↓ → 알림함 적립 + 학부모/학생 푸시.
+//   지각은 제외(관우T 확정: "결석했을 때만"). 결석이면 숙제알림은 억제('해왔을 때'가 아님).
+//   best-effort — 알림/푸시 실패가 출결 저장을 절대 막지 않는다(호출부에서 waitUntil로 분리).
+async function notifyOnAttendance(env, st, date, updates) {
+  const events = [];
+  if (updates.status === '결석') {
+    events.push({
+      type: 'absence',
+      title: '🔴 결석 안내',
+      body: st.name + ' 학생이 ' + date + ' 결석했습니다.',
+      dedupKey: 'absence:' + st.id + ':' + date,
+    });
+  }
+  if (updates.status !== '결석' && updates.homework !== undefined && updates.homework <= 25) {
+    events.push({
+      type: 'homework_low',
+      title: '📝 숙제 미흡 안내',
+      body: st.name + ' 학생이 ' + date + ' 숙제를 ' + updates.homework + '% 해왔습니다. (25% 이하)',
+      dedupKey: 'homework_low:' + st.id + ':' + date,
+    });
+  }
+  if (!events.length) return;
+
+  const fresh = [];
+  for (const ev of events) {
+    try {
+      const res = await createNotification(env, {
+        studentId: st.id, type: ev.type, title: ev.title, body: ev.body, url: '/portal', dedupKey: ev.dedupKey,
+      });
+      if (res && res.ok && res.created) fresh.push(ev);   // 같은 날 재저장 → created:false면 푸시 생략(중복 방지)
+    } catch (_) { /* best-effort */ }
+  }
+  if (!fresh.length) return;
+
+  const phones = [st.parentPhone, st.studentPhone]
+    .map(p => String(p || '').replace(/\D/g, '')).filter(Boolean);
+  if (!phones.length) return;
+  const payload = fresh.length === 1
+    ? { title: fresh[0].title, body: fresh[0].body, url: '/portal', tag: 'kwmath-att-' + fresh[0].type }
+    : { title: '📌 출결 알림', body: fresh.map(e => e.body).join('\n'), url: '/portal', tag: 'kwmath-att' };
+  try { await sendPushToUsers(env, phones, payload); } catch (_) { /* best-effort */ }
+}
+
+export async function onRequest(context) {
+  const { request, env } = context;
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   const isAdmin = env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
   const url = new URL(request.url);
@@ -120,6 +166,10 @@ export async function onRequest({ request, env }) {
       if (!st) return Response.json({ error: '학생을 D1에서 찾을 수 없습니다. (신규 등록 학생이면 마이그레이션 재실행 필요)' }, { status: 404 });
       const r = await upsertAttendance(env, st.id, date, updates);
       if (!r.ok) return safeError(r.error || 'upsertAttendance failed', env, { message: '출결 저장에 실패했습니다.' });
+      // 자동 알림(결석·숙제25%↓) — best-effort, 출결 저장 흐름과 분리(waitUntil).
+      const _np = notifyOnAttendance(env, st, date, updates);
+      if (context && typeof context.waitUntil === 'function') context.waitUntil(_np);
+      else if (_np && typeof _np.catch === 'function') _np.catch(() => {});
       return Response.json({ ok: true, name, date, record: r.record });
     } catch (e) {
       return safeError(e, env, { message: '출결 저장에 실패했습니다.' });

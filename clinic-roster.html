@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>클리닉 필수 명단 · 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=3">
+<meta name="theme-color" content="#8B1A35">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--ink:#1E1E1E;--muted:#777;--border:#EDE0E3;--bg:#FAF7F8;
+    --clinic:#1f6f78;--clinic-light:#E3F1F2;--att:#1F7A33;--late:#B07A00;--abs:#B02347;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;word-break:keep-all;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 18px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .page{max-width:640px;margin:0 auto;padding:20px 16px 80px;}
+
+  .datebar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-bottom:12px;gap:6px;}
+  .datebar button{background:none;border:none;font-size:1.2rem;color:var(--primary);cursor:pointer;padding:2px 8px;font-family:inherit;}
+  .datebar input[type=date]{border:1.5px solid var(--border);border-radius:8px;padding:6px 8px;font-family:inherit;font-size:0.9rem;outline:none;}
+  .datebar .today{font-size:0.76rem;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--muted);}
+
+  .summary{display:flex;gap:8px;margin-bottom:12px;}
+  .sbox{flex:1;background:#fff;border:1px solid var(--border);border-radius:12px;padding:11px 8px;text-align:center;}
+  .sbox .n{font-size:1.5rem;font-weight:900;}
+  .sbox .l{font-size:0.72rem;color:var(--muted);margin-top:1px;}
+  .sbox.req .n{color:var(--primary);} .sbox.ok .n{color:var(--att);} .sbox.miss .n{color:var(--abs);}
+
+  .filterbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:0.8rem;color:var(--muted);}
+  .filterbar label{display:flex;align-items:center;gap:5px;cursor:pointer;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .card.attended{opacity:0.62;}
+  .card .main{flex:1;min-width:150px;}
+  .card .nm{font-weight:800;font-size:1.0rem;}
+  .card .cls{font-size:0.72rem;color:var(--primary);font-weight:700;background:var(--primary-light);padding:1px 8px;border-radius:9px;margin-left:6px;}
+  .reasons{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;}
+  .rb{font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:9px;background:#F2EDEE;color:var(--ink);}
+  .rb.abs{background:#FBE6E6;color:var(--abs);} .rb.late{background:#FFF3DB;color:var(--late);}
+  .rb.hw{background:var(--primary-light);color:var(--primary);} .rb.manual{background:var(--clinic-light);color:var(--clinic);}
+  .status{font-size:0.82rem;font-weight:800;white-space:nowrap;}
+  .status.ok{color:var(--att);} .status.miss{color:var(--abs);}
+  .acts{display:flex;gap:6px;}
+  button.mini{background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:6px 11px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  button.mini:hover{border-color:var(--primary);color:var(--primary);}
+  button.mini.notify{color:var(--abs);border-color:#F0C9CF;}
+  button.mini.notify:hover{border-color:var(--abs);background:#FBE6E6;color:var(--abs);}
+
+  .addbox{background:#fff;border:1px dashed var(--clinic);border-radius:12px;padding:12px 14px;margin-top:14px;}
+  .addbox .h{font-weight:800;font-size:0.84rem;color:var(--clinic);margin-bottom:8px;}
+  .addrow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+  .addrow input{border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:0.86rem;outline:none;}
+  .addrow input:focus{border-color:var(--clinic);}
+  .addrow .nmin{flex:1;min-width:120px;} .addrow .rsn{flex:1;min-width:110px;}
+  .addrow button{background:var(--clinic);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;}
+
+  .exbox{margin-top:14px;}
+  .exbox .h{font-weight:700;font-size:0.8rem;color:var(--muted);margin-bottom:7px;}
+  .exrow{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:9px;padding:5px 10px;margin:0 6px 6px 0;font-size:0.82rem;}
+  .exrow button{background:none;border:none;color:var(--clinic);font-weight:700;cursor:pointer;font-family:inherit;font-size:0.78rem;}
+
+  .empty{background:#fff;border:1px dashed var(--border);border-radius:13px;padding:34px 18px;text-align:center;color:var(--muted);font-size:0.9rem;line-height:1.7;}
+  .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:11px 18px;border-radius:9px;font-size:0.84rem;font-weight:600;z-index:100;display:none;}
+  .toast.show{display:block;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title"><span>📋 클리닉 필수 명단</span></a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+  <div class="datebar">
+    <button onclick="shiftDate(-1)">‹</button>
+    <input type="date" id="datePick" onchange="onDateChange()">
+    <button onclick="shiftDate(1)">›</button>
+    <button class="today" onclick="goToday()">오늘</button>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="filterbar">
+    <label><input type="checkbox" id="missOnly" onchange="renderList()"> 미참석만 보기</label>
+    <span id="hint" style="margin-left:auto;font-size:0.72rem;"></span>
+  </div>
+
+  <div id="content"><div class="empty">불러오는 중…</div></div>
+
+  <div class="addbox">
+    <div class="h">➕ 수동 추가</div>
+    <div class="addrow">
+      <input class="nmin" id="addName" list="studentList" placeholder="학생 이름">
+      <input class="rsn" id="addReason" placeholder="사유 (선택)">
+      <button onclick="doAdd()">추가</button>
+    </div>
+    <datalist id="studentList"></datalist>
+  </div>
+
+  <div class="exbox" id="exbox" style="display:none;">
+    <div class="h">제외한 학생 (되돌리려면 클릭)</div>
+    <div id="exlist"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function readToken(){
+    var keys = ['kwmath_admin_token','kwmath_admin_pw'];
+    for (var i=0;i<keys.length;i++){
+      var v = sessionStorage.getItem(keys[i]) || localStorage.getItem(keys[i]);
+      if (v) return v;
+    }
+    return '';
+  }
+  var token = readToken();
+  if(!token){ location.replace('/portal?next=/clinic-roster'); }
+
+  var roster = [], excluded = [], allStudents = [];
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
+
+  function pad(n){ return ('0'+n).slice(-2); }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  var viewDate = todayStr();
+
+  async function api(path, opts){
+    opts=opts||{}; opts.headers=opts.headers||{};
+    if(token) opts.headers['Authorization']='Bearer '+token;
+    opts.credentials='same-origin';
+    var r=await fetch(path,opts);
+    if(r.status===401){ location.replace('/portal?next=/clinic-roster'); throw new Error('401'); }
+    return r;
+  }
+
+  function shiftDate(delta){
+    var d=new Date(viewDate+'T00:00:00'); d.setDate(d.getDate()+delta);
+    viewDate=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    $('datePick').value=viewDate; load();
+  }
+  function onDateChange(){ var v=$('datePick').value; if(v){ viewDate=v; load(); } }
+  function goToday(){ viewDate=todayStr(); $('datePick').value=viewDate; load(); }
+
+  function attended(cs){ return cs==='출석' || cs==='지각'; }
+
+  function reasonBadges(reasons){
+    return (reasons||[]).map(function(rz){
+      var cls='rb';
+      if(rz==='결석') cls='rb abs';
+      else if(rz==='지각') cls='rb late';
+      else if(rz.indexOf('숙제')===0) cls='rb hw';
+      else if(rz.indexOf('수동')===0) cls='rb manual';
+      return '<span class="'+cls+'">'+esc(rz)+'</span>';
+    }).join('');
+  }
+
+  function cardHtml(e){
+    var did = attended(e.clinicStatus);
+    var statusHtml = did
+      ? '<span class="status ok">✅ 참석'+(e.clinicStatus==='지각'?'(지각)':'')+'</span>'
+      : '<span class="status miss">⚠️ 미참석</span>';
+    var nmEsc = esc(e.name).replace(/'/g,"\\'");
+    return ''+
+    '<div class="card'+(did?' attended':'')+'">'+
+      '<div class="main">'+
+        '<span class="nm">'+esc(e.name)+'</span>'+
+        (e.academy?'<span class="cls">'+esc(e.academy)+'</span>':'')+
+        (nmeta_line(e))+
+        '<div class="reasons">'+reasonBadges(e.reasons)+'</div>'+
+      '</div>'+
+      statusHtml+
+      '<div class="acts">'+
+        (did?'':'<button class="mini notify" onclick="doNotify(\''+nmEsc+'\')">📞 연락</button>')+
+        '<button class="mini" onclick="doExclude(\''+nmEsc+'\')">제외</button>'+
+      '</div>'+
+    '</div>';
+  }
+  function nmeta_line(e){ return e.grade?('<span style="font-size:0.74rem;color:var(--muted);margin-left:6px;">'+esc(e.grade)+'</span>'):''; }
+
+  function renderSummary(){
+    var req=roster.length, ok=roster.filter(function(e){return attended(e.clinicStatus);}).length;
+    var miss=req-ok;
+    $('summary').innerHTML =
+      '<div class="sbox req"><div class="n">'+req+'</div><div class="l">필수 명단</div></div>'+
+      '<div class="sbox ok"><div class="n">'+ok+'</div><div class="l">클리닉 참석</div></div>'+
+      '<div class="sbox miss"><div class="n">'+miss+'</div><div class="l">미참석</div></div>';
+  }
+
+  function renderList(){
+    renderSummary();
+    var missOnly=$('missOnly').checked;
+    var list=roster.filter(function(e){ return missOnly ? !attended(e.clinicStatus) : true; });
+    if(!roster.length){
+      $('content').innerHTML='<div class="empty">이 날짜에 클리닉 필수 대상 학생이 없어요.<br><span style="font-size:0.78rem;">(그날 결석·지각·숙제 50% 이하 학생이 자동으로 잡히고, 아래에서 수동으로도 추가할 수 있어요.)</span></div>';
+    } else if(!list.length){
+      $('content').innerHTML='<div class="empty">미참석 학생이 없어요. 모두 클리닉에 왔어요! 🎉</div>';
+    } else {
+      $('content').innerHTML=list.map(cardHtml).join('');
+    }
+    // 제외 목록
+    if(excluded.length){
+      $('exbox').style.display='block';
+      $('exlist').innerHTML=excluded.map(function(e){
+        var nmEsc=esc(e.name).replace(/'/g,"\\'");
+        return '<span class="exrow">'+esc(e.name)+' <button onclick="doClear(\''+nmEsc+'\')">되돌리기</button></span>';
+      }).join('');
+    } else { $('exbox').style.display='none'; $('exlist').innerHTML=''; }
+    $('hint').textContent = '숙제 50% 이하·결석·지각 자동 포함';
+  }
+
+  async function load(){
+    $('content').innerHTML='<div class="empty">불러오는 중…</div>';
+    try{
+      var r=await api('/api/clinic-roster?date='+encodeURIComponent(viewDate));
+      var j=await r.json();
+      roster=(j&&j.roster)||[]; excluded=(j&&j.excluded)||[];
+      renderList();
+    }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="empty">명단을 불러오지 못했어요.</div>'; }
+  }
+
+  async function loadStudents(){
+    try{
+      var r=await api('/api/students'); var j=await r.json();
+      allStudents=Array.isArray(j)?j:[];
+      $('studentList').innerHTML=allStudents.map(function(s){ return '<option value="'+esc(s.name)+'">'; }).join('');
+    }catch(e){}
+  }
+
+  async function post(name, action, reason){
+    var body={name:name, date:viewDate, action:action};
+    if(reason) body.reason=reason;
+    try{
+      var r=await api('/api/clinic-roster',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'저장에 실패했어요.'); return false; }
+      return true;
+    }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); return false; }
+  }
+
+  async function doNotify(name){
+    try{
+      var r=await api('/api/notifications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',type:'clinic_absent',name:name,date:viewDate})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'연락에 실패했어요.'); return; }
+      if(j.created===false){ showToast(name+' 학부모님께 이미 연락했어요.'); }
+      else { showToast('📨 '+name+' 학부모님께 미참석 연락을 보냈어요.'); }
+    }catch(e){ if(String(e.message)!=='401') showToast('연락 중 오류가 났어요.'); }
+  }
+  async function doExclude(name){ if(await post(name,'exclude')){ showToast(name+' 제외했어요.'); load(); } }
+  async function doClear(name){ if(await post(name,'clear')){ showToast(name+' 되돌렸어요.'); load(); } }
+  async function doAdd(){
+    var name=($('addName').value||'').trim();
+    if(!name){ showToast('학생 이름을 입력해주세요.'); return; }
+    var reason=($('addReason').value||'').trim();
+    if(await post(name,'add',reason)){ showToast(name+' 추가했어요.'); $('addName').value=''; $('addReason').value=''; load(); }
+  }
+
+  $('datePick').value=viewDate;
+  loadStudents();
+  load();
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(){});
+</script>
+</body>
+</html>

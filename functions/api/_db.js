@@ -423,6 +423,73 @@ export async function listAllClinic(env) {
   return Object.values(byStudent);
 }
 
+// ─── 특정 날짜만 뽑는 조회(명단 계산용, 전체 히스토리 로드 회피) ───
+export async function listAttendanceByDate(env, date) {
+  const { results } = await env.DB.prepare(
+    'SELECT a.student_id, s.name, a.status, a.homework, a.homework_note, a.note ' +
+    'FROM attendance a LEFT JOIN students s ON s.id = a.student_id WHERE a.date = ?'
+  ).bind(date).all();
+  return results || [];
+}
+
+export async function listClinicByDate(env, date) {
+  await ensureClinic(env);
+  const { results } = await env.DB.prepare(
+    'SELECT c.student_id, s.name, c.status, c.achieve, c.minutes, c.note ' +
+    'FROM clinic c LEFT JOIN students s ON s.id = c.student_id WHERE c.date = ?'
+  ).bind(date).all();
+  return results || [];
+}
+
+// ════════════ 클리닉 필수 명단 — 수동 추가/제외 오버라이드 ════════════
+// 자동조건(그날 결석·지각 OR 숙제 50%↓)은 attendance에서 파생한다. 이 테이블엔
+// "수동으로 넣거나 뺀 것"만 저장. action='add'(강제 포함) / 'exclude'(자동이어도 제외).
+// 마이그레이션 러너 없으니 첫 사용 시 CREATE TABLE IF NOT EXISTS로 보장(아이솔레이트당 1회).
+let _clinicRosterReady = false;
+async function ensureClinicRoster(env) {
+  if (_clinicRosterReady) return;
+  await env.DB.prepare(
+    'CREATE TABLE IF NOT EXISTS clinic_roster (' +
+    'student_id TEXT NOT NULL, date TEXT NOT NULL, action TEXT NOT NULL, ' +
+    'reason TEXT, updated_at TEXT, ' +
+    'PRIMARY KEY (student_id, date))'
+  ).run();
+  _clinicRosterReady = true;
+}
+
+export async function listClinicRoster(env, date) {
+  await ensureClinicRoster(env);
+  const { results } = await env.DB.prepare(
+    'SELECT student_id, action, reason FROM clinic_roster WHERE date = ?'
+  ).bind(date).all();
+  return results || [];
+}
+
+export async function setClinicRoster(env, studentId, date, action, reason) {
+  await ensureClinicRoster(env);
+  try {
+    const existing = await env.DB.prepare('SELECT student_id FROM clinic_roster WHERE student_id=? AND date=?')
+      .bind(studentId, date).first();
+    if (existing) {
+      await env.DB.prepare('UPDATE clinic_roster SET action=?, reason=?, updated_at=? WHERE student_id=? AND date=?')
+        .bind(action, reason || '', new Date().toISOString(), studentId, date).run();
+    } else {
+      await env.DB.prepare('INSERT INTO clinic_roster (student_id, date, action, reason, updated_at) VALUES (?,?,?,?,?)')
+        .bind(studentId, date, action, reason || '', new Date().toISOString()).run();
+    }
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+export async function deleteClinicRoster(env, studentId, date) {
+  await ensureClinicRoster(env);
+  try {
+    const res = await env.DB.prepare('DELETE FROM clinic_roster WHERE student_id=? AND date=?')
+      .bind(studentId, date).run();
+    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
 // ════════════ 앱 설정 (app_config) — 강제업데이트 최소버전 등 ════════════
 // 관리자만 변경. key-value 한 줄씩. 마이그레이션 러너 없으니 첫 사용 시 보장(아이솔레이트당 1회).
 let _appConfigReady = false;
