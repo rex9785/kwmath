@@ -27,8 +27,9 @@ async function staffNameScope(env, request) {
   return new Set(roster.map(s => s.name));
 }
 
-// 출결 저장 후 자동 알림: 결석 또는 (지각 아닌) 숙제 25%↓ → 알림함 적립 + 학부모/학생 푸시.
+// 출결 저장 후 자동 알림: 결석 또는 (지각 아닌) 숙제 25%↓ → 알림함 적립 + 학부모 푸시(학생 제외).
 //   지각은 제외(관우T 확정: "결석했을 때만"). 결석이면 숙제알림은 억제('해왔을 때'가 아님).
+//   audience:'parent' — 보고성 알림이라 학부모만. 학생 본인은 푸시·알림함 모두 안 받음(관우T 확정).
 //   best-effort — 알림/푸시 실패가 출결 저장을 절대 막지 않는다(호출부에서 waitUntil로 분리).
 async function notifyOnAttendance(env, st, date, updates) {
   const events = [];
@@ -38,6 +39,7 @@ async function notifyOnAttendance(env, st, date, updates) {
       title: '🔴 결석 안내',
       body: st.name + ' 학생이 ' + date + ' 결석했습니다.',
       dedupKey: 'absence:' + st.id + ':' + date,
+      audience: 'parent',
     });
   }
   if (updates.status !== '결석' && updates.homework !== undefined && updates.homework <= 25) {
@@ -46,6 +48,7 @@ async function notifyOnAttendance(env, st, date, updates) {
       title: '📝 숙제 미흡 안내',
       body: st.name + ' 학생이 ' + date + ' 숙제를 ' + updates.homework + '% 해왔습니다. (25% 이하)',
       dedupKey: 'homework_low:' + st.id + ':' + date,
+      audience: 'parent',
     });
   }
   if (!events.length) return;
@@ -54,14 +57,14 @@ async function notifyOnAttendance(env, st, date, updates) {
   for (const ev of events) {
     try {
       const res = await createNotification(env, {
-        studentId: st.id, type: ev.type, title: ev.title, body: ev.body, url: '/portal', dedupKey: ev.dedupKey,
+        studentId: st.id, type: ev.type, title: ev.title, body: ev.body, url: '/portal', dedupKey: ev.dedupKey, audience: ev.audience,
       });
       if (res && res.ok && res.created) fresh.push(ev);   // 같은 날 재저장 → created:false면 푸시 생략(중복 방지)
     } catch (_) { /* best-effort */ }
   }
   if (!fresh.length) return;
 
-  const phones = [st.parentPhone, st.studentPhone]
+  const phones = [st.parentPhone]   // 결석·숙제 알림은 학부모 전용 — 학생폰 푸시 제외
     .map(p => String(p || '').replace(/\D/g, '')).filter(Boolean);
   if (!phones.length) return;
   const payload = fresh.length === 1

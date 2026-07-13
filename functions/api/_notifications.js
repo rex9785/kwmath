@@ -18,6 +18,8 @@ async function ensureNotifications(env) {
   ).run();
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_notif_student ON notifications (student_id, created_at)').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_notif_dedup ON notifications (dedup_key)').run(); } catch (_) {}
+  // audience: 수신 대상 — 'parent'(학부모만) · 'student'(학생만) · 'all'/NULL(둘 다). 옛 행은 NULL=전체 노출(무회귀).
+  try { await env.DB.prepare('ALTER TABLE notifications ADD COLUMN audience TEXT').run(); } catch (_) {}
   _ready = true;
 }
 
@@ -34,8 +36,43 @@ function rowToNotif(r) {
   };
 }
 
+// ── 수신 대상(audience) 스코프 → SQL WHERE 조각 + 바인드 ──
+//   scope 형태:
+//     - 배열 [id,...]  → 하위호환: 전체 조회(관리자/옛 호출부). audience 무시.
+//     - { allIds, parentIds, studentIds }
+//         allIds     : audience 무시하고 전부 (관우T가 학생별 조회 시)
+//         parentIds  : 학부모 로그인 → audience IN (NULL,'all','parent')
+//         studentIds : 학생 본인 로그인 → audience IN (NULL,'all','student')
+function normalizeScope(scope) {
+  if (Array.isArray(scope)) return { allIds: scope.filter(Boolean), parentIds: [], studentIds: [] };
+  const s = scope || {};
+  return {
+    allIds: (s.allIds || []).filter(Boolean),
+    parentIds: (s.parentIds || []).filter(Boolean),
+    studentIds: (s.studentIds || []).filter(Boolean),
+  };
+}
+function scopeWhere(scope) {
+  const s = normalizeScope(scope);
+  const parts = []; const binds = [];
+  if (s.allIds.length) {
+    parts.push('student_id IN (' + s.allIds.map(() => '?').join(',') + ')');
+    binds.push(...s.allIds);
+  }
+  if (s.parentIds.length) {
+    parts.push('(student_id IN (' + s.parentIds.map(() => '?').join(',') + ") AND (audience IS NULL OR audience IN ('all','parent')))");
+    binds.push(...s.parentIds);
+  }
+  if (s.studentIds.length) {
+    parts.push('(student_id IN (' + s.studentIds.map(() => '?').join(',') + ") AND (audience IS NULL OR audience IN ('all','student')))");
+    binds.push(...s.studentIds);
+  }
+  if (!parts.length) return { where: '1=0', binds: [] };
+  return { where: '(' + parts.join(' OR ') + ')', binds };
+}
+
 // 알림 1건 생성. dedupKey가 있고 이미 있으면 재삽입 안 함(created:false) — 같은 날 결석 두 번 눌러도 1건.
-export async function createNotification(env, { studentId, type, title, body, url, dedupKey }) {
+export async function createNotification(env, { studentId, type, title, body, url, dedupKey, audience }) {
   await ensureNotifications(env);
   if (!studentId) return { ok: false, error: 'studentId 필수' };
   try {
@@ -45,59 +82,55 @@ export async function createNotification(env, { studentId, type, title, body, ur
     }
     const id = uuid();
     await env.DB.prepare(
-      'INSERT INTO notifications (id, student_id, type, title, body, url, created_at, read_at, dedup_key) VALUES (?,?,?,?,?,?,?,?,?)'
-    ).bind(id, studentId, type || '', title || '', body || '', url || '', new Date().toISOString(), null, dedupKey || null).run();
+      'INSERT INTO notifications (id, student_id, type, title, body, url, created_at, read_at, dedup_key, audience) VALUES (?,?,?,?,?,?,?,?,?,?)'
+    ).bind(id, studentId, type || '', title || '', body || '', url || '', new Date().toISOString(), null, dedupKey || null, audience || null).run();
     return { ok: true, created: true, id };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
-// 여러 자녀(studentIds)의 알림을 시간 역순으로. limit 기본 100(최대 300).
-export async function listNotifications(env, studentIds, limit) {
+// 여러 자녀의 알림을 시간 역순으로. scope는 배열(전체) 또는 {allIds,parentIds,studentIds}. limit 기본 100(최대 300).
+export async function listNotifications(env, scope, limit) {
   await ensureNotifications(env);
-  const ids = (studentIds || []).filter(Boolean);
-  if (!ids.length) return [];
-  const ph = ids.map(() => '?').join(',');
+  const { where, binds } = scopeWhere(scope);
+  if (where === '1=0') return [];
   const lim = Math.min(Math.max(Number(limit) || 100, 1), 300);
   const { results } = await env.DB.prepare(
-    'SELECT * FROM notifications WHERE student_id IN (' + ph + ') ORDER BY created_at DESC LIMIT ' + lim
-  ).bind(...ids).all();
+    'SELECT * FROM notifications WHERE ' + where + ' ORDER BY created_at DESC LIMIT ' + lim
+  ).bind(...binds).all();
   return (results || []).map(rowToNotif);
 }
 
-export async function countUnread(env, studentIds) {
+export async function countUnread(env, scope) {
   await ensureNotifications(env);
-  const ids = (studentIds || []).filter(Boolean);
-  if (!ids.length) return 0;
-  const ph = ids.map(() => '?').join(',');
+  const { where, binds } = scopeWhere(scope);
+  if (where === '1=0') return 0;
   const row = await env.DB.prepare(
-    'SELECT COUNT(*) AS n FROM notifications WHERE read_at IS NULL AND student_id IN (' + ph + ')'
-  ).bind(...ids).first();
+    'SELECT COUNT(*) AS n FROM notifications WHERE read_at IS NULL AND ' + where
+  ).bind(...binds).first();
   return (row && row.n) || 0;
 }
 
-// 특정 알림 읽음 처리(자녀 소유 확인). 반환 changed 수.
-export async function markRead(env, id, studentIds) {
+// 특정 알림 읽음 처리(자녀 소유 + 수신대상 확인). 반환 changed 수.
+export async function markRead(env, id, scope) {
   await ensureNotifications(env);
-  const ids = (studentIds || []).filter(Boolean);
-  if (!id || !ids.length) return { ok: true, changed: 0 };
-  const ph = ids.map(() => '?').join(',');
+  const { where, binds } = scopeWhere(scope);
+  if (!id || where === '1=0') return { ok: true, changed: 0 };
   try {
     const res = await env.DB.prepare(
-      'UPDATE notifications SET read_at=? WHERE id=? AND read_at IS NULL AND student_id IN (' + ph + ')'
-    ).bind(new Date().toISOString(), id, ...ids).run();
+      'UPDATE notifications SET read_at=? WHERE id=? AND read_at IS NULL AND ' + where
+    ).bind(new Date().toISOString(), id, ...binds).run();
     return { ok: true, changed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
-export async function markAllRead(env, studentIds) {
+export async function markAllRead(env, scope) {
   await ensureNotifications(env);
-  const ids = (studentIds || []).filter(Boolean);
-  if (!ids.length) return { ok: true, changed: 0 };
-  const ph = ids.map(() => '?').join(',');
+  const { where, binds } = scopeWhere(scope);
+  if (where === '1=0') return { ok: true, changed: 0 };
   try {
     const res = await env.DB.prepare(
-      'UPDATE notifications SET read_at=? WHERE read_at IS NULL AND student_id IN (' + ph + ')'
-    ).bind(new Date().toISOString(), ...ids).run();
+      'UPDATE notifications SET read_at=? WHERE read_at IS NULL AND ' + where
+    ).bind(new Date().toISOString(), ...binds).run();
     return { ok: true, changed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }
