@@ -4,6 +4,29 @@ import { normalizePhone } from './_auth.js';
 import { createStudent } from './_db.js';
 import { safeError } from './_errors.js';
 import { resolveClassCode } from './class-options.js';
+import { sendPushToUsers } from './_push.js';
+
+// 새 회원가입 신청 → 원장(관우T) 앱 푸시 (inquiry.js와 동일 규약: __admin__ 채널)
+const ADMIN_PUSH_USERS = ['__admin__'];
+
+// best-effort — 절대 throw 안 함(푸시가 실패해도 등록은 성공 처리해야 함)
+function notifyAdminNewSignup(context, env, info) {
+  try {
+    const who = String(info.name || '학생').slice(0, 20);
+    const parts = [];
+    if (info.grade) parts.push(String(info.grade).slice(0, 20));
+    if (info.className) parts.push(String(info.className).slice(0, 30));
+    const sub = parts.join(' · ');
+    const p = sendPushToUsers(env, ADMIN_PUSH_USERS, {
+      title: '🙋 새 학생 회원가입 신청 — 승인 대기중',
+      body: who + (sub ? (' · ' + sub) : '') + ' — 탭하여 승인해 주세요',
+      url: '/admin.html#pending',
+      tag: 'kwmath-signup-pending',
+    });
+    if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+    else if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (_) { /* best-effort */ }
+}
 
 function generateKey() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 문자 제외 (I, O, 0, 1)
@@ -12,7 +35,8 @@ function generateKey() {
   return key;
 }
 
-export async function onRequest({ request, env }) {
+export async function onRequest(context) {
+  const { request, env } = context;
   if (request.method !== 'POST') return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
 
   let body = {};
@@ -82,6 +106,9 @@ export async function onRequest({ request, env }) {
     approvalStatus: '대기중',
   });
   if (!r.ok) return safeError(r.error || 'createStudent failed', env, { message: '학생 등록에 실패했습니다.' });
+
+  // 원장(관우T) 앱으로 "새 회원가입 · 승인 대기중" 즉시 푸시 (best-effort, 실패해도 등록은 성공)
+  notifyAdminNewSignup(context, env, { name: safeName, grade, className: resolvedClass.className });
 
   return Response.json({
     ok: true,

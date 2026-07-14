@@ -5,15 +5,36 @@
 import { normalizePhone, findAccountByPhone, createAccount } from './_auth.js';
 import { getStudentById, setApprovalStatus, deleteStudent } from './_db.js';
 import { safeError } from './_errors.js';
+import { sendPushToUsers } from './_push.js';
 
 const INITIAL_PASSWORD = '0000';
+
+// 승인 완료 → 학생/학부모 앱으로 "승인됐어요, 이제 로그인" 푸시 (best-effort, 절대 throw 안 함)
+// 대상 userId = 정규화 휴대폰(포털이 push 구독에 쓰는 값과 동일 형식: 010-1234-5678).
+// → 그 번호로 앱에서 이미 알림을 켜둔 기기에만 도달(예: 형제자매로 이미 앱 쓰는 학부모 폰).
+function notifyStudentApproved(context, env, name, phones) {
+  try {
+    const ids = [...new Set((phones || []).filter(Boolean))];
+    if (!ids.length) return;
+    const who = String(name || '').slice(0, 20);
+    const p = sendPushToUsers(env, ids, {
+      title: '🎉 등록이 승인됐어요!',
+      body: (who ? who + '님, ' : '') + '이제 휴대폰 번호로 로그인하세요. (초기 비밀번호 0000)',
+      url: '/portal',
+      tag: 'kwmath-approved',
+    });
+    if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+    else if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (_) { /* best-effort */ }
+}
 
 function isAdmin(request, env) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   return !!env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
 }
 
-export async function onRequest({ request, env }) {
+export async function onRequest(context) {
+  const { request, env } = context;
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용' }, { status: 405 });
   if (!isAdmin(request, env)) return Response.json({ error: '인증 실패' }, { status: 401 });
 
@@ -96,6 +117,9 @@ export async function onRequest({ request, env }) {
         accountResult.failed.push(item.phone + ': ' + (e.message || 'error'));
       }
     }
+
+    // 승인 완료 → 학생/학부모 폰으로 "승인됐어요" 푸시 (best-effort, 이미 알림 켠 기기에 도달)
+    notifyStudentApproved(context, env, name, [normS, normP]);
 
     return Response.json({
       ok: true, action: 'approve', name, studentId: String(studentId),

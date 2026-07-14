@@ -724,6 +724,8 @@
     if (typeof loadClassOptionsFromServer === 'function') loadClassOptionsFromServer();
     // admin이 로그인할 때 자동으로 예약 푸쉬 발송 체크 (silent)
     flushScheduledNotices(false);
+    // 새 회원가입 푸시 알림에서 넘어오면(/admin.html#pending) 승인 대기 패널이 있는 학생 목록으로 바로 이동
+    if (location.hash === '#pending') { try { openSection('students'); } catch (_) {} }
   }
 
   // 자동 로그인 복원
