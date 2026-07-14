@@ -32,6 +32,7 @@
   .badge.open{ background:#E6F4EA; color:#137333; }
   .badge.closed{ background:#FCE8E6; color:#C5221F; }
   .badge.aud{ background:#E8F0FE; color:#1967D2; }
+  .badge.tgt{ background:#E0F2F1; color:#00695C; }
   .badge.anon{ background:#FEF7E0; color:#8a6d00; }
   .desc{ font-size:0.9rem; color:#4a423d; margin:4px 0 6px; line-height:1.5; white-space:pre-wrap; }
   .sub{ font-size:0.82rem; color:var(--text-light); }
@@ -244,6 +245,8 @@
       h += '<span class="badge ' + s.status + '">' + (s.status==='open'?'진행중':s.status==='closed'?'종료':'초안') + '</span></div>';
       if(s.description) h += '<div class="desc">' + esc(s.description) + '</div>';
       h += '<div class="sub"><span class="badge aud">' + esc(AUD_LABEL[s.audience]||'전체') + '</span> ';
+      (s.audAcademy||[]).forEach(function(a){ if(a) h += '<span class="badge tgt">🏫 ' + esc(a) + '</span> '; });
+      (s.audClass||[]).forEach(function(c){ if(c) h += '<span class="badge tgt">' + esc(c) + '</span> '; });
       if(s.quiz) h += '<span class="badge quiz">퀴즈</span> ';
       if(s.anonymous) h += '<span class="badge anon">익명</span> ';
       h += '· 질문 ' + (s.questions?s.questions.length:0) + '개 · 응답 <b>' + (s.responseCount||0) + '</b>명';

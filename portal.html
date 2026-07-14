@@ -140,12 +140,14 @@
     </label>
     <button id="loginBtn" type="submit" class="login-btn">로그인 →</button>
     </form>
+    <!-- 신규 학생 회원가입: /register 로 이동 (반 코드 필요) -->
+    <button type="button" class="login-btn" id="goRegisterBtn" style="margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="location.href='/register'">회원가입 · 신규 학생 등록 →</button>
     <!-- 생체인증 로그인: 앱 + 생체가능 + (등록됨 or 저장된 세션) 있을 때만 노출 -->
     <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="retryFaceUnlock()">🔐 생체인증으로 로그인</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
-      처음이세요? 초기 비밀번호는 <b>0000</b>입니다.<br>
-      비밀번호를 잊으셨거나 등록되지 않았다면 <b>관우T께 문의</b>해주세요.<br>
+      <b>신규 학생</b>은 위 <b>회원가입</b>으로 등록 신청하세요. (반 코드는 관우T께 받으세요)<br>
+      기존 학생 초기 비밀번호는 <b>0000</b>. 비밀번호를 잊으셨다면 <b>관우T께 문의</b>해주세요.<br>
       <span style="font-size:0.72rem;color:var(--text-light);">운영진(조교)이신가요? <a href="/register-staff" style="color:var(--primary);font-weight:700;text-decoration:none;">조교 가입 신청 →</a></span>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);text-align:center;font-size:0.72rem;color:var(--text-light);line-height:1.7;">
