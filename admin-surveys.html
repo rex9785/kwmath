@@ -183,6 +183,7 @@
   var AUD_LABEL = { all:'전체', student:'학생', parent:'학부모' };
 
   var draft = null;   // 빌더 편집 중인 설문 { id?, title, description, audience, anonymous, status, questions:[] }
+  var _qseq = 0;      // 문항 고유 id 시퀀스 — 일괄 생성 시 Date.now() 충돌 방지
 
   function toast(m){
     toastEl.textContent = m; toastEl.classList.add('show');
@@ -277,23 +278,33 @@
   }
 
   // ─────────────── 빌더 ───────────────
-  function newQuestion(type){
-    var q = { id:'q' + Date.now() + Math.floor(Math.random()*1000), type:type||'single', label:'', required:false };
-    if(type==='single'||type==='multi'||type==='dropdown') q.options = ['', ''];
-    if(type==='scale'){ q.scaleMin=1; q.scaleMax=5; q.scaleMinLabel=''; q.scaleMaxLabel=''; }
+  function newQuestion(type, label){
+    var t = type || 'short';   // 기본값 단답(관우T 확정: 답안지형 퀴즈)
+    var q = { id:'q' + Date.now() + '_' + (_qseq++), type:t, label:label||'', required:false };
+    if(t==='single'||t==='multi'||t==='dropdown') q.options = ['', ''];
+    if(t==='scale'){ q.scaleMin=1; q.scaleMax=5; q.scaleMinLabel=''; q.scaleMaxLabel=''; }
     return q;
+  }
+  // 답안지형 퀴즈: 라벨을 위치 번호(1번·2번…)로. 빈칸/번호패턴만 갱신, 직접 쓴 제목은 보존.
+  function renumberQuiz(){
+    var i = 0;
+    draft.questions.forEach(function(q){
+      i++;
+      var lb = (q.label||'').trim();
+      if(lb==='' || /^\d+번$/.test(lb)) q.label = i + '번';
+    });
   }
   function startNew(){
     // 상태 기본값 = 초안 (관우T 2026-07-09 확정: "초안 있는 게 낫겠다 — 미리 만들어두고 공개하게")
-    draft = { title:'', description:'', audience:'all', audAcademy:[], audClass:[], anonymous:false, quiz:isStaff ? true : false, status:'draft', questions:[ newQuestion('single') ] };
+    draft = { title:'', description:'', audience:'all', audAcademy:[], audClass:[], anonymous:false, quiz:isStaff ? true : false, useTwin:true, status:'draft', questions:[ newQuestion('short') ] };
     renderBuilder();
   }
   function loadForEdit(id){
     api('GET', '?admin=1&id=' + id).then(function(r){ return r.json(); }).then(function(data){
       if(!data || !data.ok){ toast('불러오기 실패'); return; }
       var s = data.survey;
-      draft = { id:s.id, title:s.title, description:s.description, audience:s.audience, audAcademy:s.audAcademy||[], audClass:s.audClass||[], anonymous:s.anonymous, quiz:!!s.quiz, status:s.status, questions:(s.questions||[]).map(function(q){ return q; }) };
-      if(!draft.questions.length) draft.questions = [ newQuestion('single') ];
+      draft = { id:s.id, title:s.title, description:s.description, audience:s.audience, audAcademy:s.audAcademy||[], audClass:s.audClass||[], anonymous:s.anonymous, quiz:!!s.quiz, useTwin:true, status:s.status, questions:(s.questions||[]).map(function(q){ return q; }) };
+      if(!draft.questions.length) draft.questions = [ newQuestion('short') ];
       renderBuilder();
     }).catch(function(){ toast('불러오기 실패'); });
   }
@@ -322,6 +333,7 @@
       '<label class="chk"><input type="checkbox" id="fAnon"> 익명 응답 (누가 답했는지 저장·표시 안 함)</label>' +
       '<div id="testKindRow" style="margin-top:10px;"><label class="fld">테스트 종류 <span style="font-weight:400;color:var(--muted);">(지정하면 채점 점수가 성적표에 자동 반영돼요)</span></label>' +
         '<select id="fTestKind"><option value="">없음 (일반 퀴즈)</option><option value="일일테스트">일일테스트</option><option value="주간테스트">주간테스트</option><option value="월말테스트">월말테스트</option></select></div>' +
+      '<div id="twinRow" style="margin-top:10px;"><label class="chk"><input type="checkbox" id="fUseTwin"> 쌍둥이 문제(오답 재도전) 사용 <span style="font-weight:400;color:var(--muted);">— 끄면 이 시험은 재도전 없이 진행돼요</span></label></div>' +
       '<div class="qhint" id="quizHint"></div>' +
       '<div class="fld" style="margin-top:12px;">대상 학원·반 <span style="font-weight:400;color:var(--muted);">(아무것도 안 고르면 전체 대상)</span></div>' +
       '<div id="fTargetWrap" data-loaded="0" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:0.85rem;color:var(--muted);">불러오는 중…</div>';
@@ -331,8 +343,30 @@
     box.appendChild(qwrap);
 
     var addBtn = document.createElement('button'); addBtn.className = 'addQ'; addBtn.textContent = '+ 질문 추가';
-    addBtn.addEventListener('click', function(){ draft.questions.push(newQuestion('single')); syncFromForm(); renderQuestions(); });
+    addBtn.addEventListener('click', function(){ syncFromForm(); draft.questions.push(newQuestion('short')); if(draft.quiz) renumberQuiz(); renderQuestions(); });
     box.appendChild(addBtn);
+
+    // ── 한번에 여러 문항 추가 (답안지형 퀴즈 전용) — N개를 '1번·2번…' 라벨·단답으로 생성 ──
+    var bulkRow = document.createElement('div'); bulkRow.id = 'bulkRow';
+    bulkRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 4px;';
+    bulkRow.innerHTML =
+      '<input type="number" id="bulkN" value="30" min="1" max="100" inputmode="numeric" style="width:72px;padding:8px;border:1px solid var(--line);border-radius:8px;">' +
+      '<button type="button" class="addQ" id="bulkAdd" style="margin:0;width:auto;">개 한번에 추가</button>' +
+      '<button type="button" class="addQ" id="renumBtn" style="margin:0;width:auto;">번호 새로 매기기</button>' +
+      '<div class="qhint" style="flex-basis:100%;margin:0;">답안지형 퀴즈: 문제는 종이(매쓰홀릭), 앱에는 <b>답만</b> 입력해요. 문항은 자동으로 <b>1번·2번…</b> 단답으로 만들어져요.</div>';
+    box.appendChild(bulkRow);
+    document.getElementById('bulkAdd').addEventListener('click', function(){
+      syncFromForm();
+      var n = parseInt(document.getElementById('bulkN').value, 10);
+      if(!(n > 0)) n = 1;
+      if(n > 100){ n = 100; toast('한번에 최대 100개까지 만들 수 있어요'); }
+      for(var i = 0; i < n; i++) draft.questions.push(newQuestion('short'));
+      renumberQuiz();
+      renderQuestions();
+    });
+    document.getElementById('renumBtn').addEventListener('click', function(){
+      syncFromForm(); renumberQuiz(); renderQuestions(); toast('문항 번호를 다시 매겼어요');
+    });
 
     viewEl.appendChild(box);
 
@@ -342,10 +376,14 @@
     document.getElementById('fStatus').value = draft.status || 'draft';
     document.getElementById('fAnon').checked = !!draft.anonymous;
     document.getElementById('fTestKind').value = draft.testKind || '';
+    if(draft.useTwin===undefined) draft.useTwin = true;
+    var fUseTwin = document.getElementById('fUseTwin');
+    if(fUseTwin){ fUseTwin.checked = !!draft.useTwin; fUseTwin.addEventListener('change', function(e){ draft.useTwin = e.target.checked; renderQuestions(); }); }
     if(isStaff){ draft.quiz = true; }  // 조교는 퀴즈 전용
     setupModeTabs();
 
     loadTargetOptions();
+    if(draft.quiz) renumberQuiz();
     renderQuestions();
   }
 
@@ -403,6 +441,10 @@
     }
     var tkRow = document.getElementById('testKindRow');
     if(tkRow) tkRow.style.display = draft.quiz ? '' : 'none';  // 테스트 종류는 퀴즈에서만 노출
+    var twRow = document.getElementById('twinRow');
+    if(twRow) twRow.style.display = draft.quiz ? '' : 'none';  // 쌍둥이 토글도 퀴즈에서만
+    var bkRow = document.getElementById('bulkRow');
+    if(bkRow) bkRow.style.display = draft.quiz ? '' : 'none';  // 일괄 생성도 퀴즈에서만
     updateQuizHint();
   }
   function updateQuizHint(){
@@ -593,7 +635,7 @@
       }
       // ── 쌍둥이 정답(오답 재도전용) — 모든 채점형 문항에 선택 입력. 비우면 그 문항은 재도전 없음. ──
       //   재도전 때 학생은 쌍둥이 문제를 종이(매쓰홀릭)로 풀고 '답만' 입력하므로 문자열 1개.
-      if(draft.quiz && gradable){
+      if(draft.quiz && draft.useTwin && gradable){
         var twr = document.createElement('div'); twr.className = 'qcorrect'; twr.style.marginTop = '6px';
         var tlab = document.createElement('div'); tlab.className = 'qhint'; tlab.style.margin = '0 0 4px';
         tlab.textContent = '쌍둥이 정답 (오답 재도전용 · 비우면 이 문항은 재도전 없음)';
@@ -652,10 +694,10 @@
       qc.querySelector('[data-q="label"]').addEventListener('input', function(e){ q.label = e.target.value; });
       qc.querySelector('[data-q="rm"]').addEventListener('click', function(){
         if(draft.questions.length<=1){ toast('질문은 최소 1개 필요해요'); return; }
-        draft.questions.splice(idx,1); renderQuestions();
+        draft.questions.splice(idx,1); if(draft.quiz) renumberQuiz(); renderQuestions();
       });
-      var up = qc.querySelector('[data-q="up"]'); if(up) up.addEventListener('click', function(){ var t=draft.questions[idx-1]; draft.questions[idx-1]=q; draft.questions[idx]=t; renderQuestions(); });
-      var dn = qc.querySelector('[data-q="down"]'); if(dn) dn.addEventListener('click', function(){ var t=draft.questions[idx+1]; draft.questions[idx+1]=q; draft.questions[idx]=t; renderQuestions(); });
+      var up = qc.querySelector('[data-q="up"]'); if(up) up.addEventListener('click', function(){ var t=draft.questions[idx-1]; draft.questions[idx-1]=q; draft.questions[idx]=t; if(draft.quiz) renumberQuiz(); renderQuestions(); });
+      var dn = qc.querySelector('[data-q="down"]'); if(dn) dn.addEventListener('click', function(){ var t=draft.questions[idx+1]; draft.questions[idx+1]=q; draft.questions[idx]=t; if(draft.quiz) renumberQuiz(); renderQuestions(); });
 
       qwrap.appendChild(qc);
     });
@@ -700,8 +742,8 @@
           var ct = (q._ct||'').trim();
           if(ct) o.correct = ct;
         }
-        // 쌍둥이 정답 — 원본 정답이 있는 채점형에만 유효(서버 sanitize도 동일 검증)
-        if(o.correct !== undefined){
+        // 쌍둥이 정답 — 원본 정답이 있는 채점형에만 유효. 쌍둥이 미사용(useTwin=false)이면 직렬화 생략.
+        if(draft.useTwin && o.correct !== undefined){
           var ctw = (q._ctTwin||'').trim();
           if(ctw) o.correctTwin = ctw;
         }
