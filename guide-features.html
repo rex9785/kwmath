@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>기능 자세히 보기 · 이관우 수학연구소</title>
+<meta name="description" content="이관우 수학연구소 앱의 주요 기능을 실제 화면으로 하나하나 안내합니다 — 수업레포트·시험성적·출석·KW-Study·내 정보">
+<!-- URL로만 안내(메뉴 비노출) — 검색엔진 색인 제외 -->
+<meta name="robots" content="noindex">
+
+<!-- PWA / 아이콘 (앱 형제 페이지와 동일) -->
+<link rel="manifest" href="/manifest.json?v=3">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+
+  /* 상단바 */
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 16px 14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
+  .topbar-logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;border-radius:6px;overflow:hidden;flex-shrink:0;}
+  .topbar-logo img{width:100%;height:100%;object-fit:cover;border-radius:6px;}
+  .topbar-title{font-size:1rem;font-weight:900;letter-spacing:-0.3px;flex:1;}
+  .topbar-back{color:#fff;text-decoration:none;font-size:0.82rem;font-weight:700;background:rgba(255,255,255,0.16);padding:7px 11px;border-radius:9px;white-space:nowrap;}
+
+  .page{max-width:480px;margin:0 auto;padding:24px 20px 90px;}
+
+  /* 인트로 */
+  .intro{text-align:center;margin-bottom:22px;}
+  .intro h1{font-size:1.3rem;font-weight:900;line-height:1.35;margin-bottom:8px;}
+  .intro p{color:var(--text-light);font-size:0.9rem;line-height:1.65;}
+
+  /* 기능 카드 */
+  .fcard{background:#fff;border-radius:16px;padding:20px 18px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.05);margin-bottom:16px;}
+  .fcard h2{font-size:1.06rem;font-weight:900;color:var(--primary);margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+  .fcard h2 .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:var(--primary);color:#fff;border-radius:8px;font-size:0.82rem;font-weight:900;flex-shrink:0;}
+  .fcard p{font-size:0.89rem;color:var(--text);line-height:1.7;margin-bottom:14px;}
+  .fcard p b{color:var(--primary);}
+  .fcard .tip{font-size:0.82rem;color:var(--text-light);line-height:1.6;margin-top:-4px;margin-bottom:14px;}
+
+  /* 스크린샷 (폰 화면 느낌) */
+  .shot{display:flex;justify-content:center;gap:12px;}
+  .shot img{width:100%;max-width:232px;border-radius:16px;border:1px solid var(--border);box-shadow:0 8px 22px rgba(0,0,0,0.13);display:block;}
+  .shot.two img{max-width:150px;}
+  .shot-cap{text-align:center;font-size:0.76rem;color:var(--text-light);margin-top:9px;}
+
+  /* 그 외 기능 */
+  .more{background:var(--primary-light);border-radius:16px;padding:18px 18px;margin-bottom:16px;}
+  .more h3{font-size:0.98rem;font-weight:900;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+  .more .m{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:0.87rem;line-height:1.6;}
+  .more .m .mi{flex-shrink:0;font-size:1.05rem;line-height:1.4;}
+  .more .m b{color:var(--primary);}
+
+  /* 하단 이동 */
+  .cta-primary{display:block;background:var(--primary);color:#fff;text-align:center;padding:15px;border-radius:13px;text-decoration:none;font-weight:800;font-size:0.97rem;margin-top:20px;box-shadow:0 6px 18px rgba(139,26,53,0.22);}
+  .cta-primary:hover{background:var(--primary-mid);}
+  .cta-outline{display:block;background:#fff;color:var(--primary);border:2px solid var(--primary);text-align:center;padding:13px;border-radius:13px;text-decoration:none;font-weight:800;font-size:0.95rem;margin-top:10px;}
+  .cta-outline:hover{background:var(--primary-light);}
+
+  .foot{text-align:center;color:var(--text-light);font-size:0.74rem;margin-top:26px;line-height:1.7;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
+  <span class="topbar-title">기능 자세히 보기</span>
+  <a class="topbar-back" href="/guide">← 안내</a>
+</div>
+
+<div class="page">
+
+  <div class="intro">
+    <h1>앱에서 이런 화면들을<br>보실 수 있어요 📱</h1>
+    <p>실제 앱 화면으로 주요 기능을 하나하나 소개할게요.<br>모두 자녀 계정으로 로그인하면 바로 보입니다.</p>
+  </div>
+
+  <!-- 1. 홈 화면 -->
+  <div class="fcard">
+    <h2><span class="n">1</span> 홈 화면</h2>
+    <p>앱을 열면 나오는 첫 화면이에요. 위쪽엔 <b>학원 공지·안내</b>가 뜨고, 그 아래 <b>기능 버튼</b>들을 눌러 원하는 화면으로 들어가요. 수능 D-day와 오늘 공부 시간도 한눈에 보여요.</p>
+    <div class="shot"><img src="/appshots/app-01-portal.jpg" alt="앱 홈 화면 — 공지와 기능 버튼" loading="lazy"></div>
+  </div>
+
+  <!-- 2. 수업영상 및 레포트 -->
+  <div class="fcard">
+    <h2><span class="n">2</span> 수업영상 및 레포트 🎥</h2>
+    <p>날짜별로 그날 <b>수업영상·수업내용 정리·숙제</b>를 확인해요. <b>"수업영상 시청하기"</b>로 그날 배운 내용을 다시 복습할 수 있고, 시청 기록은 선생님께 전달돼요.</p>
+    <div class="shot"><img src="/appshots/app-02-report.jpg" alt="수업영상 및 레포트 화면 — 수업내용과 숙제" loading="lazy"></div>
+  </div>
+
+  <!-- 3. 시험 성적 · 진단 -->
+  <div class="fcard">
+    <h2><span class="n">3</span> 시험 성적 · 진단 📊</h2>
+    <p>자녀의 <b>시험 성적 추이를 그래프</b>로 확인해요. 내신·모의고사, 원점수·등급을 나눠서 볼 수 있고, 테스트 점수와 진단 보고서도 함께 제공돼요.</p>
+    <p class="tip">💡 아래 그래프는 <b>내 정보</b> 화면 안에서도, <b>테스트 결과</b> 메뉴에서도 보실 수 있어요.</p>
+    <div class="shot"><img src="/appshots/app-03-scores.jpg" alt="시험 성적 추이 그래프" loading="lazy"></div>
+  </div>
+
+  <!-- 4. 출석 현황 -->
+  <div class="fcard">
+    <h2><span class="n">4</span> 출석 현황 📅</h2>
+    <p><b>월별 캘린더</b>로 자녀의 등원 현황을 한눈에 봐요. 출석·지각·결석 요약과 <b>이번 달 숙제 완료율</b>도 함께 보여요. 날짜 색으로 숙제를 얼마나 해왔는지도 알 수 있어요.</p>
+    <div class="shot"><img src="/appshots/app-04-attendance.jpg" alt="출석 현황 — 월별 캘린더" loading="lazy"></div>
+  </div>
+
+  <!-- 5. KW-Study -->
+  <div class="fcard">
+    <h2><span class="n">5</span> KW-Study 📚</h2>
+    <p>자녀의 <b>공부 시간</b>을 하루별·주별로 쌓아 보여줘요. <b>연속 학습(스트릭)</b>과 공부 기록, 최근 공부 세션까지 통계로 확인할 수 있어요.</p>
+    <div class="shot"><img src="/appshots/app-05-study.jpg" alt="KW-Study — 공부 시간 통계" loading="lazy"></div>
+  </div>
+
+  <!-- 6. 내 정보 -->
+  <div class="fcard">
+    <h2><span class="n">6</span> 내 정보 👤</h2>
+    <p>등록된 <b>기본 정보</b>(학교·학년·반), 오늘 수업 여부와 이번 숙제, 목표·연락처를 확인해요. 여기서 <b>비밀번호 변경</b>과 <b>알림 설정</b>도 할 수 있어요.</p>
+    <div class="shot"><img src="/appshots/app-06-myinfo.jpg" alt="내 정보 화면 — 기본 정보와 숙제" loading="lazy"></div>
+  </div>
+
+  <!-- 그 외 -->
+  <div class="more">
+    <h3>➕ 이런 기능도 있어요</h3>
+    <div class="m"><span class="mi">📁</span><div><b>수업 자료실</b> — 학습지·교재를 내려받아요.</div></div>
+    <div class="m"><span class="mi">📝</span><div><b>수강 후기</b> — 한 줄 후기를 남기거나 볼 수 있어요.</div></div>
+    <div class="m"><span class="mi">🔔</span><div><b>알림함</b> — 결석·숙제·공지 등 지금까지 온 알림을 홈 화면 위쪽 종 모양 버튼에서 다시 볼 수 있어요.</div></div>
+  </div>
+
+  <!-- 하단 이동 -->
+  <a class="cta-primary" href="/install">📲 앱 설치하러 가기 →</a>
+  <a class="cta-outline" href="/guide">← 사용안내로 돌아가기</a>
+
+  <div class="foot">
+    이관우 수학연구소 · LKW math LAB<br>
+    화면은 실제 앱 예시이며, 업데이트에 따라 조금 다를 수 있어요.
+  </div>
+
+</div>
+</body>
+</html>

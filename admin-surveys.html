@@ -457,6 +457,8 @@
     } else if(q.type==='short'||q.type==='math'){
       if(q._ct===undefined) q._ct = (typeof q.correct==='string') ? q.correct : '';
     }
+    // 쌍둥이 정답(오답 재도전용) — 모든 채점형 공통. 저장된 correctTwin 문자열을 빌더 상태로 복원.
+    if(q._ctTwin===undefined) q._ctTwin = (typeof q.correctTwin==='string') ? q.correctTwin : '';
     // (배점 상태 _pts 폐지 — 배점은 자동 배분)
   }
 
@@ -589,6 +591,30 @@
         mcr.appendChild(mh);
         extra.appendChild(mcr);
       }
+      // ── 쌍둥이 정답(오답 재도전용) — 모든 채점형 문항에 선택 입력. 비우면 그 문항은 재도전 없음. ──
+      //   재도전 때 학생은 쌍둥이 문제를 종이(매쓰홀릭)로 풀고 '답만' 입력하므로 문자열 1개.
+      if(draft.quiz && gradable){
+        var twr = document.createElement('div'); twr.className = 'qcorrect'; twr.style.marginTop = '6px';
+        var tlab = document.createElement('div'); tlab.className = 'qhint'; tlab.style.margin = '0 0 4px';
+        tlab.textContent = '쌍둥이 정답 (오답 재도전용 · 비우면 이 문항은 재도전 없음)';
+        twr.appendChild(tlab);
+        if(q.type==='math'){
+          var tmf = document.createElement('math-field');
+          tmf.setAttribute('math-virtual-keyboard-policy','onfocus');
+          (function(mfEl, qq){
+            customElements.whenDefined('math-field').then(function(){ try{ mfEl.value = qq._ctTwin || ''; }catch(_){} });
+            mfEl.addEventListener('input', function(){ qq._ctTwin = mfEl.value; });
+          })(tmf, q);
+          twr.appendChild(tmf);
+        } else {
+          var tin = document.createElement('input');
+          tin.type = 'text'; tin.placeholder = '쌍둥이 문제의 정답';
+          tin.value = q._ctTwin || '';
+          tin.addEventListener('input', function(e){ q._ctTwin = e.target.value; });
+          twr.appendChild(tin);
+        }
+        extra.appendChild(twr);
+      }
       if(q.type==='scale'){
         var sr = document.createElement('div'); sr.className = 'scaleRow';
         sr.innerHTML = '<span>최소</span><input type="text" inputmode="numeric" data-s="min" value="' + esc(q.scaleMin) + '">' +
@@ -673,6 +699,11 @@
         } else if(q.type==='short'||q.type==='math'){
           var ct = (q._ct||'').trim();
           if(ct) o.correct = ct;
+        }
+        // 쌍둥이 정답 — 원본 정답이 있는 채점형에만 유효(서버 sanitize도 동일 검증)
+        if(o.correct !== undefined){
+          var ctw = (q._ctTwin||'').trim();
+          if(ctw) o.correctTwin = ctw;
         }
       }
       return o;

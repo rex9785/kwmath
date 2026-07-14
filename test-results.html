@@ -76,6 +76,27 @@
   .qr-ans b{color:var(--text);font-weight:600;}
   .qr-correct{color:#137333;margin-top:1px;}
 
+  /* 오답 재도전(쌍둥이) — 클리닉에서 틀린 문항의 쌍둥이 답 재입력 */
+  .twin-wrap{border-top:1px dashed var(--border);margin-top:10px;padding-top:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px 0;}
+  .twin-btn{background:var(--primary);color:#fff;border:none;padding:9px 16px;border-radius:9px;font-size:0.83rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .twin-btn:hover{background:var(--primary-mid);}
+  .twin-score{font-size:0.8rem;font-weight:800;color:var(--primary);margin-left:10px;}
+  .twin-box{flex-basis:100%;margin-top:12px;background:#fff;border:1.5px solid var(--primary-light);border-radius:10px;padding:12px 14px;}
+  .twin-intro{font-size:0.78rem;color:var(--text-light);line-height:1.55;margin-bottom:10px;}
+  .twin-q{border-top:1px dashed var(--border);padding:10px 0;}
+  .twin-q:first-of-type{border-top:none;padding-top:0;}
+  .twin-ql{font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:6px;line-height:1.5;}
+  .twin-badge{display:inline-block;font-size:0.72rem;font-weight:800;padding:1px 8px;border-radius:99px;margin-left:6px;white-space:nowrap;}
+  .twin-badge.o{background:#E6F4EA;color:#137333;}
+  .twin-badge.x{background:#FCE8E6;color:#C5221F;}
+  .twin-text{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;outline:none;}
+  .twin-text:focus{border-color:var(--primary);}
+  .twin-mf{width:100%;font-size:1rem;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;background:#fff;}
+  .twin-correct{font-size:0.78rem;color:#137333;margin-top:5px;}
+  .twin-submit{margin-top:12px;width:100%;background:var(--primary);color:#fff;border:none;padding:11px;border-radius:9px;font-size:0.88rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .twin-submit:hover{background:var(--primary-mid);}
+  .twin-submit:disabled{opacity:0.6;cursor:default;}
+
   .empty-state{background:#fff;border:1px dashed var(--border);border-radius:14px;padding:36px 18px;text-align:center;color:var(--text-light);font-size:0.88rem;line-height:1.7;}
   .empty-state .icon{font-size:2rem;margin-bottom:10px;display:block;}
   .empty-state b{color:var(--primary);}
@@ -291,6 +312,128 @@
       if (monthMin > 0 || arr.some(x => x.min > 0)) card.style.display = 'block';
     } catch (e) { /* 조용히 실패 */ }
   }
+
+  // ─── 오답 재도전(쌍둥이) 헬퍼 ───
+  //   MathLive는 수식 문항 재입력에만 필요. 로드 실패하면 텍스트 입력으로 폴백(신뢰성).
+  let _mathLiveReady = false, _mathLivePromise = null;
+  function ensureMathLive() {
+    if (_mathLiveReady) return Promise.resolve(true);
+    if (_mathLivePromise) return _mathLivePromise;
+    _mathLivePromise = import('https://cdn.jsdelivr.net/npm/mathlive/+esm')
+      .then(() => { _mathLiveReady = true; return true; })
+      .catch(() => false);
+    return _mathLivePromise;
+  }
+  // 수식 입력 위젯 — math-field(로드되면) 또는 텍스트 폴백. {el, getValue} 반환.
+  function makeMathInput(initial) {
+    const wrap = document.createElement('span');
+    wrap.style.display = 'block';
+    const mf = document.createElement('math-field');
+    mf.setAttribute('math-virtual-keyboard-policy', 'onfocus');
+    mf.className = 'twin-mf';
+    wrap.appendChild(mf);
+    let fellBack = false, textEl = null;
+    function fallback() {
+      if (fellBack) return;
+      fellBack = true;
+      textEl = document.createElement('input');
+      textEl.type = 'text'; textEl.className = 'twin-text';
+      textEl.placeholder = '답 입력 (예: 1/2)';
+      textEl.value = initial || '';
+      wrap.innerHTML = ''; wrap.appendChild(textEl);
+    }
+    ensureMathLive().then((ok) => {
+      if (!ok) { fallback(); return; }
+      customElements.whenDefined('math-field').then(() => { try { mf.value = initial || ''; } catch (_) {} });
+    });
+    setTimeout(() => { if (!_mathLiveReady && !fellBack) fallback(); }, 2500);
+    return {
+      el: wrap,
+      getValue: () => fellBack ? (textEl ? textEl.value : '') : (function () { try { return mf.value || ''; } catch (_) { return ''; } })()
+    };
+  }
+  function setTwinBadge(badge, twin) {
+    if (!twin || !twin.status || twin.status === 'todo') { badge.textContent = ''; badge.className = 'twin-badge'; return; }
+    if (twin.status === 'o') { badge.textContent = '✔ 정답'; badge.className = 'twin-badge o'; }
+    else { badge.textContent = '✕ 오답'; badge.className = 'twin-badge x'; }
+  }
+  // 재도전 폼을 컨테이너에 생성(오답+쌍둥이정답 有 문항만 입력칸 노출).
+  function buildTwinForm(box, r) {
+    box.innerHTML = '';
+    const intro = document.createElement('div');
+    intro.className = 'twin-intro';
+    intro.textContent = '틀린 문제의 쌍둥이(클리닉 학습지)를 풀고, 아래에 답을 입력한 뒤 제출하세요. 이 점수는 시험 성적과 별개로 기록돼요.';
+    box.appendChild(intro);
+    const fields = [];
+    (r.questions || []).forEach((q, n) => {
+      if (!(q.twin && q.twin.has)) return;
+      const row = document.createElement('div'); row.className = 'twin-q';
+      const ql = document.createElement('div'); ql.className = 'twin-ql';
+      ql.textContent = (n + 1) + '. ' + (q.label || '');
+      const badge = document.createElement('span');
+      setTwinBadge(badge, q.twin);
+      ql.appendChild(badge);
+      row.appendChild(ql);
+      let getValue;
+      if (q.type === 'math') {
+        const mi = makeMathInput(q.twin && q.twin.mine ? q.twin.mine : '');
+        row.appendChild(mi.el); getValue = mi.getValue;
+      } else {
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'twin-text';
+        inp.placeholder = '쌍둥이 문제의 답';
+        inp.value = (q.twin && q.twin.mine) ? q.twin.mine : '';
+        row.appendChild(inp); getValue = () => inp.value || '';
+      }
+      const corr = document.createElement('div'); corr.className = 'twin-correct';
+      if (q.twin && q.twin.status === 'x' && q.twin.answer) corr.textContent = '정답: ' + q.twin.answer;
+      row.appendChild(corr);
+      fields.push({ qid: q.id, getValue, badge, corr });
+      box.appendChild(row);
+    });
+    const sb = document.createElement('button');
+    sb.type = 'button'; sb.className = 'twin-submit';
+    sb.textContent = (r.twin && r.twin.attempted) ? '다시 제출' : '제출하기';
+    sb.addEventListener('click', () => submitTwin(r, fields, sb));
+    box.appendChild(sb);
+  }
+  function updateTwinHeader(r) {
+    const sp = document.getElementById('twinScore' + r.responseId);
+    if (sp) sp.textContent = '재도전 ' + (r.twin.score || 0) + '/' + (r.twin.maxScore || r.twin.eligible || 0);
+  }
+  async function submitTwin(r, fields, sb) {
+    const answers = {};
+    fields.forEach((f) => { answers[f.qid] = f.getValue(); });
+    sb.disabled = true; sb.textContent = '제출 중...';
+    try {
+      const res = await fetch('/api/surveys?id=' + encodeURIComponent(r.surveyId) + '&respond=1&twin=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ answers })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { showToast(data && data.error ? data.error : '제출 실패'); sb.disabled = false; sb.textContent = '제출하기'; return; }
+      const detail = data.detail || {};
+      fields.forEach((f) => {
+        const d = detail[f.qid];
+        const tw = { has: true };
+        if (!d || d.pending) tw.status = 'todo';
+        else if (d.correct) tw.status = 'o';
+        else { tw.status = 'x'; if (d.answer) tw.answer = d.answer; }
+        setTwinBadge(f.badge, tw);
+        f.corr.textContent = (tw.status === 'x' && tw.answer) ? ('정답: ' + tw.answer) : '';
+        const q = (r.questions || []).find((x) => x.id === f.qid);
+        if (q) q.twin = Object.assign({}, q.twin, { mine: answers[f.qid], status: tw.status, answer: tw.answer });
+      });
+      r.twin = Object.assign({}, r.twin, { attempted: true, score: data.score, maxScore: data.maxScore });
+      updateTwinHeader(r);
+      showToast('재도전 결과: ' + data.score + '/' + data.maxScore + ' 맞았어요');
+      sb.disabled = false; sb.textContent = '다시 제출';
+    } catch (e) {
+      showToast('오류: ' + e.message); sb.disabled = false; sb.textContent = '제출하기';
+    }
+  }
+
   // ─── 퀴즈 결과 다시보기 (학생 본인 + 학부모 계정의 자녀 이름 매칭) ───
   //   /api/surveys?results=1 — 서버가 이 계정 휴대폰 응답 + 연결된 자녀 이름 응답을 합쳐 반환.
   //   자녀가 여럿이면 선택된 자녀 이름으로만 걸러 보여준다.
@@ -335,10 +478,35 @@
             (q.status === 'x' && q.answer ? '<div class="qr-correct">정답: ' + esc(q.answer) + '</div>' : '') +
           '</div>';
         }).join('');
-        return '<div class="quiz-item">' + head + '<div class="quiz-body">' + split + qs + '</div></div>';
+        let twinHtml = '';
+        if (r.twin && r.twin.eligible > 0) {
+          const done = r.twin.attempted;
+          twinHtml =
+            '<div class="twin-wrap">' +
+              '<button type="button" class="twin-btn" data-twin="' + r.responseId + '">🔁 오답 재도전</button>' +
+              '<span class="twin-score" id="twinScore' + r.responseId + '">' +
+                (done ? ('재도전 ' + (r.twin.score || 0) + '/' + (r.twin.maxScore || r.twin.eligible)) : '') +
+              '</span>' +
+              '<div class="twin-box" id="twinBox' + r.responseId + '" style="display:none;"></div>' +
+            '</div>';
+        }
+        return '<div class="quiz-item">' + head + '<div class="quiz-body">' + split + qs + twinHtml + '</div></div>';
       }).join('');
       list.querySelectorAll('.quiz-head').forEach(h => {
         h.addEventListener('click', () => h.parentElement.classList.toggle('open'));
+      });
+      list.querySelectorAll('.twin-btn').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const rid = btn.getAttribute('data-twin');
+          const box = document.getElementById('twinBox' + rid);
+          const r = rows.find(x => String(x.responseId) === String(rid));
+          if (!box || !r) return;
+          if (box.style.display === 'none') {
+            if (!box._built) { buildTwinForm(box, r); box._built = true; }
+            box.style.display = 'block';
+          } else { box.style.display = 'none'; }
+        });
       });
       sec.style.display = 'block';
     } catch (e) { /* 조용히 실패 */ }

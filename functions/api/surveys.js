@@ -84,6 +84,11 @@ async function ensureTables(env) {
   try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN max_score INTEGER').run(); } catch (_) {}
   // 장문형 수동채점(O·X) 결과 — { qid: 1|0 } JSON. O=배점 합산, X=0점. (2026-07-09)
   try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN manual TEXT').run(); } catch (_) {}
+  // 쌍둥이(오답 재도전) — 클리닉 때 틀린 문항의 쌍둥이 답을 재입력. 원본 성적과 별개 기록. (2026-07-14)
+  //   answers_twin={qid:답} JSON · score_twin=맞은 개수 · max_score_twin=재도전 대상 개수.
+  try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN answers_twin TEXT').run(); } catch (_) {}
+  try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN score_twin INTEGER').run(); } catch (_) {}
+  try { await env.DB.prepare('ALTER TABLE survey_responses ADD COLUMN max_score_twin INTEGER').run(); } catch (_) {}
   // 학원별·반별 대상 지정(선택) — JSON 배열 문자열로 저장. 비어있으면 전체 학원·반.
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_academy TEXT').run(); } catch (_) {}
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_class TEXT').run(); } catch (_) {}
@@ -141,6 +146,12 @@ function sanitizeQuestions(raw, quiz) {
       // short=텍스트 정답, math=수식(LaTeX) 정답 — 둘 다 문자열로 저장(서버 채점 시 비교)
       const c = clean(q.correct, MAX_ANSWER);
       if (c) item.correct = c;
+    }
+    // ── 쌍둥이 정답(오답 재도전용) — 채점 대상(정답 有) 문항에만 저장. 문자열 1개. ──
+    //   재도전 시 쌍둥이 문제는 종이(매쓰홀릭)에 있고 앱엔 답만 입력하므로 타입 무관 문자열.
+    if (item.correct !== undefined) {
+      const ctw = clean(q.correctTwin, MAX_ANSWER);
+      if (ctw) item.correctTwin = ctw;
     }
     out.push(item);
   });
@@ -204,11 +215,12 @@ function parseQuestions(json) {
   catch (_) { return []; }
 }
 
-// 응답 전 학생에게 보낼 문항 — 정답(correct)은 절대 노출하지 않음(치팅 방지). 배점(points)은 남김.
+// 응답 전 학생에게 보낼 문항 — 정답(correct·correctTwin)은 절대 노출하지 않음(치팅 방지). 배점(points)은 남김.
 function stripCorrect(questions) {
   return (questions || []).map(q => {
     const c = Object.assign({}, q);
     delete c.correct;
+    delete c.correctTwin;
     return c;
   });
 }
@@ -607,8 +619,69 @@ export async function onRequest(context) {
     if (!access.ok) return access.response;
     const roles = new Set((access.students || []).map(s => s.role));
 
+    // ── POST ?respond=1&twin=1 (쌍둥이 오답 재도전 제출 — 클리닉) ──
+    //   원본 시험을 이미 제출한 학생이, 자기가 틀린 문항의 쌍둥이(종이) 답을 앱에 재입력.
+    //   • 원본 성적과 완전 별개(answers_twin/score_twin/max_score_twin 컬럼) — 시험 점수 불변.
+    //   • 어떤 문항이 '틀림'인지는 서버가 원본 답을 재채점해 결정(맞은 문항은 재도전 불가).
+    //   • 설문이 종료(closed)된 뒤에도 가능(클리닉은 시험 후) — status open 요구 안 함.
+    //   • 재입력은 병합(이미 낸 것 유지) — 미입력 문항의 정답은 절대 반환 안 함(치팅 방지).
+    if (method === 'POST' && url.searchParams.get('respond') === '1' && url.searchParams.get('twin') === '1') {
+      const id = url.searchParams.get('id');
+      if (!id) return jsonErr('id가 필요합니다.');
+      const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
+      if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
+      if (s.quiz !== 1) return jsonErr('퀴즈가 아니에요.', 400);
+      const resp = await env.DB.prepare(
+        'SELECT * FROM survey_responses WHERE survey_id=? AND respondent_phone=?'
+      ).bind(id, access.phone).first();
+      if (!resp) return jsonErr('먼저 원본 시험을 제출해 주세요.', 409);
+
+      const questions = parseQuestions(s.questions);
+      let origAnswers = {};
+      try { origAnswers = JSON.parse(resp.answers || '{}'); } catch (_) {}
+      const graded = gradeAnswers(questions, origAnswers);
+      // 재도전 대상 = 자동채점에서 '틀린' + 쌍둥이 정답이 등록된 문항.
+      const eligible = questions.filter(q => {
+        const d = graded.detail[q.id];
+        return d && d.correct === false && q.correctTwin != null && q.correctTwin !== '';
+      });
+      if (!eligible.length) return jsonErr('재도전할 오답 문항이 없어요.', 400);
+
+      // 병합: 이미 낸 쌍둥이 답 유지 + 이번에 낸 것 덮어쓰기.
+      let prevTwin = {};
+      try { prevTwin = JSON.parse(resp.answers_twin || '{}') || {}; } catch (_) {}
+      const body = await request.json().catch(() => ({}));
+      const src = (body && body.answers && typeof body.answers === 'object') ? body.answers : {};
+      const twinAnswers = Object.assign({}, prevTwin);
+      for (const q of eligible) {
+        if (Object.prototype.hasOwnProperty.call(src, q.id)) {
+          twinAnswers[q.id] = clean(src[q.id], MAX_ANSWER);
+        }
+      }
+      // 채점(전체 eligible 대상). 미입력 문항은 pending — 정답 미반환(치팅 방지).
+      let tScore = 0; const detail = {};
+      for (const q of eligible) {
+        const a = twinAnswers[q.id];
+        const attempted = (a != null && String(a) !== '');
+        let ok = false;
+        if (attempted) {
+          ok = (q.type === 'math')
+            ? mathEqual(a, q.correctTwin)
+            : (!!normText(a) && normText(a) === normText(q.correctTwin));
+        }
+        if (ok) tScore++;
+        if (!attempted) detail[q.id] = { pending: true };
+        else detail[q.id] = ok ? { correct: true } : { correct: false, answer: q.correctTwin };
+      }
+      const tMax = eligible.length;
+      await env.DB.prepare(
+        'UPDATE survey_responses SET answers_twin=?, score_twin=?, max_score_twin=? WHERE id=?'
+      ).bind(JSON.stringify(twinAnswers), tScore, tMax, resp.id).run();
+      return jsonOk({ ok: true, twin: true, score: tScore, maxScore: tMax, detail });
+    }
+
     // ── POST ?respond=1 (응답 제출) ──
-    if (method === 'POST' && url.searchParams.get('respond') === '1') {
+    if (method === 'POST' && url.searchParams.get('respond') === '1' && url.searchParams.get('twin') !== '1') {
       const id = url.searchParams.get('id');
       if (!id) return jsonErr('id가 필요합니다.');
       const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
@@ -680,6 +753,7 @@ export async function onRequest(context) {
       )).slice(0, 10);
       let sql =
         'SELECT r.id, r.survey_id, r.respondent_name, r.answers, r.manual, r.created_at, ' +
+        'r.answers_twin, r.score_twin, r.max_score_twin, ' +
         's.title, s.questions, s.anonymous ' +
         'FROM survey_responses r JOIN surveys s ON s.id = r.survey_id ' +
         'WHERE s.quiz = 1 AND (r.respondent_phone = ?';
@@ -696,8 +770,12 @@ export async function onRequest(context) {
         try { answers = JSON.parse(r.answers || '{}'); } catch (_) {}
         let manual = {};
         try { manual = JSON.parse(r.manual || '{}') || {}; } catch (_) {}
+        let answersTwin = {};
+        try { answersTwin = JSON.parse(r.answers_twin || '{}') || {}; } catch (_) {}
+        const twinDone = r.score_twin != null;   // 쌍둥이 재도전 제출 여부
         const graded = gradeAnswers(questions, answers);
         let autoScore = 0, autoMax = 0, essayScore = 0, essayMax = 0, pendingCount = 0;
+        let twinEligible = 0;                     // 재도전 대상(오답+쌍둥이정답 有) 개수
         const qs = [];
         for (const q of questions) {
           const d = graded.detail[q.id];
@@ -720,6 +798,22 @@ export async function onRequest(context) {
               item.answer = Array.isArray(d.answer) ? d.answer.join(', ') : String(d.answer == null ? '' : d.answer);
             }
           }                                            // 채점 제외(척도 등)는 status 없음
+          // ── 쌍둥이 재도전: 오답(status 'x') + 쌍둥이 정답이 등록된 문항만 대상 ──
+          //   미입력 문항엔 정답을 절대 포함하지 않음(치팅 방지) — 시도 후 오답일 때만 노출.
+          if (item.status === 'x' && q.type !== 'long' && q.correctTwin != null && q.correctTwin !== '') {
+            twinEligible++;
+            const ta = answersTwin[q.id];
+            const tmine = Array.isArray(ta) ? ta.join(', ') : (ta == null ? '' : String(ta));
+            if (tmine !== '') {                        // 재도전 답 입력함 → 채점 결과 표시
+              const tok = (q.type === 'math')
+                ? mathEqual(ta, q.correctTwin)
+                : (!!normText(ta) && normText(ta) === normText(q.correctTwin));
+              item.twin = { has: true, mine: tmine, status: tok ? 'o' : 'x' };
+              if (!tok) item.twin.answer = String(q.correctTwin);
+            } else {                                   // 아직 재도전 안 함
+              item.twin = { has: true, status: 'todo' };
+            }
+          }
           qs.push(item);
         }
         return {
@@ -732,6 +826,7 @@ export async function onRequest(context) {
           maxScore: autoMax + essayMax,
           auto: { score: autoScore, max: autoMax },
           essay: { score: essayScore, max: essayMax, pending: pendingCount },
+          twin: { eligible: twinEligible, attempted: twinDone, score: r.score_twin, maxScore: r.max_score_twin },
           questions: qs,
         };
       });
