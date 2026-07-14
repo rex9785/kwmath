@@ -19,6 +19,8 @@
 //   image?: string            // (선택) 알림 이미지
 // }
 
+import { isKstQuietHours } from './_push.js';
+
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST')
     return Response.json({ error: 'POST만 허용' }, { status: 405 });
@@ -44,6 +46,17 @@ export async function onRequest({ request, env }) {
   const userIds = Array.isArray(body.userIds) ? body.userIds : (body.userId ? [body.userId] : []);
   if (!userIds.length)
     return Response.json({ error: 'userId 또는 userIds 필요' }, { status: 400 });
+
+  // 밤(KST 23:00~07:00) 무음 — 학부모 대상 호출(reports-write 등)이 body.nightSilent로 옵트인.
+  //   true=이 호출 전원 건너뜀 / [id…]=그 id만 제외. 미지정이면 기존대로 항상 발송(학생·원장 등).
+  if (body.nightSilent && isKstQuietHours()) {
+    if (body.nightSilent === true)
+      return Response.json({ ok: true, sent: 0, skipped: userIds.length, note: 'quiet-hours(parent)' });
+    const silent = new Set((Array.isArray(body.nightSilent) ? body.nightSilent : [body.nightSilent]).map(String));
+    for (let i = userIds.length - 1; i >= 0; i--) if (silent.has(String(userIds[i]))) userIds.splice(i, 1);
+    if (!userIds.length)
+      return Response.json({ ok: true, sent: 0, skipped: silent.size, note: 'quiet-hours(parent)' });
+  }
 
   const payload = {
     title: body.title || '이관우 수학연구소',

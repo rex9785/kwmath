@@ -138,7 +138,9 @@ export async function onRequest(context) {
                         : [st.parentPhone, st.studentPhone];
           const phones = targets.map(p => String(p || '').replace(/\D/g, '')).filter(Boolean);
           if (phones.length) {
-            const p = sendPushToUsers(env, phones, { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' });
+            // 학부모 번호만 밤(KST 23~7) 무음 — 학생 대상(audience:student)이면 무음 없음.
+            const nightSilent = audience === 'student' ? [] : [String(st.parentPhone || '').replace(/\D/g, '')].filter(Boolean);
+            const p = sendPushToUsers(env, phones, { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' }, nightSilent.length ? { nightSilent } : {});
             if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
             else if (p && typeof p.catch === 'function') p.catch(() => {});
           }
@@ -167,7 +169,7 @@ export async function onRequest(context) {
         // 받는 사람: parent(학부모)·student(학생)·all(둘 다). 기본 all.
         const audience = ['parent', 'student', 'all'].includes((body.audience || '').trim()) ? (body.audience || '').trim() : 'all';
 
-        let sent = 0; const misses = []; const pushPhones = new Set();
+        let sent = 0; const misses = []; const pushPhones = new Set(); const nightSilentPhones = new Set();
         for (const id of ids) {
           const st = await getStudentById(env, id);
           if (!st) { misses.push(id); continue; }
@@ -180,11 +182,13 @@ export async function onRequest(context) {
                         : audience === 'student' ? [st.studentPhone]
                         : [st.parentPhone, st.studentPhone];
           for (const p of targets) { const d = String(p || '').replace(/\D/g, ''); if (d) pushPhones.add(d); }
+          // 학부모 번호만 밤(KST 23~7) 무음 대상 — 학생 대상(audience:student)이면 제외 안 함.
+          if (audience !== 'student') { const pd = String(st.parentPhone || '').replace(/\D/g, ''); if (pd) nightSilentPhones.add(pd); }
         }
 
         // 문구가 모두 같으니 푸시는 한 번에(모든 대상 폰). best-effort — 발송 흐름과 분리.
         if (pushPhones.size) {
-          const pp = sendPushToUsers(env, [...pushPhones], { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' });
+          const pp = sendPushToUsers(env, [...pushPhones], { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' }, nightSilentPhones.size ? { nightSilent: [...nightSilentPhones] } : {});
           if (context && typeof context.waitUntil === 'function') context.waitUntil(pp);
           else if (pp && typeof pp.catch === 'function') pp.catch(() => {});
         }

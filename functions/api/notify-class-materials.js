@@ -40,7 +40,7 @@ export async function onRequest(context) {
       url: '/materials',                                   // 포털 "수업 자료실" = materials.html (반 전용 R2 자료 로드)
       // tag를 반+날짜로 고유화 → 형제(다른 반)·다른 날 알림이 서로 덮어쓰지 않음. 같은 반·같은 날 재업로드는 1건으로 합쳐짐.
       tag: 'kwmath-mat-' + academy + '_' + className + (date ? '-' + date : ''),
-    });
+    }, { nightSilent: true });   // 전원 학부모 → 밤(KST 23~7)엔 발송 건너뜀
     if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
     else if (p && typeof p.catch === 'function') p.catch(() => {});
 

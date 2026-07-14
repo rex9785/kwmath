@@ -189,10 +189,27 @@ async function sendFcmToUsers(env, ids, msg) {
   }
 }
 
+// 밤 무음 판정: KST(UTC+9) 기준 23:00~06:59면 true. "학부모" 대상 푸시를 이 시간대엔 건너뛰는 데 씀.
+//   "저녁 11시~아침 7시" = 23:00~07:00. 정각 07:00(h=7)은 발송 허용, 22:59(h=22)도 발송.
+export function isKstQuietHours(d = new Date()) {
+  const h = new Date(d.getTime() + 9 * 3600 * 1000).getUTCHours();   // KST 시(0~23)
+  return h >= 23 || h < 7;
+}
+
 // ── 공개 API: 여러 userId(=휴대폰)에게 알림 발송 (Web Push + FCM 병행, best-effort, 절대 throw 안 함) ──
-export async function sendPushToUsers(env, userIds, payload) {
-  const ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean).map(String))];
+//   opts.nightSilent: 밤(KST 23~7) 무음 대상(학부모). true=이 호출 전원 / [id…]=그 id만 제외(학생·원장은 그대로 발송).
+//   ⚠️ nightSilent의 id는 userIds와 "같은 표기"여야 매칭됨(호출부가 동일 형식으로 넘김).
+export async function sendPushToUsers(env, userIds, payload, opts = {}) {
+  let ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean).map(String))];
   if (!ids.length) return { ok: true, sent: 0 };
+
+  // 밤(KST 23:00~07:00) 무음 — 학부모 수신자만 제외(관우T: 학부모만·학생/원장은 발송, 밤 알림은 그냥 건너뜀).
+  if (opts && opts.nightSilent && isKstQuietHours()) {
+    if (opts.nightSilent === true) return { ok: true, sent: 0, skipped: ids.length, note: 'quiet-hours(parent)' };
+    const silent = new Set((Array.isArray(opts.nightSilent) ? opts.nightSilent : [opts.nightSilent]).filter(Boolean).map(String));
+    if (silent.size) ids = ids.filter(id => !silent.has(id));
+    if (!ids.length) return { ok: true, sent: 0, skipped: silent.size, note: 'quiet-hours(parent)' };
+  }
 
   const msg = {
     title: payload.title || '이관우 수학연구소',

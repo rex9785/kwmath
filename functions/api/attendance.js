@@ -70,7 +70,8 @@ async function notifyOnAttendance(env, st, date, updates) {
   const payload = fresh.length === 1
     ? { title: fresh[0].title, body: fresh[0].body, url: '/portal', tag: 'kwmath-att-' + fresh[0].type }
     : { title: '📌 출결 알림', body: fresh.map(e => e.body).join('\n'), url: '/portal', tag: 'kwmath-att' };
-  try { await sendPushToUsers(env, phones, payload); } catch (_) { /* best-effort */ }
+  try { await sendPushToUsers(env, phones, payload, { nightSilent: true }); } catch (_) { /* best-effort */ }
+  // ↑ 전원 학부모 → 밤(KST 23~7)엔 발송 건너뜀
 }
 
 export async function onRequest(context) {

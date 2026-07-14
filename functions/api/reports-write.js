@@ -47,6 +47,7 @@ export async function onRequest({ request, env }) {
             body: studentName + ' 학생 — ' + date + ' 수업 내용을 확인해보세요',
             url: '/portal?tab=report',
             tag: 'report-' + studentName + '-' + date,
+            nightSilent: true,   // 학부모 대상 → 밤(KST 23~7)엔 발송 건너뜀
           }),
         });
       }
