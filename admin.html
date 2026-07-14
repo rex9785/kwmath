@@ -1472,6 +1472,22 @@
       document.getElementById('fileTitle').value = '';
       setTimeout(() => { progressWrap.style.display = 'none'; progressBar.style.width = '0%'; }, 3000);
       if (document.getElementById('viewFolder').value === folder) loadFiles();
+
+      // 반 수업자료면 그 반 "학부모"에게 "새 수업자료" 알림 1회 (best-effort — 업로드 성공엔 영향 없음)
+      if (folderSel === 'class-shared') {
+        try {
+          const acad = document.getElementById('csAcademy').value;
+          const cls  = document.getElementById('csClass').value;
+          const csd  = document.getElementById('csDate').value;
+          const nres = await fetch('/api/notify-class-materials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+            body: JSON.stringify({ academy: acad, className: cls, date: csd, count: successCount }),
+          });
+          const nd = await nres.json().catch(() => ({}));
+          if (nd && nd.ok && nd.targeted) showToast('🔔 ' + cls + ' 학부모 ' + nd.targeted + '명에게 알림을 보냈어요.');
+        } catch (_) { /* 알림 실패는 업로드 성공에 영향 없음 */ }
+      }
     }
   }
 
