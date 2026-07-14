@@ -2600,6 +2600,50 @@
     updateVideoBulkBar();
   }
 
+  // ── 영상 접근 로그: 누가 봤는지(학부모/학생) 표시 ──
+  function _vMaskPhone(p){
+    if (!p) return "";
+    const d = String(p).replace(/[^0-9]/g, "");
+    if (d.length < 4) return "";
+    return "···" + d.slice(-4);
+  }
+  function _vRoleBadge(role){
+    if (role === "parent")  return '<span style="background:#FDE9D9;color:#8A4B10;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;">학부모</span>';
+    if (role === "student") return '<span style="background:#DCEEFB;color:#0B4A6F;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;">학생</span>';
+    if (role === "other")   return '<span style="background:#EDE7F6;color:#4A2B7A;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;">기타</span>';
+    return '<span style="background:#EEE;color:#666;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;">비로그인</span>';
+  }
+  function _vViaLabel(via){
+    if (via === "watch") return "시청";
+    if (via === "code")  return "수업코드";
+    if (via === "open")  return "목록열람";
+    return "";
+  }
+  function renderAccessLog(log){
+    if (!log || !log.length) return '<div style="font-size:0.8rem;color:var(--text-light);">아직 접근 기록이 없습니다.</div>';
+    const cntP = log.filter(l => l && l.role === "parent").length;
+    const cntS = log.filter(l => l && l.role === "student").length;
+    const summary = `<div style="font-size:0.78rem;color:var(--text-light);margin-bottom:6px;font-weight:700;">학부모 ${cntP}명 · 학생 ${cntS}명 · 전체 ${log.length}건</div>`;
+    const rows = log.slice().reverse().map(l => {
+      const t = l && l.time ? new Date(l.time) : null;
+      const when = t ? (t.getMonth()+1) + "/" + t.getDate() + " " + String(t.getHours()).padStart(2,"0") + ":" + String(t.getMinutes()).padStart(2,"0") : "";
+      const via = _vViaLabel(l && l.via);
+      const phone = _vMaskPhone(l && l.phone);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #E8E4DC;font-size:0.8rem;">
+        ${_vRoleBadge(l && l.role)}
+        <strong>${escapeHtml((l && l.name) || "익명")}</strong>
+        ${phone ? `<span style="color:var(--text-light);">${phone}</span>` : ""}
+        ${via ? `<span style="color:var(--text-light);">· ${via}</span>` : ""}
+        <span style="margin-left:auto;color:var(--text-light);">${when}</span>
+      </div>`;
+    }).join("");
+    return summary + rows;
+  }
+  function toggleAccess(code){
+    const el = document.getElementById("acc-" + code);
+    if (el) el.style.display = (el.style.display === "none" || !el.style.display) ? "block" : "none";
+  }
+
   function renderVideos(videos) {
     const list = document.getElementById("videoList");
     if (!videos.length) { list.innerHTML = "<div class=\"empty\">조건에 맞는 영상이 없습니다.</div>"; return; }
@@ -2618,6 +2662,9 @@
       const checkbox = _videoSelectMode
         ? `<input type="checkbox" onchange="toggleVideoSelected(\x27${v.code}\x27, this.checked)" ${_videoSelected.has(v.code)?"checked":""} style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">`
         : "";
+      const _accLog = Array.isArray(v.access_log) ? v.access_log : [];
+      const accBtn = `<button type="button" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);" onclick="toggleAccess(\x27${v.code}\x27)">👁 접근 ${v.access_count || 0}회${_accLog.length ? " ▾" : ""}</button>`;
+      const accPanel = `<div id="acc-${v.code}" style="display:none;width:100%;margin-top:10px;padding:10px 12px;background:#F7F5F0;border-radius:10px;box-sizing:border-box;">${renderAccessLog(_accLog)}</div>`;
       return `<div class="video-card">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           ${checkbox}
@@ -2625,7 +2672,7 @@
           <span style="font-size:0.82rem;color:var(--text-light);min-width:110px;">${v.school || ""}</span>
           <select onchange="changeVideoClass(\x27${v.code}\x27, this.value)" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;">${opts}</select>
           ${lockBadge}
-          <span style="font-size:0.75rem;color:var(--text-light);">접근 ${v.access_count || 0}회</span>
+          ${accBtn}
           <div style="margin-left:auto;display:flex;gap:6px;">
             <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)">📋 코드 복사</button>
             ${lockBtn}
@@ -2633,6 +2680,7 @@
             <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="deleteVideo(\x27${v.code}\x27, \x27${(v.date || '').replace(/'/g, '')}\x27, \x27${(v.school || '').replace(/'/g, '')}\x27, \x27${(v.class_name || '').replace(/'/g, '')}\x27)">🗑 삭제</button>
           </div>
         </div>
+        ${accPanel}
       </div>`;
     }).join("");
   }
@@ -2776,17 +2824,22 @@
         }
       } else {
         // ── 새 기록 또는 변경 — POST ──
+        // 결석이면 학부모 푸시 여부를 원장에게 물어봄 (확인=보냄 / 취소=안 보냄). 다른 상태는 원래 학부모 푸시가 안 나감.
+        let notifyParent = true;
+        if (status === '결석') {
+          notifyParent = confirm('[' + name + '] 결석 처리 — 학부모님께 결석 알림(푸시)을 보낼까요?\n\n확인 = 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 결석 기록은 저장됩니다)');
+        }
         const res = await fetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-          body: JSON.stringify({ name: name, date: date, status: status })
+          body: JSON.stringify({ name: name, date: date, status: status, notifyParent: notifyParent })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
           showToast('❌ ' + (data.error || '실패'));
           return;
         }
-        showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')');
+        showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')' + (status === '결석' ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : ''));
         // 같은 그룹 내 다른 버튼 강조 제거 후, 누른 버튼만 강조
         if (btn) {
           const parent = btn.parentElement;
@@ -2945,6 +2998,11 @@
     const targets = (allStudents||[]).filter(s => s.academy === acad && s.className === cls);
     if (!targets.length) { showToast('해당 반에 학생이 없습니다'); return; }
     if (!confirm(acad + ' / ' + cls + ' (' + targets.length + '명)을 모두 [' + status + '] 처리할까요?\n오늘 날짜로 기록됩니다.')) return;
+    // 결석이면 학부모 푸시 여부를 한 번 더 물어봄 (확인=전원 학부모에게 보냄 / 취소=안 보냄). 다른 상태는 원래 학부모 푸시가 안 나감.
+    let notifyParent = true;
+    if (status === '결석') {
+      notifyParent = confirm('결석 처리한 ' + targets.length + '명의 학부모님께 결석 알림(푸시)을 보낼까요?\n\n확인 = 전원 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 결석 기록은 저장됩니다)');
+    }
     const date = todayStr();
     let okN = 0, failN = 0;
     for (const s of targets) {
@@ -2952,13 +3010,13 @@
         const res = await fetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-          body: JSON.stringify({ name: s.name, date: date, status: status })
+          body: JSON.stringify({ name: s.name, date: date, status: status, notifyParent: notifyParent })
         });
         const data = await res.json();
         if (res.ok && data.ok) okN++; else failN++;
       } catch { failN++; }
     }
-    showToast('✅ 일괄 ' + status + ' 완료 — 성공 ' + okN + (failN?(' / 실패 '+failN):''));
+    showToast('✅ 일괄 ' + status + ' 완료 — 성공 ' + okN + (failN?(' / 실패 '+failN):'') + (status === '결석' ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : ''));
     updateQaSummary();
   }
 

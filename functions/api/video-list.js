@@ -27,6 +27,7 @@ export async function onRequest({ request, env }) {
           active:       data.active !== false,
           require_code: data.require_code === true,
           access_count: data.access_count || 0,
+          access_log:   (data.access_log || []).slice(-30),  // 누가 봤는지(학부모/학생) 표시용, 최근 30개
           created_at:   data.created_at || '',
         });
       } catch {}

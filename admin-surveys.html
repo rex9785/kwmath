@@ -769,9 +769,11 @@
 
   // ─────────────── 결과 ───────────────
   var _openResp = [];   // 응답자별 점수에서 펼쳐둔 응답 id (재렌더 시 유지)
+  var _editResp = null; // ✏️ 답 수정 중인 응답 id (재렌더 시 폼 유지)
   function loadResults(id){
     setMode('results');
     _openResp = [];
+    _editResp = null;
     viewEl.innerHTML = '<div class="state">불러오는 중…</div>';
     api('GET', '?admin=1&id=' + id).then(function(r){ return r.json(); }).then(function(data){
       if(!data || !data.ok){ viewEl.innerHTML = '<div class="state">' + esc((data&&data.error)||'불러오지 못했어요.') + '</div>'; return; }
@@ -972,8 +974,8 @@
       attachOx(gc);
     }
 
-    // ── 퀴즈: 응답자별 점수 (이름 클릭 → 답안 전체 펼침, 단답형·서술형 분리 표시) ──
-    if(survey.quiz){
+    // ── 응답자별 (퀴즈=점수·답안 / 일반 설문=답변) — 이름 클릭 펼침 · ✏️답 수정 · 🔄재제출 허용 ──
+    if(responses.length){
       function respDetail(r){
         var s = '';
         qs.forEach(function(q){
@@ -997,12 +999,64 @@
         });
         return s;
       }
+      // ── ✏️ 관리자 답 수정 폼 — 문항 타입별 입력으로 학생 답을 직접 고침(저장 시 서버가 재채점) ──
+      function editForm(r){
+        var inp = 'width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:0.85rem;font-family:inherit;background:#fff;';
+        var s = '<div data-editwrap="' + r.id + '">'
+          + '<div style="font-weight:800;color:#8B1A35;margin:4px 0 8px;">✏️ 답 수정 — 저장하면 즉시 재채점돼요'
+          + (survey.testKind ? ' (성적표에도 반영)' : '') + '</div>';
+        qs.forEach(function(q){
+          var a = r.answers[q.id];
+          s += '<div style="padding:6px 2px;border-bottom:1px solid #f0e6e9;font-size:0.85rem;">'
+            + '<div class="who" style="margin-bottom:4px;">' + esc(q.label) + ((q.points!=null)?(' (' + q.points + '점)'):'') + '</div>';
+          if(q.type==='single'||q.type==='dropdown'){
+            s += '<select class="ansEdit" data-qid="' + escAttr(q.id) + '" style="' + inp + '">'
+              + '<option value=""' + (!a?' selected':'') + '>(무응답)</option>';
+            (q.options||[]).forEach(function(o){
+              s += '<option value="' + escAttr(o) + '"' + (a===o?' selected':'') + '>' + esc(o) + '</option>';
+            });
+            s += '</select>';
+          } else if(q.type==='multi'){
+            var av = Array.isArray(a) ? a : (a!=null&&a!==''?[a]:[]);
+            (q.options||[]).forEach(function(o){
+              s += '<label style="display:inline-flex;align-items:center;gap:5px;margin:2px 12px 2px 0;cursor:pointer;">'
+                + '<input type="checkbox" class="ansEditM" data-qid="' + escAttr(q.id) + '" value="' + escAttr(o) + '"' + (av.indexOf(o)>=0?' checked':'') + '>' + esc(o) + '</label>';
+            });
+          } else if(q.type==='scale'){
+            s += '<select class="ansEdit" data-qid="' + escAttr(q.id) + '" style="' + inp + '">'
+              + '<option value=""' + ((a==null||a==='')?' selected':'') + '>(무응답)</option>';
+            for(var v=q.scaleMin; v<=q.scaleMax; v++){
+              s += '<option value="' + v + '"' + (parseInt(a,10)===v?' selected':'') + '>' + v + '점</option>';
+            }
+            s += '</select>';
+          } else if(q.type==='long'){
+            s += '<textarea class="ansEdit" data-qid="' + escAttr(q.id) + '" rows="3" style="' + inp + 'resize:vertical;">' + esc(a==null?'':String(a)) + '</textarea>'
+              + '<div class="sub" style="font-size:0.72rem;">답을 고치면 기존 O·X 판정은 취소되고 다시 채점 대기가 돼요.</div>';
+          } else {   // short | math
+            s += '<input type="text" class="ansEdit" data-qid="' + escAttr(q.id) + '" value="' + escAttr(a==null?'':String(a)) + '" style="' + inp + '">';
+            if(q.type==='math') s += '<div class="sub" style="font-size:0.72rem;">수식은 LaTeX 그대로 수정해요 (예: \\frac{1}{2} · 2\\sqrt{2} — 형태가 달라도 수학적으로 같으면 정답)</div>';
+          }
+          s += '</div>';
+        });
+        s += '<div style="display:flex;gap:8px;margin-top:10px;">'
+          + '<button data-editsave="' + r.id + '" style="border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-weight:800;background:#8B1A35;color:#fff;">저장</button>'
+          + '<button data-editcancel="1" class="b-ghost" style="padding:8px 14px;">취소</button></div></div>';
+        return s;
+      }
+      // 펼침 하단 액션 — ✏️답 수정 · 🔄재제출 허용(응답 삭제)
+      function actionBar(r){
+        return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
+          + '<button data-editstart="' + r.id + '" class="b-ghost" style="font-size:0.82rem;">✏️ 답 수정</button>'
+          + '<button data-resub="' + r.id + '" class="b-ghost" style="font-size:0.82rem;color:#C5221F;border-color:#C5221F;">🔄 재제출 허용 (응답 삭제)</button></div>';
+      }
       var sc = document.createElement('div'); sc.className = 'qres';
-      var sch = '<h4>응답자별 점수 <span class="sub" style="font-weight:400;">— 이름을 누르면 답안이 펼쳐져요</span></h4>';
+      var sch = '<h4>' + (survey.quiz ? '응답자별 점수' : '응답자별 답변') + ' <span class="sub" style="font-weight:400;">— 이름을 누르면 답안이 펼쳐져요 · 답 수정과 재제출 허용도 여기서</span></h4>';
       responses.forEach(function(r, i){
         var pd = longQs.length ? pendingCount(r) : 0;
         var open = _openResp.indexOf(r.id) >= 0;
-        var sTxt = (typeof r.score==='number') ? ('<b>' + r.score + (typeof r.maxScore==='number'?(' / ' + r.maxScore):'') + '점</b>') : '-';
+        var sTxt = survey.quiz
+          ? ((typeof r.score==='number') ? ('<b>' + r.score + (typeof r.maxScore==='number'?(' / ' + r.maxScore):'') + '점</b>') : '-')
+          : '<span class="sub" style="font-size:0.78rem;">' + fmt(r.createdAt) + '</span>';
         if(longQs.length && typeof r.score==='number'){
           var sp = essaySplit(r);
           sTxt += '<br><span class="sub" style="font-size:0.74rem;">단답 ' + sp.aScore + '/' + sp.aMax + ' · 서술 ' + sp.eScore + '/' + sp.eMax + '</span>';
@@ -1010,7 +1064,8 @@
         sch += '<div class="scoreItem" data-toggle="' + r.id + '" style="cursor:pointer;"><span>' + (open?'▾':'▸') + ' ' + whoOf(r, i)
           + (pd ? ' <span style="font-size:0.76rem;color:#B26A00;font-weight:700;">서술 채점 전 ' + pd + '</span>' : '')
           + '</span><span style="text-align:right;">' + sTxt + '</span></div>';
-        if(open) sch += '<div style="padding:6px 10px 12px;background:#FBF7F2;border-radius:0 0 10px 10px;margin-bottom:4px;">' + respDetail(r) + '</div>';
+        if(open) sch += '<div style="padding:6px 10px 12px;background:#FBF7F2;border-radius:0 0 10px 10px;margin-bottom:4px;">'
+          + (_editResp===r.id ? editForm(r) : (respDetail(r) + actionBar(r))) + '</div>';
       });
       sc.innerHTML = sch;
       viewEl.appendChild(sc);
@@ -1022,6 +1077,69 @@
           var y = window.scrollY;
           renderResults(survey, responses);
           window.scrollTo(0, y);
+        });
+      });
+      // ── ✏️ 답 수정 시작/취소/저장 · 🔄 재제출 허용(응답 삭제) ──
+      sc.querySelectorAll('[data-editstart]').forEach(function(b){
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          _editResp = parseInt(b.dataset.editstart,10);
+          var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+        });
+      });
+      sc.querySelectorAll('[data-editcancel]').forEach(function(b){
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation(); _editResp = null;
+          var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+        });
+      });
+      sc.querySelectorAll('[data-editsave]').forEach(function(b){
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          var rid = parseInt(b.dataset.editsave,10);
+          var r = null; responses.forEach(function(x){ if(x.id===rid) r = x; });
+          var wrap = sc.querySelector('[data-editwrap="' + rid + '"]');
+          if(!r || !wrap) return;
+          var patch = {};
+          wrap.querySelectorAll('.ansEdit').forEach(function(el){ patch[el.dataset.qid] = el.value; });
+          var multi = {};   // 체크박스(복수선택)는 qid별 배열로
+          wrap.querySelectorAll('.ansEditM').forEach(function(c){
+            var qid = c.dataset.qid;
+            if(!multi[qid]) multi[qid] = [];
+            if(c.checked) multi[qid].push(c.value);
+          });
+          Object.keys(multi).forEach(function(qid){ patch[qid] = multi[qid]; });
+          b.disabled = true; b.textContent = '저장 중…';
+          api('PATCH', '?id=' + survey.id + '&editAnswers=1', { responseId: rid, answers: patch })
+            .then(function(x){ return x.json(); }).then(function(d){
+              if(!d || !d.ok){ toast((d && d.error) || '저장 실패'); b.disabled = false; b.textContent = '저장'; return; }
+              r.answers = d.answers || r.answers; r.score = d.score; r.maxScore = d.maxScore; r.manual = d.manual || {};
+              _editResp = null;
+              toast('답을 수정했어요' + (survey.quiz ? ' — 재채점 완료' : ''));
+              var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+            }).catch(function(){ toast('저장 실패'); b.disabled = false; b.textContent = '저장'; });
+        });
+      });
+      sc.querySelectorAll('[data-resub]').forEach(function(b){
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          var rid = parseInt(b.dataset.resub,10);
+          var r = null, idx = -1; responses.forEach(function(x,i){ if(x.id===rid){ r = x; idx = i; } });
+          if(!r) return;
+          var who = survey.anonymous ? '이 응답' : ('"' + (r.respondentName || '이름 없음') + '" 응답');
+          var msg = who + '을 삭제할까요?\n\n· 답안·점수가 지워지고, 그 학생이 처음부터 다시 제출할 수 있게 돼요.'
+            + (survey.testKind ? '\n· 성적표에 반영된 이 테스트 점수도 함께 지워져요.' : '')
+            + '\n· 되돌릴 수 없어요.';
+          if(!confirm(msg)) return;
+          api('DELETE', '?id=' + survey.id + '&responseId=' + rid)
+            .then(function(x){ return x.json(); }).then(function(d){
+              if(!d || !d.ok){ toast((d && d.error) || '삭제 실패'); return; }
+              responses.splice(idx, 1);
+              var ix = _openResp.indexOf(rid); if(ix >= 0) _openResp.splice(ix, 1);
+              if(_editResp === rid) _editResp = null;
+              toast('응답을 삭제했어요 — 학생이 다시 제출할 수 있어요');
+              var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+            }).catch(function(){ toast('삭제 실패'); });
         });
       });
       attachOx(sc);

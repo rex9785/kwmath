@@ -31,9 +31,11 @@ async function staffNameScope(env, request) {
 //   지각은 제외(관우T 확정: "결석했을 때만"). 결석이면 숙제알림은 억제('해왔을 때'가 아님).
 //   audience:'parent' — 보고성 알림이라 학부모만. 학생 본인은 푸시·알림함 모두 안 받음(관우T 확정).
 //   best-effort — 알림/푸시 실패가 출결 저장을 절대 막지 않는다(호출부에서 waitUntil로 분리).
-async function notifyOnAttendance(env, st, date, updates) {
+async function notifyOnAttendance(env, st, date, updates, opts = {}) {
   const events = [];
-  if (updates.status === '결석') {
+  // 결석 학부모 알림은 원장이 "예"를 눌렀을 때만(admin.html이 notifyParent 전달).
+  //   기본(플래그 없음)=발송 → 기존 동작·다른 호출부 보존. notifyParent===false일 때만 결석 알림 생략.
+  if (updates.status === '결석' && opts.notifyParent !== false) {
     events.push({
       type: 'absence',
       title: '🔴 결석 안내',
@@ -171,7 +173,8 @@ export async function onRequest(context) {
       const r = await upsertAttendance(env, st.id, date, updates);
       if (!r.ok) return safeError(r.error || 'upsertAttendance failed', env, { message: '출결 저장에 실패했습니다.' });
       // 자동 알림(결석·숙제25%↓) — best-effort, 출결 저장 흐름과 분리(waitUntil).
-      const _np = notifyOnAttendance(env, st, date, updates);
+      //   notifyParent=false(원장이 결석 확인창에서 "아니오")면 결석 학부모 알림 생략 — 기록 저장은 그대로.
+      const _np = notifyOnAttendance(env, st, date, updates, { notifyParent: body.notifyParent !== false });
       if (context && typeof context.waitUntil === 'function') context.waitUntil(_np);
       else if (_np && typeof _np.catch === 'function') _np.catch(() => {});
       return Response.json({ ok: true, name, date, record: r.record });

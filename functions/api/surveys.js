@@ -15,7 +15,9 @@
 //   GET    /api/surveys?admin=1&id=X      설문 1개 + 응답 전체
 //   POST   /api/surveys                   설문 생성 { title, description?, audience?, anonymous?, status?, questions[] }
 //   PATCH  /api/surveys?id=X              설문 수정 { title?, description?, audience?, anonymous?, status?, questions? }
+//   PATCH  /api/surveys?id=X&editAnswers=1  학생 답 직접 수정 { responseId, answers:{qid:value} } — 재채점+성적 반영
 //   DELETE /api/surveys?id=X              설문 삭제(+응답 전체)
+//   DELETE /api/surveys?id=X&responseId=Y 응답 1건 삭제(재제출 허용) — 성적표 잔재도 정리
 //
 //  ── 응답자(로그인 학생·학부모) : Authorization: Bearer <학생토큰> ──
 //   GET    /api/surveys?mine=1            나에게 열린 설문 목록(대상 매칭) + 응답여부 플래그
@@ -28,7 +30,7 @@
 // ───────────────────────────────────────────────────────────
 import { sendPushToUsers } from './_push.js';
 import { requireStudentAccess } from './_auth.js';
-import { upsertTestScore, TEST_KINDS } from './_scores.js';   // 테스트 종류 퀴즈 → 성적 자동 반영
+import { upsertTestScore, deleteTestScore, TEST_KINDS } from './_scores.js';   // 테스트 종류 퀴즈 → 성적 자동 반영
 
 // 새 응답 알림을 받을 관리자 푸시 userId (inquiry.js와 동일 규약)
 const ADMIN_PUSH_USERS = ['__admin__'];
@@ -555,6 +557,86 @@ export async function onRequest(context) {
         return jsonOk({ ok: true, responseId: rid, score, maxScore: graded.maxScore, manual });
       }
 
+      // ── PATCH ?editAnswers=1 (학생 답 직접 수정 — 원장 + 조교(퀴즈)) ──
+      //   body { responseId, answers:{ qid: value } } — 보낸 문항만 덮어씀(부분 수정).
+      //   · 타입별 살균은 하되 필수(required) 검사는 안 함 — 관리자 보정이라 빈 답으로 비우기도 허용.
+      //   · 답이 바뀐 장문형은 기존 O·X 판정을 무효화(미채점으로 되돌림) — 새 답 기준으로 재판정.
+      //   · 퀴즈면 재채점하고, 테스트 종류 지정 시 성적표(exam_scores)도 같은 값으로 덮어씀.
+      if (method === 'PATCH' && url.searchParams.get('editAnswers') === '1') {
+        const id = url.searchParams.get('id');
+        if (!id) return jsonErr('id가 필요합니다.');
+        const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
+        if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
+        if (isStaff && s.quiz !== 1) return jsonErr('조교는 퀴즈만 수정할 수 있어요.', 403);
+        const body = await request.json().catch(() => ({}));
+        const rid = parseInt(body.responseId, 10);
+        if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
+        const resp = await env.DB.prepare(
+          'SELECT * FROM survey_responses WHERE id=? AND survey_id=?'
+        ).bind(rid, id).first();
+        if (!resp) return jsonErr('응답을 찾을 수 없습니다.', 404);
+
+        const questions = parseQuestions(s.questions);
+        const qById = new Map(questions.map(q => [q.id, q]));
+        let answers = {};
+        try { answers = JSON.parse(resp.answers || '{}') || {}; } catch (_) {}
+        let manual = {};
+        try { manual = JSON.parse(resp.manual || '{}') || {}; } catch (_) {}
+
+        const patch = (body.answers && typeof body.answers === 'object') ? body.answers : {};
+        let touched = 0;
+        for (const qid of Object.keys(patch)) {
+          const q = qById.get(qid);
+          if (!q) continue;                     // 설문에 없는 문항은 무시
+          const v = patch[qid];
+          let val;
+          if (q.type === 'multi') {
+            const arr = Array.isArray(v) ? v : (v == null || v === '' ? [] : [v]);
+            const opts = new Set(q.options || []);
+            val = arr.map(x => clean(x, MAX_OPTION)).filter(x => opts.has(x)).slice(0, MAX_OPTIONS);
+          } else if (q.type === 'single' || q.type === 'dropdown') {
+            val = clean(v, MAX_OPTION);
+            const opts = new Set(q.options || []);
+            if (val && !opts.has(val)) val = '';
+          } else if (q.type === 'scale') {
+            const n = parseInt(v, 10);
+            val = (Number.isFinite(n) && n >= q.scaleMin && n <= q.scaleMax) ? n : '';
+          } else { // short | long | math
+            val = clean(v, MAX_ANSWER);
+          }
+          answers[qid] = val;
+          touched++;
+          if (q.type === 'long') delete manual[qid];   // 답이 바뀌었으니 기존 O·X 무효
+        }
+        if (!touched) return jsonErr('수정할 답이 없습니다.');
+
+        // 재채점 — 퀴즈일 때만(일반 설문은 score/max_score NULL 유지)
+        let score = null, maxScore = null;
+        if (s.quiz === 1) {
+          const graded = gradeAnswers(questions, answers);   // 장문형은 pending(0점)
+          let manualScore = 0;
+          for (const q of questions) {
+            if (q.type === 'long' && manual[q.id] === 1 && Number.isFinite(q.points)) manualScore += q.points;
+          }
+          score = graded.score + manualScore;
+          maxScore = graded.maxScore;
+        }
+        await env.DB.prepare(
+          'UPDATE survey_responses SET answers=?, score=?, max_score=?, manual=? WHERE id=?'
+        ).bind(JSON.stringify(answers), score, maxScore, JSON.stringify(manual), rid).run();
+
+        // 테스트 종류 퀴즈면 성적표도 수정된 점수로 덮어씀(같은 행 upsert — 중복 안 쌓임)
+        if (s.quiz === 1 && s.test_kind && s.anonymous !== 1 && resp.respondent_name) {
+          const p = upsertTestScore(env, {
+            survey: { id: s.id, title: s.title, testKind: s.test_kind, anonymous: s.anonymous === 1 },
+            respondentName: resp.respondent_name, score, maxScore,
+          });
+          if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+          else if (p && typeof p.catch === 'function') p.catch(() => {});
+        }
+        return jsonOk({ ok: true, responseId: rid, answers, score, maxScore, manual });
+      }
+
       // ── PATCH (설문 수정) ──
       if (method === 'PATCH') {
         const id = url.searchParams.get('id');
@@ -592,6 +674,30 @@ export async function onRequest(context) {
         vals.push(id);
         await env.DB.prepare('UPDATE surveys SET ' + sets.join(', ') + ' WHERE id=?').bind(...vals).run();
         return jsonOk({ ok: true, id });
+      }
+
+      // ── DELETE ?id=X&responseId=Y (응답 1건 삭제 = 재제출 허용) ──
+      //   잘못 제출한 학생의 응답을 지우면 중복 차단(휴대폰당 1회)이 풀려 다시 제출할 수 있다.
+      //   테스트 퀴즈로 성적표에 올라간 점수(source_key='quiz:<id>')도 함께 정리(best-effort).
+      if (method === 'DELETE' && url.searchParams.get('responseId')) {
+        const id = url.searchParams.get('id');
+        if (!id) return jsonErr('id가 필요합니다.');
+        const rid = parseInt(url.searchParams.get('responseId'), 10);
+        if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
+        const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
+        if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
+        if (isStaff && s.quiz !== 1) return jsonErr('조교는 퀴즈만 관리할 수 있어요.', 403);
+        const resp = await env.DB.prepare(
+          'SELECT id, respondent_name FROM survey_responses WHERE id=? AND survey_id=?'
+        ).bind(rid, id).first();
+        if (!resp) return jsonErr('응답을 찾을 수 없습니다.', 404);
+        await env.DB.prepare('DELETE FROM survey_responses WHERE id=?').bind(rid).run();
+        if (s.test_kind && resp.respondent_name) {
+          const p = deleteTestScore(env, { surveyId: s.id, respondentName: resp.respondent_name });
+          if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+          else if (p && typeof p.catch === 'function') p.catch(() => {});
+        }
+        return jsonOk({ ok: true, removed: 1, responseId: rid });
       }
 
       // ── DELETE (설문+응답 삭제) ──

@@ -74,3 +74,19 @@ export async function upsertTestScore(env, opts) {
     }
   } catch (_) { /* best-effort — 성적 반영 실패가 제출·채점을 막지 않게 */ }
 }
+
+// 응답 삭제(재제출 허용) 시 성적표 잔재 정리 — best-effort, 절대 throw 하지 않는다.
+//   upsertTestScore가 만든 행(source_key='quiz:<surveyId>')을 같은 이름 매칭으로 지운다.
+//   opts = { surveyId, respondentName }
+export async function deleteTestScore(env, opts) {
+  try {
+    const surveyId = opts && opts.surveyId;
+    const name = String((opts && opts.respondentName) || '').trim();
+    if (!surveyId || !name) return;
+    const st = await getStudentByName(env, name);
+    if (!st || !st.id) return;
+    await ensureExamScoresTable(env);
+    await env.DB.prepare('DELETE FROM exam_scores WHERE student_id=? AND source_key=?')
+      .bind(st.id, 'quiz:' + surveyId).run();
+  } catch (_) { /* best-effort */ }
+}

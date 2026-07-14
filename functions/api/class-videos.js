@@ -21,6 +21,8 @@ export async function onRequest({ request, env }) {
   const name      = access.student.name;
   const academy   = access.student.academy;
   const className = access.student.className;
+  const role      = access.student.role;   // 'student' | 'parent' | 'other' — 누가 열람했는지
+  const phone     = access.phone;           // 로그인 계정 휴대폰 (관우T 식별용)
 
   if (!academy)
     return Response.json({ error: '수강 정보(학원/반)가 등록되어 있지 않습니다. 선생님께 문의해주세요.' }, { status: 404 });
@@ -86,9 +88,13 @@ export async function onRequest({ request, env }) {
           const logData = await logObj.json();
           const log = logData.access_log || [];
           const now = Date.now();
-          const recent = log.find(l => l.name === name && now - new Date(l.time).getTime() < 5 * 60 * 1000);
+          const recent = log.find(l =>
+            l.name === name &&
+            (l.role || null) === (role || null) &&
+            now - new Date(l.time).getTime() < 5 * 60 * 1000
+          );
           if (!recent) {
-            log.push({ name, time: new Date().toISOString() });
+            log.push({ name, role, phone, via: 'open', time: new Date().toISOString() });
             logData.access_log   = log;
             logData.access_count = log.length;
             await env.BUCKET.put(`video-codes/${latestCode}.json`, JSON.stringify(logData), {

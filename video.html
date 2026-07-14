@@ -195,7 +195,11 @@
   async function logView(code, name){
     if (!code) return;
     try {
-      await fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name }) });
+      await fetch('/api/video-access', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify({ code, name, via: 'watch' }),
+      });
     } catch (_) {}
   }
 
@@ -208,7 +212,11 @@
       const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
       const data = await res.json();
       if (!res.ok || !data.youtube_url) { alert('영상을 불러오지 못했습니다: ' + (data.error || res.status)); return; }
-      fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name: studentName }) }).catch(() => {});
+      fetch('/api/video-access', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify({ code, name: studentName, via: 'code' }),
+      }).catch(() => {});
       window.open(data.youtube_url, '_blank');
     } catch (e) { alert('오류: ' + e.message); }
   }
