@@ -6,6 +6,7 @@
 //   - 그 외 폴더(materials 등 공개)는 토큰 없이도 OK
 
 import { requireAuth, resolveStudent } from './_auth.js';
+import { absenceLockContext, isLocked, sessionDateFromText } from './_makeup.js';
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
@@ -43,6 +44,16 @@ export async function onRequest({ request, env }) {
       const expected = (student.academy || '') + '_' + (student.className || '');
       if (classKey !== expected) {
         return Response.json({ error: '다른 반의 자료에 접근할 수 없습니다.' }, { status: 403 });
+      }
+      // 🔒 결석·병결·공결한 날의 수업자료(파일명 6자리 YYMMDD)는 인강 승인 전까지 다운로드 차단.
+      const gd = sessionDateFromText((key.split('/').pop() || ''));
+      if (gd) {
+        try {
+          const ctx = await absenceLockContext(env, student.id);
+          if (isLocked(ctx, gd)) {
+            return Response.json({ error: '결석한 날의 자료입니다. 앱에서 인강 신청 후 선생님 승인이 필요합니다.' }, { status: 403 });
+          }
+        } catch (_) { /* 판정 실패 시 기존 접근 규칙만 적용 */ }
       }
     }
   }

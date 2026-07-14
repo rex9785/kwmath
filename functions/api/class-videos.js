@@ -5,6 +5,7 @@ import { safeError } from './_errors.js';
 // 학생의 학원/반 영상 목록 반환 + 접근 로그 저장
 
 import { requireStudentAccess } from './_auth.js';
+import { absenceLockContext, isLocked } from './_makeup.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'GET')
@@ -47,6 +48,7 @@ export async function onRequest({ request, env }) {
             code:        data.code,
             youtube_url: locked ? null : data.youtube_url,
             locked:      locked,
+            lockReason:  locked ? 'code' : null,   // 기존 잠금은 '수업코드'
             title:       data.title,
             date:        data.date,
             school:      data.school,
@@ -57,6 +59,20 @@ export async function onRequest({ request, env }) {
     }
 
     videos.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    // 🔒 결석·병결·공결한 날의 영상은 자동 잠금(인강 미신청/미승인 시). '수업코드' 잠금보다 우선.
+    //   해제는 학생이 인강 신청 → 관우T/조교 승인, 또는 관우T 직접 해제(/api/makeup).
+    try {
+      const ctx = await absenceLockContext(env, access.student.id);
+      for (const v of videos) {
+        if (isLocked(ctx, v.date)) {
+          v.locked = true;
+          v.lockReason = 'absent';
+          v.youtube_url = null;
+          v.requested = ctx.requested.has(v.date);
+        }
+      }
+    } catch (_) { /* 잠금 판정 실패 시 기존 동작 유지 */ }
 
     if (!videos.length)
       return Response.json({ error: '등록된 수업 영상이 없습니다. 선생님께 문의해주세요.' }, { status: 404 });

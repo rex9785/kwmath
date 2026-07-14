@@ -54,6 +54,8 @@
     .file-meta { font-size: 0.78rem; color: var(--text-light); }
     .file-dl-btn { background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.83rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
     .file-dl-btn:hover { background: var(--primary-mid); }
+    .file-dl-btn.locked { background: #888; }
+    .file-dl-btn.locked:hover { background: #6f6f6f; }
     .empty-state { text-align: center; padding: 48px 20px; color: var(--text-light); }
     .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
 
@@ -212,7 +214,9 @@
             <div class="file-name">${f.title || f.fileName}</div>
             <div class="file-meta">${f.category ? f.category + ' · ' : ''}${f.fileSize || ''} · ${f.uploadDate || ''}</div>
           </div>
-          <button class="file-dl-btn" onclick="downloadFile('${f.r2Key}', '${f.fileName}')">⬇️ 다운로드</button>
+          ${f.locked && f.lockReason === 'absent'
+            ? `<button class="file-dl-btn locked" onclick="alert('결석·병결·공결한 날의 수업자료입니다. 학부모앱에서 인강을 신청하고 선생님 승인을 받으면 열립니다.')">🔒 인강 신청 필요</button>`
+            : `<button class="file-dl-btn" onclick="downloadFile('${f.r2Key}', '${f.fileName}')">⬇️ 다운로드</button>`}
         </div>`).join('');
     } catch(e) {
       list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>불러오기 실패. 잠시 후 다시 시도해주세요.</div></div>';

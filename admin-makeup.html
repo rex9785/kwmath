@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>인강 신청·해제 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:760px; margin:0 auto; padding:max(20px,env(safe-area-inset-top,20px)) 18px 48px; }
+  a.back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; display:inline-block; margin-bottom:6px; }
+  h1{ font-size:1.35rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.84rem; margin-bottom:22px; line-height:1.5; }
+  .msg{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:28px 20px; text-align:center; color:var(--muted); line-height:1.6; }
+  .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:48px auto; text-align:center; }
+  .login input{ width:100%; padding:11px; border:1px solid var(--border); border-radius:10px; margin:12px 0; font-size:1rem; }
+  button{ background:var(--primary); color:#fff; border:none; border-radius:10px; padding:10px 18px; font-weight:700; cursor:pointer; font-size:0.92rem; }
+  button:disabled{ opacity:0.55; cursor:default; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .card > h2{ font-size:1.02rem; margin:0 0 4px; }
+  .card .hint{ color:var(--muted); font-size:0.8rem; margin-bottom:12px; line-height:1.5; }
+  .cardHead{ display:flex; align-items:center; justify-content:space-between; }
+  .row{ display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--border); border-radius:11px; margin-bottom:8px; }
+  .row .who{ font-weight:700; font-size:0.92rem; }
+  .row .dt{ color:var(--muted); font-size:0.82rem; margin-top:2px; }
+  .row .sp{ margin-left:auto; display:flex; gap:6px; flex-shrink:0; }
+  .badge{ font-size:0.72rem; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .badge.req{ background:#FFF3E0; color:#B26A00; }
+  .badge.appr{ background:var(--primary-light); color:var(--primary); }
+  .mini{ padding:6px 12px; font-size:0.8rem; border-radius:8px; }
+  .mini.ghost{ background:#fff; color:var(--primary); border:1px solid var(--primary); }
+  .mini.gray{ background:#888; }
+  .mini.gray:hover{ background:#6f6f6f; }
+  .empty{ color:var(--muted); font-size:0.85rem; padding:16px; text-align:center; }
+  .frm{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+  .frm .fld{ flex:1 1 180px; }
+  .frm label{ display:block; font-weight:700; font-size:0.82rem; margin-bottom:6px; }
+  select, input[type=date]{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; font-size:0.95rem; font-family:inherit; background:#fff; color:var(--ink); }
+  .result{ margin-top:12px; border-radius:12px; padding:12px 14px; font-size:0.88rem; line-height:1.5; display:none; }
+  .result.ok{ background:var(--primary-light); color:var(--primary); border:1px solid var(--border); }
+  .result.err{ background:#fdecec; color:#c0392b; border:1px solid #f5c6c6; }
+  .tabs{ display:flex; gap:6px; margin:12px 0; }
+  .tabs button{ background:#fff; color:var(--muted); border:1px solid var(--border); padding:7px 14px; font-size:0.82rem; }
+  .tabs button.on{ background:var(--primary); color:#fff; border-color:var(--primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/admin">← 관리자</a>
+  <h1>🔓 인강 신청·해제</h1>
+  <div class="sub">결석·병결·공결한 날은 그날 수업영상·수업자료가 자동으로 잠깁니다. 학생이 인강을 신청하면 여기서 승인해 열어주고, 신청이 없어도 직접 열 수 있습니다.</div>
+
+  <div id="login" class="login" style="display:none;">
+    <div style="font-weight:700;">관리자 비밀번호</div>
+    <input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" style="color:#c0392b;font-size:0.8rem;margin-bottom:8px;"></div>
+    <button onclick="doLogin()">확인</button>
+  </div>
+
+  <div id="loading" class="msg">불러오는 중…</div>
+
+  <div id="main" style="display:none;">
+    <!-- 신청·해제 현황 -->
+    <div class="card">
+      <div class="cardHead">
+        <h2 style="margin:0;">신청·해제 현황</h2>
+        <button class="mini ghost" onclick="loadGrants()">새로고침</button>
+      </div>
+      <div class="tabs">
+        <button id="tabReq" class="on" onclick="setTab('requested')">신청 대기</button>
+        <button id="tabAll" onclick="setTab('all')">전체</button>
+      </div>
+      <div id="grantList"><div class="empty">불러오는 중…</div></div>
+    </div>
+
+    <!-- 직접 해제 -->
+    <div class="card">
+      <h2>직접 해제</h2>
+      <div class="hint">학생과 수업 날짜를 골라 그날 잠금을 바로 엽니다. (학생 인강 신청이 없어도 가능)</div>
+      <div class="frm">
+        <div class="fld"><label>학생</label><select id="stSel"></select></div>
+        <div class="fld" style="flex:0 1 170px;"><label>수업 날짜</label><input type="date" id="dt"></div>
+        <div class="fld" style="flex:0 0 auto;"><button id="grantBtn" onclick="doGrant()">해제(열기)</button></div>
+      </div>
+      <div id="grantResult" class="result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  var roster = [];
+  var grants = [];
+  var tab = 'requested';
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function show(id, on){ $(id).style.display = on ? '' : 'none'; }
+  function authHeaders(extra){ var h = extra || {}; if (token) h['Authorization'] = 'Bearer ' + token; return h; }
+
+  function showLogin(err){
+    show('loading', false); show('main', false); show('login', true);
+    $('loginErr').textContent = err || '';
+    var p = $('pw'); if (p) p.focus();
+  }
+  function doLogin(){
+    token = ($('pw').value || '').trim();
+    if (!token) return;
+    sessionStorage.setItem('kwmath_admin_pw', token);
+    load();
+  }
+
+  async function load(){
+    show('login', false); show('main', false); show('loading', true);
+    $('loading').textContent = '불러오는 중…';
+    var r;
+    try { r = await fetch('/api/students', { headers: authHeaders(), credentials: 'same-origin' }); }
+    catch (e) { $('loading').textContent = '네트워크 오류. 새로고침 해주세요.'; return; }
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); var had = token; token = null; showLogin(had ? '비밀번호가 틀렸습니다' : ''); return; }
+    var d = await r.json().catch(function(){ return null; });
+    if (!Array.isArray(d)){ $('loading').textContent = '학생 목록을 불러오지 못했습니다.'; return; }
+    roster = d.filter(function(s){ var st = (s.approvalStatus || ''); return st === '' || st === '승인'; })
+             .sort(function(a, b){ return (a.name || '').localeCompare(b.name || '', 'ko'); });
+    buildStudentSelect();
+    show('loading', false); show('main', true);
+    loadGrants();
+  }
+
+  function buildStudentSelect(){
+    var html = '<option value="">학생 선택…</option>';
+    roster.forEach(function(s){
+      var id = esc(String(s.id == null ? '' : s.id));
+      var meta = [s.academy || '', s.className || ''].filter(Boolean).join('·');
+      html += '<option value="' + id + '">' + esc(s.name || '') + (meta ? ' (' + esc(meta) + ')' : '') + '</option>';
+    });
+    $('stSel').innerHTML = html;
+  }
+
+  function grantResult(ok, msg){ var el = $('grantResult'); el.style.display = ''; el.className = 'result ' + (ok ? 'ok' : 'err'); el.textContent = msg; }
+
+  async function doGrant(){
+    var sid = $('stSel').value;
+    var date = $('dt').value;
+    if (!sid){ alert('학생을 선택해주세요.'); return; }
+    if (!date){ alert('수업 날짜를 선택해주세요.'); return; }
+    var nm = (roster.find(function(s){ return String(s.id) === String(sid); }) || {}).name || '';
+    if (!confirm(nm + ' 학생의 ' + date + ' 잠금을 엽니다.\n\n진행할까요?')) return;
+    var btn = $('grantBtn'); btn.disabled = true; var old = btn.textContent; btn.textContent = '처리 중…';
+    var r, d;
+    try {
+      r = await fetch('/api/makeup', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), credentials: 'same-origin',
+        body: JSON.stringify({ action: 'grant', studentId: sid, date: date }) });
+      d = await r.json().catch(function(){ return null; });
+    } catch (e) { btn.disabled = false; btn.textContent = old; grantResult(false, '네트워크 오류로 처리하지 못했습니다.'); return; }
+    btn.disabled = false; btn.textContent = old;
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
+    if (!d || !d.ok){ grantResult(false, (d && d.error) || '처리에 실패했습니다.'); return; }
+    grantResult(true, nm + ' · ' + date + ' 잠금을 열었습니다.');
+    loadGrants();
+  }
+
+  function setTab(t){ tab = t; $('tabReq').className = (t === 'requested' ? 'on' : ''); $('tabAll').className = (t === 'all' ? 'on' : ''); renderGrants(); }
+
+  async function loadGrants(){
+    $('grantList').innerHTML = '<div class="empty">불러오는 중…</div>';
+    var r, d;
+    try {
+      r = await fetch('/api/makeup?all=1', { headers: authHeaders(), credentials: 'same-origin' });
+      d = await r.json().catch(function(){ return null; });
+    } catch (e) { $('grantList').innerHTML = '<div class="empty">불러오지 못했습니다.</div>'; return; }
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
+    grants = Array.isArray(d) ? d : [];
+    renderGrants();
+  }
+
+  function renderGrants(){
+    var list = grants;
+    if (tab === 'requested') list = grants.filter(function(g){ return g.status === 'requested'; });
+    if (!list.length){ $('grantList').innerHTML = '<div class="empty">' + (tab === 'requested' ? '대기 중인 인강 신청이 없습니다.' : '아직 신청·해제 내역이 없습니다.') + '</div>'; return; }
+    var html = '';
+    list.forEach(function(g){
+      var isReq = g.status === 'requested';
+      var sid = esc(String(g.student_id == null ? '' : g.student_id));
+      var date = esc(g.date || '');
+      var nm = esc(g.name || ('학생#' + sid));
+      var badge = isReq ? '<span class="badge req">신청 대기</span>' : '<span class="badge appr">해제됨</span>';
+      var btns = isReq
+        ? '<button class="mini" onclick="act(\'approve\',\'' + sid + '\',\'' + date + '\',this)">승인(열기)</button>'
+          + '<button class="mini gray" onclick="act(\'revoke\',\'' + sid + '\',\'' + date + '\',this)">신청 취소</button>'
+        : '<button class="mini gray" onclick="act(\'revoke\',\'' + sid + '\',\'' + date + '\',this)">다시 잠금</button>';
+      html += '<div class="row"><div><div class="who">' + nm + '</div><div class="dt">' + date + '</div></div>' + badge + '<div class="sp">' + btns + '</div></div>';
+    });
+    $('grantList').innerHTML = html;
+  }
+
+  async function act(action, sid, date, btn){
+    if (action === 'revoke' && !confirm('이 날짜를 다시 잠급니다(또는 신청을 취소합니다).\n\n진행할까요?')) return;
+    if (btn) btn.disabled = true;
+    var r, d;
+    try {
+      r = await fetch('/api/makeup', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), credentials: 'same-origin',
+        body: JSON.stringify({ action: action, studentId: sid, date: date }) });
+      d = await r.json().catch(function(){ return null; });
+    } catch (e) { if (btn) btn.disabled = false; alert('네트워크 오류로 처리하지 못했습니다.'); return; }
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
+    if (!d || !d.ok){ if (btn) btn.disabled = false; alert((d && d.error) || '처리에 실패했습니다.'); return; }
+    loadGrants();
+  }
+
+  load();
+</script>
+</body>
+</html>

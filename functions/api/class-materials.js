@@ -2,6 +2,7 @@
 // 자료는 업로드 시 R2의 class/{학원}_{반}/{MMDD}/ 구조로 저장됨 → 그 prefix를 나열한다.
 // (이전엔 Notion 자료 DB에서 읽었으나, 새 업로드는 R2 키로만 분류되므로 R2를 직접 읽도록 전환)
 import { safeError } from './_errors.js';
+import { absenceLockContext, isLocked, sessionDateFromText } from './_makeup.js';
 
 function fileEntry(obj) {
   const fname = (obj.key || '').split('/').pop().replace(/^\d+_/, '');
@@ -25,7 +26,7 @@ export async function onRequest({ request, env }) {
 
   try {
     const st = await env.DB.prepare(
-      'SELECT name, academy, class_name FROM students WHERE personal_key = ? LIMIT 1'
+      'SELECT id, name, academy, class_name FROM students WHERE personal_key = ? LIMIT 1'
     ).bind(key).first();
     if (!st) return Response.json({ error: '인증 실패' }, { status: 401 });
 
@@ -41,6 +42,20 @@ export async function onRequest({ request, env }) {
       .filter(o => ((o.key || '').split('/').pop() || '').length > 0)
       .map(fileEntry)
       .sort((a, b) => (b.uploadDate || '').localeCompare(a.uploadDate || ''));
+
+    // 🔒 결석·병결·공결한 날의 수업자료 자동 잠금 — 파일명 6자리 YYMMDD로 판단.
+    try {
+      const ctx = await absenceLockContext(env, st.id);
+      for (const f of files) {
+        const d = sessionDateFromText(f.title || f.fileName);
+        if (isLocked(ctx, d)) {
+          f.locked = true;
+          f.lockReason = 'absent';
+          f.lockDate = d;
+          f.requested = ctx.requested.has(d);
+        }
+      }
+    } catch (_) { /* 잠금 판정 실패 시 기존 목록 유지 */ }
 
     return Response.json({ ok: true, studentName, className, files });
   } catch (e) {

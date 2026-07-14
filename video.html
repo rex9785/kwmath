@@ -151,18 +151,30 @@
       $('videoList').innerHTML = data.videos.map((v, i) => {
         const dateStr = v.date ? v.date.replace(/-/g, '.') : '';
         const latestBadge = i === 0 ? '<span class="latest-badge">최신</span>' : '';
-        const playButton = v.locked
-          ? `<button class="watch-btn locked" onclick="unlockVideo('${escapeHtml(v.code)}', '${escapeHtml(selectedStudent.name)}')">
+        let playButton, note;
+        if (v.lockReason === 'absent') {
+          // 🔒 결석·병결·공결한 날의 영상 — 인강 신청 후 선생님 승인 시 열림.
+          const label = v.requested ? '인강 신청됨 · 승인 대기' : '인강 신청하기';
+          playButton = `<button class="watch-btn locked" ${v.requested ? 'disabled' : ''} onclick="requestMakeup('${escapeHtml(v.date)}', '${escapeHtml(selectedStudent.name)}', this)">
+               <div class="play-circle">🔒</div>
+               ${label} →
+             </button>`;
+          note = v.requested
+            ? '<div class="access-note">🔒 결석한 날의 영상입니다. 인강 신청이 접수되어 선생님 승인을 기다리고 있어요.</div>'
+            : '<div class="access-note">🔒 결석한 날의 영상입니다. 인강을 신청하면 선생님 승인 후 열립니다.</div>';
+        } else if (v.locked) {
+          playButton = `<button class="watch-btn locked" onclick="unlockVideo('${escapeHtml(v.code)}', '${escapeHtml(selectedStudent.name)}')">
                <div class="play-circle">🔒</div>
                수업코드 입력 후 시청 →
-             </button>`
-          : `<a href="${escapeHtml(v.youtube_url)}" target="_blank" class="watch-btn" onclick="logView('${escapeHtml(v.code)}', '${escapeHtml(selectedStudent.name)}')">
+             </button>`;
+          note = '<div class="access-note">🔒 이 영상은 선생님이 알려준 수업코드가 필요합니다.</div>';
+        } else {
+          playButton = `<a href="${escapeHtml(v.youtube_url)}" target="_blank" class="watch-btn" onclick="logView('${escapeHtml(v.code)}', '${escapeHtml(selectedStudent.name)}')">
                <div class="play-circle"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
                수업 영상 시청하기 →
              </a>`;
-        const note = v.locked
-          ? '<div class="access-note">🔒 이 영상은 선생님이 알려준 수업코드가 필요합니다.</div>'
-          : '<div class="access-note">영상 시청 기록이 선생님께 전달됩니다.</div>';
+          note = '<div class="access-note">영상 시청 기록이 선생님께 전달됩니다.</div>';
+        }
         return `<div class="video-card">
           <div class="video-card-header">
             <div class="video-card-date">${escapeHtml(dateStr)} 수업${latestBadge}</div>
@@ -199,6 +211,23 @@
       fetch('/api/video-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name: studentName }) }).catch(() => {});
       window.open(data.youtube_url, '_blank');
     } catch (e) { alert('오류: ' + e.message); }
+  }
+
+  // 결석한 날 영상의 '인강 신청' — /api/makeup에 requested 등록. 승인은 선생님(관우T/조교)이.
+  async function requestMakeup(date, name, btn){
+    if (!date) return;
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/makeup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ name, date }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || '신청에 실패했습니다.'); if (btn) btn.disabled = false; return; }
+      alert('인강 신청이 접수되었습니다. 선생님 승인 후 영상이 열립니다.');
+      loadVideos();
+    } catch (e) { alert('오류: ' + e.message); if (btn) btn.disabled = false; }
   }
 
   document.addEventListener('DOMContentLoaded', init);

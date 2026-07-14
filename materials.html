@@ -39,6 +39,9 @@
   .file-cat{background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:700;}
   .file-dl-btn{background:var(--primary);color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;text-align:center;}
   .file-dl-btn:hover{background:var(--primary-mid);}
+  .file-dl-btn.locked{background:#888;}
+  .file-dl-btn.locked:hover{background:#6f6f6f;}
+  .file-dl-btn:disabled{background:#b0b0b0;cursor:default;}
 
   .empty-state{text-align:center;padding:60px 20px;color:var(--text-light);}
   .empty-state .icon{font-size:3rem;margin-bottom:14px;}
@@ -130,10 +133,13 @@ function renderFiles(files) {
         <span>${esc(f.fileSize || '')}</span>
         <span>${f.uploadDate ? esc(f.uploadDate.replace(/-/g, '.')) : ''}</span>
       </div>
-      <button class="file-dl-btn" data-key="${esc(f.r2Key)}">⬇ 다운로드</button>
+      ${f.locked && f.lockReason === 'absent'
+        ? `<button class="file-dl-btn locked file-req-btn" data-date="${esc(f.lockDate)}" ${f.requested ? 'disabled' : ''}>${f.requested ? '🔒 인강 신청됨 · 승인 대기' : '🔒 인강 신청하기'}</button>`
+        : `<button class="file-dl-btn" data-key="${esc(f.r2Key)}">⬇ 다운로드</button>`}
     </div>
   `).join('');
-  grid.querySelectorAll('.file-dl-btn').forEach(function(b){ b.addEventListener('click', function(){ downloadFile(b.getAttribute('data-key')); }); });
+  grid.querySelectorAll('.file-dl-btn:not(.file-req-btn)').forEach(function(b){ b.addEventListener('click', function(){ downloadFile(b.getAttribute('data-key')); }); });
+  grid.querySelectorAll('.file-req-btn').forEach(function(b){ b.addEventListener('click', function(){ requestMaterialMakeup(b.getAttribute('data-date'), b); }); });
 }
 
 // list-files.js 항목 → 카드 형식으로 매핑
@@ -145,6 +151,7 @@ function fromClassEntry(e) {
     category: '수업자료',
     fileSize: e.sizeLabel || '',
     uploadDate: e.lastModified ? String(e.lastModified).slice(0, 10) : '',
+    locked: !!e.locked, lockReason: e.lockReason || '', lockDate: e.lockDate || '', requested: !!e.requested,
   };
 }
 
@@ -213,6 +220,25 @@ function downloadFile(r2Key) {
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     })
     .catch(err => alert(err.message || '다운로드에 실패했습니다.'));
+}
+
+// 결석·병결·공결한 날의 자료 → 인강 신청(승인 후 열림)
+async function requestMaterialMakeup(date, btn) {
+  if (!date) return;
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) { alert('로그인 후 이용해주세요.'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('/api/makeup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ name: myStudentName, date }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || '신청에 실패했습니다.'); if (btn) btn.disabled = false; return; }
+    alert('인강 신청이 접수되었습니다. 선생님 승인 후 자료가 열립니다.');
+    loadFiles();
+  } catch (e) { alert('오류: ' + e.message); if (btn) btn.disabled = false; }
 }
 
 loadFiles();

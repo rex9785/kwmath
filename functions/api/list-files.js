@@ -9,6 +9,7 @@
 // - test-results/{이름}/ → 본 폴더 + 호환을 위해 reports/{이름}/원클릭보고서_*.pdf 도 포함
 
 import { requireAuth, resolveStudent } from './_auth.js';
+import { absenceLockContext, isLocked, sessionDateFromText } from './_makeup.js';
 
 const ONECLICK_PREFIX = '원클릭보고서_';
 
@@ -36,6 +37,7 @@ export async function onRequest({ request, env }) {
 
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   const isAdmin = env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
+  let gateStudent = null;   // 결석 잠금 판정용(학생 요청 시에만 세팅)
 
   if (!isAdmin) {
     const auth = await requireAuth(env, request);
@@ -45,6 +47,7 @@ export async function onRequest({ request, env }) {
     const resolved = await resolveStudent(env, auth.phone, queryName);
     if (!resolved.ok) return Response.json({ error: resolved.error || '권한 없음' }, { status: 403 });
     const student = resolved.student;
+    gateStudent = student;
 
     if (folder.startsWith('reports/')) {
       const folderName = folder.slice('reports/'.length).split('/')[0];
@@ -93,6 +96,24 @@ export async function onRequest({ request, env }) {
         // legacy 스캔 실패 — main 결과만 반환
       }
     }
+  }
+
+  // 🔒 결석·병결·공결한 날의 수업자료 자동 잠금 — class/ 폴더, 학생 요청 한정.
+  //   파일명의 6자리 YYMMDD로 수업 날짜를 판단(관우T 규칙). 잠긴 항목은 locked 플래그만 달아 그대로 내려보내고,
+  //   실제 다운로드 차단은 download-file.js가 이중으로 막는다.
+  if (!isAdmin && folder.startsWith('class/') && gateStudent) {
+    try {
+      const ctx = await absenceLockContext(env, gateStudent.id);
+      for (const f of entries) {
+        const d = sessionDateFromText(f.displayName || f.name);
+        if (isLocked(ctx, d)) {
+          f.locked = true;
+          f.lockReason = 'absent';
+          f.lockDate = d;
+          f.requested = ctx.requested.has(d);
+        }
+      }
+    } catch (_) { /* 잠금 판정 실패 시 기존 목록 유지 */ }
   }
 
   return Response.json(entries);
