@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>이관우 수학연구소 어플 사용안내 · 학부모님용</title>
+<meta name="description" content="이관우 수학연구소 학부모·학생 앱 사용안내 — 설치, 로그인, 자녀 리포트·성적·출석 확인, 알림 받기">
+<!-- URL로만 안내(메뉴 비노출) — 검색엔진 색인 제외 -->
+<meta name="robots" content="noindex">
+
+<!-- PWA / 아이콘 (앱 형제 페이지와 동일) -->
+<link rel="manifest" href="/manifest.json?v=3">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+
+  /* 상단바 */
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
+  .topbar-logo{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;border-radius:6px;overflow:hidden;}
+  .topbar-logo img{width:100%;height:100%;object-fit:cover;border-radius:6px;}
+  .topbar-title{font-size:1rem;font-weight:900;letter-spacing:-0.3px;}
+
+  .page{max-width:480px;margin:0 auto;padding:28px 20px 90px;}
+
+  /* 히어로 */
+  .hero{text-align:center;margin-bottom:24px;}
+  .hero-logo{display:inline-flex;align-items:center;justify-content:center;width:92px;height:92px;background:var(--primary);border-radius:24px;margin-bottom:14px;box-shadow:0 8px 24px rgba(139,26,53,0.25);overflow:hidden;}
+  .hero-logo img{width:78%;height:auto;display:block;}
+  .hero h1{font-size:1.38rem;font-weight:900;margin-bottom:8px;line-height:1.35;}
+  .hero .pitch{color:var(--text-light);font-size:0.92rem;line-height:1.65;}
+
+  /* 한눈에 보는 혜택 */
+  .benefits{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px;}
+  .benefit-item{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:11px 13px;font-size:0.85rem;}
+  .benefit-item .b-icon{font-size:1.2rem;line-height:1;}
+  .benefit-item .b-text{color:var(--text);font-weight:700;}
+
+  /* 카드 */
+  .card{background:#fff;border-radius:16px;padding:20px 20px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.05);margin-bottom:14px;}
+  .card h2{font-size:1.02rem;font-weight:900;color:var(--primary);margin-bottom:6px;display:flex;align-items:center;gap:7px;}
+  .card .lead{font-size:0.86rem;color:var(--text-light);line-height:1.65;margin-bottom:12px;}
+  .step-badge{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;background:var(--primary);color:#fff;border-radius:8px;font-size:0.8rem;font-weight:900;}
+
+  /* 스텝 */
+  .step{display:flex;gap:13px;padding:12px 0;border-bottom:1px solid var(--border);}
+  .step:last-child{border-bottom:none;}
+  .step-num{flex-shrink:0;width:30px;height:30px;background:var(--primary-light);color:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.92rem;}
+  .step-text{flex:1;font-size:0.9rem;line-height:1.58;color:var(--text);padding-top:4px;}
+  .step-text b{color:var(--primary);}
+  .step.key .step-num{background:#FFE8A8;color:#854F0B;}
+  .step.key .step-text b{color:#854F0B;}
+  .step-text .pw{display:inline-block;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1px 8px;font-weight:900;color:var(--primary);letter-spacing:2px;}
+
+  /* 기능 리스트 */
+  .feat{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border);}
+  .feat:last-child{border-bottom:none;}
+  .feat .f-icon{flex-shrink:0;width:38px;height:38px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;}
+  .feat .f-body{flex:1;min-width:0;}
+  .feat .f-title{font-size:0.92rem;font-weight:800;color:var(--text);}
+  .feat .f-desc{font-size:0.8rem;color:var(--text-light);line-height:1.5;margin-top:2px;}
+
+  /* 안내 박스 */
+  .note{background:var(--primary-light);border-left:3px solid var(--primary);padding:12px 14px;border-radius:8px;font-size:0.83rem;line-height:1.65;color:var(--text);margin-top:12px;}
+  .note b{color:var(--primary);}
+  .note.warn{background:#FFF8DC;border-left-color:#E0A100;}
+  .note.warn b{color:#854F0B;}
+
+  /* 스토어 버튼 */
+  .store-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:15px;border-radius:13px;font-size:1rem;font-weight:800;text-decoration:none;background:#111;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,0.16);margin-bottom:10px;}
+  .store-btn:active{transform:scale(0.99);}
+  .store-sub{text-align:center;font-size:0.79rem;color:var(--text-light);margin:4px 0 2px;line-height:1.5;}
+  .mini-link{display:inline-block;color:var(--primary);font-weight:700;text-decoration:none;font-size:0.82rem;}
+
+  /* 도움 박스 */
+  .ask{background:#fff;border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:0.86rem;line-height:1.65;color:var(--text-light);text-align:center;}
+  .ask b{color:var(--primary);}
+
+  /* 하단 이동 버튼 */
+  .cta-primary{display:block;background:var(--primary);color:#fff;text-align:center;padding:15px;border-radius:13px;text-decoration:none;font-weight:800;font-size:0.97rem;margin-top:18px;box-shadow:0 6px 18px rgba(139,26,53,0.22);}
+  .cta-primary:hover{background:var(--primary-mid);}
+  .cta-outline{display:block;background:#fff;color:var(--primary);border:2px solid var(--primary);text-align:center;padding:13px;border-radius:13px;text-decoration:none;font-weight:800;font-size:0.95rem;margin-top:10px;}
+  .cta-outline:hover{background:var(--primary-light);}
+
+  .foot{text-align:center;color:var(--text-light);font-size:0.74rem;margin-top:26px;line-height:1.7;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
+  <span class="topbar-title">학부모 사용안내</span>
+</div>
+
+<div class="page">
+
+  <div class="hero">
+    <div class="hero-logo"><img src="/icons/icon-512.png?v=6" alt="이관우 수학연구소"></div>
+    <h1>이관우 수학연구소 앱,<br>이렇게 사용하세요 📱</h1>
+    <div class="pitch">자녀의 수업영상·리포트·성적·출석·공지를<br>이 앱 하나에서 확인하실 수 있어요.<br>설치부터 알림까지 <b>3분이면</b> 준비 끝!</div>
+  </div>
+
+  <div class="benefits">
+    <div class="benefit-item"><span class="b-icon">🎥</span><span class="b-text">수업·리포트</span></div>
+    <div class="benefit-item"><span class="b-icon">📊</span><span class="b-text">성적·진단</span></div>
+    <div class="benefit-item"><span class="b-icon">📅</span><span class="b-text">출석 현황</span></div>
+    <div class="benefit-item"><span class="b-icon">🔔</span><span class="b-text">실시간 알림</span></div>
+  </div>
+
+  <!-- 1. 설치 -->
+  <div class="card">
+    <h2><span class="step-badge">1</span> 앱 설치하기 <span style="font-size:0.8rem;font-weight:600;color:var(--text-light);">(1분)</span></h2>
+    <div class="lead">아래 버튼을 눌러 스토어에서 무료로 받으세요. 스토어에서 <b>"이관우 수학연구소"</b>를 검색하셔도 됩니다.</div>
+    <a class="store-btn" href="https://apps.apple.com/kr/app/id6778222395" target="_blank" rel="noopener">🍎 App Store (아이폰)</a>
+    <a class="store-btn" href="https://play.google.com/store/apps/details?id=kr.co.kwmath.app" target="_blank" rel="noopener" style="background:#0B7A3B;">🤖 Google Play (안드로이드)</a>
+    <div class="note warn">
+      ⚠️ <b>카톡·문자로 받은 링크는 그 안에서 바로 열면 설치가 안 될 수 있어요.</b> 화면 오른쪽 위 <b>메뉴(⋯ 또는 공유)</b>에서 <b>사파리·크롬으로 열기</b>를 눌러 여신 뒤 진행해 주세요.
+    </div>
+    <div style="text-align:center;margin-top:12px;">
+      <a class="mini-link" href="/install">화면별 자세한 설치 안내 보기 →</a>
+    </div>
+    <div class="note">
+      💻 <b>PC</b>에서는 설치 없이 <b>포털(웹)</b>로 바로 사용하실 수 있어요. (아래 "포털 웹으로 열기")
+    </div>
+  </div>
+
+  <!-- 2. 로그인 -->
+  <div class="card">
+    <h2><span class="step-badge">2</span> 로그인하기</h2>
+    <div class="step"><div class="step-num">1</div><div class="step-text">앱을 열면 <b>로그인 화면</b>이 나와요.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text"><b>학원에 등록하신 휴대폰 번호</b>를 입력해요. (예: 010-1234-5678)</div></div>
+    <div class="step key"><div class="step-num">3</div><div class="step-text">비밀번호를 입력해요. 처음이시면 초기 비밀번호는 <span class="pw">0000</span> 입니다.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">첫 로그인 후 안전을 위해 <b>새 비밀번호로 변경</b>해 주세요.</div></div>
+    <div class="note">
+      🔑 번호가 안 맞거나 비밀번호를 잊으셨다면 <b>선생님(관우T)</b>께 문자로 문의해 주세요.<br>
+      👨‍👩‍👧 자녀가 여럿이면 로그인 후 <b>'자녀 선택'</b>에서 골라 보실 수 있어요.
+    </div>
+  </div>
+
+  <!-- 3. 홈 화면 -->
+  <div class="card">
+    <h2><span class="step-badge">3</span> 홈 화면 살펴보기</h2>
+    <div class="step"><div class="step-num">🔔</div><div class="step-text">화면 <b>맨 위 오른쪽 🔔 알림함</b> — 지금까지 온 알림을 다시 볼 수 있어요. <b>빨간 숫자</b>는 안 읽은 알림 개수예요.</div></div>
+    <div class="step"><div class="step-num">👤</div><div class="step-text"><b>내 정보</b> — 등록 정보를 확인해요.</div></div>
+    <div class="step"><div class="step-num">📢</div><div class="step-text"><b>학원 공지·안내</b>가 화면 위쪽에 표시돼요.</div></div>
+    <div class="step"><div class="step-num">▦</div><div class="step-text">그 아래 <b>기능 버튼</b>을 눌러 원하는 화면으로 들어가요. (아래 4번 참고)</div></div>
+  </div>
+
+  <!-- 4. 주요 기능 -->
+  <div class="card">
+    <h2><span class="step-badge">4</span> 주요 기능</h2>
+    <div class="feat"><div class="f-icon">🎥</div><div class="f-body"><div class="f-title">수업영상 및 레포트</div><div class="f-desc">날짜별로 그날 수업영상·수업내용·숙제를 확인해요.</div></div></div>
+    <div class="feat"><div class="f-icon">📊</div><div class="f-body"><div class="f-title">테스트 결과</div><div class="f-desc">일일·주간·월말 테스트 점수와 진단 보고서를 봐요. (PDF로도 저장)</div></div></div>
+    <div class="feat"><div class="f-icon">📅</div><div class="f-body"><div class="f-title">출석 현황</div><div class="f-desc">월별 출석 캘린더로 등원 현황을 한눈에 봐요.</div></div></div>
+    <div class="feat"><div class="f-icon">📁</div><div class="f-body"><div class="f-title">수업 자료실</div><div class="f-desc">학습지·교재를 내려받아요.</div></div></div>
+    <div class="feat"><div class="f-icon">📚</div><div class="f-body"><div class="f-title">KW-Study</div><div class="f-desc">공부 시간·연속 학습(스트릭)·통계를 확인해요.</div></div></div>
+    <div class="feat"><div class="f-icon">📝</div><div class="f-body"><div class="f-title">수강 후기</div><div class="f-desc">한 줄 후기를 남기거나 볼 수 있어요.</div></div></div>
+  </div>
+
+  <!-- 5. 알림 -->
+  <div class="card">
+    <h2><span class="step-badge">5</span> 알림, 꼭 켜주세요 🔔</h2>
+    <div class="lead">자녀의 <b>결석·숙제 미흡·클리닉 미참석</b>과 새 <b>리포트·공지</b>를 휴대폰 알림으로 바로 받아보실 수 있어요.</div>
+    <div class="step"><div class="step-num">1</div><div class="step-text">홈 화면의 <b>🔔 알림 켜기</b> 배너(또는 화면 아래 <b>🔔 알림 설정</b>)를 한 번 눌러요.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">휴대폰이 물어보면 <b>"허용"</b>을 눌러요. 끝!</div></div>
+    <div class="note warn">
+      🔕 켰는데도 알림이 안 온다면, 휴대폰이 알림을 막고 있을 수 있어요. <a class="mini-link" href="/push-help" style="color:#854F0B;">알림이 안 와요? 해결 방법 보기 →</a>
+    </div>
+  </div>
+
+  <!-- 6. 도움 -->
+  <div class="card">
+    <h2>❓ 도움이 필요하세요?</h2>
+    <div class="ask">
+      사용 중 궁금한 점이나 로그인이 안 되실 때는<br>
+      <b>선생님(관우T)</b>께 문자로 편하게 문의해 주세요. 🙏
+    </div>
+  </div>
+
+  <!-- 하단 이동 -->
+  <a class="cta-primary" href="/install">📲 앱 설치하러 가기 →</a>
+  <a class="cta-outline" href="/portal">📋 포털 웹으로 바로 열기 →</a>
+
+  <div class="foot">
+    이관우 수학연구소 · LKW math LAB<br>
+    학부모·학생 전용 앱
+  </div>
+
+</div>
+</body>
+</html>
