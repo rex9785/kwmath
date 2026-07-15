@@ -74,14 +74,16 @@
       <div id="grantList"><div class="empty">불러오는 중…</div></div>
     </div>
 
-    <!-- 직접 해제 -->
+    <!-- 학생·날짜별 영상 잠금 상태 + 직접 열기/잠금 -->
     <div class="card">
-      <h2>직접 해제</h2>
-      <div class="hint">학생과 수업 날짜를 골라 그날 잠금을 바로 엽니다. (학생 인강 신청이 없어도 가능)</div>
+      <h2>영상 열기·잠금 (학생·날짜별)</h2>
+      <div class="hint">학생과 수업 날짜를 고르면 그 날짜 영상과 <b>지금 열림/잠김 상태</b>가 표시됩니다. 결석으로 잠긴 날은 여기서 바로 열거나 다시 잠글 수 있어요. (학생 인강 신청이 없어도 가능)</div>
       <div class="frm">
-        <div class="fld"><label>학생</label><select id="stSel"></select></div>
-        <div class="fld" style="flex:0 1 170px;"><label>수업 날짜</label><input type="date" id="dt"></div>
-        <div class="fld" style="flex:0 0 auto;"><button id="grantBtn" onclick="doGrant()">해제(열기)</button></div>
+        <div class="fld"><label>학생</label><select id="stSel" onchange="loadStudentVideos()"></select></div>
+        <div class="fld" style="flex:0 1 170px;"><label>수업 날짜</label><input type="date" id="dt" onchange="loadStudentVideos()"></div>
+      </div>
+      <div id="svBox" style="margin-top:14px;">
+        <div class="empty">학생과 날짜를 골라주세요.</div>
       </div>
       <div id="grantResult" class="result"></div>
     </div>
@@ -139,24 +141,103 @@
 
   function grantResult(ok, msg){ var el = $('grantResult'); el.style.display = ''; el.className = 'result ' + (ok ? 'ok' : 'err'); el.textContent = msg; }
 
-  async function doGrant(){
+  // ── 학생·날짜별 영상 잠금 상태 ──
+  function statusBadge(v){
+    if (v.open) return '<span class="badge" style="background:#E7F6EC;color:#1E7B41;">🔓 열림</span>';
+    var t = '🔒 잠김';
+    if (v.lockReason === 'absent') t = '🔒 잠김 · 결석';
+    else if (v.lockReason === 'code') t = '🔒 잠김 · 수업코드';
+    else if (v.lockReason === 'absent+code') t = '🔒 잠김 · 결석+수업코드';
+    return '<span class="badge" style="background:#FDECEC;color:#C0392B;">' + t + '</span>';
+  }
+
+  function renderStudentVideos(d){
+    var box = $('svBox');
+    var st = d.student || {};
+    var meta = [st.academy || '', st.className || ''].filter(Boolean).join('·');
+    var head = '<div style="font-weight:700;font-size:0.95rem;margin-bottom:2px;">' + esc(st.name || '') +
+      (meta ? ' <span style="color:var(--muted);font-weight:400;font-size:0.82rem;">(' + esc(meta) + ')</span>' : '') + '</div>';
+    head += '<div style="color:var(--muted);font-size:0.82rem;margin-bottom:12px;">수업 날짜 ' + esc(d.date) +
+      ' · 출결: ' + esc(d.status || '기록 없음') +
+      (d.blocked ? (d.grantStatus === 'approved'
+        ? ' <span style="color:#1E7B41;font-weight:700;">(인강 열림)</span>'
+        : ' <span style="color:#C0392B;font-weight:700;">(결석 잠금)</span>') : '') + '</div>';
+
+    // 학원 정보 없음 → 영상 매칭 불가
+    if (d.note){ box.innerHTML = head + '<div class="empty">' + esc(d.note) + '</div>'; return; }
+
+    var vids = d.videos || [];
+    // 영상 없음 → 열고 말고 할 게 없음
+    if (!vids.length){
+      box.innerHTML = head + '<div class="empty">📭 이 날짜에 등록된 영상이 없습니다 — 열어줄 게 없어요.</div>';
+      return;
+    }
+
+    var rows = '';
+    vids.forEach(function(v){
+      rows += '<div class="row"><div><div class="who">' + esc(v.title || v.code || '(제목 없음)') + '</div>' +
+        (v.requireCode ? '<div class="dt">수업코드 잠금 영상</div>' : '') +
+        '</div><div class="sp">' + statusBadge(v) + '</div></div>';
+    });
+
+    // 날짜 단위 액션 — 결석 잠금만 여기서 열고/다시 잠근다
+    var action = '';
+    if (d.blocked && d.grantStatus === 'approved'){
+      action = '<button class="mini gray" onclick="toggleLock(\'revoke\')">🔒 이 날짜 다시 잠금</button>' +
+        '<div class="dt" style="margin-top:6px;">지금은 인강이 열려 있습니다. 다시 잠그면 결석 잠금으로 돌아갑니다.</div>';
+    } else if (d.blocked){
+      action = '<button class="mini" onclick="toggleLock(\'grant\')">🔓 이 날짜 영상 열기</button>';
+      if (d.grantStatus === 'requested') action += '<div class="dt" style="margin-top:6px;color:#B26A00;">학생이 인강을 신청했습니다.</div>';
+    } else {
+      action = '<div class="dt">이 날짜는 결석 잠금이 아닙니다. (여기서 여닫는 건 결석 잠금만 다룹니다)</div>';
+    }
+
+    // 수업코드만으로 잠긴 영상은 여기서 못 연다는 안내
+    var codeOnly = false;
+    vids.forEach(function(v){ if (v.requireCode && !v.absenceLocked) codeOnly = true; });
+    var codeNote = codeOnly ? '<div class="dt" style="margin-top:6px;">※ 수업코드 잠금 영상은 여기서 열리지 않습니다 (영상 등록에서 관리).</div>' : '';
+
+    box.innerHTML = head + rows +
+      '<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">' + action + codeNote + '</div>';
+  }
+
+  async function loadStudentVideos(){
     var sid = $('stSel').value;
     var date = $('dt').value;
-    if (!sid){ alert('학생을 선택해주세요.'); return; }
-    if (!date){ alert('수업 날짜를 선택해주세요.'); return; }
+    var box = $('svBox');
+    if (!sid || !date){ box.innerHTML = '<div class="empty">학생과 날짜를 골라주세요.</div>'; return; }
+    box.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var r, d;
+    try {
+      r = await fetch('/api/makeup-videos?studentId=' + encodeURIComponent(sid) + '&date=' + encodeURIComponent(date),
+        { headers: authHeaders(), credentials: 'same-origin' });
+      d = await r.json().catch(function(){ return null; });
+    } catch (e) { box.innerHTML = '<div class="empty">네트워크 오류로 불러오지 못했습니다.</div>'; return; }
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
+    if (!d || !d.ok){ box.innerHTML = '<div class="empty">' + esc((d && d.error) || '불러오지 못했습니다.') + '</div>'; return; }
+    renderStudentVideos(d);
+  }
+
+  async function toggleLock(action){
+    var sid = $('stSel').value;
+    var date = $('dt').value;
+    if (!sid || !date) return;
     var nm = (roster.find(function(s){ return String(s.id) === String(sid); }) || {}).name || '';
-    if (!confirm(nm + ' 학생의 ' + date + ' 잠금을 엽니다.\n\n진행할까요?')) return;
-    var btn = $('grantBtn'); btn.disabled = true; var old = btn.textContent; btn.textContent = '처리 중…';
+    var opening = (action === 'grant');
+    var msg = opening
+      ? (nm + ' 학생의 ' + date + ' 영상을 엽니다.\n\n진행할까요?')
+      : (nm + ' 학생의 ' + date + ' 영상을 다시 잠급니다.\n\n진행할까요?');
+    if (!confirm(msg)) return;
     var r, d;
     try {
       r = await fetch('/api/makeup', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), credentials: 'same-origin',
-        body: JSON.stringify({ action: 'grant', studentId: sid, date: date }) });
+        body: JSON.stringify({ action: action, studentId: sid, date: date }) });
       d = await r.json().catch(function(){ return null; });
-    } catch (e) { btn.disabled = false; btn.textContent = old; grantResult(false, '네트워크 오류로 처리하지 못했습니다.'); return; }
-    btn.disabled = false; btn.textContent = old;
+    } catch (e) { grantResult(false, '네트워크 오류로 처리하지 못했습니다.'); return; }
     if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
     if (!d || !d.ok){ grantResult(false, (d && d.error) || '처리에 실패했습니다.'); return; }
-    grantResult(true, nm + ' · ' + date + ' 잠금을 열었습니다.');
+    grantResult(true, nm + ' · ' + date + (opening ? ' 영상을 열었습니다.' : ' 영상을 다시 잠갔습니다.'));
+    loadStudentVideos();
     loadGrants();
   }
 
