@@ -97,15 +97,44 @@
       if(curName) loadScores(curName);
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
   }
+  // 학원 → 반 → 학생 3단 분류(다른 관리 화면과 동일). 전체 학생을 한 번에 안 뿌리고 좁혀서 고른다.
+  //   빈 학원/반은 '(미지정)'·'(반 없음)' 버킷으로 묶어 누락 방지. 학생 option value는 기존대로 name 유지(백엔드 /api/scores?name= 계약).
   function renderShell(){
-    var opts = '<option value="">— 학생 선택 —</option>' + students.map(function(s){
-      var t=(s.grade?(' · '+esc(s.grade)):'')+(s.className?(' · '+esc(s.className)):'');
-      return '<option value="'+esc(s.name)+'"'+(s.name===curName?' selected':'')+'>'+esc(s.name)+t+'</option>';
-    }).join('');
     $('content').innerHTML =
-      '<div class="card"><label class="fl">학생</label><select id="stuSel" onchange="onPick()">'+opts+'</select></div>'+
+      '<div class="card">'+
+        '<label class="fl">학원</label><select id="acadSel" onchange="onAcad()"></select>'+
+        '<label class="fl" style="margin-top:10px;">반</label><select id="clsSel" onchange="onCls()"></select>'+
+        '<label class="fl" style="margin-top:10px;">학생</label><select id="stuSel" onchange="onPick()"></select>'+
+      '</div>'+
       '<div id="panel"></div>';
+    buildAcad();
   }
+  var ACAD_NONE='(미지정)', CLS_NONE='(반 없음)';
+  function acadOf(s){ return (String(s.academy||'').trim())||ACAD_NONE; }
+  function clsOf(s){ return (String(s.className||'').trim())||CLS_NONE; }
+  function buildAcad(){
+    var seen={}, list=[];
+    students.forEach(function(s){ var a=acadOf(s); if(!seen[a]){ seen[a]=1; list.push(a); } });
+    list.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+    $('acadSel').innerHTML='<option value="">학원 선택…</option>'+list.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+    buildCls();
+  }
+  function buildCls(){
+    var acad=$('acadSel').value, seen={}, list=[];
+    if(acad){ students.forEach(function(s){ if(acadOf(s)===acad){ var c=clsOf(s); if(!seen[c]){ seen[c]=1; list.push(c); } } }); list.sort(function(a,b){ return a.localeCompare(b,'ko'); }); }
+    $('clsSel').innerHTML='<option value="">반 선택…</option>'+list.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+    buildStu();
+  }
+  function buildStu(){
+    var acad=$('acadSel').value, cls=$('clsSel').value;
+    var list=(acad&&cls)?students.filter(function(s){ return acadOf(s)===acad && clsOf(s)===cls; }):[];
+    list.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ko'); });
+    $('stuSel').innerHTML='<option value="">'+(acad&&cls?'학생 선택…':'학원·반을 먼저 고르세요')+'</option>'+
+      list.map(function(s){ var t=(s.grade?(' · '+esc(s.grade)):''); return '<option value="'+esc(s.name)+'">'+esc(s.name)+t+'</option>'; }).join('');
+  }
+  function onAcad(){ buildCls(); resetPick(); }
+  function onCls(){ buildStu(); resetPick(); }
+  function resetPick(){ curName=''; editingId=null; $('panel').innerHTML=''; }
   function onPick(){ curName=$('stuSel').value; editingId=null; if(curName) loadScores(curName); else $('panel').innerHTML=''; }
 
   async function loadScores(name){
