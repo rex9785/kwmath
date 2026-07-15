@@ -2134,6 +2134,7 @@
           ${s.dreamUniv ? '<br>🎓 '+esc(s.dreamUniv) : ''}
           ${s.weakness ? '<br>🎯 취약: '+esc(s.weakness) : ''}
           ${s.availableDays && s.availableDays.length ? '<br>📅 등원 가능: '+esc(s.availableDays.join(', ')) : ''}
+          ${s.referral ? '<br>💡 알게 된 계기: '+esc(s.referral)+(s.referralDetail ? ' — '+esc(s.referralDetail) : '') : ''}
           ${s.notes ? '<br><span style="background:#FFE8A8;color:#854F0B;padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">'+esc(s.notes)+'</span>' : ''}
         </div>
       </div>`;

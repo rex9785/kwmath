@@ -39,6 +39,8 @@ function rowToStudent(r) {
     dreamUniv: r.target_univ || '',
     availableDays: days,
     notes: r.notes || '',
+    referral: r.referral || '',
+    referralDetail: r.referral_detail || '',
     approvalStatus: r.approval_status || '',
     mathPlatName: r.mathflat_name || '',
     createdAt: r.created_at || '',
@@ -185,6 +187,11 @@ export async function createStudent(env, data) {
     approval_status: data.approvalStatus || '대기중',
     mathflat_name: data.mathPlatName || '',
   };
+  // 유입경로(2026-07) — 전달된 경우에만 컬럼 포함(다른 호출자는 마이그레이션 의존 없음)
+  if (data.referral !== undefined) {
+    cols.referral = data.referral || '';
+    cols.referral_detail = data.referralDetail || '';
+  }
   const keys = Object.keys(cols);
   const sql = 'INSERT INTO students (' + keys.join(',') + ') VALUES (' + keys.map(() => '?').join(',') + ')';
   try {

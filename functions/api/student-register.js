@@ -47,7 +47,7 @@ export async function onRequest(context) {
     goals, level, classCode,
     mathMockGrade, mathMockScore, korMockGrade, engMockGrade,
     schoolMathGrade, advanceProgress, weakness, dreamUniv, availableDays,
-    notes,
+    notes, referral, referralDetail,
   } = body;
 
   if (!name || !grade) return Response.json({ error: '이름과 학년은 필수입니다.' }, { status: 400 });
@@ -88,6 +88,14 @@ export async function onRequest(context) {
   const daysArray  = Array.isArray(availableDays) ? availableDays : [];
   const personalKey = generateKey();
 
+  // 유입경로(선택) — 이름과 동일 살균(저장형 XSS 방지)
+  const safeReferral = String(referral || '').replace(/[<>"']/g, '').trim().slice(0, 40);
+  const safeReferralDetail = String(referralDetail || '').replace(/[<>"']/g, '').trim().slice(0, 60);
+
+  // 유입경로 컬럼(2026-07 추가) — 기존 DB에 없으면 생성(멱등, 이미 있으면 조용히 실패)
+  try { await env.DB.prepare('ALTER TABLE students ADD COLUMN referral TEXT').run(); } catch (_) {}
+  try { await env.DB.prepare('ALTER TABLE students ADD COLUMN referral_detail TEXT').run(); } catch (_) {}
+
   const r = await createStudent(env, {
     name: safeName, school, grade,
     parentPhone4: phone4,
@@ -102,6 +110,7 @@ export async function onRequest(context) {
     schoolMathGrade, advanceProgress,
     availableDays: daysArray,
     weakness, dreamUniv, notes,
+    referral: safeReferral, referralDetail: safeReferralDetail,
     personalKey,
     approvalStatus: '대기중',
   });

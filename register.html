@@ -228,6 +228,25 @@
       <div class="form-section">
         <div class="form-section-title">하고 싶은 말</div>
         <div class="form-row">
+          <label>💡 저를 어떻게 알게 되셨나요? (선택)</label>
+          <select id="referral" onchange="onReferralChange()">
+            <option value="">선택 안 함</option>
+            <option value="친구·지인 추천">친구·지인 추천</option>
+            <option value="형제·자매가 다님(다녔음)">형제·자매가 다님(다녔음)</option>
+            <option value="인스타그램">인스타그램</option>
+            <option value="유튜브">유튜브</option>
+            <option value="네이버 검색·블로그·지도">네이버 검색·블로그·지도</option>
+            <option value="관우T 홈페이지(kwmath.co.kr)">관우T 홈페이지(kwmath.co.kr)</option>
+            <option value="학원 홈페이지·학원에서 안내받음">학원 홈페이지·학원에서 안내받음</option>
+            <option value="전단지·현수막">전단지·현수막</option>
+            <option value="기타">기타 (직접 입력)</option>
+          </select>
+        </div>
+        <div class="form-row" id="referralDetailRow" style="display:none;">
+          <label id="referralDetailLabel">추천해 준 친구/지인 이름 (선택 — 안 적어도 됩니다)</label>
+          <input id="referralDetail" type="text" placeholder="예: 김철수">
+        </div>
+        <div class="form-row">
           <label>특이사항 / 요청사항 (선택)</label>
           <textarea id="notes" placeholder="수업에서 특별히 원하는 것, 목표, 알아두면 좋을 점 등 자유롭게 적어주세요."></textarea>
         </div>
@@ -315,6 +334,26 @@
     return [].slice.call(document.querySelectorAll('#' + groupId + ' .check-item.checked input')).map(function(i){ return i.value; });
   }
 
+  // 유입경로: 친구추천/기타 선택 시에만 상세 입력칸 표시 (입력은 선택사항)
+  function onReferralChange() {
+    const v = document.getElementById('referral').value;
+    const row = document.getElementById('referralDetailRow');
+    const label = document.getElementById('referralDetailLabel');
+    const input = document.getElementById('referralDetail');
+    if (v === '친구·지인 추천') {
+      row.style.display = '';
+      label.textContent = '추천해 준 친구/지인 이름 (선택 — 안 적어도 됩니다)';
+      input.placeholder = '예: 김철수';
+    } else if (v === '기타') {
+      row.style.display = '';
+      label.textContent = '어떻게 알게 되셨는지 적어주세요 (선택)';
+      input.placeholder = '예: 지역 카페, 지인 소개 등';
+    } else {
+      row.style.display = 'none';
+      input.value = '';
+    }
+  }
+
   async function submitForm() {
     const name           = document.getElementById('name').value.trim();
     const grade          = document.getElementById('grade').value;
@@ -340,6 +379,8 @@
     const dreamUniv      = document.getElementById('dreamUniv').value.trim();
     const availableDays  = getCheckedValues('dayGroup');
     const notes          = document.getElementById('notes').value.trim();
+    const referral       = document.getElementById('referral').value;
+    const referralDetail = document.getElementById('referralDetail').value.trim();
 
     document.getElementById('errMsg').style.display = 'none';
 
@@ -382,7 +423,8 @@
           korMockGrade: korMockGrade, engMockGrade: engMockGrade,
           schoolMathGrade: schoolMathGrade, advanceProgress: advanceProgress,
           weakness: weakness, dreamUniv: dreamUniv, availableDays: availableDays,
-          notes: notes
+          notes: notes,
+          referral: referral, referralDetail: referralDetail
         })
       });
       const data = await res.json();
