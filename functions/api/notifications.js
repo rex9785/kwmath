@@ -22,6 +22,7 @@ import { safeError } from './_errors.js';
 import {
   createNotification, listNotifications, countUnread,
   markRead, markAllRead, listNotificationsByStudentId,
+  listRecentNotificationsAdmin, deleteNotifications,
 } from './_notifications.js';
 
 // 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음). (scores.js와 동일 패턴)
@@ -59,6 +60,13 @@ export async function onRequest(context) {
     // ── GET: 목록 ──
     if (request.method === 'GET') {
       if (isAdmin) {
+        // 관리자 "보낸 알림함": 최근 나간 알림 전체(학생 이름 포함) — 회수(삭제)용 목록. 원장 전용.
+        if (url.searchParams.get('recent')) {
+          const academy = await staffScopeAcademy(env, request);   // null=원장
+          if (academy !== null) return Response.json({ error: '보낸 알림함은 원장만 볼 수 있어요.' }, { status: 403 });
+          const notifications = await listRecentNotificationsAdmin(env, url.searchParams.get('limit'));
+          return Response.json({ notifications });
+        }
         // 관리자: 특정 학생에게 나간 알림 조회 (조교는 자기 학원 학생만)
         const name = (url.searchParams.get('name') || '').trim();
         if (!name) return Response.json({ error: 'name 필수' }, { status: 400 });
@@ -211,6 +219,22 @@ export async function onRequest(context) {
         return Response.json(res);
       }
       return Response.json({ error: '지원하지 않는 action 입니다.' }, { status: 400 });
+    }
+
+    // ── DELETE: 알림 회수(원장 전용) — 잘못 보낸 알림을 학부모/학생 알림함에서 삭제 ──
+    //   body { ids: ['..'] } 또는 { id: '..' }. 알림함에서는 사라지지만,
+    //   ⚠️ 이미 폰에 도착한 푸시 배너까지 되돌리진 못함(웹푸시 한계) — UI에도 같은 안내.
+    if (request.method === 'DELETE') {
+      if (!isAdmin) return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
+      const academy = await staffScopeAcademy(env, request);      // null=원장
+      if (academy !== null) return Response.json({ error: '알림 회수는 원장만 할 수 있어요.' }, { status: 403 });
+      let body = {};
+      try { body = await request.json(); } catch (_) {}
+      const ids = Array.isArray(body.ids) ? body.ids : (body.id ? [body.id] : []);
+      if (!ids.length) return Response.json({ error: '회수할 알림을 선택해주세요.' }, { status: 400 });
+      const res = await deleteNotifications(env, ids);
+      if (!res.ok) return Response.json({ error: res.error || '회수에 실패했습니다.' }, { status: 500 });
+      return Response.json({ ok: true, deleted: res.deleted });
     }
 
     return Response.json({ error: 'Method Not Allowed' }, { status: 405 });

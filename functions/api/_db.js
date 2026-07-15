@@ -258,6 +258,18 @@ export async function getReportsForStudent(env, opts) {
   return (results || []).map(rowToReport);
 }
 
+// 같은 학생+같은 수업날짜의 기존 리포트 찾기 (재업로드 중복 방지용). 없으면 null.
+//   ⚠️ 리포트는 아직 name-key(MathOS가 이름+날짜로 올림) — 동일 이름 재업로드가 대상이므로 이름 기준이 맞음.
+export async function getReportByStudentAndDate(env, studentName, classDate) {
+  if (!studentName || !classDate) return null;
+  try {
+    const r = await env.DB.prepare(
+      'SELECT id FROM reports WHERE student_name=? AND class_date=? ORDER BY id LIMIT 1'
+    ).bind(studentName, classDate).first();
+    return r || null;
+  } catch (_) { return null; }
+}
+
 export async function createReport(env, data) {
   const title = data.title || ((data.studentName || '') + ' - ' + (data.date || '') + ' 수업 리포트');
   try {

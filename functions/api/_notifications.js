@@ -139,3 +139,34 @@ export async function markAllRead(env, scope) {
 export async function listNotificationsByStudentId(env, studentId, limit) {
   return listNotifications(env, [studentId], limit);
 }
+
+// ── 관리자 "보낸 알림함": 전체 최근 알림 + 학생 이름(LEFT JOIN) ── (2026-07-16 알림 회수 기능)
+//   원장이 최근 보낸 알림을 훑고 잘못 보낸 것을 회수(삭제)할 때 사용. limit 기본 100(최대 300).
+export async function listRecentNotificationsAdmin(env, limit) {
+  await ensureNotifications(env);
+  const lim = Math.min(Math.max(Number(limit) || 100, 1), 300);
+  const { results } = await env.DB.prepare(
+    'SELECT n.*, s.name AS student_name FROM notifications n ' +
+    'LEFT JOIN students s ON s.id = n.student_id ' +
+    'ORDER BY n.created_at DESC LIMIT ' + lim
+  ).all();
+  return (results || []).map(r => ({
+    ...rowToNotif(r),
+    studentName: r.student_name || '',           // 퇴원생 등 매칭 안 되면 빈 문자열(화면은 id 표시)
+    audience: r.audience || 'all',
+  }));
+}
+
+// ── 알림 회수(삭제): id 목록으로 영구 삭제. 반환 deleted 수 ──
+//   알림함(인박스)에서 사라짐. ⚠️ 이미 폰에 도착한 푸시 배너까지 되돌리진 못함(웹푸시 한계).
+export async function deleteNotifications(env, ids) {
+  await ensureNotifications(env);
+  const list = (Array.isArray(ids) ? ids : [ids]).map(v => String(v == null ? '' : v).trim()).filter(Boolean);
+  if (!list.length) return { ok: true, deleted: 0 };
+  try {
+    const res = await env.DB.prepare(
+      'DELETE FROM notifications WHERE id IN (' + list.map(() => '?').join(',') + ')'
+    ).bind(...list).run();
+    return { ok: true, deleted: (res.meta && res.meta.changes) || 0 };
+  } catch (e) { return { ok: false, error: e.message }; }
+}

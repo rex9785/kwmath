@@ -39,6 +39,17 @@
   .result{ margin-top:12px; border-radius:12px; padding:14px 16px; font-size:0.9rem; line-height:1.5; }
   .result.ok{ background:var(--primary-light); color:var(--primary); border:1px solid var(--border); }
   .result.err{ background:#fdecec; color:#c0392b; border:1px solid #f5c6c6; }
+  /* 보낸 알림 관리(회수) */
+  .sentList{ display:flex; flex-direction:column; gap:6px; max-height:420px; overflow-y:auto; padding:2px; }
+  .ntItem{ display:flex; align-items:flex-start; gap:9px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; cursor:pointer; background:#fff; }
+  .ntItem input{ margin:3px 0 0; flex-shrink:0; }
+  .ntMain{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .ntTop{ font-size:0.76rem; color:var(--muted); }
+  .ntTop b{ color:var(--ink); font-size:0.84rem; }
+  .ntTitle{ font-size:0.86rem; font-weight:700; }
+  .ntBody{ font-size:0.8rem; color:var(--muted); line-height:1.45; word-break:break-all; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .rd{ color:#2e7d32; } .unrd{ color:#c0392b; }
+  .mini.danger{ background:#c0392b; }
 </style>
 </head>
 <body>
@@ -92,6 +103,21 @@
       <button id="sendBtn" onclick="doSend()">보내기</button>
     </div>
     <div id="result" class="result" style="display:none;"></div>
+
+    <div class="field" id="sentBox" style="margin-top:22px;">
+      <div class="stHead">
+        <label style="margin:0;">📬 보낸 알림 관리 <span id="ntCount" class="cnt"></span></label>
+        <span style="display:flex;gap:6px;">
+          <button type="button" class="mini" onclick="loadSent()">새로고침</button>
+          <button type="button" class="mini danger" id="recallBtn" onclick="recallSelected()">선택 회수</button>
+        </span>
+      </div>
+      <div style="color:var(--muted);font-size:0.78rem;line-height:1.5;margin-bottom:8px;">
+        잘못 보낸 알림을 체크해 회수하면 학부모·학생 <b>알림함에서 삭제</b>됩니다.
+        (결석·숙제·클리닉 자동 알림 포함 · 이미 폰에 도착한 푸시 배너까지는 되돌릴 수 없어요)
+      </div>
+      <div id="sentList" class="sentList"><div class="empty">불러오는 중…</div></div>
+    </div>
   </div>
 </div>
 
@@ -135,6 +161,7 @@
     roster = d.filter(function(s){ var st = (s.approvalStatus || ''); return st === '' || st === '승인'; });
     show('loading', false); show('form', true);
     buildAcademies(); onAcademyChange();
+    loadSent();   // 보낸 알림함도 같이 로드
   }
 
   function academyLabel(a){ return a || '(학원 미지정)'; }
@@ -229,6 +256,65 @@
     }
     showResult(true, msg);
     $('bodyText').value = ''; $('title').value = '';   // 대상 선택은 유지, 내용만 비움
+    loadSent();   // 방금 보낸 알림이 보낸 알림함에 뜨도록
+  }
+
+  // ══════════ 보낸 알림 관리(회수) — 2026-07-16 ══════════
+  var sent = [];   // 최근 보낸 알림(전체 학생, 자동알림 포함)
+
+  function fmtKST(iso){
+    var t = Date.parse(iso || ''); if (!t) return '';
+    var d = new Date(t + 9 * 3600 * 1000);   // KST 표시
+    function p(n){ return (n < 10 ? '0' : '') + n; }
+    return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+  }
+  function ntAudLabel(v){ return v === 'parent' ? '학부모' : v === 'student' ? '학생' : '학부모+학생'; }
+
+  async function loadSent(){
+    var headers = {}; if (token) headers['Authorization'] = 'Bearer ' + token;
+    var r, d;
+    try {
+      r = await fetch('/api/notifications?recent=1&limit=100', { headers: headers, credentials: 'same-origin' });
+      d = await r.json().catch(function(){ return null; });
+    } catch (e) { $('sentList').innerHTML = '<div class="empty">네트워크 오류로 불러오지 못했습니다.</div>'; return; }
+    if (r.status === 403) { show('sentBox', false); return; }   // 원장 전용 — 조교면 섹션 숨김
+    sent = (d && d.notifications) || [];
+    renderSent();
+  }
+
+  function renderSent(){
+    $('ntCount').textContent = sent.length ? '(최근 ' + sent.length + '건)' : '';
+    if (!sent.length){ $('sentList').innerHTML = '<div class="empty">보낸 알림이 없습니다.</div>'; return; }
+    var html = '';
+    sent.forEach(function(n){
+      var who = n.studentName || String(n.studentId || '');
+      html += '<label class="ntItem"><input type="checkbox" class="ntChk" value="' + esc(n.id) + '">'
+        + '<span class="ntMain">'
+        + '<span class="ntTop"><b>' + esc(who) + '</b> · ' + esc(ntAudLabel(n.audience)) + ' · ' + esc(fmtKST(n.createdAt))
+        + (n.read ? ' · <span class="rd">읽음</span>' : ' · <span class="unrd">안읽음</span>') + '</span>'
+        + '<span class="ntTitle">' + esc(n.title) + '</span>'
+        + '<span class="ntBody">' + esc(n.body) + '</span>'
+        + '</span></label>';
+    });
+    $('sentList').innerHTML = html;
+  }
+
+  async function recallSelected(){
+    var ids = Array.prototype.slice.call(document.querySelectorAll('.ntChk:checked')).map(function(c){ return c.value; });
+    if (!ids.length){ alert('회수할 알림을 선택해주세요.'); return; }
+    if (!confirm('선택한 알림 ' + ids.length + '건을 회수(삭제)합니다.\n알림함에서 사라지지만, 이미 도착한 푸시 배너는 되돌릴 수 없어요.\n\n회수할까요?')) return;
+    var btn = $('recallBtn'); btn.disabled = true;
+    var headers = { 'Content-Type': 'application/json' }; if (token) headers['Authorization'] = 'Bearer ' + token;
+    var r, d;
+    try {
+      r = await fetch('/api/notifications', { method: 'DELETE', headers: headers, credentials: 'same-origin',
+        body: JSON.stringify({ ids: ids }) });
+      d = await r.json().catch(function(){ return null; });
+    } catch (e) { btn.disabled = false; alert('네트워크 오류로 회수하지 못했습니다.'); return; }
+    btn.disabled = false;
+    if (!d || !d.ok){ alert((d && d.error) || '회수에 실패했습니다.'); return; }
+    alert(d.deleted + '건 회수했습니다.');
+    loadSent();
   }
 
   load();

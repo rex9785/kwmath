@@ -5,7 +5,7 @@
 //   DELETE { pageId }                                                          — 삭제
 // pageId는 문자열로 와도 숫자로 변환해서 D1 조회.
 
-import { getStudentByName, createReport, updateReport, deleteReport } from './_db.js';
+import { getStudentByName, createReport, updateReport, deleteReport, getReportByStudentAndDate } from './_db.js';
 import { safeError } from './_errors.js';
 
 // 학생 이름 → 학부모 휴대폰 (푸쉬 발송용, D1)
@@ -29,6 +29,16 @@ export async function onRequest({ request, env }) {
     const { studentName, phone4, date, school, content, homework, notes } = body;
     if (!studentName || !date)
       return Response.json({ error: '학생 이름과 수업 날짜는 필수입니다.' }, { status: 400 });
+
+    // ── 재업로드 중복 가드: 같은 학생+같은 날짜 리포트가 이미 있으면 새로 쌓지 않고 그 행을 갱신 ──
+    //    (7/01 실사고: MathOS에서 두 번 올려 학생당 2건 누적 → 수동 삭제. 이제 두 번 눌러도 최신 내용 1건.)
+    //    푸시도 재발송 안 함 — 학부모는 첫 업로드 때 이미 받았음.
+    const dup = await getReportByStudentAndDate(env, studentName, date);
+    if (dup && dup.id != null) {
+      const u = await updateReport(env, dup.id, { date, school, content, homework, notes });
+      if (!u.ok) return safeError(u.error || 'updateReport(dedup) failed', env, { message: '리포트 저장에 실패했습니다.' });
+      return Response.json({ ok: true, id: String(dup.id), deduped: true });
+    }
 
     const r = await createReport(env, { studentName, phone4, date, school, content, homework, notes });
     if (!r.ok) return safeError(r.error || 'createReport failed', env, { message: '리포트 저장에 실패했습니다.' });
