@@ -2826,10 +2826,10 @@
         }
       } else {
         // ── 새 기록 또는 변경 — POST ──
-        // 결석이면 학부모 푸시 여부를 원장에게 물어봄 (확인=보냄 / 취소=안 보냄). 다른 상태는 원래 학부모 푸시가 안 나감.
+        // 결석·지각·병결이면 학부모 푸시 여부를 원장에게 물어봄 (확인=보냄 / 취소=안 보냄). 출석·공결은 학부모 푸시 없음.
         let notifyParent = true;
-        if (status === '결석') {
-          notifyParent = confirm('[' + name + '] 결석 처리 — 학부모님께 결석 알림(푸시)을 보낼까요?\n\n확인 = 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 결석 기록은 저장됩니다)');
+        if (status === '결석' || status === '지각' || status === '병결') {
+          notifyParent = confirm('[' + name + '] ' + status + ' 처리 — 학부모님께 ' + status + ' 알림(푸시)을 보낼까요?\n\n확인 = 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 ' + status + ' 기록은 저장됩니다)');
         }
         const res = await fetch('/api/attendance', {
           method: 'POST',
@@ -2841,7 +2841,7 @@
           showToast('❌ ' + (data.error || '실패'));
           return;
         }
-        showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')' + (status === '결석' ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : ''));
+        showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')' + ((status === '결석' || status === '지각' || status === '병결') ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : ''));
         // 같은 그룹 내 다른 버튼 강조 제거 후, 누른 버튼만 강조
         if (btn) {
           const parent = btn.parentElement;
@@ -3024,10 +3024,10 @@
     if (!targets.length) { showToast('해당 반에 학생이 없습니다'); return; }
     const date = qaDate();
     if (!confirm(acad + ' / ' + cls + ' (' + targets.length + '명)을 모두 [' + status + '] 처리할까요?\n' + date + ' 날짜로 기록됩니다.')) return;
-    // 결석이면 학부모 푸시 여부를 한 번 더 물어봄 (확인=전원 학부모에게 보냄 / 취소=안 보냄). 다른 상태는 원래 학부모 푸시가 안 나감.
+    // 결석·지각·병결이면 학부모 푸시 여부를 한 번 더 물어봄 (확인=전원 학부모에게 보냄 / 취소=안 보냄). 출석·공결은 학부모 푸시 없음.
     let notifyParent = true;
-    if (status === '결석') {
-      notifyParent = confirm('결석 처리한 ' + targets.length + '명의 학부모님께 결석 알림(푸시)을 보낼까요?\n\n확인 = 전원 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 결석 기록은 저장됩니다)');
+    if (status === '결석' || status === '지각' || status === '병결') {
+      notifyParent = confirm(status + ' 처리한 ' + targets.length + '명의 학부모님께 ' + status + ' 알림(푸시)을 보낼까요?\n\n확인 = 전원 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 ' + status + ' 기록은 저장됩니다)');
     }
     let okN = 0, failN = 0;
     for (const s of targets) {
@@ -3041,7 +3041,7 @@
         if (res.ok && data.ok) okN++; else failN++;
       } catch { failN++; }
     }
-    showToast('✅ 일괄 ' + status + ' 완료 — 성공 ' + okN + (failN?(' / 실패 '+failN):'') + (status === '결석' ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : ''));
+    showToast('✅ 일괄 ' + status + ' 완료 — 성공 ' + okN + (failN?(' / 실패 '+failN):'') + ((status === '결석' || status === '지각' || status === '병결') ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : ''));
     updateQaSummary();
   }
 

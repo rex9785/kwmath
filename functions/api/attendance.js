@@ -27,8 +27,10 @@ async function staffNameScope(env, request) {
   return new Set(roster.map(s => s.name));
 }
 
-// 출결 저장 후 자동 알림: 결석 또는 (지각 아닌) 숙제 25%↓ → 알림함 적립 + 학부모 푸시(학생 제외).
-//   지각은 제외(관우T 확정: "결석했을 때만"). 결석이면 숙제알림은 억제('해왔을 때'가 아님).
+// 출결 저장 후 자동 알림: 결석·지각·병결 또는 숙제 25%↓ → 알림함 적립 + 학부모 푸시(학생 제외).
+//   지각·병결도 발송(2026-07-16 관우T 확정: "지각 병결 학부모한테 보내 — 나한테 물어보고 보내는 걸로"
+//   → 결석과 동일하게 원장 확인창(notifyParent) 경유). 공결은 공식 인정이라 제외.
+//   결석이면 숙제알림은 억제('해왔을 때'가 아님).
 //   audience:'parent' — 보고성 알림이라 학부모만. 학생 본인은 푸시·알림함 모두 안 받음(관우T 확정).
 //   best-effort — 알림/푸시 실패가 출결 저장을 절대 막지 않는다(호출부에서 waitUntil로 분리).
 async function notifyOnAttendance(env, st, date, updates, opts = {}) {
@@ -41,6 +43,24 @@ async function notifyOnAttendance(env, st, date, updates, opts = {}) {
       title: '🔴 결석 안내',
       body: st.name + ' 학생이 ' + date + ' 결석했습니다.',
       dedupKey: 'absence:' + st.id + ':' + date,
+      audience: 'parent',
+    });
+  }
+  if (updates.status === '지각' && opts.notifyParent !== false) {
+    events.push({
+      type: 'late',
+      title: '🟡 지각 안내',
+      body: st.name + ' 학생이 ' + date + ' 지각했습니다.',
+      dedupKey: 'late:' + st.id + ':' + date,
+      audience: 'parent',
+    });
+  }
+  if (updates.status === '병결' && opts.notifyParent !== false) {
+    events.push({
+      type: 'sick',
+      title: '🩺 병결 안내',
+      body: st.name + ' 학생이 ' + date + ' 병결 처리되었습니다.',
+      dedupKey: 'sick:' + st.id + ':' + date,
       audience: 'parent',
     });
   }

@@ -8,6 +8,7 @@ import { safeError } from './_errors.js';
 
 import { dispatchNoticePush } from './notices-write.js';
 import { runPayrollReminder } from './payroll-reminder.js';
+import { runAttendanceReminder } from './admin-reminders.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 
@@ -41,6 +42,12 @@ export async function onRequest({ request, env, waitUntil }) {
   try {
     const prP = Promise.resolve(runPayrollReminder(env)).catch(() => {});
     if (typeof waitUntil === 'function') waitUntil(prP); else await prP;
+  } catch (_) {}
+
+  // 출결 미입력 감지도 같은 틱에 얹는다(수업 시작+30분·반별 하루 1회 게이트는 함수 내부가 전담).
+  try {
+    const arP = Promise.resolve(runAttendanceReminder(env)).catch(() => {});
+    if (typeof waitUntil === 'function') waitUntil(arP); else await arP;
   } catch (_) {}
 
   // 침묵 시간(밤 11시 ~ 아침 7시 KST)이면 (공지) 발송 보류
