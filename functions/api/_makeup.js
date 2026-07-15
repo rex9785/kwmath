@@ -14,6 +14,14 @@ import { getAttendance } from './_db.js';
 export const BLOCK_STATUS = new Set(['결석', '병결', '공결']);
 export function isBlockStatus(s) { return BLOCK_STATUS.has(s); }
 
+// ── student_id 정규화 ────────────────────────────────────────
+//   D1은 JS 숫자를 REAL로 바인딩 → student_id(TEXT affinity) 칸에 "24.0"으로 저장되는 과거 버그가 있었다.
+//   읽을 땐 숫자 24 → TEXT affinity가 "24"로 강제 → "24.0"과 문자열 불일치 → 승인해도 안 열림.
+//   normSid: 어떤 형태든 표준 문자열("24")로. sidPair: 조회 시 신·구("24","24.0") 둘 다 매칭.
+//   모든 write는 표준형("24")으로 저장하고, UPDATE는 student_id도 표준형으로 덮어 과거 "24.0" 행을 수렴시킨다.
+function normSid(id) { return String(id == null ? '' : id).trim().replace(/\.0+$/, ''); }
+function sidPair(id) { const s = normSid(id); return [s, s + '.0']; }
+
 // 파일명 등 텍스트에서 6자리 YYMMDD(앞뒤로 다른 숫자가 붙지 않은 독립 6자리)를 찾아 'YYYY-MM-DD'로 변환.
 //   관우T 규칙: 자료 이름에 "260714 수업자료"처럼 6자리 숫자로 날짜를 적고, 6자리로만 판단.
 //   여러 숫자가 섞여도 유효한 월(01~12)·일(01~31)인 첫 6자리만 날짜로 인정. 없으면 null.
@@ -45,9 +53,10 @@ async function ensure(env) {
 // 특정 학생의 신청·해제 목록 (video/자료 잠금 판정용). [{date, status}]
 export async function listGrantsForStudent(env, studentId) {
   await ensure(env);
+  const [a, b] = sidPair(studentId);   // 신·구("24","24.0") 둘 다 매칭
   const { results } = await env.DB.prepare(
-    'SELECT date, status FROM makeup_grants WHERE student_id = ?'
-  ).bind(studentId).all();
+    'SELECT date, status FROM makeup_grants WHERE student_id = ? OR student_id = ?'
+  ).bind(a, b).all();
   return results || [];
 }
 
@@ -56,13 +65,14 @@ export async function requestMakeup(env, studentId, date) {
   await ensure(env);
   try {
     const now = new Date().toISOString();
+    const [a, b] = sidPair(studentId);
     const existing = await env.DB.prepare(
-      'SELECT status FROM makeup_grants WHERE student_id=? AND date=?'
-    ).bind(studentId, date).first();
+      'SELECT status FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
+    ).bind(a, b, date).first();
     if (existing) return { ok: true, status: existing.status };  // approved/requested 유지
     await env.DB.prepare(
       'INSERT INTO makeup_grants (student_id, date, status, requested_at) VALUES (?,?,?,?)'
-    ).bind(studentId, date, 'requested', now).run();
+    ).bind(a, date, 'requested', now).run();   // 표준형("24")으로 저장
     return { ok: true, status: 'requested', created: true };
   } catch (e) { return { ok: false, error: e.message }; }
 }
@@ -72,17 +82,19 @@ export async function approveMakeup(env, studentId, date, approvedBy) {
   await ensure(env);
   try {
     const now = new Date().toISOString();
+    const [a, b] = sidPair(studentId);
     const existing = await env.DB.prepare(
-      'SELECT student_id FROM makeup_grants WHERE student_id=? AND date=?'
-    ).bind(studentId, date).first();
+      'SELECT student_id FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
+    ).bind(a, b, date).first();
     if (existing) {
+      // student_id도 표준형("24")으로 덮어 과거 "24.0" 행을 수렴시킨다.
       await env.DB.prepare(
-        'UPDATE makeup_grants SET status=?, approved_at=?, approved_by=? WHERE student_id=? AND date=?'
-      ).bind('approved', now, approvedBy || '', studentId, date).run();
+        'UPDATE makeup_grants SET student_id=?, status=?, approved_at=?, approved_by=? WHERE (student_id=? OR student_id=?) AND date=?'
+      ).bind(a, 'approved', now, approvedBy || '', a, b, date).run();
     } else {
       await env.DB.prepare(
         'INSERT INTO makeup_grants (student_id, date, status, requested_at, approved_at, approved_by) VALUES (?,?,?,?,?,?)'
-      ).bind(studentId, date, 'approved', now, now, approvedBy || '').run();
+      ).bind(a, date, 'approved', now, now, approvedBy || '').run();
     }
     return { ok: true, status: 'approved' };
   } catch (e) { return { ok: false, error: e.message }; }
@@ -92,9 +104,10 @@ export async function approveMakeup(env, studentId, date, approvedBy) {
 export async function revokeMakeup(env, studentId, date) {
   await ensure(env);
   try {
+    const [a, b] = sidPair(studentId);   // 신·구("24","24.0") 둘 다 삭제
     const res = await env.DB.prepare(
-      'DELETE FROM makeup_grants WHERE student_id=? AND date=?'
-    ).bind(studentId, date).run();
+      'DELETE FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
+    ).bind(a, b, date).run();
     return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }
