@@ -460,6 +460,8 @@
           <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="refreshQuickAttendanceSummary()">🔄 현황 새로고침</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <input type="date" id="qaDate" onchange="onQaDateChange()" title="이 날짜로 출·지·결·숙제가 기록됩니다" style="padding:8px 12px;border:1.5px solid var(--primary);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;color:var(--primary);font-weight:700;">
+          <button class="del-btn" style="border-color:var(--border);color:var(--text-light);padding:6px 10px;" onclick="qaResetToday()" title="오늘 날짜로">오늘</button>
           <select id="qaAcademy" onchange="onQaAcademyChange()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
             <option value="">학원 선택</option>
           </select>
@@ -2796,8 +2798,7 @@
   // 다른 상태 누르면 → POST (덮어쓰기)
   async function markAttendance(name, status, btn) {
     if (!name) return;
-    const today = new Date();
-    const date = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const date = qaDate();   // 빠른 출석 패널에서 선택한 날짜 (미선택=오늘)
 
     // 이미 선택된 상태인지 확인 (토글 해제 모드 판정)
     const isAlreadySelected = btn && btn.classList.contains('att-selected');
@@ -2916,6 +2917,28 @@
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
+  // 빠른 출석 패널이 "작업 중인 날짜" — 선택 안 됐으면 오늘. 출·지·결·숙제 기록/조회 모두 이 날짜 기준.
+  function qaDate() {
+    const el = document.getElementById('qaDate');
+    return (el && el.value) ? el.value : todayStr();
+  }
+  function updateQaDateLabel() {
+    const dl = document.getElementById('qaDateLabel');
+    if (!dl) return;
+    const d = qaDate();
+    const isToday = (d === todayStr());
+    dl.textContent = d + (isToday ? ' (오늘)' : ' ⚠ 오늘 아님');
+    dl.style.color = isToday ? '' : '#B02347';
+  }
+  function onQaDateChange() {
+    updateQaDateLabel();
+    updateQaSummary();   // 요약 갱신 → 내부에서 renderAttendanceList() 호출 → 버튼 하이라이트도 선택 날짜로 재동기화
+  }
+  function qaResetToday() {
+    const el = document.getElementById('qaDate');
+    if (el) el.value = todayStr();
+    onQaDateChange();
+  }
   function populateQaAcademies() {
     const sel = document.getElementById('qaAcademy');
     if (!sel) return;
@@ -2923,8 +2946,9 @@
     const prev = sel.value;
     sel.innerHTML = '<option value="">학원 선택</option>' + acads.map(a => '<option value="' + a + '">' + a + '</option>').join('');
     if (prev && acads.includes(prev)) sel.value = prev;
-    const dl = document.getElementById('qaDateLabel');
-    if (dl) dl.textContent = todayStr();
+    const dInput = document.getElementById('qaDate');
+    if (dInput && !dInput.value) dInput.value = todayStr();
+    updateQaDateLabel();
     onQaAcademyChange();
   }
   function onQaAcademyChange() {
@@ -2951,7 +2975,7 @@
     const targets = (allStudents||[]).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
     if (!targets.length) { sumEl.innerHTML = '<span style="color:var(--text-light);">대상 학생 없음</span>'; return; }
     sumEl.innerHTML = '<span style="color:var(--text-light);">현황 조회 중... (' + targets.length + '명)</span>';
-    const date = todayStr();
+    const date = qaDate();
     let counts = { '출석':0, '지각':0, '결석':0, '병결':0, '공결':0, '미체크':0 };
     await Promise.all(targets.map(async (s) => {
       try {
@@ -2997,13 +3021,13 @@
     if (!acad || !cls) { showToast('학원과 반을 먼저 선택하세요'); return; }
     const targets = (allStudents||[]).filter(s => s.academy === acad && s.className === cls);
     if (!targets.length) { showToast('해당 반에 학생이 없습니다'); return; }
-    if (!confirm(acad + ' / ' + cls + ' (' + targets.length + '명)을 모두 [' + status + '] 처리할까요?\n오늘 날짜로 기록됩니다.')) return;
+    const date = qaDate();
+    if (!confirm(acad + ' / ' + cls + ' (' + targets.length + '명)을 모두 [' + status + '] 처리할까요?\n' + date + ' 날짜로 기록됩니다.')) return;
     // 결석이면 학부모 푸시 여부를 한 번 더 물어봄 (확인=전원 학부모에게 보냄 / 취소=안 보냄). 다른 상태는 원래 학부모 푸시가 안 나감.
     let notifyParent = true;
     if (status === '결석') {
       notifyParent = confirm('결석 처리한 ' + targets.length + '명의 학부모님께 결석 알림(푸시)을 보낼까요?\n\n확인 = 전원 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 결석 기록은 저장됩니다)');
     }
-    const date = todayStr();
     let okN = 0, failN = 0;
     for (const s of targets) {
       try {
@@ -3023,7 +3047,7 @@
   // ─── 숙제 완료율 (5단 버킷) ─────────────────
   async function markHomework(name, percent, btn) {
     if (!name) return;
-    const today = (function(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+    const today = qaDate();   // 빠른 출석 패널에서 선택한 날짜 (미선택=오늘)
     try {
       const res = await fetch('/api/attendance', {
         method: 'POST',
@@ -3045,7 +3069,7 @@
 
   async function syncTodayAttendanceMarks() {
     if (!Array.isArray(allStudents) || !allStudents.length) return;
-    const today = (function(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+    const today = qaDate();   // 선택한 날짜의 기록으로 버튼 하이라이트 (미선택=오늘)
     try {
       const res = await fetch('/api/attendance?all=1', {
         headers: { 'Authorization': 'Bearer ' + adminToken }
@@ -3204,7 +3228,7 @@
         <div class="week-study" data-student="${(s.name||'').replace(/"/g,'&quot;')}" style="font-size:0.78rem;color:var(--text-light);">📚 이번 주: <span class="ws-val">…</span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <span style="font-size:0.72rem;color:var(--text-light);margin-right:2px;">오늘:</span>
+        <span style="font-size:0.72rem;color:var(--text-light);margin-right:2px;">출결:</span>
         <button class="att-btn" data-s="출석" onclick="markAttendance('${nameEsc}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
         <button class="att-btn" data-s="지각" onclick="markAttendance('${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
         <button class="att-btn" data-s="결석" onclick="markAttendance('${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
