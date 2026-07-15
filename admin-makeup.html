@@ -79,6 +79,8 @@
       <h2>영상 열기·잠금 (학생·날짜별)</h2>
       <div class="hint">학생과 수업 날짜를 고르면 그 날짜 영상과 <b>지금 열림/잠김 상태</b>가 표시됩니다. 결석으로 잠긴 날은 여기서 바로 열거나 다시 잠글 수 있어요. (학생 인강 신청이 없어도 가능)</div>
       <div class="frm">
+        <div class="fld"><label>학원</label><select id="acadSel" onchange="onAcadChange()"></select></div>
+        <div class="fld"><label>반</label><select id="clsSel" onchange="onClsChange()"></select></div>
         <div class="fld"><label>학생</label><select id="stSel" onchange="loadStudentVideos()"></select></div>
         <div class="fld" style="flex:0 1 170px;"><label>수업 날짜</label><input type="date" id="dt" onchange="loadStudentVideos()"></div>
       </div>
@@ -124,20 +126,51 @@
     if (!Array.isArray(d)){ $('loading').textContent = '학생 목록을 불러오지 못했습니다.'; return; }
     roster = d.filter(function(s){ var st = (s.approvalStatus || ''); return st === '' || st === '승인'; })
              .sort(function(a, b){ return (a.name || '').localeCompare(b.name || '', 'ko'); });
-    buildStudentSelect();
+    buildAcademySelect();
     show('loading', false); show('main', true);
     loadGrants();
   }
 
-  function buildStudentSelect(){
-    var html = '<option value="">학생 선택…</option>';
-    roster.forEach(function(s){
-      var id = esc(String(s.id == null ? '' : s.id));
-      var meta = [s.academy || '', s.className || ''].filter(Boolean).join('·');
-      html += '<option value="' + id + '">' + esc(s.name || '') + (meta ? ' (' + esc(meta) + ')' : '') + '</option>';
-    });
-    $('stSel').innerHTML = html;
+  // 학원 → 반 → 학생 캐스케이드 (roster에서 파생). 다른 관리 화면과 동일한 분류 방식.
+  //   빈 학원/반은 '(미지정)'·'(반 없음)'으로 묶어 어떤 학생도 누락되지 않게 한다.
+  var ACAD_NONE = '(미지정)', CLS_NONE = '(반 없음)';
+  function acadOf(s){ return (String(s.academy || '').trim()) || ACAD_NONE; }
+  function clsOf(s){ return (String(s.className || '').trim()) || CLS_NONE; }
+
+  function buildAcademySelect(){
+    var seen = {}, list = [];
+    roster.forEach(function(s){ var a = acadOf(s); if (!seen[a]){ seen[a] = 1; list.push(a); } });
+    list.sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+    $('acadSel').innerHTML = '<option value="">학원 선택…</option>' +
+      list.map(function(a){ return '<option value="' + esc(a) + '">' + esc(a) + '</option>'; }).join('');
+    buildClassSelect();
   }
+
+  function buildClassSelect(){
+    var acad = $('acadSel').value;
+    var seen = {}, list = [];
+    if (acad){
+      roster.forEach(function(s){ if (acadOf(s) === acad){ var c = clsOf(s); if (!seen[c]){ seen[c] = 1; list.push(c); } } });
+      list.sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+    }
+    $('clsSel').innerHTML = '<option value="">반 선택…</option>' +
+      list.map(function(c){ return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
+    buildStudentSelect();
+  }
+
+  function buildStudentSelect(){
+    var acad = $('acadSel').value, cls = $('clsSel').value;
+    var list = (acad && cls)
+      ? roster.filter(function(s){ return acadOf(s) === acad && clsOf(s) === cls; })
+      : [];
+    list.sort(function(a, b){ return (a.name || '').localeCompare(b.name || '', 'ko'); });
+    $('stSel').innerHTML = '<option value="">' + (acad && cls ? '학생 선택…' : '학원·반을 먼저 고르세요') + '</option>' +
+      list.map(function(s){ return '<option value="' + esc(String(s.id == null ? '' : s.id)) + '">' + esc(s.name || '') + '</option>'; }).join('');
+  }
+
+  // 상위 선택이 바뀌면 하위를 다시 만들고, 학생이 리셋되므로 영상 영역도 안내문으로 되돌린다.
+  function onAcadChange(){ buildClassSelect(); loadStudentVideos(); }
+  function onClsChange(){ buildStudentSelect(); loadStudentVideos(); }
 
   function grantResult(ok, msg){ var el = $('grantResult'); el.style.display = ''; el.className = 'result ' + (ok ? 'ok' : 'err'); el.textContent = msg; }
 
