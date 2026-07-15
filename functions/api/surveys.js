@@ -673,7 +673,45 @@ export async function onRequest(context) {
         sets.push('updated_at=?'); vals.push(nowIso());
         vals.push(id);
         await env.DB.prepare('UPDATE surveys SET ' + sets.join(', ') + ' WHERE id=?').bind(...vals).run();
-        return jsonOk({ ok: true, id });
+
+        // ── 문항이 바뀐 퀴즈는 기존 응답 전체를 "가장 최근 문항" 기준으로 재채점 (2026-07-16 관우T 확정) ──
+        //   문항 수정 전 제출한 학생도 새 기준으로 점수 통일 — 성적 불일치 방지.
+        //   장문형 O·X 판정(manual)은 문항 id가 살아 있으면 유지, 삭제된 문항 것은 자동 무시.
+        let regraded = 0;
+        if (body.questions !== undefined) {
+          const s2 = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
+          if (s2 && s2.quiz === 1) {
+            const nq = parseQuestions(s2.questions);
+            const { results: resps } = await env.DB.prepare(
+              'SELECT * FROM survey_responses WHERE survey_id=?'
+            ).bind(id).all();
+            for (const r of (resps || [])) {
+              let answers = {}; try { answers = JSON.parse(r.answers || '{}') || {}; } catch (_) {}
+              let manual = {};  try { manual = JSON.parse(r.manual || '{}') || {}; } catch (_) {}
+              const graded = gradeAnswers(nq, answers);
+              let manualScore = 0;
+              for (const q of nq) {
+                if (q.type === 'long' && manual[q.id] === 1 && Number.isFinite(q.points)) manualScore += q.points;
+              }
+              const score = graded.score + manualScore;
+              try {
+                await env.DB.prepare('UPDATE survey_responses SET score=?, max_score=? WHERE id=?')
+                  .bind(score, graded.maxScore, r.id).run();
+                regraded++;
+              } catch (_) { continue; }
+              // 테스트 종류 퀴즈면 성적표(exam_scores)도 새 점수로 덮어씀(best-effort)
+              if (s2.test_kind && s2.anonymous !== 1 && r.respondent_name) {
+                const p = upsertTestScore(env, {
+                  survey: { id: s2.id, title: s2.title, testKind: s2.test_kind, anonymous: false },
+                  respondentName: r.respondent_name, score, maxScore: graded.maxScore,
+                });
+                if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
+                else if (p && typeof p.catch === 'function') p.catch(() => {});
+              }
+            }
+          }
+        }
+        return jsonOk({ ok: true, id, regraded });
       }
 
       // ── DELETE ?id=X&responseId=Y (응답 1건 삭제 = 재제출 허용) ──
