@@ -246,7 +246,7 @@
       if(s.description) h += '<div class="desc">' + esc(s.description) + '</div>';
       h += '<div class="sub"><span class="badge aud">' + esc(AUD_LABEL[s.audience]||'전체') + '</span> ';
       (s.audAcademy||[]).forEach(function(a){ if(a) h += '<span class="badge tgt">🏫 ' + esc(a) + '</span> '; });
-      (s.audClass||[]).forEach(function(c){ if(c) h += '<span class="badge tgt">' + esc(c) + '</span> '; });
+      (s.audClass||[]).forEach(function(c){ if(c){ var pi = c.indexOf('|'); h += '<span class="badge tgt">' + esc(pi >= 0 ? (c.slice(0,pi) + ' › ' + c.slice(pi+1)) : c) + '</span> '; } });
       if(s.quiz) h += '<span class="badge quiz">퀴즈</span> ';
       if(s.anonymous) h += '<span class="badge anon">익명</span> ';
       h += '· 질문 ' + (s.questions?s.questions.length:0) + '개 · 응답 <b>' + (s.responseCount||0) + '</b>명';
@@ -411,14 +411,17 @@
         if(cls.length){
           h += '<div style="padding-left:20px;display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;">';
           cls.forEach(function(cl){
-            var clChk = selC.indexOf(cl) >= 0 ? ' checked' : '';
-            h += '<label class="chk" style="font-weight:400;"><input type="checkbox" class="fTargetClass" value="' + escAttr(cl) + '"' + clChk + '> ' + esc(cl) + '</label>';
+            // 반 체크박스 값 = "학원|반" 쌍 — 다른 학원의 같은 이름 반과 안 섞이게 (2026-07-16)
+            var pair = ac + '|' + cl;
+            // 프리체크: 새 형식(쌍) 우선, 구형(반 이름만 저장된 옛 설문)도 체크 표시(하위호환)
+            var clChk = (selC.indexOf(pair) >= 0 || selC.indexOf(cl) >= 0) ? ' checked' : '';
+            h += '<label class="chk" style="font-weight:400;"><input type="checkbox" class="fTargetClass" value="' + escAttr(pair) + '"' + clChk + '> ' + esc(cl) + '</label>';
           });
           h += '</div>';
         }
         h += '</div>';
       });
-      h += '<div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">학원을 고르면 그 학원 학생만, 반을 고르면 그 반 학생만 대상이 됩니다. 아무것도 안 고르면 전체.</div>';
+      h += '<div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">학원을 고르면 그 학원 학생만, 반을 고르면 <b>그 학원의 그 반</b> 학생만 대상이 됩니다(같은 이름 반이 다른 학원에 있어도 안 섞여요). 아무것도 안 고르면 전체.</div>';
       wrap.innerHTML = h;
       wrap.dataset.loaded = '1';
     }).catch(function(){ wrap.innerHTML = '<span style="color:var(--muted);">학원·반 목록을 불러오지 못했어요. (전체 대상으로 저장됩니다)</span>'; wrap.dataset.loaded='1'; });

@@ -396,8 +396,12 @@ function cleanList(raw) {
 }
 
 // 로그인 응답자가 이 설문 대상인지 — 역할(all/student/parent) + 학원 + 반 매칭.
-//   학원/반 목록이 비어있으면 그 축은 제한 없음(전체). 지정돼 있으면 응답자의 학생 중
-//   하나라도 그 학원/반에 속하면 통과.
+//   학원/반 목록이 비어있으면 그 축은 제한 없음(전체).
+//   ⚠️ 2026-07-16 수정: 반 이름은 학원 간에 겹칠 수 있다(세정·대치 둘 다 "썸머 공통수학2반").
+//     · aud_class 항목은 이제 "학원|반" 쌍으로 저장(admin-surveys.html) — 그 학원의 그 반만 매칭.
+//       구형 항목(반 이름만, '|' 없음)은 종전대로 반 이름만 비교(하위호환).
+//     · 학원·반 검사를 같은 학생에 대해 함께 평가(AND) — 예전엔 축별로 따로 검사해서
+//       자녀 여럿인 계정이 교차 매칭(A학원 자녀 + B반 자녀)으로 잘못 통과할 수 있었음.
 function audienceMatchesStudents(s, students) {
   const list = students || [];
   const roles = new Set(list.map(x => x.role));
@@ -405,10 +409,17 @@ function audienceMatchesStudents(s, students) {
   if (audience === 'student' && !roles.has('student')) return false;
   if (audience === 'parent' && !roles.has('parent')) return false;
   const acs = parseList(s.aud_academy);
-  if (acs.length && !list.some(x => acs.indexOf(x.academy) >= 0)) return false;
   const cls = parseList(s.aud_class);
-  if (cls.length && !list.some(x => cls.indexOf(x.className) >= 0)) return false;
-  return true;
+  if (!acs.length && !cls.length) return true;   // 대상 지정 없음 = 전체
+  return list.some(x => {
+    const okAcad = !acs.length || acs.indexOf(x.academy) >= 0;
+    const okClass = !cls.length || cls.some(c => {
+      const p = c.indexOf('|');
+      if (p >= 0) return c.slice(0, p) === x.academy && c.slice(p + 1) === x.className;
+      return c === x.className;   // 구형(반 이름만) — 하위호환
+    });
+    return okAcad && okClass;
+  });
 }
 
 // 새 응답 → 원장 앱 푸시 (best-effort, 절대 throw 안 함)
