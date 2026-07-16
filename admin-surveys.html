@@ -358,7 +358,9 @@
       '<button type="button" class="addQ" id="renumBtn" style="margin:0;width:auto;">번호 새로 매기기</button>' +
       '<div class="qhint" style="flex-basis:100%;margin:0;">답안지형 퀴즈: 문제는 종이(매쓰홀릭), 앱에는 <b>답만</b> 입력해요. 문항은 자동으로 <b>1번·2번…</b> 단답으로 만들어져요.</div>';
     box.appendChild(bulkRow);
-    document.getElementById('bulkAdd').addEventListener('click', function(){
+    // ⚠️ box가 아직 문서(viewEl)에 붙기 전이라 document.getElementById는 null —
+    //    반드시 bulkRow.querySelector로 찾아야 함(분리된 노드에서도 동작). (2026-07-16 버그픽스)
+    bulkRow.querySelector('#bulkAdd').addEventListener('click', function(){
       syncFromForm();
       var n = parseInt(document.getElementById('bulkN').value, 10);
       if(!(n > 0)) n = 1;
@@ -367,7 +369,7 @@
       renumberQuiz();
       renderQuestions();
     });
-    document.getElementById('renumBtn').addEventListener('click', function(){
+    bulkRow.querySelector('#renumBtn').addEventListener('click', function(){
       syncFromForm(); renumberQuiz(); renderQuestions(); toast('문항 번호를 다시 매겼어요');
     });
 
