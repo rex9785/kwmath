@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진단평가 보고서 생성기 · 이관우 수학연구소</title>
+<style>
+:root{
+  --wine:#6B2A33; --wine-deep:#511F26; --wine-lite:#7E3540;
+  --cream:#F3EDE4; --cream2:#E7DDD1; --ink:#211914; --gray:#71675E; --gray2:#9C9086;
+  --ok:#2E7D52; --bad:#B0413E; --card:#FFFFFF;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:var(--cream); color:var(--ink); font-size:14px; line-height:1.5;}
+
+/* ───────── 입력 패널 ───────── */
+#modebar{max-width:880px; margin:24px auto 0; display:flex; gap:6px;}
+.mtab{background:#fff; color:var(--gray); border:1.5px solid var(--cream2); border-bottom:none; border-radius:10px 10px 0 0; padding:9px 20px; font-size:13.5px; font-weight:600; cursor:pointer;}
+.mtab.on{background:var(--wine); color:#fff; border-color:var(--wine);}
+#panel,#panelM{max-width:880px; margin:0 auto 24px; background:var(--card); border-radius:0 14px 14px 14px; padding:24px 28px; box-shadow:0 2px 12px rgba(33,25,20,.08);}
+#panel h1,#panelM h1{font-size:20px; color:var(--wine); margin-bottom:2px;}
+#panel .sub,#panelM .sub{color:var(--gray); font-size:12px; margin-bottom:18px;}
+.row{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px;}
+.row label{font-size:12px; color:var(--gray); display:block; margin-bottom:4px;}
+.row input[type=text], .row input[type=date], .row select{padding:8px 10px; border:1px solid var(--cream2); border-radius:8px; font-size:14px; background:#fff;}
+#stuName{width:160px;} #testDate{width:150px;}
+.oxgrid{display:grid; grid-template-columns:repeat(10,1fr); gap:6px; margin:10px 0 14px;}
+.oxbtn{border:1.5px solid var(--cream2); border-radius:8px; padding:7px 0; text-align:center; cursor:pointer; user-select:none; background:#fff; font-weight:600;}
+.oxbtn .qn{display:block; font-size:10px; color:var(--gray2); font-weight:400;}
+.oxbtn.o{background:#EDF5F0; border-color:var(--ok); color:var(--ok);}
+.oxbtn.x{background:#F9ECEC; border-color:var(--bad); color:var(--bad);}
+.pastebox{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.pastebox input{flex:1; min-width:240px; padding:8px 10px; border:1px solid var(--cream2); border-radius:8px;}
+button.act{background:var(--wine); color:#fff; border:none; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;}
+button.ghost{background:#fff; color:var(--wine); border:1.5px solid var(--wine); border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer;}
+button.act:hover{background:var(--wine-deep);}
+.hint{font-size:11.5px; color:var(--gray2); margin-top:4px;}
+
+/* ───────── 보고서 ───────── */
+#report{display:none;}
+.page{width:210mm; min-height:290mm; margin:16px auto; background:#fff; padding:14mm 14mm 12mm; box-shadow:0 2px 14px rgba(33,25,20,.12); position:relative;}
+.rp-head{display:flex; justify-content:space-between; align-items:flex-end; border-bottom:3px solid var(--wine); padding-bottom:10px; margin-bottom:14px;}
+.rp-head .brand{font-size:11px; letter-spacing:.14em; color:var(--wine); font-weight:700;}
+.rp-head h2{font-size:21px; color:var(--ink); margin-top:2px;}
+.rp-head .meta{text-align:right; font-size:12px; color:var(--gray); line-height:1.55;}
+.rp-head .meta b{color:var(--ink); font-size:14px;}
+.sec{margin-bottom:14px;}
+.sec h3{font-size:13.5px; color:var(--wine); border-left:4px solid var(--wine); padding-left:8px; margin-bottom:8px;}
+.cards{display:flex; gap:10px;}
+.card{flex:1; background:var(--cream); border-radius:10px; padding:12px 14px; text-align:center;}
+.card .lb{font-size:11px; color:var(--gray);}
+.card .v{font-size:26px; font-weight:800; color:var(--wine-deep); line-height:1.2;}
+.card .v small{font-size:13px; color:var(--gray); font-weight:600;}
+.lvlsteps{display:flex; gap:4px; margin-top:6px; justify-content:center;}
+.lvlsteps span{width:26px; height:8px; border-radius:4px; background:var(--cream2);}
+.lvlsteps span.on{background:var(--wine);}
+.bars .bar-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+.bars .bl{width:82px; font-size:12px; color:var(--ink); text-align:right; flex-shrink:0;}
+.bars .track{flex:1; height:14px; background:var(--cream); border-radius:7px; overflow:hidden; position:relative;}
+.bars .fill{height:100%; background:var(--wine-lite); border-radius:7px;}
+.bars .bv{width:38px; font-size:12px; font-weight:700; color:var(--wine-deep);}
+.bars .bn{font-size:10.5px; color:var(--gray2); width:128px; text-align:right;}
+.msgbox{background:var(--cream); border-radius:10px; padding:12px 14px; font-size:12.5px; line-height:1.7;}
+.msgbox b{color:var(--wine);}
+table.rt{width:100%; border-collapse:collapse; font-size:11.5px;}
+table.rt th{background:var(--wine); color:#fff; padding:5px 4px; font-weight:600;}
+table.rt td{border-bottom:1px solid var(--cream2); padding:4px; text-align:center;}
+table.rt tr:nth-child(even) td{background:#FBF8F4;}
+td.oxO{color:var(--ok); font-weight:800;} td.oxX{color:var(--bad); font-weight:800;}
+.duo{display:flex; gap:12px;}
+.duo>div{flex:1;}
+.radar-wrap{display:flex; gap:12px; align-items:center;}
+.dm-bars{flex:1;}
+.dm-row{display:flex; align-items:center; gap:6px; margin-bottom:7px;}
+.dm-row .lb{width:66px; font-size:12px; text-align:right;}
+.dm-row .tracks{flex:1;}
+.dm-row .track{height:9px; background:var(--cream); border-radius:5px; margin:2px 0; overflow:hidden;}
+.dm-row .me{height:100%; background:var(--wine-lite);}
+.dm-row .avg{height:100%; background:var(--gray2);}
+.dm-row .vals{width:76px; font-size:10.5px; color:var(--gray); line-height:1.3;}
+.dm-row .vals b{color:var(--wine-deep); font-size:12px;}
+.stepbar{display:inline-block; width:44px; height:9px; background:var(--cream2); border-radius:5px; overflow:hidden; vertical-align:middle;}
+.stepbar i{display:block; height:100%; background:var(--wine-lite);}
+.foot{position:absolute; bottom:8mm; left:14mm; right:14mm; display:flex; justify-content:space-between; font-size:9.5px; color:var(--gray2); border-top:1px solid var(--cream2); padding-top:5px;}
+#printbar{max-width:880px; margin:10px auto; text-align:center; display:none;}
+.legend{font-size:10.5px; color:var(--gray2); margin-top:4px;}
+.reco{background:var(--cream); border-radius:10px; padding:10px 14px; margin-bottom:8px; font-size:12.5px;}
+.reco b.tag{color:#fff; background:var(--wine); border-radius:6px; padding:1px 8px; font-size:11px; margin-right:8px;}
+
+@media print{
+  body{background:#fff;}
+  #panel,#panelM,#modebar,#printbar{display:none !important;}
+  #report{display:block !important;}
+  .page{box-shadow:none; margin:0; page-break-after:always; width:auto; min-height:auto;}
+  .page:last-child{page-break-after:auto;}
+}
+@page{size:A4; margin:0;}
+</style>
+</head>
+<body>
+
+<div id="modebar">
+  <button class="mtab on" id="tabSingle">개별 보고서</button>
+  <button class="mtab" id="tabMonthly">월간 종합 보고서</button>
+</div>
+
+<div id="panel">
+  <h1>진단평가 보고서 생성기</h1>
+  <div class="sub">이관우 수학연구소 · LKW math LAB — 자체 진단분석 시스템</div>
+  <div id="kwbox" style="border:1.5px solid var(--cream2);border-radius:10px;padding:14px 16px;margin-bottom:18px;background:#FBF8F4;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <b style="color:var(--wine);font-size:13.5px;">kwmath 앱 연동</b>
+      <button class="ghost" id="kwLoadBtn" style="padding:5px 12px;font-size:12px;">퀴즈 불러오기</button>
+      <span class="hint" id="kwStatus" style="margin-top:0;"></span>
+    </div>
+    <div class="row" id="kwFilters" style="display:none;margin:12px 0 0;">
+      <div><label>학원</label><select id="kwAcad"></select></div>
+      <div><label>반</label><select id="kwCls"></select></div>
+      <div><label>날짜</label><select id="kwDate"></select></div>
+      <div style="flex:1;min-width:220px;"><label>시험(퀴즈)</label><select id="kwQuiz" style="width:100%;"></select></div>
+    </div>
+    <div id="kwMetaLine" class="hint" style="display:none;"></div>
+    <div id="kwMetaBox" style="display:none;margin-top:8px;">
+      <textarea id="kwMetaTa" style="width:100%;height:110px;font-size:11px;font-family:inherit;border:1px solid var(--cream2);border-radius:8px;padding:8px;" placeholder='Claude가 만든 문항 메타 JSON 붙여넣기 — {"unitOrder":[...],"domainOrder":[...],"domainAvg":{...},"q":[{"unit":...,"content":...,"domain":...,"bar":...,"band":...,"tag":...,"rate":...} x 문항수]}'></textarea>
+      <div style="margin-top:6px;display:flex;gap:8px;">
+        <button class="ghost" id="kwMetaSave" style="font-size:12px;">메타 저장</button>
+        <button class="ghost" id="kwMetaDel" style="font-size:12px;color:var(--bad);border-color:var(--bad);">저장 메타 삭제</button>
+      </div>
+    </div>
+    <div id="kwStu" style="margin-top:10px;"></div>
+  </div>
+  <div class="row">
+    <div><label>학생 이름</label><input type="text" id="stuName" placeholder="예: 김수학"></div>
+    <div><label>시험일</label><input type="date" id="testDate"></div>
+    <div><label>시험 선택</label><select id="examSel"></select></div>
+  </div>
+  <div><label style="font-size:12px;color:var(--gray);">문항별 정오 입력 — 클릭으로 O/X 전환 (기본 O)</label></div>
+  <div class="oxgrid" id="oxgrid"></div>
+  <div class="pastebox">
+    <input type="text" id="pasteIn" placeholder="틀린 번호 붙여넣기 (예: 3,7,21) 또는 OX문자열 (예: OOXOX…)">
+    <button class="ghost" id="pasteBtn">적용</button>
+    <button class="ghost" id="resetBtn">모두 O</button>
+  </div>
+  <div class="hint" id="pasteHint">틀린 번호만 콤마·공백으로 구분해 넣어도 되고, O/X 문자열(문항 수만큼)을 통째로 붙여넣어도 됩니다.</div>
+  <div style="margin-top:16px; text-align:right;"><button class="act" id="genBtn">보고서 생성</button></div>
+</div>
+
+<div id="panelM" style="display:none;">
+  <h1>월간 종합 보고서 생성기</h1>
+  <div class="sub">이관우 수학연구소 · LKW math LAB — 저장해 둔 결과(JSON) 파일들을 모아 기간 종합 리포트를 만듭니다</div>
+  <div class="row">
+    <div><label>보고서 기간(제목)</label><input type="text" id="mTitle" placeholder="예: 2026년 7월" style="width:180px;"></div>
+    <div><label>결과 파일 선택 (여러 개 가능)</label><input type="file" id="mFiles" multiple accept=".json,application/json" style="font-size:12px;padding:8px 0;"></div>
+  </div>
+  <div id="mList" class="hint">아직 불러온 결과가 없습니다. 개별 보고서 화면에서 [결과 저장 (JSON)]으로 만든 파일들을 선택해 주세요.</div>
+  <div style="margin-top:16px; text-align:right;"><button class="act" id="mGenBtn">월간 보고서 생성</button></div>
+</div>
+
+<div id="printbar">
+  <button class="act" onclick="window.print()">인쇄 / PDF 저장</button>
+  <button class="ghost" id="saveJsonBtn">결과 저장 (JSON)</button>
+  <button class="ghost" onclick="document.getElementById('report').style.display='none';document.getElementById('printbar').style.display='none';document.getElementById('panel').scrollIntoView();">입력으로 돌아가기</button>
+</div>
+
+<div id="report"></div>
+
+<script id="engine">
+/* ═══════════ 시험 데이터 ═══════════
+   새 시험 추가: EXAMS에 같은 구조로 항목 추가 (문항 메타 6종은 Claude에게 시험지 주면 생성)
+   q: {unit 단원, content 내용요소, domain 행동영역(계산력/이해력/추론력/문제해결력/'') ,
+       bar 체감난이도(하/중/상), band 밴드(기본/실력/심화/고난도), tag 태그(개념/응용/제외), rate 전국평균정답률}
+   * band '고난도'는 행동영역·개념/응용·STEP에서 제외 (매쓰홀릭 규칙 실측과 동일)          */
+var EXAMS = {
+  "gong2_entry": {
+    title: "공통수학 2 선행반 입학테스트",
+    grade: "예비고1", n: 30,
+    unitOrder: ["다항식","방정식과 부등식","경우의 수","행렬"],
+    domainOrder: ["계산력","이해력","추론력","문제해결력"],
+    domainAvg: {"계산력":75,"이해력":71,"추론력":64,"문제해결력":54},   // 전국 평균(참고치)
+    q: [
+      {unit:"방정식과 부등식",content:"이차방정식의 근의 판별",domain:"이해력",bar:"하",band:"기본",tag:"개념",rate:89},
+      {unit:"방정식과 부등식",content:"이차방정식의 근의 판별",domain:"계산력",bar:"하",band:"기본",tag:"개념",rate:70},
+      {unit:"방정식과 부등식",content:"부등식의 성질과 일차부등식",domain:"이해력",bar:"하",band:"기본",tag:"개념",rate:69},
+      {unit:"방정식과 부등식",content:"이차부등식",domain:"계산력",bar:"하",band:"기본",tag:"개념",rate:81},
+      {unit:"경우의 수",content:"순열",domain:"이해력",bar:"하",band:"기본",tag:"개념",rate:88},
+      {unit:"다항식",content:"다항식의 사칙연산",domain:"계산력",bar:"하",band:"기본",tag:"개념",rate:92},
+      {unit:"다항식",content:"다항식의 사칙연산",domain:"계산력",bar:"하",band:"기본",tag:"개념",rate:92},
+      {unit:"다항식",content:"항등식과 미정계수",domain:"이해력",bar:"하",band:"기본",tag:"개념",rate:92},
+      {unit:"다항식",content:"인수분해 공식",domain:"계산력",bar:"하",band:"기본",tag:"개념",rate:93},
+      {unit:"행렬",content:"행렬의 뜻",domain:"계산력",bar:"하",band:"기본",tag:"개념",rate:92},
+      {unit:"방정식과 부등식",content:"음수의 제곱근",domain:"계산력",bar:"중",band:"실력",tag:"개념",rate:61},
+      {unit:"방정식과 부등식",content:"이차방정식의 근의 판별",domain:"계산력",bar:"중",band:"실력",tag:"개념",rate:85},
+      {unit:"방정식과 부등식",content:"이차함수의 최대,최소",domain:"추론력",bar:"중",band:"실력",tag:"응용",rate:72},
+      {unit:"방정식과 부등식",content:"이차방정식의 실근의 조건",domain:"이해력",bar:"중",band:"실력",tag:"개념",rate:65},
+      {unit:"경우의 수",content:"합의 법칙과 곱의 법칙",domain:"이해력",bar:"중",band:"실력",tag:"개념",rate:52},
+      {unit:"경우의 수",content:"순열",domain:"문제해결력",bar:"중",band:"실력",tag:"응용",rate:68},
+      {unit:"다항식",content:"곱셈공식의 변형",domain:"계산력",bar:"중",band:"실력",tag:"개념",rate:57},
+      {unit:"행렬",content:"행렬의 곱셈",domain:"계산력",bar:"중",band:"실력",tag:"개념",rate:74},
+      {unit:"행렬",content:"행렬의 곱셈",domain:"계산력",bar:"중",band:"실력",tag:"개념",rate:55},
+      {unit:"방정식과 부등식",content:"근과 계수의 관계",domain:"문제해결력",bar:"상",band:"심화",tag:"응용",rate:42},
+      {unit:"방정식과 부등식",content:"이차함수와 이차방정식의 관계",domain:"문제해결력",bar:"중",band:"심화",tag:"응용",rate:34},
+      {unit:"방정식과 부등식",content:"절댓값이 있는 일차부등식",domain:"문제해결력",bar:"상",band:"심화",tag:"응용",rate:51},
+      {unit:"방정식과 부등식",content:"이차부등식",domain:"문제해결력",bar:"중",band:"심화",tag:"응용",rate:62},
+      {unit:"방정식과 부등식",content:"이차방정식의 실근의 조건",domain:"이해력",bar:"중",band:"심화",tag:"응용",rate:47},
+      {unit:"경우의 수",content:"합의 법칙과 곱의 법칙",domain:"문제해결력",bar:"상",band:"심화",tag:"응용",rate:43},
+      {unit:"경우의 수",content:"순열",domain:"문제해결력",bar:"상",band:"심화",tag:"응용",rate:56},
+      {unit:"다항식",content:"여러 가지 인수분해",domain:"문제해결력",bar:"중",band:"심화",tag:"응용",rate:82},
+      {unit:"다항식",content:"인수정리를 이용한 인수분해",domain:"계산력",bar:"중",band:"심화",tag:"응용",rate:50},
+      {unit:"다항식",content:"인수정리를 이용한 인수분해",domain:"추론력",bar:"상",band:"심화",tag:"응용",rate:57},
+      {unit:"방정식과 부등식",content:"이차방정식의 실근의 조건",domain:"",bar:"상",band:"고난도",tag:"제외",rate:12}
+    ]
+  }
+};
+
+/* ═══════════ 계산 엔진 (매쓰홀릭 역공학 규칙 — 실측 21건 재현 검증) ═══════════ */
+function fl(a,b){ return b>0 ? Math.floor(a/b*100) : null; }
+
+/* 백분위 보간 앵커 — L = 50×틀린개수 + Σ(100−정답률), 실측 21점 */
+var PCT_ANCHORS = [[0,2],[57,3],[81,3],[98,4],[138,4],[160,5],[174,5],[254,7],[289,7],[362,10],[572,18],[976,47],[1460,76],[1875,91],[2517,98]];
+var CONCEPT_PCT = [[0,99],[58,44],[70,25],[82,12],[88,7],[94,4],[100,2]];   // 점수→백분위 (실측 7점)
+var APPLIED_PCT = [[0,98],[8,96],[16,93],[66,32],[83,12],[91,7],[100,3]];   // 점수→백분위 (실측 7점)
+
+function interp(anchors, x){
+  if(x<=anchors[0][0]) return anchors[0][1];
+  var last=anchors[anchors.length-1];
+  if(x>=last[0]) return last[1];
+  for(var i=1;i<anchors.length;i++){
+    var a=anchors[i-1], b=anchors[i];
+    if(x<=b[0]){
+      if(b[0]===a[0]) return b[1];
+      return Math.round(a[1] + (b[1]-a[1])*(x-a[0])/(b[0]-a[0]));
+    }
+  }
+  return last[1];
+}
+
+/* 내부 수준(5 최고) — 5수준(≥96)은 실측 확정, 4·3·2 하한(85·70·40)은 관측 범위 내 추정 */
+function levelOf(achv){ return achv>=96?5 : achv>=85?4 : achv>=70?3 : achv>=40?2 : 1; }
+/* 표시용 등급(1 최고, 수능식) = 6 − 내부 수준 */
+function gradeOf(achv){ return 6 - levelOf(achv); }
+/* 난이도 표시명 (내부 밴드 키는 유지) */
+var BAND_LABEL = {"기본":"하","실력":"중","심화":"상","고난도":"최상"};
+
+function stepBar(r){ if(r===null) return null; return r>=1?100 : r>=0.8?80 : r>=0.6?40 : 20; }
+
+function compute(exam, wrong){   // wrong: Set of 1-based 틀린 문항 번호
+  var q=exam.q, n=q.length;
+  var ox=[]; for(var i=1;i<=n;i++) ox.push(!wrong.has(i));
+  function cnt(pred){ var c=0,t=0; for(var i=0;i<n;i++){ if(pred(q[i],i+1)){t++; if(ox[i])c++;} } return [c,t]; }
+
+  var score = fl(cnt(function(){return true;})[0], n);
+
+  var band={}; ["기본","실력","심화","고난도"].forEach(function(b){
+    var ct=cnt(function(x){return x.band===b;}); if(ct[1]) band[b]=fl(ct[0],ct[1]);
+  });
+  var units={}; exam.unitOrder.forEach(function(u){
+    var ct=cnt(function(x){return x.unit===u;}); if(ct[1]) units[u]=fl(ct[0],ct[1]);
+  });
+  var domains={}; exam.domainOrder.forEach(function(d){
+    var ct=cnt(function(x){return x.domain===d;}); if(ct[1]) domains[d]=fl(ct[0],ct[1]);
+  });
+
+  var L=0; wrong.forEach(function(qi){ L += 50 + (100 - q[qi-1].rate); });
+  var pct = interp(PCT_ANCHORS, L);
+  var achv = 100 - pct;
+  var level = levelOf(achv);
+
+  var cC=cnt(function(x){return x.tag==="개념";}), cA=cnt(function(x){return x.tag==="응용";});
+  var concept = {score: fl(cC[0],cC[1]), pct: null};
+  var applied = {score: fl(cA[0],cA[1]), pct: null};
+  if(concept.score!==null) concept.pct = interp(CONCEPT_PCT, concept.score);
+  if(applied.score!==null) applied.pct = interp(APPLIED_PCT, applied.score);
+
+  var step = exam.unitOrder.map(function(u){
+    /* 성취율 = 단원별 점수와 동일(고난도 포함). STEP1/2 바 풀에서만 고난도 제외 — 실측 확정 */
+    var s1=cnt(function(x){return x.unit===u && (x.band==="기본"||x.band==="실력");});
+    var s2=cnt(function(x){return x.unit===u && x.band==="심화";});
+    var s3=cnt(function(x){return x.unit===u && x.band==="고난도";});
+    return { unit:u,
+      rate: (units[u]===undefined? null : units[u]),
+      s1: s1[1]? stepBar(s1[0]/s1[1]) : null,
+      s2: s2[1]? stepBar(s2[0]/s2[1]) : null,
+      s3: s3[1]? stepBar(s3[0]/s3[1]) : null };
+  });
+
+  /* 재학습 추천 — 오답 내용요소를 (오답수↓, 정답률↑ 오름차순) 우선순위로 최대 4개 */
+  var relearnMap={};
+  wrong.forEach(function(qi){ var it=q[qi-1];
+    var k=it.unit+"|"+it.content;
+    if(!relearnMap[k]) relearnMap[k]={unit:it.unit,content:it.content,cnt:0,rate:100};
+    relearnMap[k].cnt++; relearnMap[k].rate=Math.min(relearnMap[k].rate,it.rate);
+  });
+  var relearn=Object.values(relearnMap).sort(function(a,b){ return b.cnt-a.cnt || a.rate-b.rate; }).slice(0,4);
+
+  return { ox:ox, score:score, band:band, units:units, domains:domains,
+           L:L, pct:pct, achv:achv, level:level, concept:concept, applied:applied,
+           step:step, relearn:relearn };
+}
+
+/* 등급별 다음 단계 가이드 (1등급 최고) — 이관우 수학연구소 자체 문구 */
+var GRADE_MSG = {
+  1: "<b>1등급 달성!</b> 이번 평가 범위의 개념·원리를 충분히 이해하고 있고 문제해결력도 안정적입니다. 현재 학습량을 유지하면서, 한 문제를 여러 방법으로 풀어보고 풀이를 비교하는 훈련으로 사고의 깊이를 더해 가길 권합니다. 최상 난도 신유형 문제에 도전하며 실전 감각을 유지하세요.",
+  2: "<b>2등급 → 1등급 도전.</b> 개념·원리 이해는 탄탄합니다. 남은 것은 상 난도 문제에서의 완성도입니다. 매일 학습에서 중·상 난도 문제 비중을 늘리고, 틀린 문제는 반드시 풀이 과정을 다시 써 보며 어디서 끊겼는지 점검하세요. 오답 재풀이를 습관화하면 최상위권 진입이 가능합니다.",
+  3: "<b>3등급 → 2등급 도전.</b> 기본 개념은 자리 잡았으나 응용·심화 활용력을 키워야 할 단계입니다. 중·상 난도 문제 훈련량을 늘리되, '이해는 했는데 못 푼' 문제를 골라 풀이 과정을 꼼꼼히 복기하는 것이 핵심입니다. 유형별 접근 전략을 정리해 두면 도약이 빨라집니다.",
+  4: "<b>4등급 → 3등급 도전.</b> 개념·원리를 문제에 적용하는 연습이 더 필요합니다. 하·중 난도 문제 학습량을 충분히 늘리고, 틀린 문제마다 어떤 개념이 쓰였는지 확인한 뒤 같은 유형을 반복 학습하세요. 개념 정리 노트를 만들어 매 수업 후 복습하는 것을 권합니다.",
+  5: "<b>5등급 → 4등급 도전.</b> 이번 범위의 기초 개념·원리 이해에 집중해야 할 단계입니다. 쉬운 문제부터 학습량을 꾸준히 늘리고, 틀린 문제의 기본 개념을 교재로 되짚는 복습을 매일 진행하세요. 선생님과 함께 취약 개념부터 하나씩 채워 가면 반드시 올라갈 수 있습니다."
+};
+
+/* ═══ 유형·평균 집계 헬퍼 (시험·월간 공용) ═══ */
+function aggTypes(list){  // list: [{unit,content,rate,ok}]
+  var m={};
+  list.forEach(function(x){ var k=x.unit+"|"+x.content;
+    if(!m[k]) m[k]={unit:x.unit,content:x.content,c:0,t:0,rateSum:0};
+    m[k].t++; if(x.ok)m[k].c++; m[k].rateSum+=x.rate; });
+  var arr=Object.keys(m).map(function(k){return m[k];});
+  arr.forEach(function(y){ y.pct=fl(y.c,y.t); y.avg=Math.round(y.rateSum/y.t); });
+  return arr;
+}
+function strongTypes(arr){ return arr.filter(function(y){return y.c===y.t && y.t>0;}).sort(function(a,b){return a.avg-b.avg;}).slice(0,3); }
+function weakTypes(arr){ return arr.filter(function(y){return y.c<y.t;}).sort(function(a,b){return (b.t-b.c)-(a.t-a.c) || a.avg-b.avg;}).slice(0,3); }
+function bandAvgOf(exam){ var m={}; ["기본","실력","심화","고난도"].forEach(function(b){ var s=0,t=0; exam.q.forEach(function(x){if(x.band===b){s+=x.rate;t++;}}); if(t)m[b]=Math.round(s/t); }); return m; }
+function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,t=0; exam.q.forEach(function(x){if(x.unit===u){s+=x.rate;t++;}}); if(t)m[u]=Math.round(s/t); }); return m; }
+</script>
+<!--APP-->
+<script id="app">
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var state={ exam:"gong2_entry", ox:[] };
+
+  function initSel(){
+    var sel=$("examSel");
+    Object.keys(EXAMS).forEach(function(k){
+      var o=document.createElement("option"); o.value=k; o.textContent=EXAMS[k].title; sel.appendChild(o);
+    });
+    sel.onchange=function(){ state.exam=sel.value; buildGrid(); };
+  }
+  function buildGrid(){
+    var n=EXAMS[state.exam].q.length;
+    var ph=document.getElementById("pasteHint");
+    if(ph) ph.textContent="틀린 번호만 콤마·공백으로 구분해 넣어도 되고, O/X 문자열("+n+"자)을 통째로 붙여넣어도 됩니다.";
+    state.ox=[]; for(var i=0;i<n;i++) state.ox.push(true);
+    var g=$("oxgrid"); g.innerHTML="";
+    for(var i=0;i<n;i++)(function(i){
+      var b=document.createElement("div"); b.className="oxbtn o";
+      b.innerHTML='<span class="qn">'+(i+1)+'번</span><span class="v">O</span>';
+      b.onclick=function(){ state.ox[i]=!state.ox[i]; paint(); };
+      g.appendChild(b);
+    })(i);
+    paint();
+  }
+  function paint(){
+    var btns=$("oxgrid").children;
+    for(var i=0;i<btns.length;i++){
+      btns[i].className="oxbtn "+(state.ox[i]?"o":"x");
+      btns[i].querySelector(".v").textContent = state.ox[i]?"O":"X";
+    }
+  }
+  $("pasteBtn").onclick=function(){
+    var t=$("pasteIn").value.trim(); if(!t) return;
+    var n=state.ox.length;
+    var oxs=t.replace(/[\s,]/g,"").toUpperCase();
+    if(/^[OX]+$/.test(oxs) && oxs.length===n){
+      for(var i=0;i<n;i++) state.ox[i]=oxs[i]==="O";
+    } else {
+      var nums=t.split(/[^0-9]+/).filter(Boolean).map(Number);
+      for(var i=0;i<n;i++) state.ox[i]=true;
+      nums.forEach(function(q){ if(q>=1&&q<=n) state.ox[q-1]=false; });
+    }
+    paint();
+  };
+  $("resetBtn").onclick=function(){ for(var i=0;i<state.ox.length;i++) state.ox[i]=true; $("pasteIn").value=""; paint(); };
+
+  function fmtDate(v){
+    if(!v){ var d=new Date(); v=d.toISOString().slice(0,10); }
+    return v.replace(/-/g,".");
+  }
+  function barRow(label,val,note){
+    return '<div class="bar-row"><div class="bl">'+label+'</div><div class="track"><div class="fill" style="width:'+(val===null?0:val)+'%"></div></div><div class="bv">'+(val===null?"—":val+"점")+'</div><div class="bn">'+(note||"")+'</div></div>';
+  }
+  function radarSVG(exam,domains){
+    var order=exam.domainOrder, cx=95, cy=95, R=72;
+    function pts(vals){
+      return order.map(function(d,i){
+        var ang=-Math.PI/2 + i*Math.PI/2, r=R*(vals[d]||0)/100;
+        return (cx+r*Math.cos(ang)).toFixed(1)+","+(cy+r*Math.sin(ang)).toFixed(1);
+      }).join(" ");
+    }
+    var grid="";
+    [25,50,75,100].forEach(function(g){
+      var p=order.map(function(d,i){ var ang=-Math.PI/2+i*Math.PI/2, r=R*g/100;
+        return (cx+r*Math.cos(ang)).toFixed(1)+","+(cy+r*Math.sin(ang)).toFixed(1); }).join(" ");
+      grid+='<polygon points="'+p+'" fill="none" stroke="#E7DDD1" stroke-width="1"/>';
+    });
+    var labels=[[cx,14,"middle"],[cx+R+4,cy+4,"start"],[cx,cy+R+16,"middle"],[cx-R-4,cy+4,"end"]];
+    var lab=order.map(function(d,i){ var l=labels[i];
+      return '<text x="'+l[0]+'" y="'+l[1]+'" text-anchor="'+l[2]+'" font-size="10.5" fill="#71675E">'+d+'</text>'; }).join("");
+    return '<svg width="190" height="190" viewBox="0 0 190 190">'+grid
+      +'<polygon points="'+pts(exam.domainAvg)+'" fill="rgba(156,144,134,.25)" stroke="#9C9086" stroke-width="1.5"/>'
+      +'<polygon points="'+pts(domains)+'" fill="rgba(126,53,64,.28)" stroke="#6B2A33" stroke-width="2"/>'
+      +lab+'</svg>';
+  }
+  function stepCell(v){
+    if(v===null) return '<td>—</td>';
+    return '<td><span class="stepbar"><i style="width:'+v+'%"></i></span> <span style="font-size:10.5px;color:#71675E;">'+v+'%</span></td>';
+  }
+
+  function render(){
+    var exam=EXAMS[state.exam];
+    var wrong=new Set(); state.ox.forEach(function(o,i){ if(!o) wrong.add(i+1); });
+    var r=compute(exam,wrong);
+    var name=$("stuName").value.trim()||"학생";
+    var date=fmtDate($("testDate").value);
+    var foot='<div class="foot"><span>이관우 수학연구소 · LKW math LAB</span><span>전국 예상 상위 %·학습 성취도·등급은 전국 정답률 데이터 기반 자체 추정 모델의 참고치입니다.</span></div>';
+    function head(sub){
+      return '<div class="rp-head"><div><div class="brand">LKW MATH LAB · 이관우 수학연구소</div><h2>진단평가 분석 보고서'+(sub?' <span style="font-size:13px;color:#9C9086;">'+sub+'</span>':'')+'</h2></div>'
+        +'<div class="meta"><b>'+name+'</b> ('+ (exam.grade||"") +')<br>'+exam.title+'<br>'+date+'</div></div>';
+    }
+    var bandCnt={}; ["기본","실력","심화","고난도"].forEach(function(b){
+      var t=0,c=0; exam.q.forEach(function(x,i){ if(x.band===b){t++; if(r.ox[i])c++;} });
+      bandCnt[b]=[c,t];
+    });
+    var unitCnt={}; exam.unitOrder.forEach(function(u){
+      var t=0,c=0; exam.q.forEach(function(x,i){ if(x.unit===u){t++; if(r.ox[i])c++;} });
+      unitCnt[u]=[c,t];
+    });
+
+    /* ── PAGE 1 ── */
+    var grade = gradeOf(r.achv);
+    var bandAvg = bandAvgOf(exam), unitAvg = unitAvgOf(exam);
+    var lvlSteps=''; for(var i=5;i>=1;i--) lvlSteps+='<span class="'+(i>=grade?'on':'')+'"></span>';
+    var p1='<div class="page">'+head("종합 분석")
+      +'<div class="sec"><div class="cards">'
+      +'<div class="card"><div class="lb">총점</div><div class="v">'+r.score+'<small>점</small></div></div>'
+      +'<div class="card"><div class="lb">전국 예상 상위</div><div class="v">'+r.pct+'<small>%</small></div></div>'
+      +'<div class="card"><div class="lb">학습 성취도</div><div class="v">'+r.achv+'</div></div>'
+      +'<div class="card"><div class="lb">등급</div><div class="v">'+grade+'<small>등급</small></div><div class="lvlsteps">'+lvlSteps+'</div></div>'
+      +'</div><div class="legend">전국 예상 상위 %는 숫자가 작을수록 상위입니다. 학습 성취도(0~100)는 클수록, 등급(1~5)은 1등급이 가장 좋습니다.</div></div>'
+      +'<div class="sec"><h3>난이도별 점수</h3><div class="bars">'
+      +["기본","실력","심화","고난도"].map(function(b){ return r.band[b]===undefined?"":barRow(BAND_LABEL[b],r.band[b],bandCnt[b][0]+"/"+bandCnt[b][1]+'문항 · 전국 '+bandAvg[b]+'%'); }).join("")
+      +'</div></div>'
+      +'<div class="sec"><h3>단원별 점수</h3><div class="bars">'
+      +exam.unitOrder.map(function(u){ return barRow(u,r.units[u],unitCnt[u][0]+"/"+unitCnt[u][1]+'문항 · 전국 '+unitAvg[u]+'%'); }).join("")
+      +'</div></div>'
+      +'<div class="sec"><h3>다음 단계 가이드</h3><div class="msgbox">'+GRADE_MSG[grade]+'</div></div>'
+      +foot+'</div>';
+
+    /* ── PAGE 2 ── */
+    var dmBars=exam.domainOrder.map(function(d){
+      var me=r.domains[d]; if(me===undefined) return "";
+      var av=exam.domainAvg[d];
+      return '<div class="dm-row"><div class="lb">'+d+'</div><div class="tracks">'
+        +'<div class="track"><div class="me" style="width:'+me+'%"></div></div>'
+        +'<div class="track"><div class="avg" style="width:'+av+'%"></div></div>'
+        +'</div><div class="vals"><b>'+me+'점</b> / 평균 '+av+'점</div></div>';
+    }).join("");
+    var stepRows=r.step.map(function(s){
+      return '<tr><td style="text-align:left;padding-left:8px;">'+s.unit+'</td>'
+        +'<td>'+(s.rate===null?"—":'<b style="color:#511F26;">'+s.rate+'%</b>')+'</td>'
+        +stepCell(s.s1)+stepCell(s.s2)+stepCell(s.s3)+'</tr>';
+    }).join("");
+    var types=aggTypes(exam.q.map(function(x,i){return {unit:x.unit,content:x.content,rate:x.rate,ok:r.ox[i]};}));
+    var st=strongTypes(types), wk=weakTypes(types);
+    function typeList(arr,empty){
+      if(!arr.length) return '<div style="font-size:12px;color:var(--gray2);padding:6px 2px;">'+empty+'</div>';
+      return arr.map(function(y){ return '<div style="font-size:12px;padding:3px 2px;border-bottom:1px solid var(--cream2);"><b>'+y.content+'</b> <span style="color:var(--gray2);font-size:10.5px;">('+y.unit+' · '+y.c+'/'+y.t+' · 전국 '+y.avg+'%)</span></div>'; }).join("");
+    }
+    var p2='<div class="page">'+head("영역·성취도 분석")
+      +'<div class="sec"><h3>수학 행동영역 분석</h3><div class="radar-wrap">'+radarSVG(exam,r.domains)
+      +'<div class="dm-bars">'+dmBars+'<div class="legend">위 막대 = 나의 점수, 아래 회색 막대 = 전국 평균(참고)</div></div></div></div>'
+      +'<div class="sec"><div class="duo">'
+      +'<div class="card"><div class="lb">개념 완성도</div><div class="v">'+(r.concept.score===null?"—":r.concept.score+'<small>점</small>')+'</div><div class="legend">전국 예상 상위 '+(r.concept.pct===null?"—":r.concept.pct+"%")+'</div></div>'
+      +'<div class="card"><div class="lb">심화 해결력</div><div class="v">'+(r.applied.score===null?"—":r.applied.score+'<small>점</small>')+'</div><div class="legend">전국 예상 상위 '+(r.applied.pct===null?"—":r.applied.pct+"%")+'</div></div>'
+      +'</div><div class="legend">개념 완성도 = 기본 개념으로 해결하는 문항(하·중 난도) 성취, 심화 해결력 = 개념을 활용하는 문항(중·상 난도) 성취.</div></div>'
+      +'<div class="sec"><h3>대표 우수 · 취약 유형</h3><div class="duo">'
+      +'<div><div style="font-size:12px;font-weight:700;color:var(--ok);margin-bottom:4px;">우수 유형 — 어려운 유형까지 완벽 해결</div>'+typeList(st,"이번 시험에서는 전부 맞힌 유형이 없습니다.")+'</div>'
+      +'<div><div style="font-size:12px;font-weight:700;color:var(--bad);margin-bottom:4px;">취약 유형 — 우선 보완 필요</div>'+typeList(wk,"틀린 유형이 없습니다. 훌륭합니다!")+'</div>'
+      +'</div></div>'
+      +'<div class="sec"><h3>단원별 성장 단계</h3><table class="rt"><tr><th style="width:28%;">단원</th><th>나의 성취율</th><th>1단계 개념</th><th>2단계 응용</th><th>3단계 심화</th></tr>'
+      +stepRows+'</table><div class="legend">단계 막대는 구간 표시(100·80·40·20%)로, 해당 단계 문항의 정답 비율 구간을 나타냅니다. 해당 단계 문항이 없으면 — 로 표시됩니다.</div></div>'
+      +foot+'</div>';
+
+    /* ── PAGE 3 ── */
+    var qRows=exam.q.map(function(x,i){
+      var o=r.ox[i];
+      return '<tr><td>'+(i+1)+'</td><td style="text-align:left;padding-left:6px;">'+x.unit+'</td>'
+        +'<td style="text-align:left;padding-left:6px;">'+x.content+'</td><td>'+(x.domain||"—")+'</td>'
+        +'<td>'+(BAND_LABEL[x.band]||x.bar)+'</td>'
+        +'<td><div style="display:flex;align-items:center;gap:4px;"><div style="flex:1;height:6px;background:#EFE9E2;border-radius:3px;overflow:hidden;"><div style="height:100%;width:'+x.rate+'%;background:#C9BBA8;border-radius:3px;"></div></div><span style="font-size:10px;color:#9C9086;min-width:26px;text-align:right;">'+x.rate+'%</span></div></td>'
+        +'<td class="'+(o?"oxO":"oxX")+'">'+(o?"O":"X")+'</td></tr>';
+    }).join("");
+    var recoTags=["A","B","C","D"];
+    var recos=r.relearn.length
+      ? r.relearn.map(function(x,i){ return '<div class="reco"><b class="tag">추천'+recoTags[i]+'</b><b>'+x.unit+'</b> · '+x.content+' <span style="color:#9C9086;font-size:11px;">(오답 '+x.cnt+'문항 · 전국 정답률 '+x.rate+'%)</span></div>'; }).join("")
+        +'<div class="legend">추천A부터 재학습 우선순위가 높습니다. 오답이 많은 유형, 그다음 어려웠던 유형 순입니다.</div>'
+      : '<div class="reco">틀린 문항이 없어 재학습 추천이 없습니다. 훌륭합니다!</div>';
+    var p3='<div class="page">'+head("문항별 상세")
+      +'<div class="sec"><h3>문항별 채점 결과</h3><table class="rt"><tr><th style="width:34px;">번호</th><th>단원</th><th>내용 요소</th><th style="width:70px;">행동영역</th><th style="width:44px;">난이도</th><th style="width:52px;">전국 정답률</th><th style="width:38px;">정오</th></tr>'
+      +qRows+'</table></div>'
+      +'<div class="sec"><h3>재학습 추천</h3>'+recos+'</div>'
+      +foot+'</div>';
+
+    $("report").innerHTML=p1+p2+p3;
+    $("report").style.display="block";
+    $("printbar").style.display="block";
+    $("report").scrollIntoView({behavior:"smooth"});
+
+    state.last={ v:1, student:name, date:($("testDate").value||new Date().toISOString().slice(0,10)),
+      examId:state.exam, examTitle:exam.title,
+      wrong:Array.from(wrong).sort(function(a,b){return a-b;}),
+      score:r.score, pct:r.pct, achv:r.achv, grade:grade };
+    if(state.exam.indexOf("kw_")===0) state.last.examDef=exam;   /* kwmath 동적 시험은 정의 동봉(월간 보고서용) */
+  }
+
+  $("saveJsonBtn").onclick=function(){
+    if(!state.last){ alert("먼저 보고서를 생성해 주세요."); return; }
+    var d=state.last;
+    var blob=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="결과_"+d.student+"_"+d.date+"_"+d.examId+".json";
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },100);
+  };
+
+  window.__gen={state:state,buildGrid:buildGrid,paint:paint,render:render};
+  $("genBtn").onclick=render;
+  initSel(); buildGrid();
+  $("testDate").value=new Date().toISOString().slice(0,10);
+})();
+</script>
+<!--MONTHLY-->
+<script id="monthly">
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var loaded=[];   // 결과 JSON 목록 (v1 스키마)
+
+  /* ── 탭 전환 ── */
+  function setMode(m){
+    $("tabSingle").className="mtab"+(m==="s"?" on":"");
+    $("tabMonthly").className="mtab"+(m==="m"?" on":"");
+    $("panel").style.display=(m==="s")?"block":"none";
+    $("panelM").style.display=(m==="m")?"block":"none";
+    $("report").style.display="none";
+    $("printbar").style.display="none";
+    $("saveJsonBtn").style.display=(m==="s")?"":"none";
+  }
+  $("tabSingle").onclick=function(){setMode("s");};
+  $("tabMonthly").onclick=function(){setMode("m");};
+
+  /* ── JSON 불러오기 ── */
+  $("mFiles").onchange=function(e){
+    var files=Array.prototype.slice.call(e.target.files||[]);
+    if(!files.length) return;
+    var pending=files.length, errs=[];
+    files.forEach(function(f){
+      var rd=new FileReader();
+      rd.onload=function(){
+        try{
+          var d=JSON.parse(rd.result);
+          if(!d || d.v!==1 || !d.examId || !Array.isArray(d.wrong)) throw new Error("형식이 다릅니다");
+          if(!EXAMS[d.examId] && d.examDef && Array.isArray(d.examDef.q)) EXAMS[d.examId]=d.examDef;   /* kwmath 동적 시험 복원 */
+          if(!EXAMS[d.examId]) throw new Error("등록되지 않은 시험: "+d.examId);
+          loaded.push(d);
+        }catch(err){ errs.push(f.name+" ("+err.message+")"); }
+        if(--pending===0) done();
+      };
+      rd.onerror=function(){ errs.push(f.name); if(--pending===0) done(); };
+      rd.readAsText(f);
+    });
+    function done(){
+      var seen={};
+      loaded=loaded.filter(function(d){ var k=d.student+"|"+d.date+"|"+d.examId; if(seen[k])return false; seen[k]=1; return true; });
+      loaded.sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
+      renderList(errs);
+      e.target.value="";
+    }
+  };
+  function renderList(errs){
+    if(!loaded.length){ $("mList").innerHTML="아직 불러온 결과가 없습니다."; return; }
+    var h='<table class="rt" style="font-size:12px;"><tr><th>날짜</th><th>학생</th><th>시험</th><th>점수</th><th style="width:44px;"></th></tr>';
+    loaded.forEach(function(d,i){
+      h+='<tr><td>'+d.date+'</td><td>'+d.student+'</td><td style="text-align:left;padding-left:6px;">'+d.examTitle+'</td><td>'+d.score+'점</td>'
+        +'<td><a href="#" class="mdel" data-i="'+i+'" style="color:var(--bad);font-size:11px;">삭제</a></td></tr>';
+    });
+    h+='</table>';
+    if(errs && errs.length) h+='<div style="color:var(--bad);font-size:11px;margin-top:4px;">불러오지 못함: '+errs.join(" / ")+'</div>';
+    $("mList").innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll("#mList .mdel"),function(a){
+      a.onclick=function(ev){ ev.preventDefault(); loaded.splice(+a.getAttribute("data-i"),1); renderList(); };
+    });
+  }
+
+  /* ── 집계 유틸 ── */
+  var BAND_IDX={"기본":1,"실력":2,"심화":3,"고난도":4};
+  function mbarRow(label,val,note){
+    return '<div class="bar-row"><div class="bl">'+label+'</div><div class="track"><div class="fill" style="width:'+(val===null?0:val)+'%"></div></div><div class="bv">'+(val===null?"—":val+"%")+'</div><div class="bn">'+(note||"")+'</div></div>';
+  }
+  function mRadar(order,avgVals,meVals){
+    var cx=95,cy=95,R=72;
+    function pts(vals){ return order.map(function(d,i){ var ang=-Math.PI/2+i*Math.PI/2, r=R*(vals[d]||0)/100;
+      return (cx+r*Math.cos(ang)).toFixed(1)+","+(cy+r*Math.sin(ang)).toFixed(1); }).join(" "); }
+    var grid=""; [25,50,75,100].forEach(function(g){
+      var p=order.map(function(d,i){ var ang=-Math.PI/2+i*Math.PI/2, r=R*g/100;
+        return (cx+r*Math.cos(ang)).toFixed(1)+","+(cy+r*Math.sin(ang)).toFixed(1); }).join(" ");
+      grid+='<polygon points="'+p+'" fill="none" stroke="#E7DDD1" stroke-width="1"/>'; });
+    var labels=[[cx,14,"middle"],[cx+R+4,cy+4,"start"],[cx,cy+R+16,"middle"],[cx-R-4,cy+4,"end"]];
+    var lab=order.map(function(d,i){ var l=labels[i];
+      return '<text x="'+l[0]+'" y="'+l[1]+'" text-anchor="'+l[2]+'" font-size="10.5" fill="#71675E">'+d+'</text>'; }).join("");
+    return '<svg width="190" height="190" viewBox="0 0 190 190">'+grid
+      +'<polygon points="'+pts(avgVals)+'" fill="rgba(156,144,134,.25)" stroke="#9C9086" stroke-width="1.5"/>'
+      +'<polygon points="'+pts(meVals)+'" fill="rgba(126,53,64,.28)" stroke="#6B2A33" stroke-width="2"/>'
+      +lab+'</svg>';
+  }
+  function trendSVG(items){   // items: [{date,score}]
+    var W=640,H=150,padL=30,padR=20,padT=18,padB=26;
+    var iw=W-padL-padR, ih=H-padT-padB, n=items.length;
+    function px(i){ return n===1? padL+iw/2 : padL+iw*i/(n-1); }
+    function py(s){ return padT+ih*(1-s/100); }
+    var grid=""; [0,25,50,75,100].forEach(function(g){
+      var y=py(g).toFixed(1);
+      grid+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#EFE9E2" stroke-width="1"/>'
+          +'<text x="'+(padL-5)+'" y="'+(+y+3)+'" text-anchor="end" font-size="9" fill="#9C9086">'+g+'</text>'; });
+    var pts=items.map(function(d,i){ return px(i).toFixed(1)+","+py(d.score).toFixed(1); }).join(" ");
+    var dots=items.map(function(d,i){
+      var x=px(i).toFixed(1), y=py(d.score).toFixed(1);
+      return '<circle cx="'+x+'" cy="'+y+'" r="3.5" fill="#6B2A33"/>'
+        +'<text x="'+x+'" y="'+(+y-8)+'" text-anchor="middle" font-size="10" font-weight="700" fill="#511F26">'+d.score+'</text>'
+        +'<text x="'+x+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="#71675E">'+d.date.slice(5).replace("-",".")+'</text>';
+    }).join("");
+    return '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="max-width:100%;">'+grid
+      +(n>1?'<polyline points="'+pts+'" fill="none" stroke="#7E3540" stroke-width="2"/>':'')+dots+'</svg>';
+  }
+
+  /* ── 월간 보고서 생성 ── */
+  $("mGenBtn").onclick=function(){
+    if(!loaded.length){ alert("결과 JSON 파일을 먼저 불러와 주세요."); return; }
+    var names={}; loaded.forEach(function(d){names[d.student]=1;});
+    var nk=Object.keys(names);
+    if(nk.length>1){ alert("서로 다른 학생의 결과가 섞여 있습니다: "+nk.join(", ")+"\n한 학생의 결과만 선택해 주세요."); return; }
+    renderMonthly(nk[0]);
+  };
+
+  function renderMonthly(student){
+    var rows=loaded.map(function(d){
+      var exam=EXAMS[d.examId];
+      return { d:d, exam:exam, res:compute(exam,new Set(d.wrong)) };
+    });
+    var period=$("mTitle").value.trim() || (loaded[0].date.slice(0,7).replace("-","년 ")+"월");
+    var range=loaded[0].date.replace(/-/g,".")+" ~ "+loaded[loaded.length-1].date.replace(/-/g,".");
+    var foot='<div class="foot"><span>이관우 수학연구소 · LKW math LAB</span><span>전국 예상 상위 %·학습 성취도·등급은 전국 정답률 데이터 기반 자체 추정 모델의 참고치입니다.</span></div>';
+    function head(sub){
+      return '<div class="rp-head"><div><div class="brand">LKW MATH LAB · 이관우 수학연구소</div><h2>'+period+' 월간 종합 보고서'+(sub?' <span style="font-size:13px;color:#9C9086;">'+sub+'</span>':'')+'</h2></div>'
+        +'<div class="meta"><b>'+student+'</b><br>시험 '+rows.length+'회<br>'+range+'</div></div>';
+    }
+
+    /* 집계 */
+    var totalQ=0,totalC=0,achvSum=0,idxSum=0,idxN=0;
+    var unitAgg={},unitOrder=[],domAgg={},domOrder=[],domAvgSum={},domAvgN={};
+    var inst=[];   // 전체 문항 인스턴스 (유형 집계용)
+    var cC=0,cT=0,aC=0,aT=0;
+    rows.forEach(function(x){
+      var q=x.exam.q, res=x.res;
+      totalQ+=q.length; totalC+=q.length-x.d.wrong.length; achvSum+=res.achv;
+      x.exam.unitOrder.forEach(function(u){ if(unitOrder.indexOf(u)<0)unitOrder.push(u); });
+      x.exam.domainOrder.forEach(function(dm){
+        if(domOrder.indexOf(dm)<0)domOrder.push(dm);
+        domAvgSum[dm]=(domAvgSum[dm]||0)+(x.exam.domainAvg[dm]||0); domAvgN[dm]=(domAvgN[dm]||0)+1;
+      });
+      q.forEach(function(it,i){
+        var ok=res.ox[i];
+        idxSum+=BAND_IDX[it.band]||0; idxN++;
+        if(!unitAgg[it.unit])unitAgg[it.unit]={c:0,t:0,rs:0};
+        unitAgg[it.unit].t++; if(ok)unitAgg[it.unit].c++; unitAgg[it.unit].rs+=it.rate;
+        if(it.domain){ if(!domAgg[it.domain])domAgg[it.domain]={c:0,t:0};
+          domAgg[it.domain].t++; if(ok)domAgg[it.domain].c++; }
+        inst.push({unit:it.unit,content:it.content,rate:it.rate,ok:ok});
+        if(it.tag==="개념"){cT++; if(ok)cC++;}
+        if(it.tag==="응용"){aT++; if(ok)aC++;}
+      });
+    });
+    var overallPct=fl(totalC,totalQ);
+    var meanAchv=Math.round(achvSum/rows.length);
+    var grade=gradeOf(meanAchv);
+    var diffIdx=idxN?(idxSum/idxN).toFixed(1):"—";
+    var lvlSteps=''; for(var i=5;i>=1;i--) lvlSteps+='<span class="'+(i>=grade?'on':'')+'"></span>';
+
+    /* ── PAGE 1: 종합 현황 ── */
+    var histRows=rows.map(function(x){
+      return '<tr><td>'+x.d.date.replace(/-/g,".")+'</td><td style="text-align:left;padding-left:6px;">'+x.d.examTitle+'</td>'
+        +'<td>'+x.exam.q.length+'</td><td><b>'+x.res.score+'점</b></td><td>상위 '+x.res.pct+'%</td><td>'+gradeOf(x.res.achv)+'등급</td></tr>';
+    }).join("");
+    var p1='<div class="page">'+head("종합 현황")
+      +'<div class="sec"><div class="cards">'
+      +'<div class="card"><div class="lb">기간 종합 등급</div><div class="v">'+grade+'<small>등급</small></div><div class="lvlsteps">'+lvlSteps+'</div></div>'
+      +'<div class="card"><div class="lb">종합 정답률</div><div class="v">'+overallPct+'<small>%</small></div><div class="legend">'+totalC+' / '+totalQ+'문항</div></div>'
+      +'<div class="card"><div class="lb">학습 문항수</div><div class="v">'+totalQ+'<small>문항</small></div><div class="legend">시험 '+rows.length+'회</div></div>'
+      +'<div class="card"><div class="lb">평균 난이도 지수</div><div class="v">'+diffIdx+'</div><div class="legend">하1 · 중2 · 상3 · 최상4</div></div>'
+      +'</div><div class="legend">기간 종합 등급(1~5)은 기간 내 학습 성취도 평균 기준이며 1등급이 가장 좋습니다.</div></div>'
+      +'<div class="sec"><h3>점수 추이</h3>'+trendSVG(rows.map(function(x){return {date:x.d.date,score:x.res.score};}))+'</div>'
+      +'<div class="sec"><h3>시험 내역</h3><table class="rt"><tr><th style="width:70px;">날짜</th><th>시험명</th><th style="width:52px;">문항수</th><th style="width:56px;">점수</th><th style="width:70px;">전국 예상</th><th style="width:52px;">등급</th></tr>'
+      +histRows+'</table></div>'
+      +foot+'</div>';
+
+    /* ── PAGE 2: 영역 분석 ── */
+    var unitRows=unitOrder.map(function(u){ var a=unitAgg[u]; if(!a)return "";
+      return mbarRow(u, fl(a.c,a.t), a.c+"/"+a.t+"문항 · 전국 "+Math.round(a.rs/a.t)+"%"); }).join("");
+    var types=aggTypes(inst), st=strongTypes(types), wk=weakTypes(types);
+    function typeList(arr,empty){
+      if(!arr.length) return '<div class="reco" style="font-size:12px;">'+empty+'</div>';
+      return arr.map(function(y){
+        return '<div class="reco" style="padding:8px 12px;margin-bottom:6px;"><b>'+y.content+'</b> <span style="color:#9C9086;font-size:11px;">('+y.unit+')</span><br>'
+          +'<span style="font-size:11px;color:#71675E;">'+y.c+'/'+y.t+'문항 정답 · 전국 정답률 '+y.avg+'%</span></div>'; }).join("");
+    }
+    var domMe={},domAv={};
+    domOrder.forEach(function(dm){ var a=domAgg[dm]; domMe[dm]=a?fl(a.c,a.t):0; domAv[dm]=Math.round((domAvgSum[dm]||0)/(domAvgN[dm]||1)); });
+    var dmBars=domOrder.map(function(dm){
+      return '<div class="dm-row"><div class="lb">'+dm+'</div><div class="tracks">'
+        +'<div class="track"><div class="me" style="width:'+domMe[dm]+'%"></div></div>'
+        +'<div class="track"><div class="avg" style="width:'+domAv[dm]+'%"></div></div></div>'
+        +'<div class="vals"><b>'+domMe[dm]+'%</b> / 전국 '+domAv[dm]+'%</div></div>'; }).join("");
+    var p2='<div class="page">'+head("영역 분석")
+      +'<div class="sec"><h3>단원별 누적 성취</h3><div class="bars">'+unitRows+'</div><div class="legend">전국 %는 해당 단원 문항들의 전국 정답률 평균(참고치)입니다.</div></div>'
+      +'<div class="sec"><h3>대표 우수 · 취약 유형 (기간 누적)</h3><div class="duo">'
+      +'<div><div style="font-size:12px;font-weight:700;color:var(--ok);margin-bottom:4px;">우수 유형 — 어려운 유형까지 완벽 해결</div>'+typeList(st,"기간 내 전부 맞힌 유형이 없습니다.")+'</div>'
+      +'<div><div style="font-size:12px;font-weight:700;color:var(--bad);margin-bottom:4px;">취약 유형 — 우선 보완 필요</div>'+typeList(wk,"틀린 유형이 없습니다. 훌륭합니다!")+'</div>'
+      +'</div></div>'
+      +'<div class="sec"><h3>행동영역 누적 분석</h3><div class="radar-wrap">'+mRadar(domOrder,domAv,domMe)
+      +'<div class="dm-bars">'+dmBars+'<div class="legend">위 막대 = 나의 정답률, 아래 회색 막대 = 전국 평균(참고)</div></div></div></div>'
+      +foot+'</div>';
+
+    /* ── PAGE 3: 종합 진단 · 선생님 의견 ── */
+    var cScore=cT?fl(cC,cT):null, aScore=aT?fl(aC,aT):null;
+    var cPct=(cScore===null)?null:interp(CONCEPT_PCT,cScore);
+    var aPct=(aScore===null)?null:interp(APPLIED_PCT,aScore);
+    var comment=buildComment(rows,grade,unitOrder,unitAgg,st,wk);
+    var p3='<div class="page">'+head("종합 진단")
+      +'<div class="sec"><div class="duo">'
+      +'<div class="card"><div class="lb">개념 완성도 (누적)</div><div class="v">'+(cScore===null?"—":cScore+'<small>점</small>')+'</div><div class="legend">전국 예상 상위 '+(cPct===null?"—":cPct+"%")+' (참고치)</div></div>'
+      +'<div class="card"><div class="lb">심화 해결력 (누적)</div><div class="v">'+(aScore===null?"—":aScore+'<small>점</small>')+'</div><div class="legend">전국 예상 상위 '+(aPct===null?"—":aPct+"%")+' (참고치)</div></div>'
+      +'</div><div class="legend">기간 내 모든 시험의 개념·응용 문항을 합산한 값입니다. 상위 %는 단일 시험 기준 모델을 적용한 참고치입니다.</div></div>'
+      +'<div class="sec"><h3>다음 단계 가이드</h3><div class="msgbox">'+GRADE_MSG[grade]+'</div></div>'
+      +'<div class="sec"><h3>선생님 의견</h3><div class="msgbox" contenteditable="true" style="min-height:120px;outline:none;">'+comment+'</div>'
+      +'<div class="legend">자동 작성된 초안입니다. 인쇄 전에 클릭해서 자유롭게 수정할 수 있습니다.</div></div>'
+      +foot+'</div>';
+
+    $("report").innerHTML=p1+p2+p3;
+    $("report").style.display="block";
+    $("printbar").style.display="block";
+    $("saveJsonBtn").style.display="none";
+    $("report").scrollIntoView({behavior:"smooth"});
+  }
+
+  function buildComment(rows,grade,unitOrder,unitAgg,st,wk){
+    var s=[];
+    var first=rows[0].res.score, last=rows[rows.length-1].res.score;
+    if(rows.length>=2){
+      if(last-first>=5) s.push("이번 기간 점수가 "+first+"점에서 "+last+"점으로 <b>상승 흐름</b>을 보였습니다.");
+      else if(first-last>=5) s.push("이번 기간 점수가 "+first+"점에서 "+last+"점으로 다소 내려갔지만, 원인을 알면 충분히 회복할 수 있는 폭입니다.");
+      else s.push("이번 기간 점수가 "+first+"점~"+last+"점으로 <b>안정적으로 유지</b>되었습니다.");
+    } else {
+      s.push("이번 기간에는 시험 1회("+rows[0].res.score+"점)를 진단했습니다.");
+    }
+    if(st.length) s.push("특히 <b>"+st[0].content+"</b>("+st[0].unit+")처럼 전국 정답률이 낮은 유형까지 안정적으로 해결한 점이 인상적입니다.");
+    var wu=null,wp=101; unitOrder.forEach(function(u){ var a=unitAgg[u]; if(a){ var p=fl(a.c,a.t); if(p!==null&&p<wp){wp=p;wu=u;} } });
+    if(wk.length) s.push("다음 달에는 <b>"+wk[0].content+"</b>("+wk[0].unit+") 유형을 우선 보완하고, 상대적으로 성취가 낮았던 <b>"+(wu||"취약 단원")+"</b> 단원을 집중 학습할 계획입니다.");
+    else s.push("틀린 유형이 없어 다음 달에는 한 단계 높은 난도의 문제로 도전 범위를 넓힐 계획입니다.");
+    s.push(grade<=2 ? "현재 흐름을 유지하면 최상위권 안착이 충분히 가능합니다. 가정에서도 격려 부탁드립니다."
+                    : "학습 습관이 잡혀 가는 시기인 만큼, 꾸준한 복습이 이어지도록 지도하겠습니다.");
+    return s.join(" ");
+  }
+})();
+</script>
+<!--KWMATH-->
+<script id="kwmath">
+/* ═══ kwmath 앱 연동 — 퀴즈 목록·응답 자동 로드 (서버 무수정 · functions/api/surveys.js 채점 로직 이식) ═══ */
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  /* 시험별 정식 문항 메타 등록부 — Claude가 시험지 태깅 후 여기에 추가(키=퀴즈 id 문자열)
+     형식: {title?, grade?, unitOrder:[...], domainOrder:[...], domainAvg:{...}, q:[{unit,content,domain,bar,band,tag,rate}×문항수]} */
+  var KW_META = {};
+
+  /* ── functions/api/surveys.js 채점 로직 그대로 이식 (서버와 동일 결과 보장 — 수정 금지) ── */
+  function normText(s) {
+    return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+  function normTextLatex(s) {
+    return String(s == null ? '' : s)
+      .replace(/\\left|\\right/g, '')
+      .replace(/\\dfrac|\\tfrac/g, '\\frac')
+      .replace(/\\cdot|\\times/g, '*')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+  }
+  function latexToNumber(src) {
+    if (src == null) return null;
+    const s = String(src); const tokens = []; let i = 0;
+    while (i < s.length) {
+      const ch = s[i];
+      if (ch === ' ' || ch === '\t' || ch === '\n') { i++; continue; }
+      if (ch === '\\') {
+        let j = i + 1, name = '';
+        while (j < s.length && /[a-zA-Z]/.test(s[j])) { name += s[j]; j++; }
+        if (name === '') { if (s[j] === ',' || s[j] === ' ' || s[j] === ';' || s[j] === '!') { i = j + 1; continue; } return null; }
+        i = j;
+        switch (name) {
+          case 'left': case 'right': continue;
+          case 'frac': case 'dfrac': case 'tfrac': tokens.push({ type: 'frac' }); continue;
+          case 'sqrt': tokens.push({ type: 'sqrt' }); continue;
+          case 'cdot': case 'times': tokens.push({ type: '*' }); continue;
+          case 'pi': tokens.push({ type: 'num', value: Math.PI }); continue;
+          default: return null;
+        }
+      }
+      if (/[0-9.]/.test(ch)) { let num = ''; while (i < s.length && /[0-9.]/.test(s[i])) { num += s[i]; i++; } const v = parseFloat(num); if (!isFinite(v)) return null; tokens.push({ type: 'num', value: v }); continue; }
+      if ('+-*/^(){}[]'.includes(ch)) { tokens.push({ type: ch }); i++; continue; }
+      if (/[a-zA-Z]/.test(ch)) return null;
+      return null;
+    }
+    let p = 0; let failed = false;
+    const peek = () => tokens[p]; const next = () => tokens[p++];
+    const NUM_START = new Set(['num', '(', '{', 'frac', 'sqrt']);
+    const fail = () => { failed = true; return 0; };
+    function parseExpr() { let v = parseTerm(); while (peek() && (peek().type === '+' || peek().type === '-')) { const op = next().type; const r = parseTerm(); v = op === '+' ? v + r : v - r; } return v; }
+    function parseTerm() { let v = parseFactor(); while (peek()) { const t = peek().type; if (t === '*' || t === '/') { next(); const r = parseFactor(); v = t === '*' ? v * r : v / r; } else if (NUM_START.has(t)) { const r = parseFactor(); v = v * r; } else break; } return v; }
+    function parseFactor() { let sign = 1; while (peek() && (peek().type === '-' || peek().type === '+')) { if (next().type === '-') sign = -sign; } let base = parseAtom(); if (peek() && peek().type === '^') { next(); const exp = parseFactor(); base = Math.pow(base, exp); } return sign * base; }
+    function parseAtom() {
+      const t = peek(); if (!t) return fail();
+      if (t.type === 'num') { next(); return t.value; }
+      if (t.type === '(') { next(); const v = parseExpr(); if (peek() && peek().type === ')') next(); else return fail(); return v; }
+      if (t.type === '{') { next(); const v = parseExpr(); if (peek() && peek().type === '}') next(); else return fail(); return v; }
+      if (t.type === 'frac') { next(); const a = parseGroup(); const b = parseGroup(); return a / b; }
+      if (t.type === 'sqrt') { next(); if (peek() && peek().type === '[') { next(); const n = parseExpr(); if (peek() && peek().type === ']') next(); else return fail(); const a = parseGroup(); return Math.pow(a, 1 / n); } const a = parseGroup(); return Math.sqrt(a); }
+      return fail();
+    }
+    function parseGroup() { const t = peek(); if (t && t.type === '{') { next(); const v = parseExpr(); if (peek() && peek().type === '}') next(); else return fail(); return v; } return parseAtom(); }
+    const result = parseExpr();
+    if (failed) return null;
+    if (p !== tokens.length) return null;
+    if (typeof result !== 'number' || !isFinite(result)) return null;
+    return result;
+  }
+  function mathEqual(studentLatex, correctLatex) {
+    if (studentLatex == null || String(studentLatex).trim() === '') return false;
+    const a = latexToNumber(studentLatex), b = latexToNumber(correctLatex);
+    if (a != null && b != null) { const scale = Math.max(1, Math.abs(a), Math.abs(b)); return Math.abs(a - b) <= 1e-9 * scale; }
+    const na = normTextLatex(studentLatex), nb = normTextLatex(correctLatex);
+    return na !== '' && na === nb;
+  }
+  function gradeAnswers(questions, answers) {
+    let score = 0, maxScore = 0;
+    const detail = {};
+    for (const q of questions) {
+      if (q.type === 'long') {
+        if (!Number.isFinite(q.points)) continue;
+        maxScore += q.points;
+        detail[q.id] = { pending: true, points: q.points };
+        continue;
+      }
+      if (q.correct === undefined || q.correct === null) continue;
+      const pts = Number.isFinite(q.points) ? q.points : 1;
+      maxScore += pts;
+      const a = answers[q.id];
+      let ok = false;
+      if (q.type === 'single' || q.type === 'dropdown') {
+        ok = a === q.correct;
+      } else if (q.type === 'multi') {
+        const as = new Set(Array.isArray(a) ? a : []);
+        const cs = Array.isArray(q.correct) ? q.correct : [];
+        ok = as.size === cs.length && cs.every(x => as.has(x));
+      } else if (q.type === 'short') {
+        ok = !!normText(a) && normText(a) === normText(q.correct);
+      } else if (q.type === 'math') {
+        ok = mathEqual(a, q.correct);
+      }
+      if (ok) score += pts;
+      detail[q.id] = { correct: ok, answer: q.correct, points: pts };
+    }
+    return { score, maxScore, detail };
+  }
+  /* ── 이식 끝 ── */
+
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function token(){ return sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null; }
+  function api(qs){
+    var t=token(), opts={headers:{}};
+    if(t) opts.headers['Authorization']='Bearer '+t;
+    return fetch('/api/surveys'+(qs||''), opts).then(function(res){
+      if(res.status===401||res.status===403) throw new Error('AUTH');
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    });
+  }
+  var kw={ quizzes:[], academies:[], classes:{}, detail:null, exam:null, metaSrc:"" };
+  function status(msg,isErr){ var el=$("kwStatus"); el.textContent=msg||""; el.style.color=isErr?"var(--bad)":""; }
+  function qzDate(s){ return (s.createdAt||"").slice(0,10); }
+  function qzMatch(s, acad, cls){
+    if(!acad) return true;
+    var aa=s.audAcademy||[], ac=s.audClass||[];
+    if(!aa.length && !ac.length) return true;   /* 대상 미지정 퀴즈 = 전체 공개 */
+    if(aa.indexOf(acad)>=0) return true;
+    for(var i=0;i<ac.length;i++){
+      var p=ac[i], ix=p.indexOf('|');
+      if(ix<0){ if(!cls || p===cls) return true; }               /* 옛 형식: 반 이름만 */
+      else if(p.slice(0,ix)===acad && (!cls || p.slice(ix+1)===cls)) return true;
+    }
+    return false;
+  }
+  function fillSel(sel, items, phText, cur){
+    sel.innerHTML="";
+    if(phText!==undefined){ var o0=document.createElement("option"); o0.value=""; o0.textContent=phText; sel.appendChild(o0); }
+    items.forEach(function(it){
+      var o=document.createElement("option");
+      o.value = typeof it==="string" ? it : it.v;
+      o.textContent = typeof it==="string" ? it : it.t;
+      sel.appendChild(o);
+    });
+    if(cur!==undefined){ sel.value=cur; if(sel.value!==cur) sel.selectedIndex=0; }
+  }
+  function refreshFilters(){
+    var acad=$("kwAcad").value, cls=$("kwCls").value, date=$("kwDate").value;
+    fillSel($("kwCls"), acad?(kw.classes[acad]||[]):[], "전체 반", cls); cls=$("kwCls").value;
+    var dates={}; kw.quizzes.forEach(function(s){ if(qzMatch(s,acad,cls)) dates[qzDate(s)]=1; });
+    fillSel($("kwDate"), Object.keys(dates).sort().reverse(), "전체 날짜", date); date=$("kwDate").value;
+    var list=kw.quizzes.filter(function(s){ return qzMatch(s,acad,cls) && (!date || qzDate(s)===date); });
+    fillSel($("kwQuiz"), list.map(function(s){
+      var d=qzDate(s).slice(5).replace("-",".");
+      return { v:String(s.id), t:"["+d+"] "+s.title+" · 응답 "+(s.responseCount||0)+(s.status==="draft"?" (대기)":"") };
+    }), list.length?"— 시험 선택 —":"(조건에 맞는 퀴즈 없음)");
+    $("kwStu").innerHTML=""; $("kwMetaLine").style.display="none"; $("kwMetaBox").style.display="none"; kw.detail=null;
+  }
+  function loadAll(){
+    status("불러오는 중…");
+    Promise.all([
+      api('?admin=1'),
+      fetch('/api/class-options').then(function(r){ return r.ok? r.json() : {academies:[],classes:{}}; }).catch(function(){ return {academies:[],classes:{}}; })
+    ]).then(function(rr){
+      var sv=rr[0], co=rr[1];
+      kw.quizzes=(sv.surveys||[]).filter(function(s){ return s.quiz; });
+      kw.academies=(co.academies||[]).slice(); kw.classes=co.classes||{};
+      kw.quizzes.forEach(function(s){
+        (s.audAcademy||[]).forEach(function(a){ if(kw.academies.indexOf(a)<0) kw.academies.push(a); });
+        (s.audClass||[]).forEach(function(p){ var ix=p.indexOf('|'); if(ix>0){ var a=p.slice(0,ix); if(kw.academies.indexOf(a)<0) kw.academies.push(a); } });
+      });
+      if(!kw.quizzes.length){ status("퀴즈(자동 채점 설문)가 아직 없습니다.",true); return; }
+      $("kwFilters").style.display="flex";
+      fillSel($("kwAcad"), kw.academies, "전체 학원", "");
+      refreshFilters();
+      status("퀴즈 "+kw.quizzes.length+"개 — 학원·반·날짜로 좁힌 뒤 시험을 고르세요. (날짜=출제일)");
+    }).catch(function(err){
+      status(err.message==="AUTH"
+        ? "관리자 로그인이 필요합니다 — /admin 로그인 후 이 페이지를 새로고침하세요."
+        : "불러오기 실패: "+err.message+" (이 페이지는 kwmath.co.kr/admin-report.html 로 열어야 연동됩니다)", true);
+    });
+  }
+  function validMeta(m, n){
+    if(!m || !Array.isArray(m.q) || m.q.length!==n) return false;
+    if(!Array.isArray(m.unitOrder) || !m.unitOrder.length) return false;
+    if(!Array.isArray(m.domainOrder)) return false;
+    if(typeof m.domainAvg!=="object" || !m.domainAvg) return false;
+    for(var i=0;i<m.q.length;i++){ var q=m.q[i];
+      if(!q || typeof q.unit!=="string" || typeof q.content!=="string" || typeof q.band!=="string" || typeof q.tag!=="string" || typeof q.rate!=="number") return false; }
+    return true;
+  }
+  function autoMeta(sv){
+    var q=(sv.questions||[]).map(function(qq,i){
+      var lg = qq.type==="long";
+      return { unit:"전체 범위",
+        content: esc((qq.label||("문항 "+(i+1))).slice(0,26)),
+        domain: lg?"문제해결력":(qq.type==="multi"?"이해력":(qq.type==="math"||qq.type==="short"?"계산력":"이해력")),
+        bar: lg?"상":"하", band: lg?"심화":"기본", tag: lg?"응용":"개념", rate:60 };
+    });
+    var used={}; q.forEach(function(x){ used[x.domain]=1; });
+    var ALLAVG={"계산력":70,"이해력":70,"추론력":65,"문제해결력":55};
+    var dOrder=["계산력","이해력","추론력","문제해결력"].filter(function(d){return used[d];});
+    var dAvg={}; dOrder.forEach(function(d){ dAvg[d]=ALLAVG[d]; });
+    return { title:sv.title, grade:sv.testKind||"", unitOrder:["전체 범위"], domainOrder:dOrder, domainAvg:dAvg, q:q };
+  }
+  function resolveMeta(sv){
+    var n=(sv.questions||[]).length, m=KW_META[String(sv.id)];
+    if(m && validMeta(m,n)){ kw.metaSrc="정식 메타(내장)"; return m; }
+    try{ var ls=localStorage.getItem("kwreport_meta_"+sv.id);
+      if(ls){ var pm=JSON.parse(ls); if(validMeta(pm,n)){ kw.metaSrc="정식 메타(붙여넣기 저장분)"; return pm; } }
+    }catch(e){}
+    kw.metaSrc="자동 기본 메타(추정) — 단원·난이도·전국%는 정식 태깅 전 참고용";
+    return autoMeta(sv);
+  }
+
+  function onQuiz(){
+    var id=$("kwQuiz").value;
+    $("kwStu").innerHTML=""; $("kwMetaLine").style.display="none"; kw.detail=null;
+    if(!id) return;
+    status("응답 불러오는 중…");
+    api('?id='+id).then(function(d){
+      if(!d.survey){ status("시험 정보를 읽지 못했습니다.",true); return; }
+      kw.detail=d;
+      var m=resolveMeta(d.survey);
+      kw.exam={ title:m.title||d.survey.title, grade:m.grade||d.survey.testKind||"",
+        n:m.q.length, unitOrder:m.unitOrder, domainOrder:m.domainOrder, domainAvg:m.domainAvg, q:m.q };
+      var ml=$("kwMetaLine"); ml.style.display="block";
+      ml.innerHTML="문항 "+m.q.length+"개 · 메타: "+esc(kw.metaSrc)+' — <a href="#" id="kwMetaTgl">메타 입력/수정</a>';
+      $("kwMetaTgl").onclick=function(ev){ ev.preventDefault(); var b=$("kwMetaBox"); b.style.display=(b.style.display==="none")?"block":"none"; };
+      renderStudents();
+      status("시험 「"+d.survey.title+"」 응답 "+(d.responses||[]).length+"명");
+    }).catch(function(err){ status("응답 불러오기 실패: "+err.message, true); });
+  }
+  function buildOX(sv, resp){
+    var det=gradeAnswers(sv.questions||[], resp.answers||{}).detail;
+    var ox=[], pending=0, ungraded=0;
+    (sv.questions||[]).forEach(function(q){
+      var d=det[q.id];
+      if(!d){ ox.push(true); ungraded++; return; }   /* 정답 미설정 문항 = 채점 제외(O 처리) */
+      if(d.pending){
+        var mv=(resp.manual||{})[q.id];
+        ox.push(mv===1);
+        if(mv!==1 && mv!==0) pending++;
+      } else ox.push(!!d.correct);
+    });
+    return {ox:ox, pending:pending, ungraded:ungraded};
+  }
+  function renderStudents(){
+    var sv=kw.detail.survey, rs=kw.detail.responses||[];
+    if(!rs.length){ $("kwStu").innerHTML='<div class="hint">아직 제출된 응답이 없습니다.</div>'; return; }
+    var h='<table class="rt" style="font-size:12px;"><tr><th>학생</th><th>제출일</th><th>점수</th><th>정오(자동)</th><th style="width:80px;"></th></tr>';
+    rs.forEach(function(r,i){
+      var b=buildOX(sv,r), wrongN=b.ox.filter(function(o){return !o;}).length;
+      var warn=(b.pending?(' <span style="color:var(--bad);">서술형 미채점 '+b.pending+'</span>'):'')
+             +(b.ungraded?(' <span style="color:var(--gray2);">채점제외 '+b.ungraded+'</span>'):'');
+      h+='<tr><td><b>'+esc(r.respondentName||"(무명)")+'</b></td>'
+        +'<td>'+esc((r.createdAt||"").slice(0,10))+'</td>'
+        +'<td>'+(r.score!=null?(r.score+"/"+(r.maxScore!=null?r.maxScore:"?")):"—")+'</td>'
+        +'<td>'+(kw.exam.n-wrongN)+'/'+kw.exam.n+' (X '+wrongN+')'+warn+'</td>'
+        +'<td><button class="ghost kwGen" data-i="'+i+'" style="font-size:11.5px;padding:4px 10px;">보고서</button></td></tr>';
+    });
+    h+='</table>';
+    $("kwStu").innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll("#kwStu .kwGen"),function(btn){
+      btn.onclick=function(){ genFor(+btn.getAttribute("data-i")); };
+    });
+  }
+  function genFor(i){
+    var sv=kw.detail.survey, r=(kw.detail.responses||[])[i];
+    if(!r || !kw.exam) return;
+    var b=buildOX(sv,r);
+    if(b.pending && !confirm("서술형 미채점 "+b.pending+"건은 X로 계산됩니다.\n(설문/퀴즈 관리 결과 화면에서 O·X 판정 후 다시 불러오면 반영)\n계속할까요?")) return;
+    var key="kw_"+sv.id;
+    EXAMS[key]=kw.exam;
+    var sel=$("examSel"), has=false;
+    for(var j=0;j<sel.options.length;j++) if(sel.options[j].value===key){ has=true; sel.options[j].textContent=kw.exam.title+" (kwmath)"; }
+    if(!has){ var o=document.createElement("option"); o.value=key; o.textContent=kw.exam.title+" (kwmath)"; sel.appendChild(o); }
+    sel.value=key;
+    window.__gen.state.exam=key;
+    window.__gen.buildGrid();
+    for(var k=0;k<b.ox.length;k++) window.__gen.state.ox[k]=b.ox[k];
+    window.__gen.paint();
+    $("stuName").value=r.respondentName||"학생";
+    var dt=(r.createdAt||sv.createdAt||"").slice(0,10);
+    if(dt) $("testDate").value=dt;
+    window.__gen.render();
+  }
+  $("kwMetaSave").onclick=function(){
+    if(!kw.detail){ alert("먼저 시험을 선택해 주세요."); return; }
+    var sv=kw.detail.survey, n=(sv.questions||[]).length, m;
+    try{ m=JSON.parse($("kwMetaTa").value); }catch(e){ alert("JSON 형식 오류: "+e.message); return; }
+    if(!validMeta(m,n)){ alert("메타 형식이 맞지 않습니다. q 길이=문항수("+n+"), unitOrder·domainOrder·domainAvg·q[{unit,content,domain,bar,band,tag,rate}] 필요."); return; }
+    localStorage.setItem("kwreport_meta_"+sv.id, JSON.stringify(m));
+    alert("저장했습니다. (이 브라우저에만 저장됨)"); onQuiz();
+  };
+  $("kwMetaDel").onclick=function(){
+    if(!kw.detail) return;
+    localStorage.removeItem("kwreport_meta_"+kw.detail.survey.id);
+    alert("저장 메타를 삭제했습니다."); onQuiz();
+  };
+  $("kwLoadBtn").onclick=loadAll;
+  $("kwAcad").onchange=refreshFilters;
+  $("kwCls").onchange=refreshFilters;
+  $("kwDate").onchange=refreshFilters;
+  $("kwQuiz").onchange=onQuiz;
+  status(token()? "연동 준비 — [퀴즈 불러오기]를 누르세요." : "관리자 토큰이 없습니다 — /admin 로그인 후 새로고침하면 연동됩니다.");
+})();
+</script>
+</body>
+</html>
