@@ -52,7 +52,7 @@
   .mini-bar.empty{fill:#EBEDF0;}
   .mini-axis{font-size:8.5px;fill:var(--text-light);font-family:inherit;}
 
-  /* 퀴즈 결과 — 한 줄 접힘 → 누르면 문항별 정오 펼침 */
+  /* 테스트 결과 — 한 줄 접힘 → 누르면 문항별 정오 펼침 */
   .quiz-item{background:#fff;border:1.5px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden;}
   .quiz-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;cursor:pointer;user-select:none;}
   .quiz-head .t{flex:1;min-width:0;font-size:0.88rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -144,7 +144,7 @@
     </div>
 
     <div id="quizSection" style="display:none;margin-bottom:22px;">
-      <div class="section-label">📝 퀴즈 결과</div>
+      <div class="section-label">📝 테스트 결과</div>
       <div id="quizList"></div>
     </div>
 
@@ -434,7 +434,7 @@
     }
   }
 
-  // ─── 퀴즈 결과 다시보기 (학생 본인 + 학부모 계정의 자녀 이름 매칭) ───
+  // ─── 테스트 결과 다시보기 (학생 본인 + 학부모 계정의 자녀 이름 매칭) ───
   //   /api/surveys?results=1 — 서버가 이 계정 휴대폰 응답 + 연결된 자녀 이름 응답을 합쳐 반환.
   //   자녀가 여럿이면 선택된 자녀 이름으로만 걸러 보여준다.
   let _quizAll = null;   // 서버 응답 캐시(자녀 전환 시 재조회 없이 재렌더)
@@ -446,7 +446,7 @@
       if (!_quizAll) {
         const res = await fetch('/api/surveys?results=1', { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
-        if (!res.ok || !data.ok) return;   // 조용히 실패(퀴즈 섹션만 숨김)
+        if (!res.ok || !data.ok) return;   // 조용히 실패(테스트 섹션만 숨김)
         _quizAll = Array.isArray(data.results) ? data.results : [];
       }
       const rows = (students.length > 1 && selected)
@@ -459,7 +459,7 @@
         const pend = r.essay && r.essay.pending > 0;
         const head =
           '<div class="quiz-head" data-qi="' + i + '">' +
-            '<div class="t">' + esc(dateTxt) + ' <small>' + esc(r.title || '퀴즈') + '</small></div>' +
+            '<div class="t">' + esc(dateTxt) + ' <small>' + esc(r.title || '테스트') + '</small></div>' +
             '<div class="s">' + r.score + '점' + (pend ? '<span class="quiz-pend">채점 전</span>' : '') + '</div>' +
             '<div class="arrow">▶</div>' +
           '</div>';
@@ -512,7 +512,7 @@
     } catch (e) { /* 조용히 실패 */ }
   }
 
-  // 학생 선택되고 PDF 로드된 후에 공부량·퀴즈 결과도 조회
+  // 학생 선택되고 PDF 로드된 후에 공부량·테스트 결과도 조회
   const _origLoadPdfs = loadPdfs;
   loadPdfs = async function() {
     await _origLoadPdfs();

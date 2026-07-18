@@ -233,7 +233,7 @@
 
       const pdfs = pdfRes.ok ? await pdfRes.json() : [];
 
-      // 테스트 성적(앱 퀴즈 자동 반영) — 회차(날짜)별로 카드에 붙일 용도
+      // 테스트 성적(앱 테스트 자동 반영) — 회차(날짜)별로 카드에 붙일 용도
       let testScores = [];
       try {
         const scData = await scRes.json();
@@ -431,7 +431,7 @@
         reportBody = `<div class="no-report-msg">📋 이 회차의 수업 레포트는 아직 등록되지 않았습니다.</div>`;
       }
 
-      // 오늘의 테스트(앱 퀴즈 자동 반영) — 회차 카드에 한 줄
+      // 오늘의 테스트(앱 테스트 자동 반영) — 회차 카드에 한 줄
       let testRow = '';
       if (lesson.tests && lesson.tests.length) {
         testRow = lesson.tests.map(t => {

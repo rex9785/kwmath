@@ -57,7 +57,7 @@
 
   var LABELS={ '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
                '모의':['3월','4월','5월','6월','7월','9월','10월','11월(수능)'] };
-  // 테스트 종류(앱 퀴즈 자동 반영) — 읽기 전용 탭. 이 examType들은 '테스트' 탭에서만 보인다.
+  // 테스트 종류(앱 테스트 자동 반영) — 읽기 전용 탭. 이 examType들은 '테스트' 탭에서만 보인다.
   var TEST_KINDS={ '일일테스트':1,'주간테스트':1,'월말테스트':1 };
   function isTest(s){ return !!TEST_KINDS[s.examType]; }
   var MONTH={ '1학기 중간':'04','1학기 기말':'07','2학기 중간':'10','2학기 기말':'12',
@@ -107,7 +107,7 @@
   function setMetric(m){ metric=m; renderPanel(); }
 
   function renderPanel(){
-    var testMode = (tab==='테스트');   // 테스트 탭은 읽기 전용(앱 퀴즈 자동 반영) — 추가·수정·삭제 없음
+    var testMode = (tab==='테스트');   // 테스트 탭은 읽기 전용(앱 테스트 자동 반영) — 추가·수정·삭제 없음
     var data = scores.filter(function(s){ return testMode ? isTest(s) : s.examType===tab; });
     var tabRow='<div class="tabs">'+
       '<button class="'+(tab==='내신'?'on naesin':'')+'" onclick="switchTab(\'내신\')">내신</button>'+
@@ -132,7 +132,7 @@
         ' <button class="mini" style="color:var(--primary);" onclick="editRow('+s.id+')">수정</button>'+
         '<button class="mini" style="color:#b23b3b;" onclick="delRow('+s.id+')">삭제</button></span></div>';
     }).join('');
-    var emptyMsg = testMode ? '아직 응시한 테스트가 없어요. 앱 퀴즈(테스트 종류 지정)를 채점하면 자동으로 쌓여요.'
+    var emptyMsg = testMode ? '아직 응시한 테스트가 없어요. 앱 테스트(테스트 종류 지정)를 채점하면 자동으로 쌓여요.'
                             : '아직 입력된 '+tab+' 성적이 없어요. 아래에서 추가하세요.';
     var listNote = testMode ? '표기: 100점 만점 환산 · 앱 테스트 채점 시 자동 반영'
                             : '표기: 원점수(등급) — 예) 80(2)';

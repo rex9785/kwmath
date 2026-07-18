@@ -1543,8 +1543,8 @@
         const sub = document.getElementById('surveyBannerSub');
         const anyQuiz = open.some(s => s.quiz);
         if (t) t.textContent = open.length > 1
-          ? ('응답할 ' + (anyQuiz ? '퀴즈·설문' : '설문') + '이 ' + open.length + '개 있어요')
-          : ('“' + (open[0].title || '설문') + '”' + (open[0].quiz ? ' 퀴즈' : '') + ' 응답을 기다리고 있어요');
+          ? ('응답할 ' + (anyQuiz ? '테스트·설문' : '설문') + '이 ' + open.length + '개 있어요')
+          : ('“' + (open[0].title || '설문') + '”' + (open[0].quiz ? ' 테스트' : '') + ' 응답을 기다리고 있어요');
         if (sub) sub.textContent = '눌러서 ' + (anyQuiz ? '풀어보기' : '응답하기');
         banner.style.display = 'flex';
       }
@@ -1560,10 +1560,10 @@
         const ps = document.getElementById('surveyPopupSub');
         const go = document.getElementById('surveyPopupGo');
         if (pt) pt.textContent = fresh.length > 1
-          ? ('새 ' + (anyQuiz ? '퀴즈·설문' : '설문') + '이 ' + fresh.length + '개 있어요')
-          : ('“' + (fresh[0].title || '설문') + '”' + (anyQuiz ? ' 퀴즈' : ''));
+          ? ('새 ' + (anyQuiz ? '테스트·설문' : '설문') + '이 ' + fresh.length + '개 있어요')
+          : ('“' + (fresh[0].title || '설문') + '”' + (anyQuiz ? ' 테스트' : ''));
         if (ps) ps.textContent = anyQuiz ? '지금 풀면 바로 채점돼서 점수를 볼 수 있어요.' : '응답해 주시면 큰 도움이 돼요.';
-        if (go) go.textContent = anyQuiz ? '퀴즈 풀러 가기' : '응답하러 가기';
+        if (go) go.textContent = anyQuiz ? '테스트 풀러 가기' : '응답하러 가기';
         // 다음부터 이 설문들로는 다시 안 뜨게 기억
         try { localStorage.setItem('kwmath_survey_dismissed', JSON.stringify(open.map(s => s.id))); } catch(_) {}
         const pop = document.getElementById('surveyPopup');

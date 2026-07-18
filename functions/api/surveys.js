@@ -429,7 +429,7 @@ function notifyAdmin(context, env, survey, who) {
     const scoreTxt = (survey.quiz && typeof survey.maxScore === 'number')
       ? (' · ' + survey.score + '/' + survey.maxScore + '점') : '';
     const p = sendPushToUsers(env, ADMIN_PUSH_USERS, {
-      title: (survey.quiz ? '📝 새 퀴즈 응답이 도착했어요' : '🗳️ 새 설문 응답이 도착했어요'),
+      title: (survey.quiz ? '📝 새 테스트 응답이 도착했어요' : '🗳️ 새 설문 응답이 도착했어요'),
       body: title + (who ? (' · ' + who) : '') + scoreTxt,
       url: '/admin-surveys.html?id=' + survey.id,
       tag: 'kwmath-survey-resp',
@@ -462,7 +462,7 @@ export async function onRequest(context) {
         if (id) {
           const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
           if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-          if (isStaff && s.quiz !== 1) return jsonErr('조교는 퀴즈만 볼 수 있어요.', 403);
+          if (isStaff && s.quiz !== 1) return jsonErr('조교는 테스트만 볼 수 있어요.', 403);
           const { results } = await env.DB.prepare(
             'SELECT * FROM survey_responses WHERE survey_id=? ORDER BY created_at DESC, id DESC'
           ).bind(id).all();
@@ -524,7 +524,7 @@ export async function onRequest(context) {
         if (!id) return jsonErr('id가 필요합니다.');
         const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
         if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-        if (s.quiz !== 1) return jsonErr('퀴즈가 아닌 설문은 채점할 수 없어요.');
+        if (s.quiz !== 1) return jsonErr('테스트가 아닌 설문은 채점할 수 없어요.');
         const body = await request.json().catch(() => ({}));
         const rid = parseInt(body.responseId, 10);
         if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
@@ -578,7 +578,7 @@ export async function onRequest(context) {
         if (!id) return jsonErr('id가 필요합니다.');
         const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
         if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-        if (isStaff && s.quiz !== 1) return jsonErr('조교는 퀴즈만 수정할 수 있어요.', 403);
+        if (isStaff && s.quiz !== 1) return jsonErr('조교는 테스트만 수정할 수 있어요.', 403);
         const body = await request.json().catch(() => ({}));
         const rid = parseInt(body.responseId, 10);
         if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
@@ -654,7 +654,7 @@ export async function onRequest(context) {
         if (!id) return jsonErr('id가 필요합니다.');
         const ex = await env.DB.prepare('SELECT id, quiz FROM surveys WHERE id=?').bind(id).first();
         if (!ex) return jsonErr('설문을 찾을 수 없습니다.', 404);
-        if (isStaff && ex.quiz !== 1) return jsonErr('조교는 퀴즈만 수정할 수 있어요.', 403);
+        if (isStaff && ex.quiz !== 1) return jsonErr('조교는 테스트만 수정할 수 있어요.', 403);
         const body = await request.json().catch(() => ({}));
         const sets = [], vals = [];
         if (body.title !== undefined) {
@@ -735,7 +735,7 @@ export async function onRequest(context) {
         if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
         const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
         if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-        if (isStaff && s.quiz !== 1) return jsonErr('조교는 퀴즈만 관리할 수 있어요.', 403);
+        if (isStaff && s.quiz !== 1) return jsonErr('조교는 테스트만 관리할 수 있어요.', 403);
         const resp = await env.DB.prepare(
           'SELECT id, respondent_name FROM survey_responses WHERE id=? AND survey_id=?'
         ).bind(rid, id).first();
@@ -756,7 +756,7 @@ export async function onRequest(context) {
         if (isStaff) {
           const ex = await env.DB.prepare('SELECT quiz FROM surveys WHERE id=?').bind(id).first();
           if (!ex) return jsonErr('설문을 찾을 수 없습니다.', 404);
-          if (ex.quiz !== 1) return jsonErr('조교는 퀴즈만 삭제할 수 있어요.', 403);
+          if (ex.quiz !== 1) return jsonErr('조교는 테스트만 삭제할 수 있어요.', 403);
         }
         await env.DB.prepare('DELETE FROM survey_responses WHERE survey_id=?').bind(id).run();
         await env.DB.prepare('DELETE FROM surveys WHERE id=?').bind(id).run();
@@ -785,7 +785,7 @@ export async function onRequest(context) {
       if (!id) return jsonErr('id가 필요합니다.');
       const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
       if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-      if (s.quiz !== 1) return jsonErr('퀴즈가 아니에요.', 400);
+      if (s.quiz !== 1) return jsonErr('테스트가 아니에요.', 400);
       const resp = await env.DB.prepare(
         'SELECT * FROM survey_responses WHERE survey_id=? AND respondent_phone=?'
       ).bind(id, access.phone).first();

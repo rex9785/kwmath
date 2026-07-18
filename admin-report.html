@@ -110,14 +110,14 @@ td.oxO{color:var(--ok); font-weight:800;} td.oxX{color:var(--bad); font-weight:8
   <div id="kwbox" style="border:1.5px solid var(--cream2);border-radius:10px;padding:14px 16px;margin-bottom:18px;background:#FBF8F4;">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <b style="color:var(--wine);font-size:13.5px;">kwmath 앱 연동</b>
-      <button class="ghost" id="kwLoadBtn" style="padding:5px 12px;font-size:12px;">퀴즈 불러오기</button>
+      <button class="ghost" id="kwLoadBtn" style="padding:5px 12px;font-size:12px;">테스트 불러오기</button>
       <span class="hint" id="kwStatus" style="margin-top:0;"></span>
     </div>
     <div class="row" id="kwFilters" style="display:none;margin:12px 0 0;">
       <div><label>학원</label><select id="kwAcad"></select></div>
       <div><label>반</label><select id="kwCls"></select></div>
       <div><label>날짜</label><select id="kwDate"></select></div>
-      <div style="flex:1;min-width:220px;"><label>시험(퀴즈)</label><select id="kwQuiz" style="width:100%;"></select></div>
+      <div style="flex:1;min-width:220px;"><label>시험(테스트)</label><select id="kwQuiz" style="width:100%;"></select></div>
     </div>
     <div id="kwMetaLine" class="hint" style="display:none;"></div>
     <div id="kwMetaBox" style="display:none;margin-top:8px;">
@@ -772,10 +772,10 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
 </script>
 <!--KWMATH-->
 <script id="kwmath">
-/* ═══ kwmath 앱 연동 — 퀴즈 목록·응답 자동 로드 (서버 무수정 · functions/api/surveys.js 채점 로직 이식) ═══ */
+/* ═══ kwmath 앱 연동 — 테스트 목록·응답 자동 로드 (서버 무수정 · functions/api/surveys.js 채점 로직 이식) ═══ */
 (function(){
   var $=function(id){return document.getElementById(id);};
-  /* 시험별 정식 문항 메타 등록부 — Claude가 시험지 태깅 후 여기에 추가(키=퀴즈 id 문자열)
+  /* 시험별 정식 문항 메타 등록부 — Claude가 시험지 태깅 후 여기에 추가(키=테스트 id 문자열)
      형식: {title?, grade?, unitOrder:[...], domainOrder:[...], domainAvg:{...}, q:[{unit,content,domain,bar,band,tag,rate}×문항수]} */
   var KW_META = {};
 
@@ -896,7 +896,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
   function qzMatch(s, acad, cls){
     if(!acad) return true;
     var aa=s.audAcademy||[], ac=s.audClass||[];
-    if(!aa.length && !ac.length) return true;   /* 대상 미지정 퀴즈 = 전체 공개 */
+    if(!aa.length && !ac.length) return true;   /* 대상 미지정 테스트 = 전체 공개 */
     if(aa.indexOf(acad)>=0) return true;
     for(var i=0;i<ac.length;i++){
       var p=ac[i], ix=p.indexOf('|');
@@ -925,7 +925,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
     fillSel($("kwQuiz"), list.map(function(s){
       var d=qzDate(s).slice(5).replace("-",".");
       return { v:String(s.id), t:"["+d+"] "+s.title+" · 응답 "+(s.responseCount||0)+(s.status==="draft"?" (대기)":"") };
-    }), list.length?"— 시험 선택 —":"(조건에 맞는 퀴즈 없음)");
+    }), list.length?"— 시험 선택 —":"(조건에 맞는 테스트 없음)");
     $("kwStu").innerHTML=""; $("kwMetaLine").style.display="none"; $("kwMetaBox").style.display="none"; kw.detail=null;
   }
   function loadAll(){
@@ -941,11 +941,11 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
         (s.audAcademy||[]).forEach(function(a){ if(kw.academies.indexOf(a)<0) kw.academies.push(a); });
         (s.audClass||[]).forEach(function(p){ var ix=p.indexOf('|'); if(ix>0){ var a=p.slice(0,ix); if(kw.academies.indexOf(a)<0) kw.academies.push(a); } });
       });
-      if(!kw.quizzes.length){ status("퀴즈(자동 채점 설문)가 아직 없습니다.",true); return; }
+      if(!kw.quizzes.length){ status("테스트(자동 채점 설문)가 아직 없습니다.",true); return; }
       $("kwFilters").style.display="flex";
       fillSel($("kwAcad"), kw.academies, "전체 학원", "");
       refreshFilters();
-      status("퀴즈 "+kw.quizzes.length+"개 — 학원·반·날짜로 좁힌 뒤 시험을 고르세요. (날짜=출제일)");
+      status("테스트 "+kw.quizzes.length+"개 — 학원·반·날짜로 좁힌 뒤 시험을 고르세요. (날짜=출제일)");
     }).catch(function(err){
       status(err.message==="AUTH"
         ? "관리자 로그인이 필요합니다 — /admin 로그인 후 이 페이지를 새로고침하세요."
@@ -1041,7 +1041,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
     var sv=kw.detail.survey, r=(kw.detail.responses||[])[i];
     if(!r || !kw.exam) return;
     var b=buildOX(sv,r);
-    if(b.pending && !confirm("서술형 미채점 "+b.pending+"건은 X로 계산됩니다.\n(설문/퀴즈 관리 결과 화면에서 O·X 판정 후 다시 불러오면 반영)\n계속할까요?")) return;
+    if(b.pending && !confirm("서술형 미채점 "+b.pending+"건은 X로 계산됩니다.\n(설문/테스트 관리 결과 화면에서 O·X 판정 후 다시 불러오면 반영)\n계속할까요?")) return;
     var key="kw_"+sv.id;
     EXAMS[key]=kw.exam;
     var sel=$("examSel"), has=false;
@@ -1075,7 +1075,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
   $("kwCls").onchange=refreshFilters;
   $("kwDate").onchange=refreshFilters;
   $("kwQuiz").onchange=onQuiz;
-  status(token()? "연동 준비 — [퀴즈 불러오기]를 누르세요." : "관리자 토큰이 없습니다 — /admin 로그인 후 새로고침하면 연동됩니다.");
+  status(token()? "연동 준비 — [테스트 불러오기]를 누르세요." : "관리자 토큰이 없습니다 — /admin 로그인 후 새로고침하면 연동됩니다.");
 })();
 </script>
 </body>

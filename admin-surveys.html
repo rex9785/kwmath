@@ -70,7 +70,7 @@
   .scaleRow input{ width:64px; flex:0 0 auto; }
   .scaleRow span{ font-size:0.85rem; color:var(--text-light); }
   .qreq{ display:flex; align-items:center; gap:6px; font-size:0.83rem; margin-top:8px; }
-  /* 퀴즈 빌더 */
+  /* 테스트 빌더 */
   .ansmark{ flex:0 0 auto; border:1px solid var(--line); background:#fff; border-radius:8px; padding:0 9px;
             cursor:pointer; color:#b9b3ad; font-weight:700; }
   .ansmark.on{ background:#E6F4EA; border-color:#137333; color:#137333; }
@@ -114,8 +114,8 @@
   <div class="headInner">
     <a id="adminBack" class="adminBack hidden" href="/admin">← 관리자</a>
     <button id="backBtn" class="hidden">← 뒤로</button>
-    <h1 id="hTitle">설문·조사 / 퀴즈</h1>
-    <button id="newBtn" class="primary">+ 새 설문/새 퀴즈</button>
+    <h1 id="hTitle">설문·조사 / 테스트</h1>
+    <button id="newBtn" class="primary">+ 새 설문/새 테스트</button>
   </div>
 </header>
 <!-- 조교 콘솔 네비게이션 (조교일 때만 노출) -->
@@ -124,7 +124,7 @@
   <a href="/staff-students" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">🎓 학생</a>
   <a href="/staff-scores" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">📈 성적</a>
   <a href="/staff-reports" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">📋 리포트</a>
-  <a href="/admin-surveys" style="text-decoration:none;color:var(--primary);font-weight:800;font-size:0.82rem;padding:4px 8px;">📝 퀴즈</a>
+  <a href="/admin-surveys" style="text-decoration:none;color:var(--primary);font-weight:800;font-size:0.82rem;padding:4px 8px;">📝 테스트</a>
   <a href="/staff-worklog" style="text-decoration:none;color:var(--muted,#7a6f6a);font-weight:700;font-size:0.82rem;padding:4px 8px;">🗓️ 근무기록</a>
 </div>
 <div class="wrap">
@@ -164,7 +164,7 @@
            || localStorage.getItem('kwmath_admin_pw')
            || localStorage.getItem('kwmath_admin_token')
            || null;
-  // 조교(ast_) 세션이면 '퀴즈 전용' 모드 — 목록은 서버가 퀴즈만 내려주고, 새 항목은 퀴즈 강제.
+  // 조교(ast_) 세션이면 '테스트 전용' 모드 — 목록은 서버가 테스트만 내려주고, 새 항목은 테스트 강제.
   var isStaff = /^ast_/.test(token || '');
 
   var viewEl = document.getElementById('view');
@@ -208,9 +208,9 @@
   }
   function setMode(mode){
     // mode: list | build | results
-    if(mode === 'list'){ hTitle.textContent = isStaff ? '퀴즈' : '설문·조사 / 퀴즈'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
-    if(mode === 'build'){ hTitle.textContent = isStaff ? (draft && draft.id ? '퀴즈 수정' : '새 퀴즈') : (draft && draft.id ? '설문 수정' : '새 설문'); backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.remove('hidden'); }
-    if(mode === 'results'){ hTitle.textContent = isStaff ? '퀴즈 결과' : '설문 결과'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.add('hidden'); }
+    if(mode === 'list'){ hTitle.textContent = isStaff ? '테스트' : '설문·조사 / 테스트'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
+    if(mode === 'build'){ hTitle.textContent = isStaff ? (draft && draft.id ? '테스트 수정' : '새 테스트') : (draft && draft.id ? '설문 수정' : '새 설문'); backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.remove('hidden'); }
+    if(mode === 'results'){ hTitle.textContent = isStaff ? '테스트 결과' : '설문 결과'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.add('hidden'); }
   }
 
   // ─────────────── 목록 ───────────────
@@ -233,8 +233,8 @@
   function renderList(items){
     if(!items.length){
       viewEl.innerHTML = isStaff
-        ? '<div class="state">아직 만든 퀴즈가 없어요.<br>오른쪽 위 <b>+ 새 퀴즈</b> 버튼으로 첫 퀴즈를 만들어 보세요.</div>'
-        : '<div class="state">아직 만든 설문·조사나 퀴즈가 없어요.<br>오른쪽 위 <b>+ 새 설문/새 퀴즈</b> 버튼으로 첫 항목을 만들어 보세요.</div>';
+        ? '<div class="state">아직 만든 테스트가 없어요.<br>오른쪽 위 <b>+ 새 테스트</b> 버튼으로 첫 테스트를 만들어 보세요.</div>'
+        : '<div class="state">아직 만든 설문·조사나 테스트가 없어요.<br>오른쪽 위 <b>+ 새 설문/새 테스트</b> 버튼으로 첫 항목을 만들어 보세요.</div>';
       return;
     }
     viewEl.innerHTML = '';
@@ -247,7 +247,7 @@
       h += '<div class="sub"><span class="badge aud">' + esc(AUD_LABEL[s.audience]||'전체') + '</span> ';
       (s.audAcademy||[]).forEach(function(a){ if(a) h += '<span class="badge tgt">🏫 ' + esc(a) + '</span> '; });
       (s.audClass||[]).forEach(function(c){ if(c){ var pi = c.indexOf('|'); h += '<span class="badge tgt">' + esc(pi >= 0 ? (c.slice(0,pi) + ' › ' + c.slice(pi+1)) : c) + '</span> '; } });
-      if(s.quiz) h += '<span class="badge quiz">퀴즈</span> ';
+      if(s.quiz) h += '<span class="badge quiz">테스트</span> ';
       if(s.anonymous) h += '<span class="badge anon">익명</span> ';
       h += '· 질문 ' + (s.questions?s.questions.length:0) + '개 · 응답 <b>' + (s.responseCount||0) + '</b>명';
       if(s.createdAt) h += ' · ' + esc(fmt(s.createdAt));
@@ -282,13 +282,13 @@
 
   // ─────────────── 빌더 ───────────────
   function newQuestion(type, label){
-    var t = type || 'short';   // 기본값 단답(관우T 확정: 답안지형 퀴즈)
+    var t = type || 'short';   // 기본값 단답(관우T 확정: 답안지형 테스트)
     var q = { id:'q' + Date.now() + '_' + (_qseq++), type:t, label:label||'', required:false };
     if(t==='single'||t==='multi'||t==='dropdown') q.options = ['', ''];
     if(t==='scale'){ q.scaleMin=1; q.scaleMax=5; q.scaleMinLabel=''; q.scaleMaxLabel=''; }
     return q;
   }
-  // 답안지형 퀴즈: 라벨을 위치 번호(1번·2번…)로. 빈칸/번호패턴만 갱신, 직접 쓴 제목은 보존.
+  // 답안지형 테스트: 라벨을 위치 번호(1번·2번…)로. 빈칸/번호패턴만 갱신, 직접 쓴 제목은 보존.
   function renumberQuiz(){
     var i = 0;
     draft.questions.forEach(function(q){
@@ -321,7 +321,7 @@
     head.innerHTML =
       '<div class="modeTabs" id="modeTabs">' +
         '<button type="button" class="modeTab" id="tabSurvey">설문</button>' +
-        '<button type="button" class="modeTab" id="tabQuiz">퀴즈</button>' +
+        '<button type="button" class="modeTab" id="tabQuiz">테스트</button>' +
       '</div>' +
       '<label class="fld">설문 제목</label>' +
       '<input type="text" id="fTitle" placeholder="예: 3월 수업 만족도 조사">' +
@@ -335,7 +335,7 @@
       '</div>' +
       '<label class="chk"><input type="checkbox" id="fAnon"> 익명 응답 (누가 답했는지 저장·표시 안 함)</label>' +
       '<div id="testKindRow" style="margin-top:10px;"><label class="fld">테스트 종류 <span style="font-weight:400;color:var(--muted);">(지정하면 채점 점수가 성적표에 자동 반영돼요)</span></label>' +
-        '<select id="fTestKind"><option value="">없음 (일반 퀴즈)</option><option value="일일테스트">일일테스트</option><option value="주간테스트">주간테스트</option><option value="월말테스트">월말테스트</option></select></div>' +
+        '<select id="fTestKind"><option value="">없음 (일반 테스트)</option><option value="일일테스트">일일테스트</option><option value="주간테스트">주간테스트</option><option value="월말테스트">월말테스트</option></select></div>' +
       '<div id="twinRow" style="margin-top:10px;"><label class="chk"><input type="checkbox" id="fUseTwin"> 쌍둥이 문제(오답 재도전) 사용 <span style="font-weight:400;color:var(--muted);">— 끄면 이 시험은 재도전 없이 진행돼요</span></label></div>' +
       '<div class="qhint" id="quizHint"></div>' +
       '<div class="fld" style="margin-top:12px;">대상 학원·반 <span style="font-weight:400;color:var(--muted);">(아무것도 안 고르면 전체 대상)</span></div>' +
@@ -349,14 +349,14 @@
     addBtn.addEventListener('click', function(){ syncFromForm(); draft.questions.push(newQuestion('short')); if(draft.quiz) renumberQuiz(); renderQuestions(); });
     box.appendChild(addBtn);
 
-    // ── 한번에 여러 문항 추가 (답안지형 퀴즈 전용) — N개를 '1번·2번…' 라벨·단답으로 생성 ──
+    // ── 한번에 여러 문항 추가 (답안지형 테스트 전용) — N개를 '1번·2번…' 라벨·단답으로 생성 ──
     var bulkRow = document.createElement('div'); bulkRow.id = 'bulkRow';
     bulkRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 4px;';
     bulkRow.innerHTML =
       '<input type="number" id="bulkN" value="30" min="1" max="100" inputmode="numeric" style="width:72px;padding:8px;border:1px solid var(--line);border-radius:8px;">' +
       '<button type="button" class="addQ" id="bulkAdd" style="margin:0;width:auto;">개 한번에 추가</button>' +
       '<button type="button" class="addQ" id="renumBtn" style="margin:0;width:auto;">번호 새로 매기기</button>' +
-      '<div class="qhint" style="flex-basis:100%;margin:0;">답안지형 퀴즈: 문제는 종이(매쓰홀릭), 앱에는 <b>답만</b> 입력해요. 문항은 자동으로 <b>1번·2번…</b> 단답으로 만들어져요.</div>';
+      '<div class="qhint" style="flex-basis:100%;margin:0;">답안지형 테스트: 문제는 종이(매쓰홀릭), 앱에는 <b>답만</b> 입력해요. 문항은 자동으로 <b>1번·2번…</b> 단답으로 만들어져요.</div>';
     box.appendChild(bulkRow);
     // ⚠️ box가 아직 문서(viewEl)에 붙기 전이라 document.getElementById는 null —
     //    반드시 bulkRow.querySelector로 찾아야 함(분리된 노드에서도 동작). (2026-07-16 버그픽스)
@@ -384,7 +384,7 @@
     if(draft.useTwin===undefined) draft.useTwin = true;
     var fUseTwin = document.getElementById('fUseTwin');
     if(fUseTwin){ fUseTwin.checked = !!draft.useTwin; fUseTwin.addEventListener('change', function(e){ draft.useTwin = e.target.checked; renderQuestions(); }); }
-    if(isStaff){ draft.quiz = true; }  // 조교는 퀴즈 전용
+    if(isStaff){ draft.quiz = true; }  // 조교는 테스트 전용
     setupModeTabs();
 
     loadTargetOptions();
@@ -429,13 +429,13 @@
     }).catch(function(){ wrap.innerHTML = '<span style="color:var(--muted);">학원·반 목록을 불러오지 못했어요. (전체 대상으로 저장됩니다)</span>'; wrap.dataset.loaded='1'; });
   }
 
-  // 설문/퀴즈 탭 — 체크박스 대신 상단 탭으로 모드 선택. 퀴즈면 응답 대상=학생 고정.
+  // 설문/테스트 탭 — 체크박스 대신 상단 탭으로 모드 선택. 테스트면 응답 대상=학생 고정.
   function setupModeTabs(){
     var ts = document.getElementById('tabSurvey'), tq = document.getElementById('tabQuiz');
     if(!ts || !tq) return;
     ts.addEventListener('click', function(){ if(isStaff || !draft.quiz) return; draft.quiz = false; applyModeUI(); renderQuestions(); });
     tq.addEventListener('click', function(){ if(draft.quiz) return; draft.quiz = true; applyModeUI(); renderQuestions(); });
-    if(isStaff){ ts.disabled = true; ts.title = '조교 계정은 퀴즈 전용입니다'; }  // 설문 탭 잠금
+    if(isStaff){ ts.disabled = true; ts.title = '조교 계정은 테스트 전용입니다'; }  // 설문 탭 잠금
     applyModeUI();
   }
   function applyModeUI(){
@@ -444,15 +444,15 @@
     if(tq) tq.classList.toggle('on', !!draft.quiz);
     var aud = document.getElementById('fAud');
     if(aud){
-      if(draft.quiz){ draft.audience = 'student'; aud.value = 'student'; aud.disabled = true; }  // 퀴즈는 학생만 응답
+      if(draft.quiz){ draft.audience = 'student'; aud.value = 'student'; aud.disabled = true; }  // 테스트는 학생만 응답
       else { aud.disabled = false; }
     }
     var tkRow = document.getElementById('testKindRow');
-    if(tkRow) tkRow.style.display = draft.quiz ? '' : 'none';  // 테스트 종류는 퀴즈에서만 노출
+    if(tkRow) tkRow.style.display = draft.quiz ? '' : 'none';  // 테스트 종류는 테스트에서만 노출
     var twRow = document.getElementById('twinRow');
-    if(twRow) twRow.style.display = draft.quiz ? '' : 'none';  // 쌍둥이 토글도 퀴즈에서만
+    if(twRow) twRow.style.display = draft.quiz ? '' : 'none';  // 쌍둥이 토글도 테스트에서만
     var bkRow = document.getElementById('bulkRow');
-    if(bkRow) bkRow.style.display = draft.quiz ? '' : 'none';  // 일괄 생성도 퀴즈에서만
+    if(bkRow) bkRow.style.display = draft.quiz ? '' : 'none';  // 일괄 생성도 테스트에서만
     updateQuizHint();
   }
   function updateQuizHint(){
@@ -536,7 +536,7 @@
       // 선택지 / 척도 영역
       var extra = document.createElement('div');
 
-      // 퀴즈: 자동 배점 표시 (수동 입력 폐지 — 총 100점, 장문형 2배 가중)
+      // 테스트: 자동 배점 표시 (수동 입력 폐지 — 총 100점, 장문형 2배 가중)
       if(draft.quiz && (gradable || q.type==='long')){
         var pr = document.createElement('div'); pr.className = 'qhint'; pr.style.margin = '2px 0 6px';
         pr.innerHTML = '<span class="autoPts" data-qi="' + idx + '"></span>';
@@ -548,7 +548,7 @@
       }
 
       if(isOX){
-        // OX형 — 선택지 O/X 고정(수정·삭제·추가 불가), 퀴즈 모드면 ✔로 정답 표시
+        // OX형 — 선택지 O/X 고정(수정·삭제·추가 불가), 테스트 모드면 ✔로 정답 표시
         q.options.forEach(function(opt, oi){
           var row = document.createElement('div'); row.className = 'opt';
           var markHtml = '';
@@ -719,9 +719,9 @@
     draft.audience = document.getElementById('fAud').value;
     draft.status = document.getElementById('fStatus').value;
     draft.anonymous = document.getElementById('fAnon').checked;
-    if(draft.quiz) draft.audience = 'student';  // draft.quiz는 설문/퀴즈 탭에서 관리 · 퀴즈면 대상은 학생 고정
+    if(draft.quiz) draft.audience = 'student';  // draft.quiz는 설문/테스트 탭에서 관리 · 테스트면 대상은 학생 고정
     var tk = document.getElementById('fTestKind');
-    draft.testKind = (draft.quiz && tk) ? (tk.value || '') : '';  // 테스트 종류는 퀴즈일 때만 유효
+    draft.testKind = (draft.quiz && tk) ? (tk.value || '') : '';  // 테스트 종류는 테스트일 때만 유효
     // 대상 학원·반 — 옵션이 로드됐을 때만 읽어 draft 갱신(로드 전 syncFromForm이 초기화하는 것 방지)
     var tw = document.getElementById('fTargetWrap');
     if(tw && tw.dataset.loaded === '1'){
@@ -738,7 +738,7 @@
       var o = { id:q.id, type:q.type, label:(q.label||'').trim(), required:!!q.required };
       if(q.type==='single'||q.type==='multi'||q.type==='dropdown') o.options = (q.options||[]).map(function(x){return (x||'').trim();}).filter(Boolean);
       if(q.type==='scale'){ o.scaleMin=parseInt(q.scaleMin,10)||1; o.scaleMax=parseInt(q.scaleMax,10)||5; o.scaleMinLabel=(q.scaleMinLabel||'').trim(); o.scaleMaxLabel=(q.scaleMaxLabel||'').trim(); }
-      // 퀴즈: 정답만 실어보내기 — 배점은 서버가 자동 배분(총 100점, 장문형 2배)
+      // 테스트: 정답만 실어보내기 — 배점은 서버가 자동 배분(총 100점, 장문형 2배)
       if(draft.quiz){
         if(q.type==='single'||q.type==='dropdown'){
           var c = (typeof q._ci==='number' && q._ci>=0 && q.options) ? (q.options[q._ci]||'').trim() : '';
@@ -793,9 +793,9 @@
     var th = '<div class="row1"><span class="nm">' + esc(survey.title) + '</span>';
     th += '<span class="badge ' + survey.status + '">' + (survey.status==='open'?'진행중':survey.status==='closed'?'종료':'초안') + '</span></div>';
     th += '<div class="rsummary">응답 <b>' + responses.length + '</b>명';
-    if(survey.quiz) th += ' · <span class="badge quiz">퀴즈</span>';
+    if(survey.quiz) th += ' · <span class="badge quiz">테스트</span>';
     if(survey.anonymous) th += ' · 익명 설문';
-    // 퀴즈: 평균 점수
+    // 테스트: 평균 점수
     if(survey.quiz && responses.length){
       var maxS = null, sumS = 0, cntS = 0;
       responses.forEach(function(r){
@@ -896,7 +896,7 @@
       return esc(s);
     }
 
-    // ── 퀴즈 공통 헬퍼: 정오 판정(표시용) · O/X 버튼 · 채점 저장 ──
+    // ── 테스트 공통 헬퍼: 정오 판정(표시용) · O/X 버튼 · 채점 저장 ──
     function normA(s){ return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' '); }
     function isRight(q, a){   // true/false/null(판정불가·무응답)
       if(!survey.quiz || q.correct==null) return null;
@@ -949,7 +949,7 @@
     }
     function whoOf(r, i){ return survey.anonymous ? ('응답 ' + (i+1)) : (esc(r.respondentName) || ('응답 ' + (i+1))); }
 
-    // ── 퀴즈: ✍️ 채점 대기 — 서술형 미채점 답안만 모아서 (채점 끝나면 목록에서 빠짐) ──
+    // ── 테스트: ✍️ 채점 대기 — 서술형 미채점 답안만 모아서 (채점 끝나면 목록에서 빠짐) ──
     if(survey.quiz && longQs.length){
       var pendList = [];
       responses.forEach(function(r, i){ if(pendingCount(r) > 0) pendList.push({ r:r, i:i }); });
@@ -979,7 +979,7 @@
       attachOx(gc);
     }
 
-    // ── 응답자별 (퀴즈=점수·답안 / 일반 설문=답변) — 이름 클릭 펼침 · ✏️답 수정 · 🔄재제출 허용 ──
+    // ── 응답자별 (테스트=점수·답안 / 일반 설문=답변) — 이름 클릭 펼침 · ✏️답 수정 · 🔄재제출 허용 ──
     if(responses.length){
       function respDetail(r){
         var s = '';
@@ -1186,7 +1186,7 @@
           h += '<div class="bar"><div class="lbl"><span>' + esc(o) + mk + '</span><span>' + n + '명 (' + pct + '%)</span></div>' +
                '<div class="track"><div class="fill" style="width:' + pct + '%;"></div></div></div>';
         });
-        // 퀴즈: 정답률 표시 / 개인별 응답 접이식은 일반 설문에서만 (퀴즈는 응답자별 점수에서 펼침)
+        // 테스트: 정답률 표시 / 개인별 응답 접이식은 일반 설문에서만 (테스트는 응답자별 점수에서 펼침)
         if(survey.quiz && q.correct!=null){
           var okC = 0, ansC = 0;
           responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansC++; if(rt) okC++; } });
@@ -1194,19 +1194,19 @@
         }
         if(!survey.quiz) h += perPersonBlock(q, function(a){ return Array.isArray(a) ? a.join(', ') : a; });
       } else if(survey.quiz && q.type==='short' && q.correct!=null){
-        // 단답형(퀴즈): 답이 제각각이라 나열하지 않고 정답률만 — 개별 답안은 응답자별 점수에서
+        // 단답형(테스트): 답이 제각각이라 나열하지 않고 정답률만 — 개별 답안은 응답자별 점수에서
         var okS = 0, ansS = 0;
         responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansS++; if(rt) okS++; } });
         h += '<div class="rsummary">정답: <b>' + esc(q.correct) + '</b> · 정답률 <b>' + (ansS?Math.round(okS/ansS*100):0) + '%</b> (' + okS + '/' + ansS + '명 응답)</div>';
         h += '<div class="sub">개별 답안은 위 "응답자별 점수"에서 이름을 누르면 보여요.</div>';
       } else if(survey.quiz && q.type==='math' && q.correct!=null){
-        // 수식(퀴즈): 형태가 달라도 수학적으로 같으면 정답 — 정답률만, 개별 답안은 응답자별 점수에서
+        // 수식(테스트): 형태가 달라도 수학적으로 같으면 정답 — 정답률만, 개별 답안은 응답자별 점수에서
         var okM = 0, ansM = 0;
         responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansM++; if(rt) okM++; } });
         h += '<div class="rsummary">정답: <b>' + fmtMathA(q.correct) + '</b> · 정답률 <b>' + (ansM?Math.round(okM/ansM*100):0) + '%</b> (' + okM + '/' + ansM + '명 응답)</div>';
         h += '<div class="sub">형태가 달라도 수학적으로 같으면 정답으로 채점돼요. 개별 답안은 위 "응답자별 점수"에서 이름을 누르면 보여요.</div>';
       } else if(survey.quiz && q.type==='long' && q.points!=null){
-        // 서술형(퀴즈): 여기선 채점 현황 요약만 — 채점은 맨 위 "✍️ 채점 대기"에서
+        // 서술형(테스트): 여기선 채점 현황 요약만 — 채점은 맨 위 "✍️ 채점 대기"에서
         var oN=0, xN=0, pN=0;
         responses.forEach(function(r){ var m=(r.manual||{})[q.id]; if(m===1) oN++; else if(m===0) xN++; else pN++; });
         h += '<div class="rsummary">서술형 · 배점 <b>' + q.points + '점</b> — <span class="ok">O ' + oN + '</span> · <span class="no">X ' + xN + '</span> · <span style="color:#B26A00;font-weight:700;">채점 대기 ' + pN + '</span></div>';
@@ -1272,7 +1272,7 @@
 
   // ─────────────── 이벤트 ───────────────
   if(isStaff){
-    newBtn.textContent = '+ 새 퀴즈';   // 조교: 퀴즈 전용
+    newBtn.textContent = '+ 새 테스트';   // 조교: 테스트 전용
     var sn = document.getElementById('staffNav'); if(sn) sn.style.display = 'flex';   // 조교 콘솔 네비 노출
   } else {
     var ab = document.getElementById('adminBack'); if(ab) ab.classList.remove('hidden');   // 원장: 관리자 홈으로 돌아가기
