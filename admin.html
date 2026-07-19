@@ -1721,7 +1721,11 @@
   function formatClassSchedule(sch) {
     if (!sch || !Array.isArray(sch.days) || !sch.days.length) return '시간 미설정';
     const days = sch.days.map(d => SCHED_DAY_NAMES[d] || '?').join('·');
-    return days + ' ' + (sch.start || '') + '~' + (sch.end || '');
+    let label = days + ' ' + (sch.start || '') + '~' + (sch.end || '');
+    if (sch.clinic && Array.isArray(sch.clinic.days) && sch.clinic.days.length) {
+      label += ' +클리닉 ' + sch.clinic.days.map(d => SCHED_DAY_NAMES[d] || '?').join('·') + ' ' + (sch.clinic.start || '') + '~' + (sch.clinic.end || '');
+    }
+    return label;
   }
   let _schedTarget = null;
   function openScheduleModal(academy, className) {
@@ -1732,18 +1736,31 @@
       el.id = 'schedModal';
       el.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;align-items:center;justify-content:center;padding:16px;';
       let dayBoxes = '';
+      let clinDayBoxes = '';
       for (let d = 0; d < 7; d++) {
         dayBoxes += '<label style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:0.8rem;font-weight:700;color:#444;">' +
           '<input type="checkbox" id="schedDay' + d + '" style="width:18px;height:18px;cursor:pointer;">' + SCHED_DAY_NAMES[d] + '</label>';
+        clinDayBoxes += '<label style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:0.8rem;font-weight:700;color:#444;">' +
+          '<input type="checkbox" id="clinDay' + d + '" style="width:16px;height:16px;cursor:pointer;">' + SCHED_DAY_NAMES[d] + '</label>';
       }
       el.innerHTML = '<div style="background:#fff;border-radius:12px;padding:18px;width:100%;max-width:340px;box-shadow:0 8px 30px rgba(0,0,0,0.25);">' +
         '<div style="font-weight:800;color:#3949AB;margin-bottom:4px;">🕘 수업 요일·시간 설정</div>' +
         '<div id="schedModalTitle" style="font-size:0.85rem;color:#666;margin-bottom:12px;"></div>' +
         '<div style="display:flex;justify-content:space-between;margin-bottom:14px;">' + dayBoxes + '</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">' +
           '<input type="time" id="schedStart" style="flex:1;padding:7px;border:1.5px solid #d8e0ec;border-radius:7px;font-size:0.9rem;">' +
           '<span style="color:#888;">~</span>' +
           '<input type="time" id="schedEnd" style="flex:1;padding:7px;border:1.5px solid #d8e0ec;border-radius:7px;font-size:0.9rem;">' +
+        '</div>' +
+        '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:700;color:#444;margin-bottom:8px;cursor:pointer;">' +
+          '<input type="checkbox" id="clinOn" onchange="document.getElementById(\'clinBox\').style.display=this.checked?\'block\':\'none\'" style="width:16px;height:16px;cursor:pointer;">🩺 클리닉 시간 추가</label>' +
+        '<div id="clinBox" style="display:none;background:#f7f9fc;border:1px solid #e0e6ef;border-radius:8px;padding:10px;margin-bottom:14px;">' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:10px;">' + clinDayBoxes + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<input type="time" id="clinStart" style="flex:1;padding:7px;border:1.5px solid #d8e0ec;border-radius:7px;font-size:0.9rem;">' +
+            '<span style="color:#888;">~</span>' +
+            '<input type="time" id="clinEnd" style="flex:1;padding:7px;border:1.5px solid #d8e0ec;border-radius:7px;font-size:0.9rem;">' +
+          '</div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;">' +
           '<button onclick="saveClassSchedule(false)" style="flex:1;background:#3949AB;color:#fff;border:none;border-radius:7px;padding:9px 0;font-weight:700;cursor:pointer;">저장</button>' +
@@ -1760,6 +1777,14 @@
     }
     document.getElementById('schedStart').value = (sch && sch.start) || '09:30';
     document.getElementById('schedEnd').value = (sch && sch.end) || '13:30';
+    const clin = (sch && sch.clinic) || null;
+    document.getElementById('clinOn').checked = !!clin;
+    document.getElementById('clinBox').style.display = clin ? 'block' : 'none';
+    for (let d = 0; d < 7; d++) {
+      document.getElementById('clinDay' + d).checked = !!(clin && clin.days && clin.days.includes(d));
+    }
+    document.getElementById('clinStart').value = (clin && clin.start) || '14:00';
+    document.getElementById('clinEnd').value = (clin && clin.end) || '16:00';
     el.style.display = 'flex';
   }
   function closeScheduleModal() {
@@ -1779,6 +1804,16 @@
       if (!start || !end) { showToast('시작·종료 시각을 입력해 주세요.'); return; }
       if (end <= start) { showToast('종료 시각이 시작 시각보다 늦어야 합니다.'); return; }
       schedule = { days: days, start: start, end: end };
+      if (document.getElementById('clinOn').checked) {
+        const cdays = [];
+        for (let d = 0; d < 7; d++) { if (document.getElementById('clinDay' + d).checked) cdays.push(d); }
+        const cs = document.getElementById('clinStart').value;
+        const ce = document.getElementById('clinEnd').value;
+        if (!cdays.length) { showToast('클리닉 요일을 1개 이상 선택해 주세요.'); return; }
+        if (!cs || !ce) { showToast('클리닉 시작·종료 시각을 입력해 주세요.'); return; }
+        if (ce <= cs) { showToast('클리닉 종료 시각이 시작 시각보다 늦어야 합니다.'); return; }
+        schedule.clinic = { days: cdays, start: cs, end: ce };
+      }
     }
     try {
       const res = await fetch('/api/class-options', {

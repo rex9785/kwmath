@@ -6,8 +6,9 @@ import { listStudents } from './_db.js';
 // 저장 위치: R2 key `auth/class-options.json`
 // 형식: { academies: [...], classes: { [academy]: [class1, ...] },
 //         codes: { "학원/반": "12345" },
-//         schedules: { "학원/반": { days: [1,3,5], start: "09:30", end: "13:30" } } }
+//         schedules: { "학원/반": { days: [1,3,5], start: "09:30", end: "13:30", clinic?: { days, start, end } } } }
 //   ⏰ schedules — 수업 요일(0=일 ~ 6=토)·시작/종료 시각(KST, HH:MM). 관리자 알림(리포트 미생성·출결 미입력 체크)의 기준 데이터.
+//      clinic(선택) — 클리닉/보충 시간 블록. 예: 세정 시동반 본수업 월수금 09:30~13:00 + 클리닉 월수금 14:00~16:00.
 // R2에 없으면 학생 데이터에서 시드(seed)
 
 const STUDENTS_DB = '559465b73e2f4b76b7df441fd0058bfb';
@@ -78,8 +79,8 @@ function ensureCodes(saved) {
   return changed;
 }
 
-// ⏰ 수업 스케줄 검증 — { days: [0~6], start: 'HH:MM', end: 'HH:MM' } 형태만 허용. 아니면 null.
-function validSchedule(s) {
+// ⏰ 시간 블록 검증 — { days: [0~6], start: 'HH:MM', end: 'HH:MM' } 형태만 허용. 아니면 null.
+function validBlock(s) {
   if (!s || typeof s !== 'object') return null;
   const days = Array.isArray(s.days)
     ? [...new Set(s.days.map(Number))].filter(d => Number.isInteger(d) && d >= 0 && d <= 6).sort((a, b) => a - b)
@@ -89,6 +90,19 @@ function validSchedule(s) {
   const end = String(s.end || '');
   if (!days.length || !hm.test(start) || !hm.test(end) || end <= start) return null;
   return { days, start, end };
+}
+
+// ⏰ 수업 스케줄 검증 — 본수업 { days, start, end } + 선택 clinic { days, start, end }(클리닉/보충 블록).
+//   clinic이 왔는데 형식이 틀리면 전체 거부(null) — 반쪽 저장 방지.
+function validSchedule(s) {
+  const main = validBlock(s);
+  if (!main) return null;
+  if (s.clinic != null) {
+    const clinic = validBlock(s.clinic);
+    if (!clinic) return null;
+    main.clinic = clinic;
+  }
+  return main;
 }
 
 // 학생 데이터에서 실제 사용 중인 학원/반 추출 (active만)
@@ -262,7 +276,7 @@ export async function onRequest({ request, env }) {
         return Response.json({ ok: true, action, academy, className, schedule: null });
       }
       const sch = validSchedule(body.schedule);
-      if (!sch) return Response.json({ error: '스케줄 형식 오류 — days(요일 1개 이상, 0=일~6=토), start/end(HH:MM, 시작<종료) 필요' }, { status: 400 });
+      if (!sch) return Response.json({ error: '스케줄 형식 오류 — days(요일 1개 이상, 0=일~6=토), start/end(HH:MM, 시작<종료) 필요. clinic(선택)도 같은 형식.' }, { status: 400 });
       saved.schedules[skey] = sch;
       await saveOptions(env, saved);
       return Response.json({ ok: true, action, academy, className, schedule: sch });
