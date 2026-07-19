@@ -110,21 +110,11 @@
 <div class="edit-overlay" id="editOverlay" onclick="if(event.target===this)closeEditModal()">
   <div class="edit-sheet">
     <div class="edit-title">✏️ 내 정보 수정</div>
-    <div class="edit-sub">잘못 입력한 정보를 직접 고칠 수 있어요. 이름·학원·반 변경, 로그인에 사용 중인 번호 변경은 관우T께 문의해주세요.</div>
+    <div class="edit-sub">잘못 입력한 정보를 직접 고칠 수 있어요. 이름·학원·반·전화번호 변경은 관우T께 문의해주세요.</div>
 
     <div class="ef-2col">
       <div class="ef-row"><label>학교</label><input type="text" id="efSchool" maxlength="40" placeholder="예: 대치고"></div>
       <div class="ef-row"><label>학년</label><select id="efGrade"></select></div>
-    </div>
-    <div class="ef-row">
-      <label>학생 휴대폰</label>
-      <input type="tel" id="efStudentPhone" maxlength="13" placeholder="010-0000-0000" oninput="efPhoneFmt(this)">
-      <div class="muted" id="efStudentPhoneNote" style="display:none;margin-top:4px;font-size:0.72rem;"></div>
-    </div>
-    <div class="ef-row">
-      <label>학부모 휴대폰</label>
-      <input type="tel" id="efParentPhone" maxlength="13" placeholder="010-0000-0000" oninput="efPhoneFmt(this)">
-      <div class="muted" id="efParentPhoneNote" style="display:none;margin-top:4px;font-size:0.72rem;"></div>
     </div>
     <div class="ef-2col">
       <div class="ef-row"><label>학부모 관계</label><select id="efRelation"></select></div>
@@ -372,7 +362,7 @@
       <div class="card">
         <div class="card-label">📞 등록된 연락처</div>
         ${contactRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
-        <div class="muted" style="margin-top:10px;font-size:0.76rem;">잘못 입력된 번호는 ✏️ 정보 수정에서 바꿀 수 있어요. (로그인 중인 번호 변경은 관우T께 문의)</div>
+        <div class="muted" style="margin-top:10px;font-size:0.76rem;">번호 변경이 필요하면 관우T께 문의해주세요.</div>
       </div>` : '';
 
     // ── 계정 (로그아웃 / 회원 탈퇴) ──
@@ -535,18 +525,10 @@
     var el = $(id); if(!el) return [];
     return Array.prototype.slice.call(el.querySelectorAll('input:checked')).map(function(c){ return c.value; });
   }
-  function efPhoneFmt(el){
-    var d = el.value.replace(/[^0-9]/g,'').slice(0,11);
-    if (d.length > 7) el.value = d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7);
-    else if (d.length > 3) el.value = d.slice(0,3)+'-'+d.slice(3);
-    else el.value = d;
-  }
   function openEditModal(){
     var s = curStudentDetail; if(!s) return;
     $('efSchool').value = s.school || '';
     efFillSelect('efGrade', EF_GRADES, s.grade);
-    $('efStudentPhone').value = s.studentPhone || '';
-    $('efParentPhone').value = s.parentPhone || '';
     efFillSelect('efRelation', EF_RELATIONS, s.parentRelation);
     efFillSelect('efLevel', EF_LEVELS, s.level);
     efFillSelect('efMathMock', EF_MOCK, s.mathMockGrade);
@@ -559,15 +541,6 @@
     $('efDreamUniv').value = s.dreamUniv || '';
     efChips('efDays', EF_DAYS, s.availableDays);
     efChips('efGoals', EF_GOALS, s.goals);
-    // 로그인 중인 번호는 잠금 (계정 연결 끊김 방지 — 서버에서도 막음)
-    var role = (selectedStudent && selectedStudent.role) || '';
-    var lockNote = '로그인에 사용 중인 번호예요. 변경은 관우T께 문의해주세요.';
-    var sp = $('efStudentPhone'), pp = $('efParentPhone');
-    sp.disabled = false; pp.disabled = false;
-    $('efStudentPhoneNote').style.display = 'none';
-    $('efParentPhoneNote').style.display = 'none';
-    if (role === 'student') { sp.disabled = true; $('efStudentPhoneNote').textContent = lockNote; $('efStudentPhoneNote').style.display = 'block'; }
-    if (role === 'parent') { pp.disabled = true; $('efParentPhoneNote').textContent = lockNote; $('efParentPhoneNote').style.display = 'block'; }
     $('efMsg').textContent = '';
     $('editOverlay').classList.add('open');
   }
@@ -579,8 +552,6 @@
     function diffStr(key, val){ if (String(val||'') !== String(s[key]||'')) patch[key] = val; }
     diffStr('school', $('efSchool').value.trim());
     var g = $('efGrade').value; if (g && g !== String(s.grade||'')) patch.grade = g;
-    if (!$('efStudentPhone').disabled) { var sv = $('efStudentPhone').value.trim(); if (sv && sv !== String(s.studentPhone||'')) patch.studentPhone = sv; }
-    if (!$('efParentPhone').disabled) { var pv = $('efParentPhone').value.trim(); if (pv && pv !== String(s.parentPhone||'')) patch.parentPhone = pv; }
     var rel = $('efRelation').value; if (rel && rel !== String(s.parentRelation||'')) patch.parentRelation = rel;
     var lv = $('efLevel').value; if (lv && lv !== String(s.level||'')) patch.level = lv;
     var mm = $('efMathMock').value; if (mm && mm !== String(s.mathMockGrade||'')) patch.mathMockGrade = mm;

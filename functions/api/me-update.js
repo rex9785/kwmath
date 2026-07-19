@@ -1,15 +1,15 @@
 // POST /api/me-update  (Bearer 토큰 — 학생/학부모 본인)
-// body: { id: '12', patch: { school, grade, studentPhone, parentPhone, parentRelation, level,
+// body: { id: '12', patch: { school, grade, parentRelation, level,
 //         mathMockGrade, mathMockScore, korMockGrade, engMockGrade, schoolMathGrade,
 //         advanceProgress, weakness, dreamUniv, availableDays, goals } }
 //
 // ✏️ 학생 셀프 정보수정 — 잘못 입력한 정보를 본인이 직접 고치는 기능.
 //   - 소유권: 토큰 phone에 연결된 학생만, String(id) 매칭 (student_id 평생 규칙 — 이름 매칭 금지)
 //   - 수정 불가: name(리포트가 이름 키), academy/className(반코드 시스템 — 반 이동은 관우T),
-//                notes(원장 메모), approvalStatus 등 운영 필드
-//   - 로그인 중인 번호(auth.phone과 같은 필드)는 변경 불가 — 스스로 계정 연결이 끊기는 사고 방지
+//                studentPhone/parentPhone(전화번호 전부 — 2026-07-20 관우T 지시 "번호는 못바꾸게 해",
+//                번호 변경은 관우T가 직접), notes(원장 메모), approvalStatus 등 운영 필드
 //   - 변경 내역은 notes에 로그 append + 관리자(__admin__) 푸시
-import { requireAuth, fetchStudentsByPhone, jsonError, normalizePhone } from './_auth.js';
+import { requireAuth, fetchStudentsByPhone, jsonError } from './_auth.js';
 import { getStudentById, updateStudent } from './_db.js';
 import { safeError } from './_errors.js';
 import { sendPushToUsers } from './_push.js';
@@ -26,7 +26,7 @@ const GOALS = ['수능', '내신', '기초다지기', '선행'];
 const DAYS = ['월', '화', '수', '목', '금', '토', '일', '협의'];
 
 const FIELD_LABELS = {
-  school: '학교', grade: '학년', studentPhone: '학생폰', parentPhone: '학부모폰',
+  school: '학교', grade: '학년',
   parentRelation: '학부모 관계', level: '수학 수준', mathMockGrade: '모의 수학',
   mathMockScore: '모의 수학 점수', korMockGrade: '모의 국어', engMockGrade: '모의 영어',
   schoolMathGrade: '내신 수학', advanceProgress: '선행 진도', weakness: '취약 단원',
@@ -88,22 +88,9 @@ export async function onRequest(context) {
     if (!GRADES.includes(v)) errors.push('학년 값이 올바르지 않습니다');
     else clean.grade = v;
   }
-  if (has('studentPhone')) {
-    const v = normalizePhone(rawPatch.studentPhone);
-    if (!v) errors.push('학생 휴대폰 형식 오류');
-    else if (st.studentPhone && st.studentPhone === auth.phone && v !== st.studentPhone) {
-      errors.push('로그인에 사용 중인 학생 번호는 본인이 바꿀 수 없어요 (관우T께 문의)');
-    } else clean.studentPhone = v;
-  }
-  if (has('parentPhone')) {
-    const v = normalizePhone(rawPatch.parentPhone);
-    if (!v) errors.push('학부모 휴대폰 형식 오류');
-    else if (st.parentPhone && st.parentPhone === auth.phone && v !== st.parentPhone) {
-      errors.push('로그인에 사용 중인 학부모 번호는 본인이 바꿀 수 없어요 (관우T께 문의)');
-    } else {
-      clean.parentPhone = v;
-      clean.parentPhone4 = v.replace(/[^0-9]/g, '').slice(-4); // parent_last4 동기화
-    }
+  // ⛔ 전화번호(studentPhone·parentPhone)는 셀프수정 불가 — patch에 와도 무시됨(허용 필드 화이트리스트 방식)
+  if (has('studentPhone') || has('parentPhone')) {
+    errors.push('전화번호 변경은 관우T께 문의해주세요');
   }
   if (has('parentRelation')) {
     const v = String(rawPatch.parentRelation || '').trim();
@@ -162,7 +149,6 @@ export async function onRequest(context) {
   // ── 실제로 바뀐 필드만 추림 (diff) ──
   const changes = [];
   for (const k of Object.keys(clean)) {
-    if (k === 'parentPhone4') continue; // 파생 필드 — 로그 제외
     const before = (k === 'availableDays') ? normDays(st.availableDays)
                  : (k === 'goals') ? normGoals(st.goals)
                  : st[k];
