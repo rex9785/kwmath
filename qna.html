@@ -12,13 +12,14 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;--ai:#1f6f78;--ai-light:#E3F1F2;}
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;--ai:#1f6f78;--ai-light:#E3F1F2;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
-  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
   .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
   .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
   .topbar-btn:hover{background:rgba(255,255,255,0.26);}
@@ -28,7 +29,7 @@
   .section{margin-bottom:24px;}
 
   /* 작성 폼 */
-  .form-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .form-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .form-card h2{font-size:1rem;font-weight:800;color:var(--text);margin-bottom:4px;}
   .form-card .sub{font-size:0.78rem;color:var(--text-light);margin-bottom:14px;line-height:1.55;}
   .field{margin-bottom:12px;}
@@ -40,7 +41,9 @@
 
   .mode-row{display:flex;gap:8px;}
   .mode-btn{flex:1;padding:12px 8px;border:1.5px solid var(--border);background:#fff;border-radius:11px;cursor:pointer;font-family:inherit;text-align:center;transition:all .12s;}
-  .mode-btn .m-emoji{font-size:1.3rem;display:block;margin-bottom:2px;}
+  .mode-btn .m-emoji{display:flex;justify-content:center;margin-bottom:4px;color:var(--text-light);}
+  .mode-btn.active[data-mode=ai] .m-emoji{color:var(--ai);}
+  .mode-btn.active[data-mode=teacher] .m-emoji{color:var(--primary);}
   .mode-btn .m-title{font-size:0.86rem;font-weight:800;color:var(--text);}
   .mode-btn .m-desc{font-size:0.68rem;color:var(--text-light);margin-top:1px;}
   .mode-btn.active[data-mode=ai]{border-color:var(--ai);background:var(--ai-light);}
@@ -52,7 +55,9 @@
   /* 질문 / 문의 선택 (폼 최상단) */
   .kind-row{display:flex;gap:8px;margin-bottom:14px;}
   .kind-btn{flex:1;padding:13px 10px;border:1.5px solid var(--border);background:#fff;border-radius:12px;cursor:pointer;font-family:inherit;text-align:center;transition:all .12s;}
-  .kind-btn .k-emoji{font-size:1.4rem;display:block;margin-bottom:2px;}
+  .kind-btn .k-emoji{display:flex;justify-content:center;margin-bottom:4px;color:var(--text-light);}
+  .kind-btn.active[data-kind=question] .k-emoji{color:var(--primary);}
+  .kind-btn.active[data-kind=inquiry] .k-emoji{color:#5B3FA8;}
   .kind-btn .k-title{font-size:0.9rem;font-weight:800;color:var(--text);}
   .kind-btn .k-desc{font-size:0.68rem;color:var(--text-light);margin-top:2px;}
   .kind-btn.active[data-kind=question]{border-color:var(--primary);background:var(--primary-light);}
@@ -83,7 +88,7 @@
   .tab-btn.active{background:var(--primary);color:#fff;}
 
   /* 질문 카드 */
-  .q-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(139,26,53,0.04);}
+  .q-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .q-head{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
   .q-author{font-size:0.84rem;font-weight:800;color:var(--text);}
   .q-meta{font-size:0.72rem;color:var(--text-light);margin-left:auto;}
@@ -120,7 +125,7 @@
   .b-done{background:#E6F4EA;color:#1E7E45;}
 
   .state-box{text-align:center;padding:36px 24px;color:var(--text-light);}
-  .state-box .state-icon{font-size:2rem;margin-bottom:10px;}
+  .state-box .state-icon{color:var(--text-light);margin-bottom:10px;display:flex;justify-content:center;}
   .state-box p{font-size:0.85rem;line-height:1.7;}
 
   .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:11px 18px;border-radius:9px;font-size:0.84rem;font-weight:600;z-index:100;display:none;max-width:90%;text-align:center;line-height:1.5;}
@@ -168,7 +173,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>💬 질문/문의방</span>
+    <span>질문/문의방</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -182,46 +187,46 @@
       <!-- 질문(수학) / 문의(학원·수업·결제 등) 먼저 고르기 -->
       <div class="kind-row">
         <div class="kind-btn active" data-kind="question" id="kindQuestion" onclick="setKind('question')">
-          <span class="k-emoji">🙋</span>
+          <span class="k-emoji"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"/></svg></span>
           <span class="k-title">질문하기</span>
           <span class="k-desc">모르는 문제·개념</span>
         </div>
         <div class="kind-btn" data-kind="inquiry" id="kindInquiry" onclick="setKind('inquiry')">
-          <span class="k-emoji">📩</span>
+          <span class="k-emoji"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="m4.5 7 7.5 5.5L19.5 7"/></svg></span>
           <span class="k-title">문의하기</span>
           <span class="k-desc">수업·결제·기타 문의</span>
         </div>
       </div>
 
-      <h2 id="formTitle">모르는 문제, 물어보세요 🙋</h2>
+      <h2 id="formTitle">모르는 문제, 물어보세요</h2>
       <div class="sub" id="formSub">AI 조교에게 바로 물어보거나, 선생님·조교에게 직접 질문할 수 있어요.</div>
-      <div class="inq-note" id="inqNote">📩 문의는 선생님·관리자만 확인해요. (다른 학생에게 안 보임) 수업·결제·일정 등 무엇이든 편하게 남겨주세요.</div>
+      <div class="inq-note" id="inqNote">문의는 선생님·관리자만 확인해요. (다른 학생에게 안 보임) 수업·결제·일정 등 무엇이든 편하게 남겨주세요.</div>
 
       <div class="field" id="modeField">
         <label>질문 방식</label>
         <div class="mode-row">
           <div class="mode-btn active" data-mode="ai" id="modeAi" onclick="setMode('ai')">
-            <span class="m-emoji">🤖</span>
+            <span class="m-emoji"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/><path d="M9.5 2.5v4M14.5 2.5v4M9.5 17.5v4M14.5 17.5v4M2.5 9.5h4M2.5 14.5h4M17.5 9.5h4M17.5 14.5h4"/></svg></span>
             <span class="m-title">AI에게 질문</span>
             <span class="m-desc">즉시 풀이 답변</span>
           </div>
           <div class="mode-btn" data-mode="teacher" id="modeTeacher" onclick="setMode('teacher')">
-            <span class="m-emoji">🧑‍🏫</span>
+            <span class="m-emoji"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg></span>
             <span class="m-title">선생님·조교</span>
             <span class="m-desc">직접 답변해 드려요</span>
           </div>
         </div>
-        <div class="ai-quota" id="aiQuota">⏳ 오늘 AI 질문 사용량 확인 중…</div>
+        <div class="ai-quota" id="aiQuota">오늘 AI 질문 사용량 확인 중…</div>
       </div>
 
       <!-- 선생님·조교 모드 안내: 구체적으로 질문하도록 가이드 -->
       <div class="field" id="teacherGuideField" style="display:none;">
         <div class="teacher-guide" id="teacherGuide">
-          <div class="tg-title">💡 이렇게 질문하면 답변이 훨씬 빨라요</div>
-          <div class="tg-ex">✅ "<b>○○까지는 풀었는데</b>, <b>△△ 단계에서 막혔어요</b>"</div>
-          <div class="tg-ex">✅ "이 문장이 무슨 뜻인지 <b>해석이 안 돼요</b>: …"</div>
-          <div class="tg-ex">✅ "저는 <b>□□라고 생각</b>했는데 답이 왜 ◇◇인가요?"</div>
-          <div class="tg-bad">🚫 "이 문제 모르겠어요"처럼만 적으면, 어디를 도와드릴지 알기 어려워요. 어디까지 했고 어디서 막혔는지 적어주세요!</div>
+          <div class="tg-title">이렇게 질문하면 답변이 훨씬 빨라요</div>
+          <div class="tg-ex">"<b>○○까지는 풀었는데</b>, <b>△△ 단계에서 막혔어요</b>"</div>
+          <div class="tg-ex">"이 문장이 무슨 뜻인지 <b>해석이 안 돼요</b>: …"</div>
+          <div class="tg-ex">"저는 <b>□□라고 생각</b>했는데 답이 왜 ◇◇인가요?"</div>
+          <div class="tg-bad">"이 문제 모르겠어요"처럼만 적으면, 어디를 도와드릴지 알기 어려워요. 어디까지 했고 어디서 막혔는지 적어주세요!</div>
         </div>
       </div>
 
@@ -238,13 +243,13 @@
 
       <!-- 사진 첨부 (문제 사진을 찍어 올리면 AI가 읽고 풀어줘요) -->
       <div class="field">
-        <label id="photoLabel">📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span></label>
+        <label id="photoLabel">사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span></label>
         <input type="file" id="photoInput" accept="image/*" style="display:none;">
-        <button type="button" class="photo-btn" id="photoBtn" onclick="document.getElementById('photoInput').click()">📷 사진 찍기 / 앨범에서 고르기</button>
-        <div class="photo-busy" id="photoBusy" style="display:none;">⏳ 사진 준비 중…</div>
+        <button type="button" class="photo-btn" id="photoBtn" onclick="document.getElementById('photoInput').click()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.2-2h5.4l1.2 2h1.6A2.5 2.5 0 0 1 20 8.5V17a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17z"/><circle cx="12" cy="13" r="3.2"/></svg>사진 찍기 / 앨범에서 고르기</button>
+        <div class="photo-busy" id="photoBusy" style="display:none;">사진 준비 중…</div>
         <div class="photo-preview" id="photoPreview" style="display:none;">
           <img id="photoPreviewImg" alt="첨부한 사진">
-          <button type="button" class="photo-remove" onclick="removePhoto()">✕ 빼기</button>
+          <button type="button" class="photo-remove" onclick="removePhoto()">× 빼기</button>
         </div>
       </div>
 
@@ -252,13 +257,13 @@
         <div class="priv-toggle" id="privToggle" onclick="togglePrivate()">
           <div class="box" id="privBox"></div>
           <div>
-            <div class="t">🔒 비밀글로 작성</div>
+            <div class="t">비밀글로 작성</div>
             <div class="d">나와 선생님·조교만 볼 수 있어요 (다른 학생에게 안 보임)</div>
           </div>
         </div>
       </div>
 
-      <button class="btn-primary ai" id="submitBtn" onclick="submitQuestion()">🤖 AI에게 질문하기</button>
+      <button class="btn-primary ai" id="submitBtn" onclick="submitQuestion()">AI에게 질문하기</button>
       <div class="err-msg" id="errMsg"></div>
     </div>
   </div>
@@ -266,8 +271,8 @@
   <!-- 탭 -->
   <div class="section">
     <div class="tab-row">
-      <button class="tab-btn active" id="tabRoom" onclick="switchTab('room')">💬 질문방</button>
-      <button class="tab-btn" id="tabMine" onclick="switchTab('mine')">📌 내 질문</button>
+      <button class="tab-btn active" id="tabRoom" onclick="switchTab('room')">질문방</button>
+      <button class="tab-btn" id="tabMine" onclick="switchTab('mine')">내 질문</button>
     </div>
 
     <div id="roomSection">
@@ -283,7 +288,7 @@
 
   <!-- 안내 -->
   <div style="text-align:center;font-size:0.74rem;color:var(--text-light);margin-top:18px;line-height:1.65;">
-    🤖 AI 답변은 참고용이에요. 풀이가 이상하면 선생님·조교에게 다시 질문해 주세요.<br>
+    AI 답변은 참고용이에요. 풀이가 이상하면 선생님·조교에게 다시 질문해 주세요.<br>
     부적절한 질문·내용은 관리자가 삭제할 수 있습니다.<br>
     신고·문의: <a href="mailto:rex9785@gmail.com" style="color:var(--primary);font-weight:700;text-decoration:none;">rex9785@gmail.com</a>
   </div>
@@ -292,13 +297,13 @@
 
 <div class="toast" id="toast"></div>
 <div class="lightbox" id="lightbox" onclick="closePhoto()">
-  <button class="lb-close" type="button" onclick="closePhoto()">✕</button>
+  <button class="lb-close" type="button" onclick="closePhoto()">×</button>
   <img id="lightboxImg" alt="첨부 사진 크게 보기">
 </div>
 <div class="ai-loading" id="aiLoading">
   <div class="box">
     <div class="spin"></div>
-    <div class="t">🤖 AI가 풀이 중…</div>
+    <div class="t">AI가 풀이 중…</div>
     <div class="s">잠시만 기다려 주세요</div>
   </div>
 </div>
@@ -310,7 +315,7 @@
   try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
   if (!token) { location.replace('/portal?next=/qna'); }
 
-  // ⚠️ 앱 심사 중 질문방 비활성화. 심사 통과 후 true 로 바꾸고 배포하면 즉시 활성화.
+  // [주의] 앱 심사 중 질문방 비활성화. 심사 통과 후 true 로 바꾸고 배포하면 즉시 활성화.
   //    (portal.html 상단의 QNA_ENABLED 도 같이 true 로)
   const QNA_ENABLED = true;
   if (!QNA_ENABLED) { location.replace('/portal'); }
@@ -357,18 +362,18 @@
     $('formSub').style.display          = isInq ? 'none' : 'block';
 
     if (isInq){
-      $('formTitle').textContent = '무엇이든 문의하세요 📩';
+      $('formTitle').textContent = '무엇이든 문의하세요';
       $('qBodyLabelText').textContent = '문의 내용';
       $('qBody').placeholder = '문의하실 내용을 적어주세요. (예: 8월 수업 일정, 교재비/결제, 결석·보강 요청 등)';
-      $('photoLabel').innerHTML = '📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 관련 화면·서류를 찍어 올려도 돼요)</span>';
+      $('photoLabel').innerHTML = '사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 관련 화면·서류를 찍어 올려도 돼요)</span>';
       // 질문용 기본 양식(▷…)이 그대로면 비움 — 문의엔 안 맞음
       if (isTplUntouched()) { $('qBody').value=''; $('charCount').textContent = '0 / 1200'; }
-      const btn = $('submitBtn'); btn.classList.remove('ai'); btn.textContent = '📩 문의 보내기';
+      const btn = $('submitBtn'); btn.classList.remove('ai'); btn.textContent = '문의 보내기';
     } else {
-      $('formTitle').textContent = '모르는 문제, 물어보세요 🙋';
+      $('formTitle').textContent = '모르는 문제, 물어보세요';
       $('qBodyLabelText').textContent = '질문 내용';
       $('qBody').placeholder = '궁금한 문제나 개념을 적어주세요. (예: 합성함수 미분이 왜 이렇게 되나요? f(x)=...)';
-      $('photoLabel').innerHTML = '📷 사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span>';
+      $('photoLabel').innerHTML = '사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span>';
       setMode(mode);   // 질문 방식(제출버튼·가이드·양식) 원복
     }
   }
@@ -380,8 +385,8 @@
     $('modeAi').classList.toggle('active', m==='ai');
     $('modeTeacher').classList.toggle('active', m==='teacher');
     const btn = $('submitBtn');
-    if (m==='ai'){ btn.classList.add('ai'); btn.textContent='🤖 AI에게 질문하기'; }
-    else { btn.classList.remove('ai'); btn.textContent='🧑‍🏫 선생님·조교에게 질문하기'; }
+    if (m==='ai'){ btn.classList.add('ai'); btn.textContent='AI에게 질문하기'; }
+    else { btn.classList.remove('ai'); btn.textContent='선생님·조교에게 질문하기'; }
     // 선생님 모드일 때만 '구체적으로 질문하기' 가이드 표시
     $('teacherGuideField').style.display = (m==='teacher') ? 'block' : 'none';
     // 선생님 모드로 오면 기본 양식 자동 표시(입력칸이 비어있을 때만), AI 모드로 가면 미작성 양식은 비움
@@ -396,7 +401,7 @@
   function togglePrivate(){
     isPrivate = !isPrivate;
     $('privToggle').classList.toggle('on', isPrivate);
-    $('privBox').textContent = isPrivate ? '✓' : '';
+    $('privBox').innerHTML = isPrivate ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 5 5L19.5 7"/></svg>' : '';
   }
 
   // ── 사진 첨부: 선택 → 클라이언트 리사이즈 → 미리보기 ──
@@ -456,15 +461,15 @@
 
   function renderQuota(){
     const q = $('aiQuota');
-    if (aiRemaining === null){ q.textContent='⏳ 오늘 AI 질문 사용량 확인 중…'; return; }
+    if (aiRemaining === null){ q.textContent='오늘 AI 질문 사용량 확인 중…'; return; }
     if (aiRemaining <= 0){
       q.classList.add('empty');
-      q.innerHTML = '🤖 오늘 AI 질문을 모두 사용했어요 ('+aiDailyLimit+'/'+aiDailyLimit+') · 내일 다시 또는 선생님께';
+      q.innerHTML = '오늘 AI 질문을 모두 사용했어요 ('+aiDailyLimit+'/'+aiDailyLimit+') · 내일 다시 또는 선생님께';
       $('modeAi').classList.add('disabled');
       if (mode==='ai') setMode('teacher');
     } else {
       q.classList.remove('empty');
-      q.innerHTML = '🤖 오늘 AI 질문 <b>'+aiRemaining+'개</b> 남음 <span style="opacity:.7;font-weight:600;">(하루 '+aiDailyLimit+'개)</span>';
+      q.innerHTML = '오늘 AI 질문 <b>'+aiRemaining+'개</b> 남음 <span style="opacity:.7;font-weight:600;">(하루 '+aiDailyLimit+'개)</span>';
       $('modeAi').classList.remove('disabled');
     }
   }
@@ -510,9 +515,9 @@
       if (typeof data.aiDailyLimit === 'number') aiDailyLimit = data.aiDailyLimit;
       renderQuota();
 
-      if (kind==='inquiry'){ showToast('📩 문의가 접수됐어요. 선생님·관리자가 확인 후 답변드려요.', 3600); switchTab('mine'); }
+      if (kind==='inquiry'){ showToast('문의가 접수됐어요. 선생님·관리자가 확인 후 답변드려요.', 3600); switchTab('mine'); }
       else if (data.aiFailed){ showToast(data.message || 'AI 답변 실패 → 선생님께 전달됐어요.', 3600); switchTab('mine'); }
-      else if (data.status === 'answered'){ showToast('🤖 AI 답변이 도착했어요!'); switchTab('mine'); }
+      else if (data.status === 'answered'){ showToast('AI 답변이 도착했어요!'); switchTab('mine'); }
       else { showToast('질문이 등록됐어요. 선생님·조교가 답변하면 여기에 표시돼요.', 3200); switchTab('mine'); }
       loadMine(); loadRoom();
     } catch(e){
@@ -526,23 +531,23 @@
   // ── 목록에서 보일 한 줄 제목(미리보기) ──
   //   비밀글은 내용 노출 금지(목록엔 라벨만). 제목 없으면 본문 첫 줄, 그것도 없으면 사진/기본.
   function previewText(q){
-    if (q.isPrivate && !q.mine) return '🔒 비밀 질문';
+    if (q.isPrivate && !q.mine) return '비밀 질문';
     if (q.title && q.title.trim()) return q.title.trim();
     const body = (q.question||'').replace(/\s+/g,' ').trim();
     if (body) return body.slice(0, 60);
-    if (q.image) return '📷 사진 질문';
+    if (q.image) return '사진 질문';
     return '질문';
   }
 
   // ── 카드 렌더 (접이식: 제목만 보이고 누르면 상세가 펼쳐짐) ──
   function cardHtml(q){
     const isInq = (q.kind === 'inquiry');
-    const kindBadge = isInq ? '<span class="badge b-inq">📩 문의</span>' : '';
+    const kindBadge = isInq ? '<span class="badge b-inq">문의</span>' : '';
     const modeBadge = isInq ? ''      // 문의는 방식 배지 대신 문의 배지만
       : (q.mode === 'ai'
-        ? '<span class="badge b-ai">🤖 AI</span>'
-        : '<span class="badge b-teacher">🧑‍🏫 선생님</span>');
-    const privBadge = (q.isPrivate && !isInq) ? '<span class="badge b-priv">🔒 비밀</span>' : '';
+        ? '<span class="badge b-ai">AI</span>'
+        : '<span class="badge b-teacher">선생님</span>');
+    const privBadge = (q.isPrivate && !isInq) ? '<span class="badge b-priv">비밀</span>' : '';
     const mineBadge = q.mine ? '<span class="badge b-mine">내 질문</span>' : '';
     const statusBadge = q.status === 'pending'
       ? '<span class="badge b-pending">답변 대기</span>'
@@ -551,12 +556,12 @@
     let answerHtml = '';
     if (q.answer){
       const isAi = (q.answeredBy === 'AI');
-      const label = isAi ? '🤖 AI 답변' : ('👨‍🏫 ' + esc(q.answeredBy||'선생님') + ' 답변');
+      const label = isAi ? 'AI 답변' : (esc(q.answeredBy||'선생님') + ' 답변');
       answerHtml = '<div class="answer'+(isAi?'':' teacher')+'">'+
         '<div class="a-label">'+label+'</div>'+
         '<div class="a-body">'+esc(q.answer)+'</div></div>';
     } else if (q.status === 'pending'){
-      answerHtml = '<div class="answer-pending">⏳ 선생님·조교의 답변을 기다리는 중이에요.</div>';
+      answerHtml = '<div class="answer-pending">선생님·조교의 답변을 기다리는 중이에요.</div>';
     }
 
     const photoHtml = q.image ? '<div class="q-photo"><img src="'+esc(q.image)+'" alt="첨부 사진" loading="lazy" onclick="openPhoto(this.src)"></div>' : '';
@@ -574,7 +579,7 @@
         '</div>'+
         '<div class="q-sum-line">'+
           '<span class="q-sum-title">'+esc(previewText(q))+'</span>'+
-          '<span class="q-chevron">▼</span>'+
+          '<span class="q-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m5 9 7 7 7-7"/></svg></span>'+
         '</div>'+
       '</div>'+
       '<div class="q-detail" style="display:none;">'+
@@ -628,7 +633,7 @@
       if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
       if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||10; renderQuota(); }
       const list = data.questions || [];
-      if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">💬</div><p>아직 질문이 없어요.<br>첫 질문을 남겨보세요!</p></div>'; return; }
+      if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"/></svg></div><p>아직 질문이 없어요.<br>첫 질문을 남겨보세요!</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
     } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
   }
@@ -642,7 +647,7 @@
       if (!res.ok){ box.innerHTML = '<div class="state-box"><p>'+esc(data.error||'조회 실패')+'</p></div>'; return; }
       if (typeof data.aiRemaining === 'number'){ aiRemaining = data.aiRemaining; aiDailyLimit = data.aiDailyLimit||10; renderQuota(); }
       const list = data.questions || [];
-      if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>아직 올린 질문이 없어요.</p></div>'; return; }
+      if (!list.length){ box.innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1z"/></svg></div><p>아직 올린 질문이 없어요.</p></div>'; return; }
       box.innerHTML = list.map(cardHtml).join('');
     } catch(e){ box.innerHTML = '<div class="state-box"><p>네트워크 오류: '+esc(e.message)+'</p></div>'; }
   }

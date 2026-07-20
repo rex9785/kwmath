@@ -61,7 +61,7 @@
   .badge-chip{display:inline-block;background:none;border:1px solid #E4C6CE;color:var(--primary);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;margin:2px 3px 2px 0;}
 
   .state-box{text-align:center;padding:40px 24px;color:var(--text-light);}
-  .state-box .state-icon{font-size:2.2rem;margin-bottom:10px;}
+  .state-box .state-icon{color:var(--text-light);margin-bottom:10px;display:flex;justify-content:center;}
   .state-box p{font-size:0.88rem;line-height:1.7;}
 
   /* 정보 수정 모달 */
@@ -107,7 +107,7 @@
   </div>
 
   <div id="content">
-    <div class="state-box"><div class="state-icon">⏳</div><p>내 정보를 불러오는 중...</p></div>
+    <div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></div><p>내 정보를 불러오는 중...</p></div>
   </div>
 </div>
 
@@ -208,7 +208,7 @@
       if (!res.ok || !data.ok) { localStorage.removeItem(TOKEN_KEY); return redirectToPortal(); }
       currentStudents = Array.isArray(data.students) ? data.students : [];
       if (!currentStudents.length) {
-        $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.</p></div>';
+        $('content').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></div><p>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.</p></div>';
         return;
       }
       const saved = sessionStorage.getItem(SEL_KEY);
@@ -222,13 +222,13 @@
       renderChildBar();
       loadMyInfo();
     } catch (e) {
-      $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>로그인 정보를 확인할 수 없습니다.</p></div>';
+      $('content').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></div><p>로그인 정보를 확인할 수 없습니다.</p></div>';
     }
   }
 
   async function loadMyInfo(){
     if (!selectedStudent) return;
-    $('content').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>정보를 불러오는 중...</p></div>';
+    $('content').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></svg></div><p>정보를 불러오는 중...</p></div>';
     try {
       const [dRes, rRes, sRes] = await Promise.all([
         fetch('/api/me-detail?id=' + encodeURIComponent(selectedStudent.id), { headers: authHeaders() }),
@@ -237,7 +237,7 @@
       ]);
       const dData = await dRes.json();
       if (!dRes.ok || !dData.ok) {
-        $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>' + escapeHtml(dData.error || '정보를 불러오지 못했습니다.') + '</p></div>';
+        $('content').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></div><p>' + escapeHtml(dData.error || '정보를 불러오지 못했습니다.') + '</p></div>';
         return;
       }
       let latestReport = null;
@@ -250,7 +250,7 @@
       curStudentDetail = dData.student; curLatestReport = latestReport;
       renderMyInfo(dData.student, latestReport);
     } catch (e) {
-      $('content').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
+      $('content').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></div><p>정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
     }
   }
 

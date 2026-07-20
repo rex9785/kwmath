@@ -5,18 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>자료실 | 이관우 수학연구소</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{
-    --primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;
-    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F7;--border:#EDE0E1;
-  }
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
-  .topbar{background:var(--primary);padding:max(14px,env(safe-area-inset-top,14px)) 5% 14px;display:flex;align-items:center;justify-content:space-between;}
-  .topbar-logo{color:#fff;font-size:0.95rem;font-weight:900;text-decoration:none;}
-  .topbar-back{color:rgba(255,255,255,0.8);font-size:0.83rem;text-decoration:none;}
-  .topbar-back:hover{color:#fff;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
 
   .page-wrap{max-width:800px;margin:0 auto;padding:48px 5% 80px;}
 
@@ -31,9 +30,9 @@
 
   /* 파일 카드 */
   .file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
-  .file-card{background:#fff;border-radius:16px;border:1.5px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 12px rgba(134,38,51,0.05);transition:box-shadow .2s;}
-  .file-card:hover{box-shadow:0 4px 20px rgba(134,38,51,0.12);}
-  .file-icon{font-size:2rem;}
+  .file-card{background:#fff;border-radius:16px;border:1.5px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 10px rgba(70,20,35,.05);transition:box-shadow .2s;}
+  .file-card:hover{box-shadow:0 4px 14px rgba(70,20,35,.09);}
+  .file-icon{color:var(--primary);display:flex;}
   .file-title{font-size:0.95rem;font-weight:700;line-height:1.4;}
   .file-meta{font-size:0.78rem;color:var(--text-light);display:flex;gap:10px;flex-wrap:wrap;}
   .file-cat{background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:700;}
@@ -44,7 +43,7 @@
   .file-dl-btn:disabled{background:#b0b0b0;cursor:default;}
 
   .empty-state{text-align:center;padding:60px 20px;color:var(--text-light);}
-  .empty-state .icon{font-size:3rem;margin-bottom:14px;}
+  .empty-state .icon{color:var(--text-light);margin-bottom:14px;display:flex;justify-content:center;}
   .empty-state p{font-size:0.9rem;line-height:1.8;}
 
   .loading{text-align:center;padding:40px;color:var(--text-light);font-size:0.9rem;}
@@ -64,13 +63,16 @@
 <body>
 
 <div class="topbar">
-  <a href="/portal" class="topbar-logo">📐 이관우 수학연구소</a>
-  <a href="/portal" class="topbar-back">← 포털로</a>
+  <a href="/portal" class="topbar-title">
+    <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
+    <span>자료실</span>
+  </a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
 
 <div class="page-wrap">
   <div class="page-header">
-    <h1>📁 자료실</h1>
+    <h1>자료실</h1>
     <p>관우T가 직접 제작한 수업 자료를 자유롭게 다운로드하세요.<br>
     수강생 개인 리포트·반 전용 자료는 <strong>포털에서 로그인 후</strong> 확인할 수 있습니다.</p>
   </div>
@@ -78,9 +80,9 @@
   <!-- 카테고리 필터 -->
   <div class="filter-tabs">
     <button class="filter-tab active" onclick="setFilter('', this)">전체</button>
-    <button class="filter-tab" onclick="setFilter('수업자료', this)">📚 수업자료</button>
-    <button class="filter-tab" onclick="setFilter('교재', this)">📖 교재</button>
-    <button class="filter-tab" onclick="setFilter('기타', this)">📎 기타</button>
+    <button class="filter-tab" onclick="setFilter('수업자료', this)">수업자료</button>
+    <button class="filter-tab" onclick="setFilter('교재', this)">교재</button>
+    <button class="filter-tab" onclick="setFilter('기타', this)">기타</button>
   </div>
 
   <div id="fileGrid" class="file-grid">
@@ -106,8 +108,15 @@ let myStudentName = '';
 
 function getFileIcon(fileName) {
   const ext = (fileName || '').split('.').pop().toLowerCase();
-  const icons = { pdf:'📄', hwp:'📝', hwpx:'📝', docx:'📝', doc:'📝', xlsx:'📊', xls:'📊', pptx:'📊', ppt:'📊', zip:'🗜️', png:'🖼️', jpg:'🖼️', jpeg:'🖼️' };
-  return icons[ext] || '📁';
+  const P = {
+    doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>',
+    sheet: '<path d="M6 20V12"/><path d="M12 20V5"/><path d="M18 20V9"/>',
+    img: '<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10.2" r="1.6"/><path d="m5.5 17.5 4.5-4.5 3 3 3-3 2.5 2.5"/>',
+    zip: '<path d="M3.5 8A2.5 2.5 0 0 1 6 5.5h4.2L12 8h6a2.5 2.5 0 0 1 2.5 2.5V17A2.5 2.5 0 0 1 18 19.5H6A2.5 2.5 0 0 1 3.5 17z"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>'
+  };
+  const map = { pdf:'doc', hwp:'doc', hwpx:'doc', docx:'doc', doc:'doc', xlsx:'sheet', xls:'sheet', pptx:'sheet', ppt:'sheet', zip:'zip', png:'img', jpg:'img', jpeg:'img' };
+  return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + (P[map[ext] || 'file'] || P.file) + '</svg>';
 }
 
 function setFilter(cat, btn) {
@@ -121,7 +130,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 function renderFiles(files) {
   const grid = document.getElementById('fileGrid');
   if (!files.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📭</div><p>등록된 자료가 없습니다.</p></div>`;
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8A2.5 2.5 0 0 1 6 5.5h4.2L12 8h6a2.5 2.5 0 0 1 2.5 2.5V17A2.5 2.5 0 0 1 18 19.5H6A2.5 2.5 0 0 1 3.5 17z"/></svg></div><p>등록된 자료가 없습니다.</p></div>`;
     return;
   }
   grid.innerHTML = files.map(f => `
@@ -134,8 +143,8 @@ function renderFiles(files) {
         <span>${f.uploadDate ? esc(f.uploadDate.replace(/-/g, '.')) : ''}</span>
       </div>
       ${f.locked && f.lockReason === 'absent'
-        ? `<button class="file-dl-btn locked file-req-btn" data-date="${esc(f.lockDate)}" ${f.requested ? 'disabled' : ''}>${f.requested ? '🔒 인강 신청됨 · 승인 대기' : '🔒 인강 신청하기'}</button>`
-        : `<button class="file-dl-btn" data-key="${esc(f.r2Key)}">⬇ 다운로드</button>`}
+        ? `<button class="file-dl-btn locked file-req-btn" data-date="${esc(f.lockDate)}" ${f.requested ? 'disabled' : ''}>${f.requested ? '인강 신청됨 · 승인 대기' : '인강 신청하기'}</button>`
+        : `<button class="file-dl-btn" data-key="${esc(f.r2Key)}">다운로드</button>`}
     </div>
   `).join('');
   grid.querySelectorAll('.file-dl-btn:not(.file-req-btn)').forEach(function(b){ b.addEventListener('click', function(){ downloadFile(b.getAttribute('data-key')); }); });

@@ -8,12 +8,13 @@
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;
     /* 공부 기록 — 학원 크림슨 5단계 */
     --g0:#EBEDF0;--g1:#FBE2E8;--g2:#F5B4C1;--g3:#E26680;--g4:#8B1A35;}
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
@@ -23,40 +24,40 @@
 
   .page{max-width:640px;margin:0 auto;padding:20px 18px 80px;}
 
-  .hero{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1.5px solid var(--border);border-radius:16px;padding:22px 22px;margin-bottom:16px;}
+  .hero{background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:22px 22px;margin-bottom:16px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .hero h1{font-size:1.1rem;color:var(--primary);font-weight:900;letter-spacing:-0.3px;margin-bottom:4px;}
   .hero .sub{font-size:0.82rem;color:var(--text-light);line-height:1.5;}
 
   .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
   .stat-box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 8px;text-align:center;}
-  .stat-num{font-size:1.4rem;font-weight:900;color:var(--primary);}
+  .stat-num{font-size:1.4rem;font-weight:900;color:var(--primary);font-family:var(--serif);}
   .stat-label{font-size:0.72rem;color:var(--text-light);margin-top:2px;font-weight:600;}
 
-  .big-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:var(--primary);color:#fff;border:none;padding:18px;border-radius:14px;font-size:1.05rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:-0.2px;box-shadow:0 6px 18px rgba(139,26,53,0.2);}
+  .big-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:var(--primary);color:#fff;border:none;padding:18px;border-radius:14px;font-size:1.05rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:-0.2px;box-shadow:0 6px 18px rgba(70,20,35,.2);}
   .big-btn:hover{background:var(--primary-mid);}
-  .big-btn .ic{font-size:1.4rem;}
+  .big-btn .ic{display:flex;}
 
   .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;}
   .card h2{font-size:0.92rem;font-weight:800;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 
   /* 스트릭 배지 */
-  .streak-card{background:linear-gradient(135deg,#FFF6E0 0%,#FFE9B5 100%);border:1.5px solid #D9A040;border-radius:14px;padding:16px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .streak-num{font-size:2.2rem;font-weight:900;color:#A85F00;line-height:1;}
-  .streak-label{font-size:0.78rem;color:#854F0B;font-weight:700;margin-top:2px;}
-  .streak-sub{font-size:0.78rem;color:#854F0B;font-weight:600;line-height:1.5;}
-  .streak-icon{font-size:2.4rem;line-height:1;}
-  .streak-milestone{display:inline-block;background:#A85F00;color:#fff;font-size:0.7rem;padding:3px 9px;border-radius:12px;font-weight:800;margin-top:4px;}
-  .streak-card.cold{background:#F0F0F0;border-color:#CCC;}
-  .streak-card.cold .streak-num,.streak-card.cold .streak-label,.streak-card.cold .streak-sub{color:#666;}
-  .streak-card.cold .streak-icon{filter:grayscale(0.7);opacity:0.5;}
+  .streak-card{background:#fff;border:1.5px solid var(--gold-line);border-radius:14px;padding:16px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
+  .streak-num{font-size:2.2rem;font-weight:900;color:var(--gold);line-height:1;font-family:var(--serif);}
+  .streak-label{font-size:0.78rem;color:var(--gold);font-weight:700;margin-top:2px;}
+  .streak-sub{font-size:0.78rem;color:var(--text-light);font-weight:600;line-height:1.5;}
+  .streak-icon{display:flex;color:var(--gold);}
+  .streak-milestone{display:inline-block;background:var(--gold);color:#fff;font-size:0.7rem;padding:3px 9px;border-radius:12px;font-weight:800;margin-top:4px;}
+  .streak-card.cold{background:#fff;border-color:var(--border);}
+  .streak-card.cold .streak-num,.streak-card.cold .streak-label,.streak-card.cold .streak-sub{color:var(--text-light);}
+  .streak-card.cold .streak-icon{color:var(--text-light);opacity:0.6;}
 
   /* 주간 반 통계 카드 */
-  .class-stats{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1.5px solid var(--primary);border-radius:14px;padding:16px 18px;margin-bottom:14px;}
+  .class-stats{background:#fff;border:1.5px solid var(--primary);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .class-stats h3{font-size:0.92rem;color:var(--primary);font-weight:800;margin-bottom:10px;}
   .class-stats .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:0.85rem;}
   .class-stats .row b{color:var(--primary);font-weight:900;}
   .class-stats .myrank{background:#fff;border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:0.85rem;display:flex;align-items:center;justify-content:space-between;}
-  .class-stats .myrank .big{font-size:1.3rem;font-weight:900;color:var(--primary);}
+  .class-stats .myrank .big{font-size:1.3rem;font-weight:900;color:var(--primary);font-family:var(--serif);}
   .class-stats .ranking{display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:0.78rem;}
   .class-stats .rank-row{display:flex;align-items:center;gap:6px;padding:5px 10px;background:#fff;border-radius:8px;border:1px solid var(--border);}
   .class-stats .rank-row.me{border-color:var(--primary);background:var(--primary-light);font-weight:700;color:var(--primary);}
@@ -142,7 +143,7 @@
   .medal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
   .medal{text-align:center;padding:10px 4px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);}
   .medal.locked{opacity:0.36;filter:grayscale(0.85);}
-  .medal .mi{font-size:1.65rem;line-height:1.1;}
+  .medal .mi{display:flex;justify-content:center;color:var(--gold);}
   .medal .mt{font-size:0.66rem;font-weight:700;margin-top:4px;color:var(--text);}
   .medal .md{font-size:0.6rem;color:var(--text-light);margin-top:1px;}
   /* 랭킹 기간 탭 */
@@ -166,7 +167,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>📚 KW-Study</span>
+    <span>KW-Study</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -194,13 +195,13 @@
         </div>
         <div class="streak-sub" id="streakSub">오늘 첫 공부를 시작해보세요</div>
       </div>
-      <div class="streak-icon" id="streakIcon">🌱</div>
+      <div class="streak-icon" id="streakIcon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-7"/><path d="M12 13C12 9.5 9.5 7 5 7c0 4.5 2.5 6 7 6z"/><path d="M12 13c0-3 2-5.5 7-5.5 0 4-2 5.5-7 5.5z"/></svg></div>
     </div>
 
     <!-- 개인 디데이 -->
     <div id="ddayCard" class="card" style="display:none;">
       <div class="goal-head">
-        <h2>📌 내 디데이</h2>
+        <h2>내 디데이</h2>
         <button class="goal-edit" id="ddayManageBtn" onclick="openDdayModal()">＋ 관리</button>
       </div>
       <div id="ddayList"></div>
@@ -215,7 +216,7 @@
     </div>
 
     <div id="classStatsCard" class="class-stats" style="display:none;">
-      <h3 id="csTitle">🏆 이번 주 우리 반 (익명)</h3>
+      <h3 id="csTitle">이번 주 우리 반 (익명)</h3>
       <div class="rank-tabs" id="rankTabs" style="display:none;">
         <button class="rank-tab" id="rankTabDay" onclick="setRankPeriod('day')">오늘</button>
         <button class="rank-tab active" id="rankTabWeek" onclick="setRankPeriod('week')">이번 주</button>
@@ -245,7 +246,7 @@
     <!-- 주간 목표 -->
     <div id="goalCard" class="goal-card" style="display:none;">
       <div class="goal-head">
-        <h2>🎯 이번 주 목표</h2>
+        <h2>이번 주 목표</h2>
         <button class="goal-edit" id="goalEditBtn" onclick="editGoal()">목표 설정</button>
       </div>
       <div id="goalBody"></div>
@@ -253,21 +254,21 @@
 
     <div id="focusInfo" style="display:none;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.86rem;text-align:center;"></div>
 
-    <div id="startBtnWrap"><button class="big-btn" onclick="startStudy()"><span class="ic">📚</span> 공부 시작하기</button>
+    <div id="startBtnWrap"><button class="big-btn" onclick="startStudy()"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"/></svg></span> 공부 시작하기</button>
     <div style="height:18px;"></div></div>
 
     <div class="card">
-      <h2>📊 최근 14일 — 하루별</h2>
+      <h2>최근 14일 — 하루별</h2>
       <svg id="chartDaily" class="chart-svg" viewBox="0 0 600 170" preserveAspectRatio="none"></svg>
     </div>
 
     <div class="card">
-      <h2>📈 최근 8주 — 주별 누적</h2>
+      <h2>최근 8주 — 주별 누적</h2>
       <svg id="chartWeekly" class="chart-svg" viewBox="0 0 600 170" preserveAspectRatio="none"></svg>
     </div>
 
     <div class="card">
-      <h2>🟥 최근 30일 — 공부 기록</h2>
+      <h2>최근 30일 — 공부 기록</h2>
       <div class="jandi-wrap"><div class="jandi" id="jandi"></div></div>
       <div class="jandi-legend">
         적음
@@ -281,12 +282,12 @@
     </div>
 
     <div class="card" id="medalCard" style="display:none;">
-      <h2>🏅 메달 도감 <span id="medalCount" style="font-weight:600;color:var(--text-light);font-size:0.78rem;"></span></h2>
+      <h2>메달 도감 <span id="medalCount" style="font-weight:600;color:var(--text-light);font-size:0.78rem;"></span></h2>
       <div class="medal-grid" id="medalGrid"></div>
     </div>
 
     <div class="card">
-      <h2>📝 최근 공부 세션</h2>
+      <h2>최근 공부 세션</h2>
       <div id="sessList" class="sess-list"></div>
     </div>
   </div>
@@ -296,19 +297,19 @@
 <div class="timer-screen" id="timerScreen">
   <div class="timer-clock" id="tmClock">--:--</div>
   <div class="timer-display" id="tmDisplay">00:00:00</div>
-  <div class="timer-status" id="tmStatus">📚 공부 중</div>
+  <div class="timer-status" id="tmStatus">공부 중</div>
   <div class="timer-away" id="tmAway" style="margin-top:6px;font-size:0.92rem;font-weight:700;color:#c0392b;min-height:1.2em;"></div>
   <div class="timer-btns">
-    <button class="timer-btn" id="tmPauseBtn" onclick="togglePause()">⏸ 일시정지</button>
-    <button class="timer-btn end" onclick="endStudy()">⏹ 공부 끝</button>
+    <button class="timer-btn" id="tmPauseBtn" onclick="togglePause()">일시정지</button>
+    <button class="timer-btn end" onclick="endStudy()">공부 끝</button>
   </div>
-  <div class="timer-tip">⏸ 이 화면을 벗어나거나 다른 앱을 켜면 <b>공부 시간이 자동으로 멈추고 '이탈'로 기록</b>돼요.<br>돌아오면 이어서 측정되니, 집중하려면 이 화면을 켜둔 채로 두세요.</div>
+  <div class="timer-tip">이 화면을 벗어나거나 다른 앱을 켜면 <b>공부 시간이 자동으로 멈추고 '이탈'로 기록</b>돼요.<br>돌아오면 이어서 측정되니, 집중하려면 이 화면을 켜둔 채로 두세요.</div>
 </div>
 
 <!-- 디데이 관리 모달 -->
 <div class="kw-modal" id="ddayModal">
   <div class="box">
-    <h3>📌 디데이 추가</h3>
+    <h3>디데이 추가</h3>
     <input type="text" id="ddayLabelInput" maxlength="20" placeholder="이름 (예: 6월 모평, 기말고사)">
     <input type="date" id="ddayDateInput">
     <div id="ddayModalList" style="margin-top:6px;"></div>
@@ -324,7 +325,7 @@
 <script>
   const TOKEN_KEY = 'kwmath_portal_token';
   const ACTIVE_KEY = 'kwmath_kwstudy_active_v2';
-  // ⚠️ KW-Study 신기능(목표·디데이·메달·랭킹탭) 노출 플래그 — 앱 심사 중 숨김.
+  // [주의] KW-Study 신기능(목표·디데이·메달·랭킹탭) 노출 플래그 — 앱 심사 중 숨김.
   //    심사 통과 후 true로 바꾸고 배포하면 즉시 노출. (study.js의 STUDY_NUDGE_ENABLED도 같이 true)
   const KWSTUDY_NEW_ENABLED = true;
   let token = '';
@@ -335,6 +336,17 @@
   let myStudents = [];      // /api/auth/me 결과
   let currentChild = null;  // 현재 선택된 학생
   let isParentView = false; // 학부모로 로그인했는지
+
+  // ─── 스트로크 아이콘 (이모지 대체) ───
+  function strokeIcon(paths, size) {
+    size = size || 26;
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
+  }
+  const ICON_SPROUT = '<path d="M12 20v-7"/><path d="M12 13C12 9.5 9.5 7 5 7c0 4.5 2.5 6 7 6z"/><path d="M12 13c0-3 2-5.5 7-5.5 0 4-2 5.5-7 5.5z"/>';
+  const ICON_FLAME = '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>';
+  const ICON_STAR = '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>';
+  const ICON_TARGET = '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>';
+  const ICON_TROPHY = '<path d="M8 4.5h8v5.5a4 4 0 0 1-8 0z"/><path d="M8 6H4.5v1A3.5 3.5 0 0 0 8 10.5M16 6h3.5v1A3.5 3.5 0 0 1 16 10.5"/><path d="M12 14v3.5"/><path d="M8.5 20h7M10 17.5h4"/>';
 
   function showToast(msg) {
     const t = document.getElementById('toast');
@@ -481,17 +493,17 @@
     if (streak === 0) {
       card.classList.add('cold');
       subEl.textContent = '오늘 첫 공부를 시작해보세요';
-      iconEl.textContent = '🌱';
+      iconEl.innerHTML = strokeIcon(ICON_SPROUT, 36);
       return;
     }
     card.classList.remove('cold');
     // 마일스톤 메시지
     let milestone = '';
-    if (streak >= 100) { milestone = '🏆 100일 달성!'; iconEl.textContent = '🏆'; }
-    else if (streak >= 30) { milestone = '🎯 30일 달성!'; iconEl.textContent = '🎯'; }
-    else if (streak >= 10) { milestone = '⭐ 10일 달성!'; iconEl.textContent = '⭐'; }
-    else if (streak >= 5)  { milestone = '🔥 5일 달성!'; iconEl.textContent = '🔥'; }
-    else { iconEl.textContent = '🔥'; }
+    if (streak >= 100) { milestone = '100일 달성!'; iconEl.innerHTML = strokeIcon(ICON_TROPHY, 36); }
+    else if (streak >= 30) { milestone = '30일 달성!'; iconEl.innerHTML = strokeIcon(ICON_TARGET, 36); }
+    else if (streak >= 10) { milestone = '10일 달성!'; iconEl.innerHTML = strokeIcon(ICON_STAR, 36); }
+    else if (streak >= 5)  { milestone = '5일 달성!'; iconEl.innerHTML = strokeIcon(ICON_FLAME, 36); }
+    else { iconEl.innerHTML = strokeIcon(ICON_FLAME, 36); }
 
     // 다음 마일스톤까지 남은 일
     let next = 0;
@@ -515,8 +527,8 @@
     if (!Number.isFinite(wk) || (stats.week || 0) <= 0) { el.style.display = 'none'; return; }
     const focus = Number.isFinite(Number(stats.focusPct)) ? Number(stats.focusPct) : null;
     let badge = '';
-    if (wk === 0) badge = ' · <b style="color:#1a7a4a;">🏅 노이탈 집중왕</b>';
-    else if (focus != null && focus >= 90) badge = ' · <b style="color:#1a7a4a;">🎯 집중 우수</b>';
+    if (wk === 0) badge = ' · <b style="color:#1a7a4a;">노이탈 집중왕</b>';
+    else if (focus != null && focus >= 90) badge = ' · <b style="color:#1a7a4a;">집중 우수</b>';
     el.style.display = 'block';
     el.innerHTML = '이번 주 이탈 <b>' + wk + '회</b>'
       + (focus != null ? ' · 집중도 <b>' + focus + '%</b>' : '')
@@ -539,7 +551,7 @@
       }
     } else {
       if (stats.today > 0) {
-        document.getElementById('heroTitle').textContent = '오늘 ' + fmtMin(stats.today) + ' 공부했어요 👏';
+        document.getElementById('heroTitle').textContent = '오늘 ' + fmtMin(stats.today) + ' 공부했어요';
       } else if (stats.all > 0) {
         document.getElementById('heroTitle').textContent = '오늘도 시작해볼까요?';
       } else {
@@ -754,20 +766,20 @@
     document.getElementById('tmDisplay').textContent =
       String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
     const status = document.getElementById('tmStatus');
-    if (a.lastPauseAt) { status.textContent = '⏸ 일시정지됨'; status.classList.add('paused'); }
-    else { status.textContent = '📚 공부 중'; status.classList.remove('paused'); }
+    if (a.lastPauseAt) { status.textContent = '일시정지됨'; status.classList.add('paused'); }
+    else { status.textContent = '공부 중'; status.classList.remove('paused'); }
     const pb = document.getElementById('tmPauseBtn');
-    pb.textContent = a.lastPauseAt ? '▶ 다시 시작' : '⏸ 일시정지';
+    pb.textContent = a.lastPauseAt ? '다시 시작' : '일시정지';
     const away = document.getElementById('tmAway');
     if (away) {
       const c = Number(a.awayCount) || 0;
       const awMin = Math.round((Number(a.awayMs) || 0) / 60000);
-      away.textContent = c ? ('🚪 이탈 ' + c + '회' + (awMin >= 1 ? ' · ' + awMin + '분' : '')) : '';
+      away.textContent = c ? ('이탈 ' + c + '회' + (awMin >= 1 ? ' · ' + awMin + '분' : '')) : '';
     }
     const clk = document.getElementById('tmClock');
     if (clk) {
       const now = new Date();
-      clk.textContent = '🕐 ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+      clk.textContent = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
     }
   }
 
@@ -805,10 +817,10 @@
         body: JSON.stringify({ startedAt: a.startedAt, endedAt: new Date(endTs).toISOString(), minutes: minutes, awayCount: Number(a.awayCount) || 0, awayMs: Number(a.awayMs) || 0 })
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) { showToast('❌ 저장 실패: ' + (data.error || res.status)); return; }
+      if (!res.ok || !data.ok) { showToast('저장 실패: ' + (data.error || res.status)); return; }
       clearActive(); stopTick();
       document.getElementById('timerScreen').classList.remove('show');
-      showToast('🎉 ' + fmtMin(minutes) + ' 기록 완료' + ((Number(a.awayCount) || 0) ? ' · 이탈 ' + a.awayCount + '회' : ' · 🎯 이탈 0회 집중 세션!'));
+      showToast(fmtMin(minutes) + ' 기록 완료' + ((Number(a.awayCount) || 0) ? ' · 이탈 ' + a.awayCount + '회' : ' · 이탈 0회 집중 세션!'));
       loadStats();
     } catch (e) { showToast('네트워크 오류: ' + e.message); }
   }
@@ -837,7 +849,7 @@
   }
 
   // ─── 이탈 카운팅 (세션 진행 중 앱/화면을 벗어나면 횟수 집계) ───
-  // ⚠️ 웹은 '화면 끔'과 '앱 전환'을 구분 못 함 → 화면 끔도 이탈로 잡힘. 막지 않고 횟수만 기록.
+  // [주의] 웹은 '화면 끔'과 '앱 전환'을 구분 못 함 → 화면 끔도 이탈로 잡힘. 막지 않고 횟수만 기록.
   document.addEventListener('visibilitychange', function () {
     const a = loadActive();
     if (!a || a.lastPauseAt) return;        // 진행 중인(일시정지 아닌) 세션일 때만
@@ -867,7 +879,7 @@
       const card = document.getElementById('classStatsCard');
       if (!card) return;
       const _pl = { day:'오늘', week:'이번 주', month:'이번 달' }[rankPeriod] || '이번 주';
-      const _ct = document.getElementById('csTitle'); if (_ct) _ct.textContent = '🏆 ' + _pl + ' 우리 반 (익명)';
+      const _ct = document.getElementById('csTitle'); if (_ct) _ct.textContent = _pl + ' 우리 반 (익명)';
       if (!data.classSize || data.classSize <= 1) {
         // 반에 본인만 있으면 의미 없음
         card.style.display = 'none';
@@ -1014,7 +1026,7 @@
     body.innerHTML =
       '<div class="goal-bar"><div class="goal-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="goal-meta"><span>' + fmtMin(wk) + ' / ' + fmtMin(goal) + '</span>' +
-      '<span class="' + (done ? 'goal-done' : '') + '">' + (done ? '🎉 목표 달성!' : '달성 ' + pct + '% · ' + fmtMin(remain) + ' 남음') + '</span></div>';
+      '<span class="' + (done ? 'goal-done' : '') + '">' + (done ? '목표 달성!' : '달성 ' + pct + '% · ' + fmtMin(remain) + ' 남음') + '</span></div>';
   }
   function editGoal() {
     if (isParentView) return;
@@ -1066,7 +1078,7 @@
     box.innerHTML = items.map(function(it, i){
       return '<div class="dday-row"><span class="dday-badge">' + ddayLabel(ddayDiff(it.date)) + '</span>' +
         '<span class="dday-label">' + esc(it.label || '시험') + '</span>' +
-        '<button class="dday-del" onclick="removeDday(' + i + ')">✕</button></div>';
+        '<button class="dday-del" onclick="removeDday(' + i + ')">×</button></div>';
     }).join('');
   }
   async function addDday() {
@@ -1097,18 +1109,18 @@
     const focus0 = Number(stats.weekAwayCount) === 0 && wk > 0;
     let dayMax = 0; const bd = stats.byDate || {}; for (const k in bd) dayMax = Math.max(dayMax, bd[k]);
     const medals = [
-      { i:'🌱', t:'첫 공부', d:'1시간',  on: totalH >= 1 },
-      { i:'📗', t:'10시간',  d:'누적',    on: totalH >= 10 },
-      { i:'📘', t:'50시간',  d:'누적',    on: totalH >= 50 },
-      { i:'📚', t:'100시간', d:'누적',    on: totalH >= 100 },
-      { i:'🏛️', t:'300시간', d:'누적',    on: totalH >= 300 },
-      { i:'🔥', t:'5일 연속', d:'스트릭',  on: streak >= 5 },
-      { i:'⭐', t:'10일 연속', d:'스트릭', on: streak >= 10 },
-      { i:'🎯', t:'30일 연속', d:'스트릭', on: streak >= 30 },
-      { i:'🏆', t:'100일 연속', d:'스트릭', on: streak >= 100 },
-      { i:'☀️', t:'하루 4시간', d:'집중',  on: dayMax >= 240 },
-      { i:'🌙', t:'하루 8시간', d:'몰입',  on: dayMax >= 480 },
-      { i:'✅', t:'목표 달성', d:'주간목표', on: goal > 0 && wk >= goal },
+      { i:strokeIcon(ICON_SPROUT), t:'첫 공부', d:'1시간',  on: totalH >= 1 },
+      { i:strokeIcon('<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"/>'), t:'10시간',  d:'누적',    on: totalH >= 10 },
+      { i:strokeIcon('<path d="M12 6.5C10.5 5 8 4.5 4.5 4.5v13c3.5 0 6 .5 7.5 2 1.5-1.5 4-2 7.5-2v-13c-3.5 0-6 .5-7.5 2z"/><path d="M12 6.5v13"/>'), t:'50시간',  d:'누적',    on: totalH >= 50 },
+      { i:strokeIcon('<path d="M4 19.5h16"/><path d="M5.5 19.5V15h13v4.5"/><path d="M7 15v-4.5h10V15"/><path d="M8.5 10.5V6.5h7v4"/>'), t:'100시간', d:'누적',    on: totalH >= 100 },
+      { i:strokeIcon('<path d="M3.5 9 12 4l8.5 5"/><path d="M5.5 9v8.5M9.3 9v8.5M14.7 9v8.5M18.5 9v8.5"/><path d="M3.5 17.5h17M4.5 20.5h15"/>'), t:'300시간', d:'누적',    on: totalH >= 300 },
+      { i:strokeIcon(ICON_FLAME), t:'5일 연속', d:'스트릭',  on: streak >= 5 },
+      { i:strokeIcon(ICON_STAR), t:'10일 연속', d:'스트릭', on: streak >= 10 },
+      { i:strokeIcon(ICON_TARGET), t:'30일 연속', d:'스트릭', on: streak >= 30 },
+      { i:strokeIcon(ICON_TROPHY), t:'100일 연속', d:'스트릭', on: streak >= 100 },
+      { i:strokeIcon('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.9 5.9l1.4 1.4M16.7 16.7l1.4 1.4M18.1 5.9l-1.4 1.4M7.3 16.7l-1.4 1.4"/>'), t:'하루 4시간', d:'집중',  on: dayMax >= 240 },
+      { i:strokeIcon('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'), t:'하루 8시간', d:'몰입',  on: dayMax >= 480 },
+      { i:strokeIcon('<path d="m4.5 12.5 5 5L19.5 7"/>'), t:'목표 달성', d:'주간목표', on: goal > 0 && wk >= goal },
     ];
     const got = medals.filter(function(m){ return m.on; }).length;
     const cnt = document.getElementById('medalCount'); if (cnt) cnt.textContent = '(' + got + '/' + medals.length + ')';

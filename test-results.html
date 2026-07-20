@@ -8,10 +8,11 @@
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
   .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
@@ -28,7 +29,7 @@
 
   .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin-bottom:10px;text-transform:uppercase;}
 
-  .intro-card{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .intro-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .intro-card h2{font-size:0.96rem;font-weight:800;color:var(--primary);margin-bottom:4px;}
   .intro-card p{font-size:0.83rem;color:var(--text);line-height:1.6;}
 
@@ -40,12 +41,12 @@
   .pdf-dl-btn:hover{background:var(--primary-mid);}
 
   /* 공부량 카드 + 미니 차트 */
-  .study-card{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1.5px solid var(--primary);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .study-card{background:#fff;border:1.5px solid var(--primary);border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .study-card .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
   .study-card .head h2{font-size:0.92rem;font-weight:800;color:var(--primary);}
   .study-card .head a{font-size:0.76rem;color:var(--primary);text-decoration:none;font-weight:600;}
   .study-card .stats{display:flex;gap:14px;align-items:flex-end;margin-bottom:10px;}
-  .study-card .stats .big{font-size:1.5rem;font-weight:900;color:var(--primary);}
+  .study-card .stats .big{font-size:1.5rem;font-weight:900;color:var(--primary);font-family:var(--serif);}
   .study-card .stats .sub{font-size:0.78rem;color:var(--text-light);font-weight:600;}
   .mini-chart{width:100%;height:60px;display:block;}
   .mini-bar{fill:var(--primary);opacity:0.85;}
@@ -57,7 +58,7 @@
   .quiz-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;cursor:pointer;user-select:none;}
   .quiz-head .t{flex:1;min-width:0;font-size:0.88rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .quiz-head .t small{color:var(--text-light);font-weight:500;}
-  .quiz-head .s{font-size:0.98rem;font-weight:900;color:var(--primary);white-space:nowrap;flex-shrink:0;}
+  .quiz-head .s{font-size:0.98rem;font-weight:900;color:var(--primary);white-space:nowrap;flex-shrink:0;font-family:var(--serif);}
   .quiz-head .arrow{color:var(--text-light);font-size:0.75rem;flex-shrink:0;transition:transform .15s;}
   .quiz-item.open .arrow{transform:rotate(90deg);}
   .quiz-pend{display:inline-block;background:#FEF7E0;color:#B26A00;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;}
@@ -98,7 +99,7 @@
   .twin-submit:disabled{opacity:0.6;cursor:default;}
 
   .empty-state{background:#fff;border:1px dashed var(--border);border-radius:14px;padding:36px 18px;text-align:center;color:var(--text-light);font-size:0.88rem;line-height:1.7;}
-  .empty-state .icon{font-size:2rem;margin-bottom:10px;display:block;}
+  .empty-state .icon{color:var(--text-light);margin-bottom:10px;display:flex;justify-content:center;}
   .empty-state b{color:var(--primary);}
 
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.86rem;opacity:0;transition:opacity .25s;z-index:9999;pointer-events:none;}
@@ -112,7 +113,7 @@
   .sg-cell{border:1px solid var(--border);border-radius:10px;padding:9px 6px;text-align:center;}
   .sg-date{font-size:0.68rem;color:var(--text-light);font-weight:600;}
   .sg-kind{display:inline-block;font-size:0.62rem;font-weight:700;color:var(--primary);background:var(--primary-light);border-radius:99px;padding:1px 7px;margin-top:3px;}
-  .sg-score{font-size:1.05rem;font-weight:900;margin-top:3px;}
+  .sg-score{font-size:1.05rem;font-weight:900;margin-top:3px;font-family:var(--serif);}
   .sg-score.hi{color:#137333;} .sg-score.mid{color:#B26A00;} .sg-score.lo{color:#C5221F;}
 </style>
 </head>
@@ -121,7 +122,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>📊 테스트 결과</span>
+    <span>테스트 결과</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -138,7 +139,7 @@
 
     <div id="studyCard" class="study-card" style="display:none;">
       <div class="head">
-        <h2>📚 이번 달 공부량</h2>
+        <h2>이번 달 공부량</h2>
         <a href="/study">자세히 →</a>
       </div>
       <div class="stats">
@@ -150,12 +151,12 @@
     </div>
 
     <div class="intro-card">
-      <h2>📊 학습 진단 결과</h2>
+      <h2>학습 진단 결과</h2>
       <p>매주·매월 진행한 학습 진단 보고서(원클릭 보고서, 모의고사·내신 등급)가 여기에 누적됩니다. 시간이 지나면서 성적이 어떻게 변하는지 한눈에 볼 수 있어요.</p>
     </div>
 
     <div id="statusSection" style="display:none;margin-bottom:22px;">
-      <div class="section-label">📈 학습현황</div>
+      <div class="section-label">학습현황</div>
       <div class="grid-card">
         <div class="grid-summary" id="gridSummary"></div>
         <div class="score-grid" id="scoreGrid"></div>
@@ -163,11 +164,11 @@
     </div>
 
     <div id="quizSection" style="display:none;margin-bottom:22px;">
-      <div class="section-label">📝 테스트 결과</div>
+      <div class="section-label">테스트 결과</div>
       <div id="quizList"></div>
     </div>
 
-    <div class="section-label">📁 결과 보고서</div>
+    <div class="section-label">결과 보고서</div>
     <div id="pdfList"></div>
   </div>
 </div>
@@ -203,7 +204,7 @@
       }
       students = Array.isArray(data.students) ? data.students : [];
       if (!students.length) {
-        document.getElementById('loading').innerHTML = '<span class="icon">😕</span>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.';
+        document.getElementById('loading').innerHTML = '<span class="icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg></span>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.';
         return;
       }
       // 자녀 선택 (sessionStorage 우선)
@@ -256,11 +257,11 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + esc(data.error || '불러오기 실패') + '</div>';
+        list.innerHTML = '<div class="empty-state"><span class="icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></span>' + esc(data.error || '불러오기 실패') + '</div>';
         return;
       }
       if (!Array.isArray(data) || data.length === 0) {
-        list.innerHTML = '<div class="empty-state"><span class="icon">📭</span>아직 등록된 <b>학습 진단 보고서</b>가 없어요.<br><small>원클릭 보고서·모의고사 결과가 올라오면 여기에 자동 표시됩니다.</small></div>';
+        list.innerHTML = '<div class="empty-state"><span class="icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8A2.5 2.5 0 0 1 6 5.5h4.2L12 8h6a2.5 2.5 0 0 1 2.5 2.5V17A2.5 2.5 0 0 1 18 19.5H6A2.5 2.5 0 0 1 3.5 17z"/></svg></span>아직 등록된 <b>학습 진단 보고서</b>가 없어요.<br><small>원클릭 보고서·모의고사 결과가 올라오면 여기에 자동 표시됩니다.</small></div>';
         return;
       }
       // 날짜 최신순 정렬
@@ -268,10 +269,10 @@
       list.innerHTML = data.map(f => {
         const date = f.lastModified ? new Date(f.lastModified).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }) : '';
         const dlUrl = '/api/download-file?key=' + encodeURIComponent(f.key) + '&name=' + encodeURIComponent(selected.name);
-        return '<div class="pdf-item"><div class="pdf-info"><div class="pdf-name">' + esc(f.displayName) + '</div><div class="pdf-meta">' + date + ' · ' + esc(f.sizeLabel) + '</div></div><a class="pdf-dl-btn" href="' + dlUrl + '" target="_blank" rel="noopener noreferrer">📥 보기</a></div>';
+        return '<div class="pdf-item"><div class="pdf-info"><div class="pdf-name">' + esc(f.displayName) + '</div><div class="pdf-meta">' + date + ' · ' + esc(f.sizeLabel) + '</div></div><a class="pdf-dl-btn" href="' + dlUrl + '" target="_blank" rel="noopener noreferrer">보기</a></div>';
       }).join('');
     } catch (e) {
-      list.innerHTML = '<div class="empty-state"><span class="icon">⚠️</span>' + esc(e.message) + '</div>';
+      list.innerHTML = '<div class="empty-state"><span class="icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></span>' + esc(e.message) + '</div>';
     }
   }
 
@@ -373,8 +374,8 @@
   }
   function setTwinBadge(badge, twin) {
     if (!twin || !twin.status || twin.status === 'todo') { badge.textContent = ''; badge.className = 'twin-badge'; return; }
-    if (twin.status === 'o') { badge.textContent = '✔ 정답'; badge.className = 'twin-badge o'; }
-    else { badge.textContent = '✕ 오답'; badge.className = 'twin-badge x'; }
+    if (twin.status === 'o') { badge.textContent = '정답'; badge.className = 'twin-badge o'; }
+    else { badge.textContent = '오답'; badge.className = 'twin-badge x'; }
   }
   // 재도전 폼을 컨테이너에 생성(오답+쌍둥이정답 有 문항만 입력칸 노출).
   function buildTwinForm(box, r) {
@@ -480,17 +481,17 @@
           '<div class="quiz-head" data-qi="' + i + '">' +
             '<div class="t">' + esc(dateTxt) + ' <small>' + esc(r.title || '테스트') + '</small></div>' +
             '<div class="s">' + r.score + '점' + (pend ? '<span class="quiz-pend">채점 전</span>' : '') + '</div>' +
-            '<div class="arrow">▶</div>' +
+            '<div class="arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m9 5 7 7-7 7"/></svg></div>' +
           '</div>';
         const split =
           '<div class="quiz-split">단답형 ' + r.auto.score + '/' + r.auto.max + '점 · 서술형 ' +
           r.essay.score + '/' + r.essay.max + '점</div>' +
-          (pend ? '<div class="quiz-note">✍️ 서술형 ' + r.essay.pending + '문항은 선생님이 채점하면 점수에 더해져요</div>' : '');
+          (pend ? '<div class="quiz-note">서술형 ' + r.essay.pending + '문항은 선생님이 채점하면 점수에 더해져요</div>' : '');
         const qs = (r.questions || []).map((q, n) => {
           let badge = '';
-          if (q.status === 'o') badge = '<span class="qr-badge o">✔ 맞았어요' + (Number.isFinite(q.points) ? ' +' + q.points + '점' : '') + '</span>';
-          else if (q.status === 'x') badge = '<span class="qr-badge x">✕ 틀렸어요</span>';
-          else if (q.status === 'pending') badge = '<span class="qr-badge p">⏳ 채점 대기 (' + q.points + '점)</span>';
+          if (q.status === 'o') badge = '<span class="qr-badge o">맞았어요' + (Number.isFinite(q.points) ? ' +' + q.points + '점' : '') + '</span>';
+          else if (q.status === 'x') badge = '<span class="qr-badge x">틀렸어요</span>';
+          else if (q.status === 'pending') badge = '<span class="qr-badge p">채점 대기 (' + q.points + '점)</span>';
           return '<div class="qr-q">' +
             '<div class="ql">' + (n + 1) + '. ' + esc(q.label) + badge + '</div>' +
             '<div class="qr-ans">내 답: <b>' + (q.mine ? esc(q.mine) : '(무응답)') + '</b></div>' +
@@ -502,7 +503,7 @@
           const done = r.twin.attempted;
           twinHtml =
             '<div class="twin-wrap">' +
-              '<button type="button" class="twin-btn" data-twin="' + r.responseId + '">🔁 오답 재도전</button>' +
+              '<button type="button" class="twin-btn" data-twin="' + r.responseId + '">오답 재도전</button>' +
               '<span class="twin-score" id="twinScore' + r.responseId + '">' +
                 (done ? ('재도전 ' + (r.twin.score || 0) + '/' + (r.twin.maxScore || r.twin.eligible)) : '') +
               '</span>' +

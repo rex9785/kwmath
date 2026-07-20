@@ -289,7 +289,7 @@
         <span class="feat-desc">한 줄 후기 작성·조회</span>
       </a>
       <!-- 설문·조사: 상시 카드 제거. 열린 설문이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). -->
-      <!-- ⚠️ 질문방: 심사 중 숨김. 심사 통과 후 아래 QNA_ENABLED=true 로 바꾸고 배포하면 즉시 노출됨 -->
+      <!-- [주의] 질문방: 심사 중 숨김. 심사 통과 후 아래 QNA_ENABLED=true 로 바꾸고 배포하면 즉시 노출됨 -->
       <a href="/qna" class="feat-btn" data-feat="qna" id="qnaFeatBtn" style="display:none;">
         <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"/></svg></span>
         <span class="feat-title">질문/문의방</span>
@@ -424,7 +424,7 @@
 
 <script>
   // ════════ 기능 플래그 ════════
-  // ⚠️ 질문방(질의응답): 앱 심사 중 숨김. 심사 통과하면 false → true 로 바꾸고 배포 → 즉시 노출.
+  // [주의] 질문방(질의응답): 앱 심사 중 숨김. 심사 통과하면 false → true 로 바꾸고 배포 → 즉시 노출.
   //    (qna.html 상단의 QNA_ENABLED 도 같이 true 로 바꿔야 함)
   const QNA_ENABLED = true;
 
@@ -931,7 +931,7 @@
   // ════════ 앱(Capacitor) 네이티브 FCM 알림 ════════
   // 앱 WebView 안에서는 Web Push가 안 되므로 네이티브 FCM 토큰을 등록한다.
   // 원격+번들 구조라 이 페이지가 곧 앱 화면 → window.Capacitor 브리지로 플러그인 호출.
-  // ⚠️ 원격+번들 앱: 사이트에 Capacitor 코어 JS를 번들하지 않으므로 window.Capacitor.Plugins 는 비어 있다.
+  // [주의] 원격+번들 앱: 사이트에 Capacitor 코어 JS를 번들하지 않으므로 window.Capacitor.Plugins 는 비어 있다.
   // → 앱 감지는 isNativePlatform()으로, 플러그인 호출은 브리지 저수준 API(nativePromise/nativeCallback)로 직접 한다.
   function isInApp() {
     try { return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()); }
@@ -992,7 +992,7 @@
       });
     }
     try {
-      // ⚠️ iPad 오탐 방지: 권한이 실제로 켜져 있어도 플러그인이 'granted'가 아닌 애매한 값('prompt'·빈값)을
+      // [주의] iPad 오탐 방지: 권한이 실제로 켜져 있어도 플러그인이 'granted'가 아닌 애매한 값('prompt'·빈값)을
       //   돌려주는 경우가 있어, 예전엔 그걸 "꺼짐"으로 오판해 무조건 막았다.
       //   → 이제 '명시적 denied'일 때만 막고, 그 외(granted·prompt·불명)엔 등록을 시도한다.
       //     iOS는 getToken(register)이 실제 권한을 최종 검증하므로, 진짜 꺼져 있으면 여기서 실패한다.
@@ -1101,14 +1101,14 @@
     if (!isAppStandalone()) {
       $('pushHelpBody').innerHTML = '아이폰·아이패드는 <b>홈 화면에 앱을 추가한 뒤</b> 그 아이콘으로 열어야 알림을 받을 수 있어요:'
         + '<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
-        + '<li><b>Safari</b>로 이 페이지 열기 (크롬·다른 브라우저 ✕)</li>'
+        + '<li><b>Safari</b>로 이 페이지 열기 (크롬·다른 브라우저 불가)</li>'
         + '<li>하단 <b>공유</b> 버튼(<b>□↑</b>) 누르기</li>'
         + '<li><b>"홈 화면에 추가"</b> 선택</li>'
         + '<li>홈 화면에 생긴 <b>아이콘으로 다시 열기</b></li>'
         + '<li>그 화면에서 알림 켜기 누르면 권한창이 떠요 <span style="color:var(--gold);">(iOS 16.4 이상)</span></li>'
         + '</ol>';
     } else {
-      $('pushHelpBody').innerHTML = '이 아이콘이 <b>Safari로 추가</b>한 게 아니면(크롬·네이버 등 다른 브라우저로 추가하면 ✕) 아이패드는 알림을 못 받아요. <b>Safari로 다시 설치</b>해 주세요:'
+      $('pushHelpBody').innerHTML = '이 아이콘이 <b>Safari로 추가</b>한 게 아니면(크롬·네이버 등 다른 브라우저로 추가하면 불가) 아이패드는 알림을 못 받아요. <b>Safari로 다시 설치</b>해 주세요:'
         + '<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
         + '<li>지금 홈 화면 <b>아이콘을 길게 눌러 삭제</b></li>'
         + '<li><b>Safari</b>로 이 페이지 다시 열기</li>'
@@ -1302,7 +1302,7 @@
 
   // ════════ 강제 업데이트 게이트 (앱 전용) ════════
   // 설치된 앱 버전이 서버(/api/app-version)가 정한 최소버전보다 낮으면 업데이트 화면으로 막는다.
-  // ⚠️ 절대 원칙(fail-open): 앱이 아니거나·버전을 못 읽거나·서버를 못 받으면 절대 막지 않는다.
+  // [주의] 절대 원칙(fail-open): 앱이 아니거나·버전을 못 읽거나·서버를 못 받으면 절대 막지 않는다.
   //    · 브라우저 사용자, 구형 비-Capacitor iOS 래퍼 → isInApp()=false → 그냥 통과(오차단 방지 0순위).
   //    · 심사위원은 최신 빌드(=최소버전과 같음)를 받으므로 '같음'은 반드시 통과(반려 방지).
   function cmpVer(a, b) {
@@ -1389,7 +1389,7 @@
     const savedPhone = localStorage.getItem(PHONE_KEY) || sessionStorage.getItem(PHONE_KEY);
     if (!savedToken) { showLoginScreen(); return; }
     // 생체인증 잠금: 저장된 세션을 복원하기 전에 생체인증을 요구(앱 + 사용자가 켠 경우 + 생체 사용가능일 때만).
-    //   ⚠️ 단, 앱 1회 실행당 1번만. 이미 이번 실행에서 인증했으면(sessionStorage UNLOCK_KEY) 페이지 이동 시
+    //   [주의] 단, 앱 1회 실행당 1번만. 이미 이번 실행에서 인증했으면(sessionStorage UNLOCK_KEY) 페이지 이동 시
     //      재인증하지 않는다 → 테스트결과·내정보에서 포털로 돌아올 때마다 뜨던 재인증 제거.
     //   실패/취소하면 자동복원을 막고 로그인 화면으로. 웹/PWA/생체불가에선 이 블록을 자동 통과(fail-open).
     try {

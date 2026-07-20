@@ -8,14 +8,15 @@
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;}
-  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
   .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
   .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
   .topbar-btn:hover{background:rgba(255,255,255,0.26);}
@@ -35,10 +36,10 @@
   .pdf-dl-btn{background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;}
   .pdf-dl-btn:hover{background:var(--primary-mid);}
 
-  .report-card{background:#fff;border-radius:14px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .report-card{background:#fff;border-radius:14px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .report-card-header{background:var(--primary);color:#fff;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;gap:10px;}
   .report-card-header:hover{filter:brightness(1.06);}
-  .report-card-date{font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+  .report-card-date{font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-family:var(--serif);}
   .report-card-school{font-size:0.72rem;opacity:0.85;white-space:nowrap;}
   .report-card-arrow{font-size:0.8rem;opacity:0.85;transition:transform .25s;display:inline-block;margin-left:4px;}
   .report-card.open .report-card-arrow{transform:rotate(180deg);}
@@ -71,7 +72,7 @@
   .page-btn:disabled{opacity:.4;cursor:not-allowed;}
 
   .state-box{text-align:center;padding:48px 24px;color:var(--text-light);}
-  .state-box .state-icon{font-size:2.4rem;margin-bottom:12px;}
+  .state-box .state-icon{color:var(--text-light);margin-bottom:12px;display:flex;justify-content:center;}
   .state-box p{font-size:0.9rem;line-height:1.8;}
 
   @media(max-width:480px){.student-bar{flex-direction:column;align-items:flex-start;}.student-bar select{width:100%;}}
@@ -82,7 +83,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title" style="text-decoration:none;color:#fff;">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>🎥 수업영상 및 레포트</span>
+    <span>수업영상 및 레포트</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -99,18 +100,18 @@
 
   <!-- 결과 영역 -->
   <div id="resultArea">
-    <div class="state-box"><div class="state-icon">⏳</div><p>리포트 불러오는 중...</p></div>
+    <div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></div><p>리포트 불러오는 중...</p></div>
   </div>
 
   <!-- PDF 첨부 자료 -->
   <div id="pdfSection" style="display:none;margin-bottom:24px;">
-    <div class="section-label">📎 첨부 PDF 자료</div>
+    <div class="section-label">첨부 PDF 자료</div>
     <div id="pdfList"></div>
   </div>
 
   <!-- 반 공통 자료 -->
   <div id="classFilesSection" style="display:none;margin-bottom:24px;">
-    <div class="section-label">📁 오늘 수업 자료 (반 공통)</div>
+    <div class="section-label">오늘 수업 자료 (반 공통)</div>
     <div id="classFileList"></div>
   </div>
 
@@ -183,7 +184,7 @@
       }
       currentStudents = Array.isArray(data.students) ? data.students : [];
       if (!currentStudents.length) {
-        $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.</p></div>';
+        $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></div><p>이 휴대폰에 연결된 학생이 없습니다.<br>관우T께 문의해주세요.</p></div>';
         return;
       }
       // sessionStorage에서 선택된 자녀 (portal에서 골랐을 수도)
@@ -200,7 +201,7 @@
       renderStudentBar();
       loadReports();
     } catch (e) {
-      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>로그인 정보를 확인할 수 없습니다.</p></div>';
+      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></div><p>로그인 정보를 확인할 수 없습니다.</p></div>';
     }
   }
 
@@ -210,7 +211,7 @@
   async function loadReports() {
     if (!selectedStudent) return;
     const nameQ = encodeURIComponent(selectedStudent.name);
-    $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">🔍</div><p>수업 정보를 불러오는 중입니다...</p></div>';
+    $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></svg></div><p>수업 정보를 불러오는 중입니다...</p></div>';
     $('pdfSection').style.display = 'none';
     $('classFilesSection').style.display = 'none';
 
@@ -292,16 +293,16 @@
       $('resultArea').innerHTML = '';
       if (!allLessons.length) {
         if (pdfs.length === 0 && classFiles.length === 0) {
-          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon">📭</div><p>등록된 수업이 없습니다.</p></div>';
+          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8A2.5 2.5 0 0 1 6 5.5h4.2L12 8h6a2.5 2.5 0 0 1 2.5 2.5V17A2.5 2.5 0 0 1 18 19.5H6A2.5 2.5 0 0 1 3.5 17z"/></svg></div><p>등록된 수업이 없습니다.</p></div>';
         } else {
-          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon">📎</div><p>첨부 자료만 등록되어 있습니다.<br>위 자료를 확인하세요.</p></div>';
+          $('reportList').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></div><p>첨부 자료만 등록되어 있습니다.<br>위 자료를 확인하세요.</p></div>';
         }
         return;
       }
       currentPage = 1;
       renderReportPage();
     } catch (e) {
-      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>수업 정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
+      $('resultArea').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></div><p>수업 정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</p></div>';
     }
   }
 
@@ -313,7 +314,7 @@
       const display = escapeHtml(f.displayName || f.name || f.key.split('/').pop());
       return `<div class="pdf-item">
         <div>
-          <div class="pdf-name">📄 ${display}</div>
+          <div class="pdf-name">${display}</div>
           <div class="pdf-size">${sizeStr}</div>
         </div>
         <button class="pdf-dl-btn" onclick="downloadFile('${escapeHtml(f.key)}')">다운로드</button>
@@ -329,7 +330,7 @@
       const display = escapeHtml((f.displayName || f.name || f.key.split('/').pop()).replace(/^\d{4}[_-]/, ''));
       return `<div class="pdf-item">
         <div>
-          <div class="pdf-name">📁 ${display}</div>
+          <div class="pdf-name">${display}</div>
           <div class="pdf-size">${sizeStr}</div>
         </div>
         <button class="pdf-dl-btn" onclick="downloadFile('${escapeHtml(f.key)}')">다운로드</button>
@@ -392,10 +393,10 @@
 
       // 헤더 인디케이터 (영상/리포트 둘 다 / 한쪽만)
       const icons = [];
-      if (v) icons.push('🎥');
-      if (r) icons.push('📋');
-      if (lesson.tests && lesson.tests.length) icons.push('📝');
-      const iconBadge = icons.length ? `<span class="header-icons"><span>${icons.join(' ')}</span></span>` : '';
+      if (v) icons.push('영상');
+      if (r) icons.push('리포트');
+      if (lesson.tests && lesson.tests.length) icons.push('테스트');
+      const iconBadge = icons.length ? `<span class="header-icons"><span>${icons.join(' · ')}</span></span>` : '';
 
       // 영상 버튼 (펼친 본문 우측 상단, 작게)
       let videoRow = '';
@@ -405,10 +406,10 @@
         if (v.locked) {
           videoRow = `<div class="video-row">
             <button class="video-watch locked" onclick="event.stopPropagation();unlockVideo('${codeEsc}','${nameEsc}')">
-              <span class="video-watch-play">🔒</span> 코드 입력 후 시청 →
+              <span class="video-watch-play"><svg width="10" height="10" viewBox="0 0 24 24" style="fill:none;" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="9" rx="2"/></svg></span> 코드 입력 후 시청 →
             </button>
           </div>
-          <div class="video-note">🔒 선생님이 알려준 수업코드 필요</div>`;
+          <div class="video-note">선생님이 알려준 수업코드 필요</div>`;
         } else {
           videoRow = `<div class="video-row">
             <a href="${escapeHtml(v.youtube_url || '#')}" target="_blank" class="video-watch" onclick="event.stopPropagation();logView('${codeEsc}','${nameEsc}')">
@@ -428,7 +429,7 @@
           ${r.notes ? `<div class="report-field"><div class="report-label">특이사항</div><div class="report-val">${escapeHtml(r.notes).replace(/\n/g,'<br>')}</div></div>` : ''}
         `;
       } else {
-        reportBody = `<div class="no-report-msg">📋 이 회차의 수업 레포트는 아직 등록되지 않았습니다.</div>`;
+        reportBody = `<div class="no-report-msg">이 회차의 수업 레포트는 아직 등록되지 않았습니다.</div>`;
       }
 
       // 오늘의 테스트(앱 테스트 자동 반영) — 회차 카드에 한 줄
@@ -437,12 +438,12 @@
         testRow = lesson.tests.map(t => {
           const sc = (t.rawScore != null) ? (escapeHtml(String(t.rawScore)) + '점 <span style="color:#999;font-size:0.82em;">/ 100</span>') : '—';
           const extra = (t.label && t.label !== t.examType) ? ' <span style="color:#999;">· ' + escapeHtml(t.label) + '</span>' : '';
-          return `<div class="report-field"><div class="report-label">📝 오늘의 테스트</div><div class="report-val"><b>${escapeHtml(t.examType)}</b> — ${sc}${extra}</div></div>`;
+          return `<div class="report-field"><div class="report-label">오늘의 테스트</div><div class="report-val"><b>${escapeHtml(t.examType)}</b> — ${sc}${extra}</div></div>`;
         }).join('');
       }
       // 리포트 다운로드(PDF) — 리포트나 테스트가 있을 때만
       const downloadRow = (r || (lesson.tests && lesson.tests.length))
-        ? `<div style="margin-top:14px;text-align:right;"><button onclick="event.stopPropagation();downloadReport(${absoluteIdx})" style="background:#8B1A35;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.85rem;font-weight:700;font-family:inherit;cursor:pointer;">📥 리포트 다운로드 (PDF)</button></div>`
+        ? `<div style="margin-top:14px;text-align:right;"><button onclick="event.stopPropagation();downloadReport(${absoluteIdx})" style="background:#8B1A35;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.85rem;font-weight:700;font-family:inherit;cursor:pointer;">리포트 다운로드 (PDF)</button></div>`
         : '';
 
       return `

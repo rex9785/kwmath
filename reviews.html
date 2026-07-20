@@ -8,13 +8,14 @@
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
-  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
+  .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
   .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
   .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
   .topbar-btn:hover{background:rgba(255,255,255,0.26);}
@@ -25,7 +26,7 @@
   .section{margin-bottom:28px;}
 
   /* 작성 폼 카드 */
-  .form-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;box-shadow:0 2px 10px rgba(139,26,53,0.05);}
+  .form-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .form-card h2{font-size:1rem;font-weight:800;color:var(--text);margin-bottom:6px;}
   .form-card .sub{font-size:0.78rem;color:var(--text-light);margin-bottom:14px;line-height:1.5;}
   .field{margin-bottom:12px;}
@@ -43,10 +44,10 @@
   .err-msg{color:#B02347;font-size:0.82rem;font-weight:600;margin-top:8px;min-height:18px;}
 
   /* 후기 카드 */
-  .review-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(139,26,53,0.04);}
+  .review-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .review-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-wrap:wrap;}
   .review-author{font-size:0.86rem;font-weight:700;color:var(--text);}
-  .review-meta{font-size:0.72rem;color:var(--text-light);}
+  .review-meta{font-size:0.72rem;color:var(--text-light);font-family:var(--serif);}
   .review-body{font-size:0.88rem;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-word;}
   .status-badge{display:inline-block;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;margin-right:6px;}
   .status-wait{background:#FFF7E0;color:#B07A00;}
@@ -58,7 +59,7 @@
   .btn-mini:hover{border-color:var(--primary);color:var(--primary);}
 
   .state-box{text-align:center;padding:36px 24px;color:var(--text-light);}
-  .state-box .state-icon{font-size:2rem;margin-bottom:10px;}
+  .state-box .state-icon{color:var(--text-light);margin-bottom:10px;display:flex;justify-content:center;}
   .state-box p{font-size:0.85rem;line-height:1.7;}
 
   .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:10px 18px;border-radius:8px;font-size:0.84rem;font-weight:600;z-index:100;display:none;}
@@ -75,7 +76,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>📝 수강 후기</span>
+    <span>수강 후기</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -117,8 +118,8 @@
   <!-- 탭: 둘러보기 / 내 후기 -->
   <div class="section">
     <div class="tab-row">
-      <button class="tab-btn active" id="tabBrowse" onclick="switchTab('browse')">📖 둘러보기</button>
-      <button class="tab-btn" id="tabMine" onclick="switchTab('mine')">📌 내 후기</button>
+      <button class="tab-btn active" id="tabBrowse" onclick="switchTab('browse')">둘러보기</button>
+      <button class="tab-btn" id="tabMine" onclick="switchTab('mine')">내 후기</button>
     </div>
 
     <div id="browseSection">
@@ -259,7 +260,7 @@
       const data = await res.json();
       if (!res.ok) { box.innerHTML = `<div class="state-box"><p>${escapeHtml(data.error || '조회 실패')}</p></div>`; return; }
       const list = data.reviews || [];
-      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon">📝</div><p>아직 등록된 후기가 없습니다.<br>첫 후기를 남겨보세요!</p></div>'; return; }
+      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"/><path d="M14.5 6.5l2.8 2.8"/></svg></div><p>아직 등록된 후기가 없습니다.<br>첫 후기를 남겨보세요!</p></div>'; return; }
       box.innerHTML = list.map(r => reviewCardHtml(r, false)).join('');
     } catch (e) {
       box.innerHTML = `<div class="state-box"><p>네트워크 오류: ${escapeHtml(e.message)}</p></div>`;
@@ -276,7 +277,7 @@
       const data = await res.json();
       if (!res.ok) { box.innerHTML = `<div class="state-box"><p>${escapeHtml(data.error || '조회 실패')}</p></div>`; return; }
       const list = data.reviews || [];
-      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon">📌</div><p>작성한 후기가 없습니다.</p></div>'; return; }
+      if (!list.length) { box.innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"/><path d="M14.5 6.5l2.8 2.8"/></svg></div><p>작성한 후기가 없습니다.</p></div>'; return; }
       box.innerHTML = list.map(r => reviewCardHtml(r, true)).join('');
     } catch (e) {
       box.innerHTML = `<div class="state-box"><p>네트워크 오류: ${escapeHtml(e.message)}</p></div>`;

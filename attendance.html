@@ -8,11 +8,12 @@
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;
     --att:#1F7A33;--late:#B07A00;--abs:#B02347;--sick:#5060B0;--off:#6A6A6A;--clinic:#1f6f78;--clinic-light:#E3F1F2;}
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
   .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
@@ -31,21 +32,21 @@
   .modebtn{flex:1;background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:0.88rem;font-weight:700;color:var(--text-light);cursor:pointer;font-family:inherit;}
   .modebtn.on{border-color:var(--primary);background:var(--primary-light);color:var(--primary);}
   .modebtn[data-mode="clinic"].on{border-color:var(--clinic);background:var(--clinic-light);color:var(--clinic);}
-  .cli-stat{background:linear-gradient(135deg,#fff 0%,var(--clinic-light) 100%);border:1.5px solid var(--clinic);grid-column:span 4;padding:10px 14px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
+  .cli-stat{background:#fff;border:1.5px solid var(--clinic);grid-column:span 4;padding:10px 14px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
   .cli-stat .lbl{font-size:0.78rem;color:var(--clinic);font-weight:700;}
-  .cli-stat .val{font-size:1.05rem;font-weight:900;color:var(--clinic);}
+  .cli-stat .val{font-size:1.05rem;font-weight:900;color:var(--clinic);font-family:var(--serif);}
   .cli-stat .sub{font-size:0.7rem;color:var(--text-light);}
 
   /* 월간 요약 카드 */
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
   .stat-box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center;}
-  .stat-num{font-size:1.4rem;font-weight:900;}
+  .stat-num{font-size:1.4rem;font-weight:900;font-family:var(--serif);}
   .stat-label{font-size:0.72rem;color:var(--text-light);margin-top:2px;}
 
   /* 월 선택 헤더 */
   .month-nav{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:14px;}
   .month-nav button{background:none;border:none;font-size:1.2rem;color:var(--primary);cursor:pointer;padding:4px 10px;font-family:inherit;}
-  .month-label{font-size:1rem;font-weight:800;color:var(--text);}
+  .month-label{font-size:1rem;font-weight:800;color:var(--text);font-family:var(--serif);}
 
   /* 캘린더 */
   .calendar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;overflow:hidden;}
@@ -71,9 +72,9 @@
   .cal-cell.hw-50{box-shadow:inset 0 -3px 0 #f1c40f;}
   .cal-cell.hw-75{box-shadow:inset 0 -3px 0 #27ae60;}
   .cal-cell.hw-100{box-shadow:inset 0 -3px 0 #1F7A33;}
-  .hw-stat{background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);border:1.5px solid var(--primary);grid-column:span 4;padding:10px 14px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
+  .hw-stat{background:#fff;border:1.5px solid var(--primary);grid-column:span 4;padding:10px 14px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
   .hw-stat .lbl{font-size:0.78rem;color:var(--primary);font-weight:700;}
-  .hw-stat .val{font-size:1.1rem;font-weight:900;color:var(--primary);}
+  .hw-stat .val{font-size:1.1rem;font-weight:900;color:var(--primary);font-family:var(--serif);}
   .hw-stat .sub{font-size:0.7rem;color:var(--text-light);}
 
   .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:0.76rem;color:var(--text-light);justify-content:center;}
@@ -88,7 +89,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>📅 출석 현황</span>
+    <span>출석 현황</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -103,8 +104,8 @@
     </div>
 
     <div class="modebar">
-      <button class="modebtn on" data-mode="class" onclick="setMode('class')">📅 수업 출결</button>
-      <button class="modebtn" data-mode="clinic" onclick="setMode('clinic')">📋 클리닉</button>
+      <button class="modebtn on" data-mode="class" onclick="setMode('class')">수업 출결</button>
+      <button class="modebtn" data-mode="clinic" onclick="setMode('clinic')">클리닉</button>
     </div>
 
     <div class="summary" id="summary"></div>
@@ -265,12 +266,12 @@
       '<div class="stat-box"><div class="stat-num" style="color:var(--sick);">' + (cnt['병결'] + cnt['공결']) + '</div><div class="stat-label">병·공결</div></div>';
     if (isClinic) {
       statBoxes += (avg !== null || minSum > 0)
-        ? '<div class="cli-stat"><div><div class="lbl">📋 이번 달 클리닉</div><div class="sub">' + (aN ? aN + '회 성취도 기록' : '성취도 기록 없음') + '</div></div><div style="text-align:right;"><div class="val">' + (avg !== null ? '성취도 ' + avg : '시간 기록') + '</div><div class="sub">시간 합계 ' + fmtMin(minSum) + '</div></div></div>'
-        : '<div class="cli-stat"><div class="lbl">📋 이번 달 클리닉 기록 없음</div></div>';
+        ? '<div class="cli-stat"><div><div class="lbl">이번 달 클리닉</div><div class="sub">' + (aN ? aN + '회 성취도 기록' : '성취도 기록 없음') + '</div></div><div style="text-align:right;"><div class="val">' + (avg !== null ? '성취도 ' + avg : '시간 기록') + '</div><div class="sub">시간 합계 ' + fmtMin(minSum) + '</div></div></div>'
+        : '<div class="cli-stat"><div class="lbl">이번 달 클리닉 기록 없음</div></div>';
     } else {
       statBoxes += (avg !== null)
-        ? '<div class="hw-stat"><div><div class="lbl">📝 이번 달 숙제 평균</div><div class="sub">' + aN + '회 기록</div></div><div class="val">' + avg + '%</div></div>'
-        : '<div class="hw-stat"><div class="lbl">📝 이번 달 숙제 기록 없음</div></div>';
+        ? '<div class="hw-stat"><div><div class="lbl">이번 달 숙제 평균</div><div class="sub">' + aN + '회 기록</div></div><div class="val">' + avg + '%</div></div>'
+        : '<div class="hw-stat"><div class="lbl">이번 달 숙제 기록 없음</div></div>';
     }
     document.getElementById('summary').innerHTML = statBoxes;
 
