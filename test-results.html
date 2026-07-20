@@ -103,6 +103,17 @@
 
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.86rem;opacity:0;transition:opacity .25s;z-index:9999;pointer-events:none;}
   .toast.show{opacity:1;}
+
+  /* 학습현황 그리드 */
+  .grid-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .grid-summary{font-size:0.8rem;color:var(--text-light);margin-bottom:10px;}
+  .grid-summary b{color:var(--primary);font-weight:800;}
+  .score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .sg-cell{border:1px solid var(--border);border-radius:10px;padding:9px 6px;text-align:center;}
+  .sg-date{font-size:0.68rem;color:var(--text-light);font-weight:600;}
+  .sg-kind{display:inline-block;font-size:0.62rem;font-weight:700;color:var(--primary);background:var(--primary-light);border-radius:99px;padding:1px 7px;margin-top:3px;}
+  .sg-score{font-size:1.05rem;font-weight:900;margin-top:3px;}
+  .sg-score.hi{color:#137333;} .sg-score.mid{color:#B26A00;} .sg-score.lo{color:#C5221F;}
 </style>
 </head>
 <body>
@@ -141,6 +152,14 @@
     <div class="intro-card">
       <h2>📊 학습 진단 결과</h2>
       <p>매주·매월 진행한 학습 진단 보고서(원클릭 보고서, 모의고사·내신 등급)가 여기에 누적됩니다. 시간이 지나면서 성적이 어떻게 변하는지 한눈에 볼 수 있어요.</p>
+    </div>
+
+    <div id="statusSection" style="display:none;margin-bottom:22px;">
+      <div class="section-label">📈 학습현황</div>
+      <div class="grid-card">
+        <div class="grid-summary" id="gridSummary"></div>
+        <div class="score-grid" id="scoreGrid"></div>
+      </div>
     </div>
 
     <div id="quizSection" style="display:none;margin-bottom:22px;">
@@ -512,12 +531,48 @@
     } catch (e) { /* 조용히 실패 */ }
   }
 
+  // ─── 학습현황 그리드 (테스트 점수 모아보기 — /api/scores 테스트 행) ───
+  const _gridCache = {};
+  async function loadStatusGrid() {
+    const sec = document.getElementById('statusSection');
+    const grid = document.getElementById('scoreGrid');
+    const sum = document.getElementById('gridSummary');
+    if (!sec || !grid || !selected) return;
+    try {
+      const name = selected.name;
+      if (!_gridCache[name]) {
+        const res = await fetch('/api/scores?name=' + encodeURIComponent(name), { headers: { 'Authorization': 'Bearer ' + token } });
+        const data = await res.json();
+        if (!res.ok) { sec.style.display = 'none'; return; }
+        _gridCache[name] = Array.isArray(data.scores) ? data.scores : [];
+      }
+      const TK = { '일일테스트': '일일', '주간테스트': '주간', '월말테스트': '월말' };
+      const tests = _gridCache[name].filter(s => TK[s.examType] && s.rawScore != null);
+      if (!tests.length) { sec.style.display = 'none'; return; }
+      tests.sort((a, b) => String(b.examDate || b.sortKey || '').localeCompare(String(a.examDate || a.sortKey || '')) || (b.id - a.id));
+      const shown = tests.slice(0, 12);
+      const avg = Math.round(tests.reduce((t, s) => t + s.rawScore, 0) / tests.length);
+      sum.innerHTML = '총 <b>' + tests.length + '회</b> 응시 · 전체 평균 <b>' + avg + '점</b>' + (tests.length > shown.length ? ' · 최근 ' + shown.length + '개 표시' : '');
+      grid.innerHTML = shown.map(s => {
+        const d = String(s.examDate || '').slice(5).replace('-', '.');
+        const cls = s.rawScore >= 80 ? 'hi' : (s.rawScore >= 60 ? 'mid' : 'lo');
+        return '<div class="sg-cell" title="' + esc(s.label || '') + '">' +
+          '<div class="sg-date">' + esc(d || '—') + '</div>' +
+          '<div class="sg-kind">' + TK[s.examType] + '</div>' +
+          '<div class="sg-score ' + cls + '">' + s.rawScore + '</div>' +
+        '</div>';
+      }).join('');
+      sec.style.display = 'block';
+    } catch (e) { /* 조용히 실패 */ }
+  }
+
   // 학생 선택되고 PDF 로드된 후에 공부량·테스트 결과도 조회
   const _origLoadPdfs = loadPdfs;
   loadPdfs = async function() {
     await _origLoadPdfs();
     loadStudyCard();
     loadQuizzes();
+    loadStatusGrid();
   };
 
   // SW 등록

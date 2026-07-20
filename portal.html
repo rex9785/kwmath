@@ -641,6 +641,7 @@
     showMainScreen();
     renderWelcome();
     renderChildSelect();
+    try { loadStatStrip(); } catch (_) {}
     updatePushButton();
     showInstallHintIfNeeded();
     try { updateFaceLockLink(); } catch (_) {}                        // Face ID 잠금 링크 노출/문구 갱신
@@ -792,6 +793,53 @@
     }
   }
 
+  // ──── 스탯 스트립 데이터 연동: 이번 달 출석 · 최근 테스트 (3a) ────
+  let _statSeq = 0;
+  async function loadStatStrip() {
+    const seq = ++_statSeq;
+    const st = selectedStudent || currentStudents[0];
+    const elA = $('statAttend'), elT = $('statTest');
+    if (!elA && !elT) return;
+    if (!st || !st.name || !currentToken) {
+      if (elA) elA.textContent = '–';
+      if (elT) elT.textContent = '–';
+      return;
+    }
+    if (elA) elA.textContent = '–';
+    if (elT) elT.textContent = '–';
+    const hdr = { 'Authorization': 'Bearer ' + currentToken };
+    const nm = encodeURIComponent(st.name);
+    // 이번 달 출석(출석+지각=온 날)
+    (async () => {
+      try {
+        const now = new Date();
+        const month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        const r = await fetch('/api/attendance?name=' + nm + '&month=' + month, { headers: hdr });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (seq !== _statSeq || !elA) return;
+        const recs = (d && d.records) || {};
+        let n = 0, has = false;
+        for (const k in recs) { has = true; const s2 = recs[k] && recs[k].status; if (s2 === '출석' || s2 === '지각') n++; }
+        elA.textContent = has ? (n + '일') : '–';
+      } catch (_) {}
+    })();
+    // 최근 테스트 점수(일일·주간·월말, 100점 환산)
+    (async () => {
+      try {
+        const r = await fetch('/api/scores?name=' + nm, { headers: hdr });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (seq !== _statSeq || !elT) return;
+        const TK = { '일일테스트': 1, '주간테스트': 1, '월말테스트': 1 };
+        const tests = ((d && d.scores) || []).filter(s2 => TK[s2.examType] && s2.rawScore != null);
+        if (!tests.length) { elT.textContent = '–'; return; }
+        tests.sort((a, b) => String(a.examDate || a.sortKey || '').localeCompare(String(b.examDate || b.sortKey || '')) || (a.id - b.id));
+        elT.textContent = tests[tests.length - 1].rawScore + '점';
+      } catch (_) {}
+    })();
+  }
+
   function renderChildSelect() {
     const wrap = $('childSelectWrap');
     const sel = $('childSelect');
@@ -817,6 +865,7 @@
     selectedStudent = currentStudents[idx];
     // 메인 페이지에서 기능 버튼 누를 때 학생 이름이 자동으로 적용되게 할 예정 (Phase 3에서 query string 또는 sessionStorage로 넘김)
     sessionStorage.setItem('kwmath_selected_student', JSON.stringify(selectedStudent));
+    try { loadStatStrip(); } catch (_) {}
   }
 
   // ════════ 비밀번호 변경 ════════
