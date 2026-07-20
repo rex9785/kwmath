@@ -38,7 +38,6 @@ function allowOrigin(request) {
 // 아래 GET 차단 목록은 데이터가 새면 안 되는 민감 조회만(파괴적 엔드포인트는 GET 미구현이라 자동 405).
 const STAFF_GET_BLOCK = new Set([
   '/api/staff-approve',    // 다른 조교 목록·승인 (원장 전용)
-  '/api/admin-accounts',   // 계정 목록
   '/api/admin-analytics',  // AI 사용량·비용 (원장 전용)
   '/api/admin-seed-demo',
   '/api/admin-seed-test',
