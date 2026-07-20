@@ -3,6 +3,7 @@
 import { requireAuth, fetchStudentsByPhone, jsonError } from './_auth.js';
 import { getStudentById } from './_db.js';
 import { safeError } from './_errors.js';
+import { loadClassSchedules } from './class-options.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'GET') return jsonError('GET만 허용', 405);
@@ -30,6 +31,13 @@ export async function onRequest({ request, env }) {
   }
   if (!st) return jsonError('학생 정보를 불러오지 못했습니다.', 500);
 
+  // ⏰ 이 학생 반의 수업시간만 노출 (전체 schedules는 admin 전용 유지 — class-options.js GET 참조)
+  let classSchedule = null;
+  try {
+    const schedules = await loadClassSchedules(env);
+    classSchedule = schedules[(st.academy || '') + '/' + (st.className || '')] || null;
+  } catch (_) {}
+
   const detail = {
     id: String(st.id),
     name: st.name,
@@ -48,6 +56,7 @@ export async function onRequest({ request, env }) {
     weakness:        st.weakness,
     dreamUniv:       st.dreamUniv,
     availableDays:   st.availableDays,
+    classSchedule:   classSchedule,
     notes:           st.notes,
     parentRelation:  st.parentRelation,
     parentPhone:     st.parentPhone,
