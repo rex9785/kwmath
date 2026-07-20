@@ -8,10 +8,11 @@
 <meta name="theme-color" content="#8B1A35">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  :root{--primary:#8B1A35;--primary-mid:#B02347;--primary-light:#F9EEF1;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--serif:'Noto Serif KR',serif;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;}
@@ -28,38 +29,40 @@
   .child-bar select{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.86rem;font-family:inherit;background:#fff;outline:none;font-weight:600;}
 
   /* 카드 공통 */
-  .card{background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px 18px;margin-bottom:12px;box-shadow:0 2px 10px rgba(139,26,53,0.04);}
-  .card-label{font-size:0.72rem;font-weight:800;color:var(--primary);letter-spacing:0.6px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+  .card{background:#fff;border-radius:14px;border:1px solid var(--border);padding:15px 17px;margin-bottom:12px;box-shadow:none;}
+  .card-label{font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-0.01em;text-transform:none;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .card-label svg{flex-shrink:0;color:var(--primary);}
   .card-body{font-size:0.92rem;line-height:1.7;color:var(--text);}
   .muted{color:var(--text-light);font-size:0.82rem;}
 
   /* 강조 카드 — 다음 수업 */
-  .hero-card{background:linear-gradient(135deg,#8B1A35 0%,#6A1F2A 100%);color:#fff;border-radius:16px;padding:18px 22px;margin-bottom:12px;box-shadow:0 6px 22px rgba(139,26,53,0.18);}
-  .hero-card .hero-label{font-size:0.72rem;font-weight:700;opacity:0.85;letter-spacing:0.6px;text-transform:uppercase;margin-bottom:6px;}
-  .hero-card .hero-main{font-size:1.35rem;font-weight:900;letter-spacing:-0.4px;margin-bottom:4px;}
+  .hero-card{background:linear-gradient(150deg,#8B1A35,#5E1226);color:#fff;border-radius:15px;padding:18px 22px;margin-bottom:12px;box-shadow:0 6px 22px rgba(139,26,53,0.18);}
+  .hero-card .hero-label{font-size:0.72rem;font-weight:700;color:#E4C577;letter-spacing:.14em;text-transform:none;margin-bottom:6px;}
+  .hero-card .hero-label svg{vertical-align:-2.5px;margin-right:3px;}
+  .hero-card .hero-main{font-family:var(--serif);font-size:20px;font-weight:700;letter-spacing:-0.4px;margin-bottom:4px;}
   .hero-card .hero-sub{font-size:0.82rem;opacity:0.88;}
-  .hero-card .hero-pill{display:inline-block;background:rgba(255,255,255,0.18);color:#fff;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:10px;margin-top:8px;}
+  .hero-card .hero-pill{display:inline-block;background:rgba(255,255,255,0.14);color:#fff;font-size:0.72rem;font-weight:700;padding:5px 12px;border-radius:999px;margin-top:8px;}
 
   /* 숙제 카드 */
   .hw-card{background:#fff;border:2px solid var(--primary);border-radius:14px;padding:16px 18px;margin-bottom:12px;}
   .hw-meta{font-size:0.74rem;color:var(--text-light);margin-bottom:8px;}
-  .hw-text{font-size:0.92rem;color:var(--text);line-height:1.75;white-space:pre-wrap;background:var(--primary-light);padding:12px 14px;border-radius:10px;}
+  .hw-text{font-size:0.92rem;color:var(--text);line-height:1.75;white-space:pre-wrap;background:var(--bg2);padding:12px 14px;border-radius:10px;}
   .hw-more{display:inline-block;margin-top:10px;font-size:0.78rem;color:var(--primary);text-decoration:none;font-weight:700;}
   .hw-more:hover{text-decoration:underline;}
 
   /* 기본 정보 / 성적 등 row */
-  .info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);font-size:0.88rem;}
+  .info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:0.88rem;}
   .info-row:last-child{border-bottom:none;}
-  .info-key{color:var(--text-light);font-weight:600;font-size:0.82rem;}
-  .info-val{color:var(--text);font-weight:700;text-align:right;max-width:60%;}
+  .info-key{color:var(--text-light);font-weight:500;font-size:12.5px;}
+  .info-val{color:var(--text);font-weight:600;font-size:13.5px;text-align:right;max-width:60%;}
 
-  .badge-chip{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:0.74rem;font-weight:700;padding:3px 9px;border-radius:8px;margin:2px 3px 2px 0;}
+  .badge-chip{display:inline-block;background:none;border:1px solid #E4C6CE;color:var(--primary);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;margin:2px 3px 2px 0;}
 
   .state-box{text-align:center;padding:40px 24px;color:var(--text-light);}
   .state-box .state-icon{font-size:2.2rem;margin-bottom:10px;}
   .state-box p{font-size:0.88rem;line-height:1.7;}
 
-  /* ✏️ 정보 수정 모달 */
+  /* 정보 수정 모달 */
   .edit-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:flex-end;justify-content:center;}
   .edit-overlay.open{display:flex;}
   .edit-sheet{background:#fff;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px 18px max(24px,env(safe-area-inset-bottom,24px));}
@@ -89,7 +92,7 @@
 <div class="topbar">
   <a href="/portal" class="topbar-title">
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
-    <span>👤 내 정보</span>
+    <span>내 정보</span>
   </a>
   <a href="/portal" class="topbar-btn">← 포털</a>
 </div>
@@ -106,10 +109,10 @@
   </div>
 </div>
 
-<!-- ✏️ 정보 수정 모달 -->
+<!-- 정보 수정 모달 -->
 <div class="edit-overlay" id="editOverlay" onclick="if(event.target===this)closeEditModal()">
   <div class="edit-sheet">
-    <div class="edit-title">✏️ 내 정보 수정</div>
+    <div class="edit-title">내 정보 수정</div>
     <div class="edit-sub">잘못 입력한 정보를 직접 고칠 수 있어요. 이름·학원·반·전화번호 변경은 관우T께 문의해주세요.</div>
 
     <div class="ef-2col">
@@ -155,6 +158,19 @@
 
   function $(id){ return document.getElementById(id); }
   function escapeHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  // 라인 아이콘 (디자인가이드_3a §8)
+  var KW_ICONS = {
+    calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    pencil:'<path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"/><path d="M14.5 6.5l2.8 2.8"/>',
+    person:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/>',
+    chart:'<path d="M6 20V12"/><path d="M12 20V5"/><path d="M18 20V9"/>',
+    target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/>',
+    phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+    trend:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    arrowRight:'<path d="M4 12h16m-6-6 6 6-6 6"/>'
+  };
+  function kwIco(name, size){ return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+(KW_ICONS[name]||'')+'</svg>'; }
   function authHeaders(){ return { 'Authorization': 'Bearer ' + currentToken }; }
   function redirectToPortal(){ window.location.replace('/portal'); }
 
@@ -278,7 +294,7 @@
         : `${fmtDate(next.date)} (${next.dayName}) · ${ddayText}`;
       heroHtml = `
         <div class="hero-card">
-          <div class="hero-label">🗓 다음 수업</div>
+          <div class="hero-label">${kwIco('calendar',13)} 다음 수업</div>
           <div class="hero-main">${escapeHtml(mainText)}</div>
           <div class="hero-sub">정기 수업 요일: ${escapeHtml(next.regularDays.join(', '))}요일</div>
           ${s.academy ? `<span class="hero-pill">${escapeHtml(s.academy)}${s.className?' · '+escapeHtml(s.className):''}</span>` : ''}
@@ -286,7 +302,7 @@
     } else {
       heroHtml = `
         <div class="hero-card">
-          <div class="hero-label">🗓 다음 수업</div>
+          <div class="hero-label">${kwIco('calendar',13)} 다음 수업</div>
           <div class="hero-main">등원 요일 미등록</div>
           <div class="hero-sub">관우T께 등원 요일 등록을 문의해주세요.</div>
         </div>`;
@@ -298,15 +314,15 @@
       const dateStr = (latestReport.date || '').replace(/-/g,'.');
       hwHtml = `
         <div class="hw-card">
-          <div class="card-label">📝 이번 숙제</div>
+          <div class="card-label">${kwIco('pencil',15)} 이번 숙제</div>
           <div class="hw-meta">${escapeHtml(dateStr)} 수업${latestReport.title ? ' · '+escapeHtml(latestReport.title) : ''}</div>
           <div class="hw-text">${escapeHtml(latestReport.homework)}</div>
-          <a class="hw-more" href="/report">📋 수업 영상 및 레포트 전체 보기 →</a>
+          <a class="hw-more" href="/report">수업 영상 및 레포트 전체 보기 →</a>
         </div>`;
     } else {
       hwHtml = `
         <div class="card">
-          <div class="card-label">📝 이번 숙제</div>
+          <div class="card-label">${kwIco('pencil',15)} 이번 숙제</div>
           <div class="muted">${latestReport ? '이번 수업엔 등록된 숙제가 없습니다.' : '아직 등록된 수업 리포트가 없습니다.'}</div>
         </div>`;
     }
@@ -320,7 +336,7 @@
     if (s.className) infoRows.push(['반', escapeHtml(s.className)]);
     const basicHtml = `
       <div class="card">
-        <div class="card-label" style="justify-content:space-between;"><span>👤 기본 정보</span><button type="button" onclick="openEditModal()" style="background:var(--primary-light);color:var(--primary);border:none;border-radius:8px;padding:5px 12px;font-size:0.76rem;font-weight:800;cursor:pointer;font-family:inherit;">✏️ 정보 수정</button></div>
+        <div class="card-label" style="justify-content:space-between;"><span style="display:inline-flex;align-items:center;gap:6px;">${kwIco('person',15)} 기본 정보</span><button type="button" onclick="openEditModal()" style="background:var(--primary-light);color:var(--primary);border:none;border-radius:8px;padding:5px 12px;font-size:0.76rem;font-weight:800;cursor:pointer;font-family:inherit;">정보 수정</button></div>
         ${infoRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
       </div>`;
 
@@ -333,7 +349,7 @@
     if (s.advanceProgress) gradeRows.push(['선행 진도', escapeHtml(s.advanceProgress)]);
     const gradeHtml = gradeRows.length ? `
       <div class="card">
-        <div class="card-label">📊 성적 현황</div>
+        <div class="card-label">${kwIco('chart',15)} 성적 현황</div>
         ${gradeRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
       </div>` : '';
 
@@ -347,7 +363,7 @@
     if (s.notes)    goalRows.push(['특이사항', escapeHtml(s.notes)]);
     const goalHtml = goalRows.length ? `
       <div class="card">
-        <div class="card-label">🎓 목표 · 학습</div>
+        <div class="card-label">${kwIco('target',15)} 목표 · 학습</div>
         ${goalRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
       </div>` : '';
 
@@ -355,12 +371,12 @@
     const contactRows = [];
     if (s.parentPhone) {
       const relation = s.parentRelation ? ` (${escapeHtml(s.parentRelation)})` : '';
-      contactRows.push(['👪 학부모' + relation, escapeHtml(s.parentPhone)]);
+      contactRows.push(['학부모' + relation, escapeHtml(s.parentPhone)]);
     }
-    if (s.studentPhone) contactRows.push(['📱 학생', escapeHtml(s.studentPhone)]);
+    if (s.studentPhone) contactRows.push(['학생', escapeHtml(s.studentPhone)]);
     const contactHtml = contactRows.length ? `
       <div class="card">
-        <div class="card-label">📞 등록된 연락처</div>
+        <div class="card-label">${kwIco('phone',15)} 등록된 연락처</div>
         ${contactRows.map(([k,v]) => `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`).join('')}
         <div class="muted" style="margin-top:10px;font-size:0.76rem;">번호 변경이 필요하면 관우T께 문의해주세요.</div>
       </div>` : '';
@@ -368,7 +384,7 @@
     // ── 계정 (로그아웃 / 회원 탈퇴) ──
     const dangerHtml = `
       <div class="card" style="border:1px solid #f0c9c9;">
-        <div class="card-label" style="color:#b23b3b;">⚙️ 계정</div>
+        <div class="card-label" style="color:#b23b3b;">계정</div>
         <button type="button" onclick="logoutMe()" style="width:100%;padding:11px;margin-bottom:8px;border:1px solid var(--border);background:#fff;color:var(--text);border-radius:10px;font-family:inherit;font-size:0.9rem;font-weight:700;cursor:pointer;">로그아웃</button>
         <button type="button" onclick="deleteMyAccount()" style="width:100%;padding:11px;border:1px solid #d98a8a;background:#fff;color:#b23b3b;border-radius:10px;font-family:inherit;font-size:0.9rem;font-weight:700;cursor:pointer;">회원 탈퇴 (계정·데이터 삭제)</button>
         <div class="muted" style="margin-top:9px;font-size:0.74rem;line-height:1.6;">회원 탈퇴 시 계정과 모든 학습 기록(수업 리포트·출결·공부 기록·시험 성적)이 영구 삭제되며 되돌릴 수 없습니다.</div>
@@ -397,19 +413,19 @@
   function setScoreTab(t){ scoreTab=t; renderMyInfo(curStudentDetail, curLatestReport); }
   function scoreCardHtml(){
     var data = curScores.filter(function(s){ return s.examType===scoreTab; });
-    function tabBtn(t){ var on = scoreTab===t; var bg = on ? (t==='모의'?'background:#1f6f78;color:#fff;border:1px solid #1f6f78;':'background:var(--primary);color:#fff;border:1px solid var(--primary);') : 'background:#fff;color:var(--text-light);border:1px solid var(--border);';
-      return '<button type="button" onclick="setScoreTab(\''+t+'\')" style="padding:6px 15px;font-family:inherit;cursor:pointer;font-size:0.82rem;font-weight:700;border-radius:8px;'+bg+'">'+(t==='모의'?'모의고사':t)+'</button>'; }
-    function mBtn(m,t){ return '<button type="button" onclick="setScoreMetric(\''+m+'\')" style="border:none;padding:4px 10px;font-family:inherit;cursor:pointer;font-size:0.72rem;'+(scoreMetric===m?'background:var(--primary);color:#fff;':'background:#fff;color:var(--text-light);')+'">'+t+'</button>'; }
-    var tabs = '<span style="display:inline-flex;gap:6px;">'+tabBtn('내신')+tabBtn('모의')+'</span>';
-    var metricToggle = '<span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">'+mBtn('raw','원점수')+mBtn('grade','등급')+'</span>';
+    function tabBtn(t){ var on = scoreTab===t; var bg = on ? 'background:var(--primary);color:#fff;' : 'background:none;color:var(--text-light);';
+      return '<button type="button" onclick="setScoreTab(\''+t+'\')" style="padding:6px 15px;font-family:inherit;cursor:pointer;font-size:0.82rem;font-weight:700;border:none;border-radius:7px;'+bg+'">'+(t==='모의'?'모의고사':t)+'</button>'; }
+    function mBtn(m,t){ return '<button type="button" onclick="setScoreMetric(\''+m+'\')" style="border:none;border-radius:7px;padding:4px 10px;font-family:inherit;cursor:pointer;font-size:0.72rem;'+(scoreMetric===m?'background:#fff;color:var(--text);font-weight:700;':'background:none;color:var(--text-light);')+'">'+t+'</button>'; }
+    var tabs = '<span style="display:inline-flex;background:var(--hairline);border-radius:9px;padding:2px;gap:2px;">'+tabBtn('내신')+tabBtn('모의')+'</span>';
+    var metricToggle = '<span style="display:inline-flex;background:var(--hairline);border-radius:9px;padding:2px;gap:2px;">'+mBtn('raw','원점수')+mBtn('grade','등급')+'</span>';
     var latest = data.length ? data[data.length-1] : null;
     var latestTxt = latest ? ((latest.gradeLevel?latest.gradeLevel+' ':'')+latest.label+' · '+fmtScore(latest)) : '아직 없음';
     return '<div class="card">'+
-      '<div class="card-label" style="text-transform:none;margin-bottom:10px;">📈 시험 성적 (수학)</div>'+
+      '<div class="card-label" style="text-transform:none;margin-bottom:10px;">'+kwIco('trend',15)+' 시험 성적 (수학)</div>'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+tabs+metricToggle+'</div>'+
       '<div style="overflow-x:auto;margin:0 -4px 8px;">'+scChartSVG(data, scoreMetric)+'</div>'+
       '<div class="muted" style="font-size:0.8rem;">최근: '+escapeHtml(latestTxt)+'</div>'+
-      '<a href="/my-scores" style="display:block;margin-top:10px;text-align:center;background:var(--primary-light);color:var(--primary);font-weight:700;font-size:0.85rem;padding:11px;border-radius:10px;text-decoration:none;">📊 성적 전체 보기 · 입력하기 →</a>'+
+      '<a href="/my-scores" style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:12px;padding-top:12px;border-top:1px solid var(--hairline);color:var(--primary);font-weight:700;font-size:12.5px;text-decoration:none;">성적 전체 보기 · 입력하기 '+kwIco('arrowRight',13)+'</a>'+
       '</div>';
   }
 
@@ -430,14 +446,14 @@
     if($('scLabel')) $('scLabel').value=s.label||'';
     if($('scRaw')) $('scRaw').value=(s.rawScore!=null?s.rawScore:'');
     if($('scGr')) $('scGr').value=(s.grade!=null?s.grade:'');
-    if($('scFormTitle')) $('scFormTitle').textContent='✏️ 성적 수정';
+    if($('scFormTitle')) $('scFormTitle').textContent='성적 수정';
     if($('scSubmit')) $('scSubmit').textContent='수정 저장';
     if($('scCancel')) $('scCancel').style.display='';
   }
   function resetScoreForm(){
     editingScoreId=null;
     if($('scRaw')) $('scRaw').value=''; if($('scGr')) $('scGr').value='';
-    if($('scFormTitle')) $('scFormTitle').textContent='➕ 성적 추가';
+    if($('scFormTitle')) $('scFormTitle').textContent='성적 추가';
     if($('scSubmit')) $('scSubmit').textContent='추가';
     if($('scCancel')) $('scCancel').style.display='none';
     if($('scMsg')) $('scMsg').textContent='';
@@ -480,21 +496,21 @@
     var ticks = m==='raw'?[0,50,100]:[1,5,9];
     function yF(v){ return m==='raw'? pad.t+ih*(1-v/100) : pad.t+ih*((v-1)/8); }
     var val=function(p){ return m==='raw'?p.rawScore:p.grade; };
-    var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" font-family="Noto Sans KR,sans-serif">';
-    ticks.forEach(function(t){ var y=yF(t); s+='<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#EFE6E7"/>'; s+='<text x="'+(pad.l-5)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="#aaa">'+t+'</text>'; });
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" font-family="Pretendard Variable,Pretendard,Noto Sans KR,sans-serif">';
+    ticks.forEach(function(t){ var y=yF(t); s+='<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#F1EAE2"/>'; s+='<text x="'+(pad.l-5)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="#B5A69C">'+t+'</text>'; });
     var d=''; pts.forEach(function(p,i){ d+=(i?'L':'M')+xF(i)+' '+yF(val(p))+' '; });
     s+='<path d="'+d+'" fill="none" stroke="#8B1A35" stroke-width="2"/>';
-    pts.forEach(function(p,i){ var cx=xF(i), cy=yF(val(p)), mock=p.examType==='모의';
-      s+='<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+(mock?'#1f6f78':'#8B1A35')+'"/>';
+    pts.forEach(function(p,i){ var cx=xF(i), cy=yF(val(p)), mock=p.examType==='모의', last=(i===pts.length-1);
+      s+='<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+(mock?'#1f6f78':'#8B1A35')+'"'+(last?' stroke="#E4C577" stroke-width="2"':'')+'/>';
       s+='<text x="'+cx+'" y="'+(cy-8)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#444">'+val(p)+'</text>';
       var lab=(p.label||'').replace('(수능)','수능');
-      s+='<text x="'+cx+'" y="'+(H-28)+'" text-anchor="middle" font-size="9" fill="#888">'+escapeHtml(lab)+'</text>';
-      if(p.gradeLevel) s+='<text x="'+cx+'" y="'+(H-15)+'" text-anchor="middle" font-size="8.5" fill="#bbb">'+escapeHtml(p.gradeLevel)+'</text>';
+      s+='<text x="'+cx+'" y="'+(H-28)+'" text-anchor="middle" font-size="9" fill="#B5A69C">'+escapeHtml(lab)+'</text>';
+      if(p.gradeLevel) s+='<text x="'+cx+'" y="'+(H-15)+'" text-anchor="middle" font-size="8.5" fill="#B5A69C">'+escapeHtml(p.gradeLevel)+'</text>';
     });
     s+='</svg>'; return s;
   }
 
-  // ───────── ✏️ 내 정보 셀프 수정 ─────────
+  // ───────── 내 정보 셀프 수정 ─────────
   var EF_GRADES = ['중2','중3','고1','고2','고3','N수'];
   var EF_RELATIONS = ['어머니','아버지','기타'];
   var EF_LEVELS = ['잘 모름','1등급','2등급','3등급','4등급','5등급 이하'];
@@ -578,7 +594,7 @@
         body: JSON.stringify({ id: String(s.id), patch: patch }) });
       var d = await r.json();
       if (!r.ok || !d.ok) { msg.style.color = '#c0392b'; msg.textContent = (d && d.error) || '저장에 실패했어요.'; return; }
-      msg.style.color = '#1f7a3f'; msg.textContent = '✅ 저장되었어요!';
+      msg.style.color = '#1f7a3f'; msg.textContent = '저장되었어요!';
       setTimeout(function(){ closeEditModal(); loadMyInfo(); }, 600);
     } catch(e) {
       msg.style.color = '#c0392b'; msg.textContent = '네트워크 오류가 발생했어요.';

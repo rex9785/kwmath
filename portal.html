@@ -27,14 +27,17 @@
 <script src="/app-native.js?v=3"></script>
 
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
-    --primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;
-    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
+    --primary:#8B1A35;--primary-mid:#B02347;--primary-light:#F9EEF1;
+    --text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;
+    --hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;
+    --serif:'Noto Serif KR',serif;
   }
   html{background:#862633;} /* iOS native splash → JS splash 전환 시 흰 깜빡임 방지 */
-  body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
   /* ── 앱 진입 splash overlay ── */
   .app-splash{position:fixed;inset:0;background:linear-gradient(135deg,#862633 0%,#6A1F2A 50%,#4A1620 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;transition:opacity .5s ease-out,visibility .5s;}
@@ -53,31 +56,33 @@
   .topbar-title{font-size:1rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;}
   .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
   .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
-  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;}
-  .topbar-btn:hover{background:rgba(255,255,255,0.28);}
+  .topbar-btn{background:none;border:1px solid rgba(255,255,255,0.32);color:#fff;padding:6px 12px;border-radius:9px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.14);}
 
   .page{max-width:520px;margin:0 auto;padding:32px 20px 80px;}
   .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#1a0a0f;color:#fff;padding:12px 22px;border-radius:12px;font-size:0.88rem;font-weight:600;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90%;text-align:center;line-height:1.5;}
   .toast.show{opacity:1;}
+  /* 3a 리디자인: D-day 배지는 스탯 스트립(statStrip)으로 대체 — 요소·JS는 유지, 표시만 숨김 */
+  #ddayBadges{display:none;}
 
   /* ── 로그인 화면 ── */
   #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .login-card{background:#fff;border-radius:24px;padding:40px 32px 36px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(139,26,53,0.12);border:1px solid var(--border);}
+  .login-card{background:#fff;border-radius:16px;padding:22px 20px;max-width:400px;width:100%;box-shadow:0 2px 10px rgba(70,20,35,0.04);border:1px solid var(--border);}
   .login-logo-wrap{text-align:center;margin-bottom:24px;}
-  .login-logo-mark{display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;background:var(--primary);border-radius:20px;overflow:hidden;margin-bottom:12px;padding:0;}
+  .login-logo-mark{display:inline-flex;align-items:center;justify-content:center;width:66px;height:66px;background:var(--primary);border-radius:17px;overflow:hidden;margin-bottom:12px;padding:0;box-shadow:0 8px 22px rgba(139,26,53,0.22);}
   .login-logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
-  .login-title{font-size:1.25rem;font-weight:900;color:var(--text);margin-bottom:4px;text-align:center;}
+  .login-title{font-family:var(--serif);font-size:19.5px;font-weight:700;color:var(--text);margin-bottom:4px;text-align:center;}
   .login-sub{font-size:0.83rem;color:var(--text-light);margin-bottom:28px;text-align:center;line-height:1.6;}
   .login-field{margin-bottom:14px;}
-  .login-field label{display:block;font-size:0.76rem;font-weight:700;color:var(--text-light);margin-bottom:6px;letter-spacing:0.3px;}
+  .login-field label{display:block;font-size:11.5px;font-weight:700;color:var(--text-light);margin-bottom:6px;letter-spacing:0.3px;}
   .login-field input{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:11px;font-size:1rem;font-family:inherit;outline:none;transition:border .2s;background:#fff;}
   .login-field input:focus{border-color:var(--primary);}
   /* 비밀번호 보기 토글 (눈 아이콘) */
   .pw-wrap{position:relative;}
   .pw-wrap input{padding-right:46px;}
-  .pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px 10px;color:var(--text-light);font-size:1.05rem;line-height:1;font-family:inherit;border-radius:6px;transition:background .15s;}
+  .pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px 10px;color:var(--text-light);line-height:1;font-family:inherit;border-radius:6px;transition:background .15s;display:inline-flex;align-items:center;}
   .pw-toggle:hover{background:var(--bg2);color:var(--primary);}
-  .login-btn{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;border-radius:12px;font-size:0.97rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;margin-top:6px;}
+  .login-btn{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;margin-top:6px;}
   .login-btn:hover{background:var(--primary-mid);}
   .login-btn:disabled{opacity:.6;cursor:not-allowed;}
   .login-err{color:#c0392b;font-size:0.82rem;margin-top:12px;text-align:center;display:none;line-height:1.5;}
@@ -98,7 +103,7 @@
   .install-fab{position:fixed;top:14px;right:14px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:22px;padding:9px 14px 9px 12px;display:none;align-items:center;gap:5px;text-decoration:none;font-size:0.82rem;font-weight:700;box-shadow:0 4px 14px rgba(139,26,53,0.18);z-index:60;cursor:pointer;font-family:inherit;letter-spacing:-0.2px;}
   .install-fab.show{display:inline-flex;}
   .install-fab:hover{background:var(--primary-light);transform:scale(1.04);}
-  .install-fab .fab-icon{font-size:1rem;line-height:1;}
+  .install-fab .fab-icon{font-size:0;line-height:1;display:inline-flex;align-items:center;}
 </style>
 </head>
 <body>
@@ -112,7 +117,7 @@
   <div class="sp-spinner"></div>
 </div>
 
-<a href="/install" class="install-fab" id="installFab" title="앱으로 설치"><span class="fab-icon">📲</span><span>앱 설치</span></a>
+<a href="/install" class="install-fab" id="installFab" title="앱으로 설치"><span class="fab-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span><span>앱 설치</span></a>
 
 <!-- ═══════════════════════════ 로그인 화면 ═══════════════════════════ -->
 <div id="loginScreen">
@@ -131,7 +136,7 @@
       <label>비밀번호</label>
       <div class="pw-wrap">
         <input id="loginPw" name="password" type="password" placeholder="••••" autocomplete="current-password">
-        <button type="button" class="pw-toggle" onclick="togglePwVisibility('loginPw', this)" title="비밀번호 보기">👁</button>
+        <button type="button" class="pw-toggle" onclick="togglePwVisibility('loginPw', this)" title="비밀번호 보기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
       </div>
     </div>
     <label for="trustDevice" style="display:flex;align-items:center;gap:8px;margin:2px 2px 12px;font-size:0.8rem;color:var(--text-light);cursor:pointer;user-select:none;">
@@ -141,9 +146,9 @@
     <button id="loginBtn" type="submit" class="login-btn">로그인 →</button>
     </form>
     <!-- 신규 학생 회원가입: /register 로 이동 (반 코드 필요) -->
-    <button type="button" class="login-btn" id="goRegisterBtn" style="margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="location.href='/register'">회원가입 · 신규 학생 등록 →</button>
+    <button type="button" class="login-btn" id="goRegisterBtn" style="margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid #E4C6CE;" onclick="location.href='/register'">회원가입 · 신규 학생 등록 →</button>
     <!-- 생체인증 로그인: 앱 + 생체가능 + (등록됨 or 저장된 세션) 있을 때만 노출 -->
-    <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);" onclick="retryFaceUnlock()">🔐 생체인증으로 로그인</button>
+    <button id="faceRetryBtn" type="button" class="login-btn" style="display:none;margin-top:10px;background:#fff;color:var(--text);border:1.5px solid var(--border);" onclick="retryFaceUnlock()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold);vertical-align:-2.5px;margin-right:5px;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>생체인증으로 로그인</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
       <b>신규 학생</b>은 위 <b>회원가입</b>으로 등록 신청하세요. (반 코드는 관우T께 받으세요)<br>
@@ -166,11 +171,11 @@
     </span>
     <div style="display:flex;align-items:center;gap:8px;">
       <button type="button" id="inboxBtn" class="topbar-btn" onclick="openInbox()" aria-label="알림함" style="position:relative;display:inline-flex;align-items:center;gap:4px;">
-        <span style="font-size:0.95rem;">🔔</span>
-        <span id="inboxBadge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;background:#c0392b;color:#fff;font-size:0.62rem;font-weight:800;line-height:16px;border-radius:9px;text-align:center;box-shadow:0 0 0 2px var(--primary);"></span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10.3 19a2 2 0 0 0 3.4 0"/></svg>
+        <span id="inboxBadge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;background:var(--gold-bright);color:#3D2A08;font-size:0.62rem;font-weight:800;line-height:16px;border-radius:9px;text-align:center;box-shadow:0 0 0 2px var(--primary);"></span>
       </button>
       <a href="/me" class="topbar-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
-        <span style="font-size:0.9rem;">👤</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg>
         <span>내 정보</span>
       </a>
     </div>
@@ -179,53 +184,59 @@
   <div class="page">
     <!-- 인사말 + 자녀 선택 -->
     <div style="margin-bottom:24px;">
-      <div id="welcomeBox" style="background:#fff;border-radius:16px;padding:20px 22px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.06);">
+      <div id="welcomeBox" style="padding:4px 2px 0;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
           <div style="flex:1;min-width:0;">
-            <div id="welcomeMsg" style="font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:6px;"></div>
-            <div id="welcomePhone" style="font-size:0.78rem;color:var(--text-light);"></div>
+            <div id="welcomeMsg" style="font-size:18px;font-weight:800;letter-spacing:-0.02em;color:var(--text);margin-bottom:5px;"></div>
+            <div id="welcomePhone" style="font-size:12px;color:var(--text-light);"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end;">
             <div id="ddayBadges" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;"></div>
             <div id="todayStudyBadge" style="display:none;"></div>
           </div>
         </div>
-        <div id="childSelectWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div id="childSelectWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--hairline);">
           <label style="display:block;font-size:0.78rem;font-weight:700;color:var(--text-light);margin-bottom:6px;">자녀 선택</label>
           <select id="childSelect" onchange="onChildChange()" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;font-family:inherit;background:#fff;outline:none;"></select>
         </div>
       </div>
+      <!-- 3a 데이터 브리핑: 상단 3칸 스탯 스트립 (칸2·3은 추후 데이터 연동) -->
+      <div id="statStrip" style="display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border:1px solid var(--border);border-radius:14px;margin-top:14px;overflow:hidden;">
+        <div style="padding:13px 8px;text-align:center;"><div style="font-size:0.66rem;font-weight:600;color:var(--gold);margin-bottom:3px;">수능까지</div><div id="statDday" style="font-family:var(--serif);font-size:1.19rem;font-weight:900;color:var(--primary);">–</div></div>
+        <div style="padding:13px 8px;text-align:center;border-left:1px solid var(--hairline);"><div style="font-size:0.66rem;font-weight:600;color:var(--text-light);margin-bottom:3px;">이번 달 출석</div><div id="statAttend" style="font-family:var(--serif);font-size:1.19rem;font-weight:900;color:var(--text);">–</div></div>
+        <div style="padding:13px 8px;text-align:center;border-left:1px solid var(--hairline);"><div style="font-size:0.66rem;font-weight:600;color:var(--text-light);margin-bottom:3px;">최근 테스트</div><div id="statTest" style="font-family:var(--serif);font-size:1.19rem;font-weight:900;color:var(--text);">–</div></div>
+      </div>
     </div>
 
     <!-- 알림 켜기 안내 배너 (안 켠 사용자만 자동 노출, [나중에] 누르면 7일 숨김) -->
-    <div id="pushBanner" style="display:none;background:linear-gradient(135deg,#FFF8DC 0%,#FFE8A8 100%);border:1.5px solid #E8C56C;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-size:1.2rem;">🔔</span>
+    <div id="pushBanner" style="display:none;background:#fff;border:1px solid var(--gold-line);border-radius:14px;box-shadow:0 2px 8px rgba(168,134,61,0.07);padding:12px 16px;margin-bottom:14px;align-items:center;gap:10px;flex-wrap:wrap;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold);flex-shrink:0;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10.3 19a2 2 0 0 0 3.4 0"/></svg>
       <div style="flex:1;min-width:180px;">
-        <div id="pushBannerTitle" style="font-size:0.86rem;font-weight:700;color:#854F0B;">새 리포트·공지·답변 알림 받기</div>
-        <div id="pushBannerDesc" style="font-size:0.74rem;color:#854F0B;opacity:0.85;margin-top:2px;">한 번 켜두면 새 소식이 휴대폰 알림으로 와요</div>
+        <div id="pushBannerTitle" style="font-size:0.86rem;font-weight:700;color:var(--text);">새 리포트·공지·답변 알림 받기</div>
+        <div id="pushBannerDesc" style="font-size:0.74rem;color:var(--text-light);margin-top:2px;">한 번 켜두면 새 소식이 휴대폰 알림으로 와요</div>
       </div>
       <div style="display:flex;gap:6px;">
-        <button id="pushBannerBtn" onclick="toggleEnablePush()" style="background:#854F0B;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">켜기</button>
-        <button onclick="snoozePushBanner()" style="background:#fff;color:#854F0B;border:1.5px solid #E8C56C;padding:7px 12px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit;">나중에</button>
+        <button id="pushBannerBtn" onclick="toggleEnablePush()" style="background:var(--primary);color:#fff;border:none;padding:7px 14px;border-radius:9px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">켜기</button>
+        <button onclick="snoozePushBanner()" style="background:#fff;color:var(--text-light);border:1px solid var(--border);padding:7px 12px;border-radius:9px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit;">나중에</button>
       </div>
     </div>
 
     <!-- 설문·조사 얇은 배너 (열린 설문이 있을 때만 노출) -->
     <a id="surveyBanner" href="/surveys" style="display:none;align-items:center;gap:10px;text-decoration:none;
-       background:linear-gradient(135deg,#FBE2E8,#F5C6D0);border:1px solid #8B1A35;border-radius:14px;
-       padding:12px 16px;margin-bottom:16px;color:#8B1A35;box-shadow:0 4px 14px rgba(139,26,53,0.07);">
-      <span style="font-size:1.2rem;">📋</span>
+       background:#fff;border:1.5px solid var(--primary);border-radius:14px;
+       padding:12px 16px;margin-bottom:16px;color:var(--primary);box-shadow:0 2px 10px rgba(70,20,35,0.05);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg>
       <span style="flex:1;min-width:0;">
         <span style="display:block;font-weight:800;font-size:0.92rem;" id="surveyBannerTitle">진행 중인 설문이 있어요</span>
-        <span style="display:block;font-size:0.78rem;color:#A34A5E;" id="surveyBannerSub">눌러서 응답하기</span>
+        <span style="display:block;font-size:0.78rem;color:var(--text-light);" id="surveyBannerSub">눌러서 응답하기</span>
       </span>
-      <span style="font-size:0.8rem;font-weight:800;background:#8B1A35;color:#fff;border-radius:20px;padding:5px 12px;white-space:nowrap;">응답하기 ›</span>
+      <span style="font-size:0.8rem;font-weight:800;background:var(--primary);color:#fff;border-radius:999px;padding:5px 12px;white-space:nowrap;">응답하기 ›</span>
     </a>
 
     <!-- 학원 공지/안내 박스 -->
     <div id="noticeBox" class="notice-box" style="display:none;">
       <div class="head">
-        <h3>📢 학원 공지·안내 <span class="count" id="noticeCount">0</span></h3>
+        <h3>학원 공지·안내 <span class="count" id="noticeCount">0</span></h3>
       </div>
       <div id="noticeList"></div>
     </div>
@@ -235,7 +246,7 @@
          align-items:center;justify-content:center;padding:24px;">
       <div style="background:#fff;border-radius:20px;max-width:340px;width:100%;padding:24px 22px 20px;
            box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center;">
-        <div style="font-size:2.4rem;line-height:1;margin-bottom:10px;">📋</div>
+        <div style="line-height:1;margin-bottom:12px;color:var(--primary);"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg></div>
         <div id="surveyPopupTitle" style="font-weight:800;font-size:1.08rem;color:#8B1A35;margin-bottom:6px;">새 설문이 있어요</div>
         <div id="surveyPopupSub" style="font-size:0.88rem;color:#6b5d57;line-height:1.55;margin-bottom:18px;">응답해 주시면 큰 도움이 돼요.</div>
         <a id="surveyPopupGo" href="/surveys" style="display:block;background:#8B1A35;color:#fff;text-decoration:none;
@@ -246,41 +257,41 @@
     </div>
 
     <!-- 기능 버튼 그리드 -->
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px;">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:24px;">
       <a href="/report" class="feat-btn" data-feat="report">
-        <span class="feat-icon">🎥</span>
+        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg></span>
         <span class="feat-title">수업영상 및 레포트</span>
         <span class="feat-desc">날짜별 영상·수업내용·숙제</span>
       </a>
       <a href="/test-results" class="feat-btn" data-feat="test-results">
-        <span class="feat-icon">📊</span>
+        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M6 20V12"/><path d="M12 20V5"/><path d="M18 20V9"/></svg></span>
         <span class="feat-title">테스트 결과</span>
         <span class="feat-desc">점수·등급 진단 보고서</span>
       </a>
       <a href="/attendance" class="feat-btn" data-feat="attendance">
-        <span class="feat-icon">📅</span>
+        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
         <span class="feat-title">출석 현황</span>
         <span class="feat-desc">월별 출석 캘린더</span>
       </a>
       <a href="/materials" class="feat-btn" data-feat="materials">
-        <span class="feat-icon">📁</span>
+        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg></span>
         <span class="feat-title">수업 자료실</span>
         <span class="feat-desc">학습지·교재 다운로드</span>
       </a>
       <a href="/study" class="feat-btn" data-feat="study">
-        <span class="feat-icon">📚</span>
+        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"/></svg></span>
         <span class="feat-title">KW-Study</span>
         <span class="feat-desc">공부 시간 · 스트릭 · 통계</span>
       </a>
       <a href="/reviews" class="feat-btn" data-feat="reviews">
-        <span class="feat-icon">📝</span>
+        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"/><path d="M14.5 6.5l2.8 2.8"/></svg></span>
         <span class="feat-title">수강 후기</span>
         <span class="feat-desc">한 줄 후기 작성·조회</span>
       </a>
       <!-- 설문·조사: 상시 카드 제거. 열린 설문이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). -->
       <!-- ⚠️ 질문방: 심사 중 숨김. 심사 통과 후 아래 QNA_ENABLED=true 로 바꾸고 배포하면 즉시 노출됨 -->
       <a href="/qna" class="feat-btn" data-feat="qna" id="qnaFeatBtn" style="display:none;">
-        <span class="feat-icon">💬</span>
+        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"/></svg></span>
         <span class="feat-title">질문/문의방</span>
         <span class="feat-desc">AI·선생님께 수학 질문 · 수업/결제 문의</span>
       </a>
@@ -292,15 +303,15 @@
       <span style="color:var(--border);">|</span>
       <a href="#" onclick="event.preventDefault();openPasswordModal()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">비밀번호 변경</a>
       <span style="color:var(--border);">|</span>
-      <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔔 알림 설정</a>
+      <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">알림 설정</a>
       <span style="color:var(--border);">|</span>
-      <a href="#" id="studyPushLink" onclick="event.preventDefault();toggleStudyPush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🏃 공부 알림</a>
+      <a href="#" id="studyPushLink" onclick="event.preventDefault();toggleStudyPush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">공부 알림</a>
       <span style="color:var(--border);">|</span>
-      <a href="/push-help" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">🔕 알림이 안 와요?</a>
+      <a href="/push-help" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">알림이 안 와요?</a>
       <span style="color:var(--border);">|</span>
-      <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">📤 앱 공유</a>
+      <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">앱 공유</a>
       <span id="faceLockSep" style="color:var(--border);display:none;">|</span>
-      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">🔐 생체인증 로그인</a>
+      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">생체인증 로그인</a>
     </div>
 
     <!-- 법적 고지 (스토어 심사 요건) -->
@@ -315,16 +326,16 @@
 <!-- ═══════════════════════════ 비밀번호 변경 모달 ═══════════════════════════ -->
 <div class="modal-bg" id="pwModal">
   <div class="modal-card">
-    <h2 id="pwModalTitle">🔑 비밀번호 변경</h2>
+    <h2 id="pwModalTitle">비밀번호 변경</h2>
     <div class="modal-sub" id="pwModalSub">새 비밀번호를 설정하세요. (4자 이상)</div>
     <div class="login-field"><label>현재 비밀번호</label>
-      <div class="pw-wrap"><input id="pwOld" type="password" autocomplete="current-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwOld', this)">👁</button></div>
+      <div class="pw-wrap"><input id="pwOld" type="password" autocomplete="current-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwOld', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div>
     </div>
     <div class="login-field"><label>새 비밀번호</label>
-      <div class="pw-wrap"><input id="pwNew" type="password" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwNew', this)">👁</button></div>
+      <div class="pw-wrap"><input id="pwNew" type="password" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwNew', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div>
     </div>
     <div class="login-field"><label>새 비밀번호 확인</label>
-      <div class="pw-wrap"><input id="pwNew2" type="password" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwNew2', this)">👁</button></div>
+      <div class="pw-wrap"><input id="pwNew2" type="password" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePwVisibility('pwNew2', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div>
     </div>
     <div class="login-err" id="pwErr"></div>
     <div class="modal-actions">
@@ -337,7 +348,7 @@
 <!-- 알림(푸시) 안내 모달: 권한창 전 안내 / 차단됨 복구 안내 공용 -->
 <div class="modal-bg" id="pushHelpModal">
   <div class="modal-card">
-    <h2 id="pushHelpTitle">🔔 알림</h2>
+    <h2 id="pushHelpTitle">알림</h2>
     <div class="modal-sub" id="pushHelpBody"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="pushHelpCancel" onclick="closePushHelp()">닫기</button>
@@ -350,7 +361,7 @@
 <div class="modal-bg" id="inboxModal" onclick="if(event.target===this)closeInbox()">
   <div class="modal-card" style="max-width:440px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:82vh;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <h2 style="font-size:1.1rem;font-weight:900;color:var(--primary);margin:0;">🔔 알림함</h2>
+      <h2 style="font-size:1.1rem;font-weight:900;color:var(--primary);margin:0;">알림함</h2>
       <button type="button" id="inboxReadAllBtn" onclick="markAllReadInbox()" style="background:none;border:none;color:var(--text-light);font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 6px;">모두 읽음</button>
     </div>
     <div id="inboxList" style="overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;">
@@ -365,40 +376,44 @@
 <div class="toast" id="toast"></div>
 
 <style>
-  /* 학원 공지/안내 박스 */
-  .notice-box{background:linear-gradient(135deg,#fff 0%,#FFF8F0 100%);border:1.5px solid #E8C56C;border-radius:14px;padding:14px 18px;margin-bottom:16px;}
+  /* 학원 공지/안내 박스 — 3a: 골드 프레임 + 세리프 제목 */
+  .notice-box{background:#fff;border:1px solid var(--gold-line);border-radius:14px;padding:15px 17px;margin-bottom:16px;box-shadow:0 2px 8px rgba(168,134,61,0.07);}
   .notice-box .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-  .notice-box .head h3{font-size:0.88rem;color:#854F0B;font-weight:800;display:flex;align-items:center;gap:6px;}
-  .notice-box .count{font-size:0.7rem;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:10px;font-weight:700;}
-  .notice-item{padding:8px 0;border-top:1px solid #E8C56C44;font-size:0.83rem;color:var(--text);cursor:pointer;}
+  .notice-box .head h3{font-family:var(--serif);font-size:13.5px;color:var(--text);font-weight:700;display:flex;align-items:center;gap:6px;}
+  .notice-box .count{font-size:11.5px;color:var(--gold);background:none;padding:0;font-weight:800;}
+  .notice-item{padding:8px 0;border-top:1px solid var(--hairline);font-size:12.5px;color:var(--text);cursor:pointer;}
   .notice-item:first-of-type{border-top:none;padding-top:0;}
   .notice-item .nt-head{display:flex;align-items:center;gap:6px;}
-  .notice-item .nt-badge{font-size:0.65rem;background:var(--primary);color:#fff;padding:2px 7px;border-radius:8px;font-weight:700;}
-  .notice-item .nt-badge.안내{background:#888;}
-  .notice-item .nt-badge.NEW{background:#c0392b;}
+  .notice-item .nt-badge{font-size:0.65rem;background:none;border:1px solid var(--primary);color:var(--primary);padding:1px 6px;border-radius:5px;font-weight:700;}
+  .notice-item .nt-badge.안내{background:none;border-color:#B5A69C;color:#9A8C85;}
+  .notice-item .nt-badge.NEW{background:none;border-color:#c0392b;color:#c0392b;}
   .notice-item .nt-title{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .notice-item .nt-date{font-size:0.7rem;color:var(--text-light);}
   .notice-item .nt-content{font-size:0.78rem;color:var(--text-light);margin-top:6px;line-height:1.5;display:none;padding-left:4px;}
   .notice-item.open .nt-content{display:block;}
   .notice-item .nt-imgs{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;}
-  .notice-item .nt-imgs img{height:260px;width:auto;border-radius:12px;border:1px solid #E8D9B8;box-shadow:0 3px 12px rgba(0,0,0,0.1);flex-shrink:0;}
-  .notice-item .nt-chevron{font-size:0.7rem;color:#854F0B;opacity:0.5;transition:transform .15s;display:inline-block;}
+  .notice-item .nt-imgs img{height:260px;width:auto;border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.06);flex-shrink:0;}
+  .notice-item .nt-chevron{font-size:0.7rem;color:var(--gold);opacity:0.55;transition:transform .15s;display:inline-block;}
   .notice-item.open .nt-chevron{transform:rotate(180deg);opacity:1;}
 
-  /* 기능 버튼 그리드 카드 */
-  .feat-btn{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 18px;text-decoration:none;color:var(--text);box-shadow:0 4px 14px rgba(139,26,53,0.05);transition:all .15s;cursor:pointer;font-family:inherit;text-align:left;}
-  .feat-btn:hover{border-color:var(--primary);box-shadow:0 6px 20px rgba(139,26,53,0.12);transform:translateY(-1px);}
-  .feat-btn:active{transform:translateY(0);}
-  .feat-icon{font-size:1.7rem;line-height:1;margin-bottom:4px;}
-  .feat-title{font-size:0.95rem;font-weight:800;color:var(--text);}
-  .feat-desc{font-size:0.76rem;color:var(--text-light);}
+  /* 기능 버튼 그리드 — 3a: 헤어라인 분할 프레임 (개별 카드 그림자 제거) */
+  .feat-btn{display:flex;flex-direction:column;align-items:flex-start;gap:0;background:var(--bg2);border:none;border-radius:0;padding:18px 16px;text-decoration:none;color:var(--text);box-shadow:none;transition:background .15s;cursor:pointer;font-family:inherit;text-align:left;}
+  .feat-btn:hover{background:#fff;transform:none;box-shadow:none;}
+  .feat-btn:active{background:#fff;}
+  .feat-icon{font-size:0;line-height:1;margin-bottom:11px;}
+  .feat-title{font-size:14px;font-weight:700;color:var(--text);}
+  .feat-desc{font-size:11.5px;color:var(--text-light);margin-top:3px;line-height:1.45;}
   .feat-btn.disabled{opacity:.5;cursor:not-allowed;}
+  /* 질문/문의방: 전체 폭 가로형 */
+  #qnaFeatBtn{grid-column:1/-1;flex-direction:row;align-items:center;gap:11px;}
+  #qnaFeatBtn .feat-icon{margin-bottom:0;flex-shrink:0;}
+  #qnaFeatBtn .feat-desc{margin-top:0;margin-left:auto;text-align:right;}
 
   /* 알림함(인박스) 아이템 */
   .inbox-item{padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
   .inbox-item:first-child{border-top:none;}
-  .inbox-item.unread{background:#FFF8F0;}
-  .inbox-item .ib-dot{width:8px;height:8px;border-radius:50%;background:#c0392b;flex-shrink:0;margin-top:6px;visibility:hidden;}
+  .inbox-item.unread{background:var(--bg2);}
+  .inbox-item .ib-dot{width:8px;height:8px;border-radius:50%;background:var(--gold-bright);flex-shrink:0;margin-top:6px;visibility:hidden;}
   .inbox-item.unread .ib-dot{visibility:visible;}
   .inbox-item .ib-body{flex:1;min-width:0;}
   .inbox-item .ib-title{font-size:0.88rem;font-weight:800;color:var(--text);margin-bottom:3px;}
@@ -466,16 +481,18 @@
     return null;
   }
 
-  // ════════ 비밀번호 보기 토글 ════════
+  // ════════ 비밀번호 보기 토글 (3a: 이모지 → 라인 아이콘 SVG) ════════
+  var KW_EYE_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>';
+  var KW_EYE_OFF_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/><path d="M4 4l16 16"/></svg>';
   function togglePwVisibility(inputId, btn) {
     const inp = $(inputId);
     if (!inp) return;
     if (inp.type === 'password') {
       inp.type = 'text';
-      if (btn) { btn.textContent = '🙈'; btn.title = '비밀번호 숨기기'; }
+      if (btn) { btn.innerHTML = KW_EYE_OFF_SVG; btn.title = '비밀번호 숨기기'; }
     } else {
       inp.type = 'password';
-      if (btn) { btn.textContent = '👁'; btn.title = '비밀번호 보기'; }
+      if (btn) { btn.innerHTML = KW_EYE_SVG; btn.title = '비밀번호 보기'; }
     }
   }
 
@@ -693,7 +710,7 @@
     try { show = !!(window.KWNative && KWNative.available() && await KWNative.biometryAvailable()); } catch (_) { show = false; }
     link.style.display = show ? '' : 'none';
     sep.style.display = show ? '' : 'none';
-    if (show) link.textContent = KWNative.faceLockEnabled() ? '🔐 생체인증 로그인 끄기' : '🔓 생체인증 로그인 켜기';
+    if (show) link.textContent = KWNative.faceLockEnabled() ? '생체인증 로그인 끄기' : '생체인증 로그인 켜기';
   }
 
   // 로그인 직후 1회 제안: 앱 + 생체가능 + 아직 미등록 + 안 물어본 사용자에게만.
@@ -732,14 +749,14 @@
         suffix = ' (' + (first.academy ? first.academy + ' · ' : '') + first.className + ')';
       }
       if (role === 'student') {
-        $('welcomeMsg').textContent = name + suffix + ' 학생, 환영합니다 👋';
+        $('welcomeMsg').textContent = name + suffix + ' 학생, 환영합니다';
       } else {
-        $('welcomeMsg').textContent = name + suffix + ' 학생 학부모님 환영합니다 👋';
+        $('welcomeMsg').textContent = name + suffix + ' 학생 학부모님 환영합니다';
       }
     } else {
-      $('welcomeMsg').textContent = '환영합니다 👋';
+      $('welcomeMsg').textContent = '환영합니다';
     }
-    $('welcomePhone').textContent = '📱 ' + currentPhone;
+    $('welcomePhone').textContent = [first && first.academy, first && first.className, currentPhone].filter(Boolean).join(' · ');
     renderDdays();
     loadStudyPushPref();
   }
@@ -747,8 +764,8 @@
   // ──── D-day 배지 (수능 + 추가 가능) ────
   function renderDdays() {
     const events = [
-      { name: '수능',        date: '2026-11-19', emoji: '🎯' },
-      // 여기에 추가: { name: '6월 모평', date: '2026-06-04', emoji: '📝' },
+      { name: '수능',        date: '2026-11-19' },
+      // 여기에 추가: { name: '6월 모평', date: '2026-06-04' },
     ];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -758,12 +775,21 @@
       if (diff < 0) return '';
       const label = diff === 0 ? 'D-day' : 'D-' + diff;
       return '<div style="background:linear-gradient(135deg,var(--primary) 0%,var(--primary-mid) 100%);color:#fff;padding:6px 12px;border-radius:10px;font-size:0.7rem;font-weight:700;text-align:center;line-height:1.3;box-shadow:0 2px 8px rgba(139,26,53,0.2);min-width:64px;">' +
-        '<div style="font-size:0.62rem;opacity:0.9;font-weight:500;">' + e.emoji + ' ' + e.name + '</div>' +
+        '<div style="font-size:0.62rem;opacity:0.9;font-weight:500;">' + e.name + '</div>' +
         '<div style="font-size:0.92rem;font-weight:900;margin-top:1px;">' + label + '</div>' +
         '</div>';
     }).filter(Boolean).join('');
     const box = $('ddayBadges');
     if (box) box.innerHTML = html;
+    // 3a 리디자인: 스탯 스트립 '수능까지' 칸 채우기 (기존 배지는 CSS로 숨김)
+    const sd = $('statDday');
+    if (sd) {
+      if (events.length) {
+        const d0 = new Date(events[0].date + 'T00:00:00');
+        const diff0 = Math.ceil((d0 - today) / (1000 * 60 * 60 * 24));
+        sd.textContent = diff0 === 0 ? 'D-day' : (diff0 > 0 ? 'D-' + diff0 : '–');
+      } else sd.textContent = '–';
+    }
   }
 
   function renderChildSelect() {
@@ -807,11 +833,11 @@
     $('pwNew2').value = '';
     showErr('pwErr', '');
     if (forced) {
-      $('pwModalTitle').textContent = '🔐 초기 비밀번호 변경 필요';
+      $('pwModalTitle').textContent = '초기 비밀번호 변경 필요';
       $('pwModalSub').textContent = '안전한 사용을 위해 비밀번호를 변경해주세요. (4자 이상, 처음엔 0000)';
       $('pwCancelBtn').style.display = 'none';
     } else {
-      $('pwModalTitle').textContent = '🔑 비밀번호 변경';
+      $('pwModalTitle').textContent = '비밀번호 변경';
       $('pwModalSub').textContent = '새 비밀번호를 설정하세요. (4자 이상)';
       $('pwCancelBtn').style.display = 'inline-block';
     }
@@ -847,7 +873,7 @@
       }
       pwModalForced = false;
       $('pwModal').classList.remove('show');
-      showToast('✅ 비밀번호가 변경되었습니다.');
+      showToast('비밀번호가 변경되었습니다.');
     } catch (e) {
       showErr('pwErr', '오류: ' + (e.message || '알 수 없는 오류'));
     }
@@ -1022,7 +1048,7 @@
   async function preloadVapidKey() { try { const r = await fetch('/api/push-vapid-public'); const d = await r.json(); if (d && d.publicKey) _vapidKeyPortal = d.publicKey; } catch (_) {} }
   // iOS는 '홈 화면에 추가'한 PWA(standalone) + iOS 16.4+ 에서만 푸시 지원
   function showIOSPushModal() {
-    $('pushHelpTitle').textContent = '🔔 아이폰·아이패드 알림 켜는 법';
+    $('pushHelpTitle').textContent = '아이폰·아이패드 알림 켜는 법';
     if (!isAppStandalone()) {
       $('pushHelpBody').innerHTML = '아이폰·아이패드는 <b>홈 화면에 앱을 추가한 뒤</b> 그 아이콘으로 열어야 알림을 받을 수 있어요:'
         + '<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
@@ -1030,7 +1056,7 @@
         + '<li>하단 <b>공유</b> 버튼(<b>□↑</b>) 누르기</li>'
         + '<li><b>"홈 화면에 추가"</b> 선택</li>'
         + '<li>홈 화면에 생긴 <b>아이콘으로 다시 열기</b></li>'
-        + '<li>그 화면에서 알림 켜기 누르면 권한창이 떠요 <span style="color:#854F0B;">(iOS 16.4 이상)</span></li>'
+        + '<li>그 화면에서 알림 켜기 누르면 권한창이 떠요 <span style="color:var(--gold);">(iOS 16.4 이상)</span></li>'
         + '</ol>';
     } else {
       $('pushHelpBody').innerHTML = '이 아이콘이 <b>Safari로 추가</b>한 게 아니면(크롬·네이버 등 다른 브라우저로 추가하면 ✕) 아이패드는 알림을 못 받아요. <b>Safari로 다시 설치</b>해 주세요:'
@@ -1038,7 +1064,7 @@
         + '<li>지금 홈 화면 <b>아이콘을 길게 눌러 삭제</b></li>'
         + '<li><b>Safari</b>로 이 페이지 다시 열기</li>'
         + '<li>하단 <b>공유</b>(<b>□↑</b>) → <b>"홈 화면에 추가"</b></li>'
-        + '<li>새로 생긴 <b>아이콘으로 열어</b> 알림 다시 켜기 <span style="color:#854F0B;">(iPadOS 16.4 이상 필요 — 26.x면 문제없음)</span></li>'
+        + '<li>새로 생긴 <b>아이콘으로 열어</b> 알림 다시 켜기 <span style="color:var(--gold);">(iPadOS 16.4 이상 필요 — 26.x면 문제없음)</span></li>'
         + '</ol>';
     }
     $('pushHelpCancel').style.display = 'none';
@@ -1049,7 +1075,7 @@
 
   // 권한창 뜨기 직전 안내 — 학생이 반사적으로 닫아 거부되는 것 방지
   function showPushExplainModal() {
-    $('pushHelpTitle').textContent = '🔔 알림을 켤게요';
+    $('pushHelpTitle').textContent = '알림을 켤게요';
     $('pushHelpBody').innerHTML =
       '잠시 후 <b>"알림을 보내도록 허용하시겠어요?"</b> 창이 떠요.<br>'
       + '<b>"허용"</b>을 눌러야 새 리포트·공지·답변 알림을 받을 수 있어요.';
@@ -1061,14 +1087,14 @@
 
   // 차단(denied) 복구 안내 — 설정 경로 단계별
   function showPushBlockedModal() {
-    $('pushHelpTitle').textContent = '🔔 알림이 막혀 있어요';
+    $('pushHelpTitle').textContent = '알림이 막혀 있어요';
     $('pushHelpBody').innerHTML =
       '휴대폰이 이 앱의 알림을 막아둔 상태예요. 아래대로 한 번만 풀어주세요:'
       + '<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
       + '<li>휴대폰 <b>설정</b> 앱 열기</li>'
       + '<li><b>애플리케이션</b> → <b>이관우 수학연구소</b> 선택</li>'
       + '<li><b>알림</b> → <b>허용</b> 켜기</li>'
-      + '<li>같은 화면 <b>"사용하지 않는 앱 권한 삭제"</b> 끄기 <span style="color:#854F0B;">(다시 막히는 것 방지)</span></li>'
+      + '<li>같은 화면 <b>"사용하지 않는 앱 권한 삭제"</b> 끄기 <span style="color:var(--gold);">(다시 막히는 것 방지)</span></li>'
       + '<li>이 화면으로 돌아와 알림 <b>"켜기"</b> 다시 누르기</li>'
       + '</ol>';
     $('pushHelpCancel').style.display = 'none';
@@ -1159,7 +1185,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: currentPhone, subscription: sub.toJSON() }),
       });
-      showToast('🔔 알림이 활성화됐어요!');
+      showToast('알림이 활성화됐어요!');
     } catch (e) {
       showToast('알림 설정 오류: ' + (e.message || '알 수 없는 오류'), 4000);
     } finally {
@@ -1177,8 +1203,8 @@
   }
   function renderStudyPushLink() {
     const el = $('studyPushLink'); if (!el) return;
-    if (!_studyPrefLoaded) { el.textContent = '🏃 공부 알림'; el.style.color = 'var(--text-light)'; return; }
-    el.textContent = _studyPushOn ? '🏃 공부 알림: 켜짐' : '🏃 공부 알림: 꺼짐';
+    if (!_studyPrefLoaded) { el.textContent = '공부 알림'; el.style.color = 'var(--text-light)'; return; }
+    el.textContent = _studyPushOn ? '공부 알림: 켜짐' : '공부 알림: 꺼짐';
     el.style.color = _studyPushOn ? 'var(--text-light)' : '#B02347';
   }
   async function loadStudyPushPref() {
@@ -1207,7 +1233,7 @@
       _studyPushOn = (d && d.prefs && typeof d.prefs.study === 'boolean') ? d.prefs.study : next;
       _studyPrefLoaded = true;
       renderStudyPushLink();
-      showToast(_studyPushOn ? '🏃 공부(추월) 알림을 켰어요.' : '🏃 공부(추월) 알림만 껐어요. 공지·리포트 알림은 그대로 와요.', 3400);
+      showToast(_studyPushOn ? '공부(추월) 알림을 켰어요.' : '공부(추월) 알림만 껐어요. 공지·리포트 알림은 그대로 와요.', 3400);
     } catch (e) {
       showToast('설정 저장 오류: ' + (e.message || ''), 3000);
     } finally {
@@ -1254,7 +1280,7 @@
       'text-align:center', 'padding:32px', 'box-sizing:border-box', 'font-family:inherit', 'gap:18px'
     ].join(';'));
     ov.innerHTML =
-      '<div style="font-size:46px;line-height:1">🔄</div>' +
+      '<div style="line-height:1"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v5h-5"/></svg></div>' +
       '<div style="font-size:22px;font-weight:800">업데이트가 필요해요</div>' +
       '<div style="font-size:15px;line-height:1.6;opacity:.95;max-width:340px">더 안정적인 새 버전이 나왔어요.<br>스토어에서 업데이트한 뒤 다시 열어주세요.</div>' +
       (safeUrl ? '<a id="forceUpdateBtn" href="' + safeUrl + '" style="margin-top:8px;display:inline-block;background:#fff;color:#8B1A35;font-weight:800;font-size:16px;text-decoration:none;padding:14px 28px;border-radius:12px">스토어에서 업데이트</a>' : '');
@@ -1346,7 +1372,7 @@
     }
   });
 
-  // 앱 설치 완료 시: 설치 안내 FAB 숨김 ('한 클릭 설치' 버튼은 별도 '📲 앱 설치' 링크로 대체되어 제거)
+  // 앱 설치 완료 시: 설치 안내 FAB 숨김 ('한 클릭 설치' 버튼은 별도 '앱 설치' 링크로 대체되어 제거)
   window.addEventListener('appinstalled', () => {
     const fab = $('installFab');
     if (fab) fab.classList.remove('show');
@@ -1398,7 +1424,7 @@
       const restHtml = restCount > 0
         ? '<div id="noticeRestList" style="display:none;">' + top.slice(1).map(renderOne).join('') + '</div>'
           + '<button type="button" id="noticeMoreBtn" onclick="toggleNoticeMore()" '
-          + 'style="background:none;border:none;color:#854F0B;font-weight:700;font-size:0.78rem;cursor:pointer;padding:8px 0 0;width:100%;text-align:center;font-family:inherit;">'
+          + 'style="background:none;border:none;color:var(--gold);font-weight:700;font-size:0.78rem;cursor:pointer;padding:8px 0 0;width:100%;text-align:center;font-family:inherit;">'
           + '+ ' + restCount + '개 더 보기 ▼'
           + '</button>'
         : '';
@@ -1516,7 +1542,7 @@
       }
       const h = Math.floor(m / 60), mm = m % 60;
       const label = h > 0 ? (h + '시간' + (mm ? ' ' + mm + '분' : '')) : (m + '분');
-      el.innerHTML = '<a href="/study" style="display:inline-block;background:linear-gradient(135deg,#FBE2E8,#F2A8B5);color:#8B1A35;font-size:0.74rem;font-weight:800;padding:5px 12px;border-radius:20px;text-decoration:none;border:1px solid #8B1A35;">📚 오늘 ' + label + '</a>';
+      el.innerHTML = '<a href="/study" style="display:inline-flex;align-items:center;gap:4px;background:none;color:var(--primary);font-size:0.74rem;font-weight:800;padding:5px 12px;border-radius:999px;text-decoration:none;border:1px solid #E4C6CE;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"/></svg>오늘 ' + label + '</a>';
       el.style.display = 'inline-block';
     } catch (e) { /* silent */ }
   }
