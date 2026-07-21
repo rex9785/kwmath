@@ -178,9 +178,9 @@
   function statusBadge(v){
     if (v.open) return '<span class="badge" style="background:#E7F6EC;color:#1E7B41;">🔓 열림</span>';
     var t = '🔒 잠김';
-    if (v.lockReason === 'absent') t = '🔒 잠김 · 결석';
+    if (v.lockReason === 'absent') t = '🔒 잠김 · 미출석';
     else if (v.lockReason === 'code') t = '🔒 잠김 · 수업코드';
-    else if (v.lockReason === 'absent+code') t = '🔒 잠김 · 결석+수업코드';
+    else if (v.lockReason === 'absent+code') t = '🔒 잠김 · 미출석+수업코드';
     return '<span class="badge" style="background:#FDECEC;color:#C0392B;">' + t + '</span>';
   }
 

@@ -153,15 +153,15 @@
         const latestBadge = i === 0 ? '<span class="latest-badge">최신</span>' : '';
         let playButton, note;
         if (v.lockReason === 'absent') {
-          // 🔒 결석·병결·공결한 날의 영상 — 인강 신청 후 선생님 승인 시 열림.
+          // 🔒 미출석(결석·병결·공결)이거나 출석기록이 없는 날의 영상 — 인강 신청 후 선생님 승인 시 열림.
           const label = v.requested ? '인강 신청됨 · 승인 대기' : '인강 신청하기';
           playButton = `<button class="watch-btn locked" ${v.requested ? 'disabled' : ''} onclick="requestMakeup('${escapeHtml(v.date)}', '${escapeHtml(selectedStudent.name)}', this)">
                <div class="play-circle">🔒</div>
                ${label} →
              </button>`;
           note = v.requested
-            ? '<div class="access-note">🔒 결석한 날의 영상입니다. 인강 신청이 접수되어 선생님 승인을 기다리고 있어요.</div>'
-            : '<div class="access-note">🔒 결석한 날의 영상입니다. 인강을 신청하면 선생님 승인 후 열립니다.</div>';
+            ? '<div class="access-note">🔒 아직 열람 권한이 없는 영상입니다. 인강 신청이 접수되어 선생님 승인을 기다리고 있어요.</div>'
+            : '<div class="access-note">🔒 아직 열람 권한이 없는 영상입니다. 인강을 신청하면 선생님 승인 후 열립니다.</div>';
         } else if (v.locked) {
           playButton = `<button class="watch-btn locked" onclick="unlockVideo('${escapeHtml(v.code)}', '${escapeHtml(selectedStudent.name)}')">
                <div class="play-circle">🔒</div>

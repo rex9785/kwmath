@@ -1,7 +1,7 @@
 // functions/api/_makeup.js
 // ───────────────────────────────────────────────────────────
 // 인강 신청/해제 (makeup grants)
-//   · 결석·병결·공결이면 그날 "수업 영상 + 수업자료"를 자동으로 잠근다.
+//   · 출석/지각한 날만 그날 "수업 영상 + 수업자료"가 열린다. 결석·병결·공결이거나 출석기록이 아예 없는 날은 자동 잠금(2026-07-21 정책B — 전입/신규생 무단열람 차단).
 //   · 학생/학부모가 "인강 신청"하면 status=requested.
 //   · 관우T(원장)·조교가 승인하면 status=approved → 그날 잠금 해제.
 //   · 관우T는 신청이 없어도 직접 approved로 grant 가능. approved를 revoke하면 다시 잠김.
@@ -13,6 +13,8 @@ import { getAttendance } from './_db.js';
 // 수업 안 온 상태 = 영상·자료 잠금 대상. 지각·출석은 잠그지 않는다(관우T 확정: "수업안오면 다 막고").
 export const BLOCK_STATUS = new Set(['결석', '병결', '공결']);
 export function isBlockStatus(s) { return BLOCK_STATUS.has(s); }
+// 온 것으로 치는 상태 = 그날 영상·자료 열림. (출결 상태는 이 5개뿐: 출석·지각·결석·병결·공결 — attendance.html 범례 확인)
+export const PRESENT_STATUS = new Set(['출석', '지각']);
 
 // ── student_id 정규화 ────────────────────────────────────────
 //   D1은 JS 숫자를 REAL로 바인딩 → student_id(TEXT affinity) 칸에 "24.0"으로 저장되는 과거 버그가 있었다.
@@ -125,25 +127,31 @@ export async function listAllGrants(env, status) {
   return results || [];
 }
 
-// 특정 학생의 잠금 컨텍스트: blocked(결석계열 날짜), approved(승인 날짜), requested(신청만 된 날짜).
-//   isLocked(date) = blocked ∧ ¬approved.
+// 특정 학생의 잠금 컨텍스트: present(출석/지각한 날), blocked(결석계열 날짜), approved(승인 날짜), requested(신청만 된 날짜).
+//   isLocked(date) = ¬present ∧ ¬approved  (2026-07-21 정책B: 온 날 또는 내가 승인한 날만 열림. 결석계열·기록없는 날은 잠금.)
+//   ※ 이전 로직은 blocked ∧ ¬approved 라 "결석 기록이 있어야만" 잠겨서, 출석기록이 0인 전입/신규생은 전 영상이 열렸음.
 export async function absenceLockContext(env, studentId) {
   const [{ records }, grants] = await Promise.all([
     getAttendance(env, studentId),
     listGrantsForStudent(env, studentId),
   ]);
-  const blocked = new Set(), approved = new Set(), requested = new Set();
+  const present = new Set(), blocked = new Set(), approved = new Set(), requested = new Set();
   for (const [date, rec] of Object.entries(records || {})) {
-    if (rec && BLOCK_STATUS.has(rec.status)) blocked.add(date);
+    if (!rec) continue;
+    if (BLOCK_STATUS.has(rec.status)) blocked.add(date);
+    else if (PRESENT_STATUS.has(rec.status)) present.add(date);
   }
   for (const g of grants) {
     if (g.status === 'approved') approved.add(g.date);
     else if (g.status === 'requested') requested.add(g.date);
   }
-  return { blocked, approved, requested };
+  return { present, blocked, approved, requested };
 }
 
-// 날짜가 (결석계열 ∧ 미승인)인가 = 잠김.
+// 잠김 = 그날 출석/지각 기록이 없고(=안 왔거나 기록 자체가 없음) 승인도 안 된 날.
+//   전입/신규생은 출석기록이 없어 present 공집합 → 승인 전까지 전부 잠김. 앞으로 출석 찍으면 그날부터 열림.
 export function isLocked(ctx, date) {
-  return !!date && ctx.blocked.has(date) && !ctx.approved.has(date);
+  if (!date) return false;
+  if (ctx.approved.has(date)) return false;
+  return !ctx.present.has(date);
 }
