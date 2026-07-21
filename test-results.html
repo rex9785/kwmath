@@ -498,6 +498,14 @@
           '<div class="quiz-split">단답형 ' + r.auto.score + '/' + r.auto.max + '점 · 서술형 ' +
           r.essay.score + '/' + r.essay.max + '점</div>' +
           (pend ? '<div class="quiz-note">서술형 ' + r.essay.pending + '문항은 선생님이 채점하면 점수에 더해져요</div>' : '');
+        // LaTeX 답(수식 키패드 입력 — math·short 공통)은 읽기전용 수식으로 렌더, 아니면 원문 (2026-07-22)
+        const fmtVal = (v) => {
+          const s = (v == null) ? '' : ('' + v);
+          if (!s) return '';
+          if (/\\/.test(s) && window.customElements && customElements.get('math-field'))
+            return '<math-field read-only style="border:none;padding:0 2px;background:transparent;display:inline-block;vertical-align:middle;">' + esc(s) + '</math-field>';
+          return esc(s);
+        };
         const qs = (r.questions || []).map((q, n) => {
           let badge = '';
           if (q.status === 'o') badge = '<span class="qr-badge o">맞았어요' + (Number.isFinite(q.points) ? ' +' + q.points + '점' : '') + '</span>';
@@ -505,8 +513,8 @@
           else if (q.status === 'pending') badge = '<span class="qr-badge p">채점 대기 (' + q.points + '점)</span>';
           return '<div class="qr-q">' +
             '<div class="ql">' + (n + 1) + '. ' + esc(q.label) + badge + '</div>' +
-            '<div class="qr-ans">내 답: <b>' + (q.mine ? esc(q.mine) : '(무응답)') + '</b></div>' +
-            (q.status === 'x' && q.answer ? '<div class="qr-correct">정답: ' + esc(q.answer) + '</div>' : '') +
+            '<div class="qr-ans">내 답: <b>' + (q.mine ? fmtVal(q.mine) : '(무응답)') + '</b></div>' +
+            (q.status === 'x' && q.answer ? '<div class="qr-correct">정답: ' + fmtVal(q.answer) + '</div>' : '') +
           '</div>';
         }).join('');
         let twinHtml = '';

@@ -292,9 +292,18 @@ function latexToNumber(src) {
   if (typeof result !== 'number' || !isFinite(result)) return null;
   return result;
 }
+// 일반 키보드 수식 표기 → LaTeX 동의어(숫자 환원 시도에만 사용 — 문자·한글 답 비교엔 영향 없음).
+//   UI 안내가 "sqrt(2)처럼 입력"이라 플레인 sqrt/pi/√/×/÷도 받아줘야 함 (2026-07-22).
+function preLatex(s) {
+  return String(s == null ? '' : s)
+    .replace(/√/g, '\\sqrt').replace(/π/g, '\\pi')
+    .replace(/×/g, '*').replace(/÷/g, '/')
+    .replace(/(^|[^\\a-zA-Z])sqrt/gi, '$1\\sqrt')
+    .replace(/(^|[^\\a-zA-Z])pi($|[^a-zA-Z])/gi, '$1\\pi$2');
+}
 function mathEqual(studentLatex, correctLatex) {
   if (studentLatex == null || String(studentLatex).trim() === '') return false;
-  const a = latexToNumber(studentLatex), b = latexToNumber(correctLatex);
+  const a = latexToNumber(preLatex(studentLatex)), b = latexToNumber(preLatex(correctLatex));
   if (a != null && b != null) { const scale = Math.max(1, Math.abs(a), Math.abs(b)); return Math.abs(a - b) <= 1e-9 * scale; }
   const na = normTextLatex(studentLatex), nb = normTextLatex(correctLatex);
   return na !== '' && na === nb;
@@ -328,7 +337,8 @@ function gradeAnswers(questions, answers) {
       const cs = Array.isArray(q.correct) ? q.correct : [];
       ok = as.size === cs.length && cs.every(x => as.has(x));
     } else if (q.type === 'short') {
-      ok = !!normText(a) && normText(a) === normText(q.correct);
+      // 단답도 수식 키패드(LaTeX) 입력 허용 — 텍스트 일치 또는 수식 동치(예: \frac34 = 3/4 = 0.75)면 정답 (2026-07-22)
+      ok = (!!normText(a) && normText(a) === normText(q.correct)) || mathEqual(a, q.correct);
     } else if (q.type === 'math') {
       ok = mathEqual(a, q.correct);
     }
@@ -822,7 +832,7 @@ export async function onRequest(context) {
         if (attempted) {
           ok = (q.type === 'math')
             ? mathEqual(a, q.correctTwin)
-            : (!!normText(a) && normText(a) === normText(q.correctTwin));
+            : ((!!normText(a) && normText(a) === normText(q.correctTwin)) || mathEqual(a, q.correctTwin));
         }
         if (ok) tScore++;
         if (!attempted) detail[q.id] = { pending: true };

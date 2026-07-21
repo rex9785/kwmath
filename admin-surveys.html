@@ -888,9 +888,17 @@
       if(typeof result!=='number' || !isFinite(result)) return null;
       return result;
     }
+    // 일반 키보드 수식 표기 → LaTeX 동의어(서버 preLatex와 동일 — 표시용 정오 판정 일치, 2026-07-22)
+    function preLatex(s){
+      return String(s==null?'':s)
+        .replace(/√/g,'\\sqrt').replace(/π/g,'\\pi')
+        .replace(/×/g,'*').replace(/÷/g,'/')
+        .replace(/(^|[^\\a-zA-Z])sqrt/gi,'$1\\sqrt')
+        .replace(/(^|[^\\a-zA-Z])pi($|[^a-zA-Z])/gi,'$1\\pi$2');
+    }
     function mathEqual(studentLatex, correctLatex){
       if(studentLatex==null || String(studentLatex).trim()==='') return false;
-      var a=latexToNumber(studentLatex), b=latexToNumber(correctLatex);
+      var a=latexToNumber(preLatex(studentLatex)), b=latexToNumber(preLatex(correctLatex));
       if(a!=null && b!=null){ var scale=Math.max(1, Math.abs(a), Math.abs(b)); return Math.abs(a-b) <= 1e-9*scale; }
       var na=normTextLatex(studentLatex), nb=normTextLatex(correctLatex);
       return na!=='' && na===nb;
@@ -915,6 +923,8 @@
       }
       if(a==null || String(a).trim()==='') return null;
       if(q.type==='math') return mathEqual(a, q.correct);
+      // 단답도 수식 입력 허용(서버 채점과 동일 규칙, 2026-07-22)
+      if(q.type==='short') return normA(a)===normA(q.correct) || mathEqual(a, q.correct);
       return normA(a)===normA(q.correct);
     }
     function essaySplit(r){   // 서버 점수에서 서술형만 떼어내기 (총점=자동+서술 이므로 역산)
@@ -1007,7 +1017,7 @@
           }
           s += '<div style="padding:6px 2px;border-bottom:1px solid #f0e6e9;font-size:0.85rem;display:flex;align-items:flex-start;gap:8px;">'
             + '<span style="flex:1;"><span class="who">' + esc(q.label) + ((q.points!=null)?(' (' + q.points + '점)'):'') + '</span>'
-            + (q.type==='math' ? fmtMathA(a) : (aTxt.trim() ? esc(aTxt) : '<span class="sub">(무응답)</span>')) + ' ' + mark + '</span>' + ox + '</div>';
+            + ((q.type==='math' || (!Array.isArray(a) && /\\/.test(aTxt))) ? fmtMathA(a) : (aTxt.trim() ? esc(aTxt) : '<span class="sub">(무응답)</span>')) + ' ' + mark + '</span>' + ox + '</div>';
         });
         return s;
       }

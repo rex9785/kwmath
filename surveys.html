@@ -281,44 +281,51 @@
         var ta = document.createElement('textarea'); ta.className = 'ti'; ta.placeholder = '자유롭게 적어 주세요';
         ta.addEventListener('input', function(){ answers[q.id] = ta.value; });
         body.appendChild(ta);
-      } else if(q.type==='math'){
+      } else { // short·math 공통 입력 UI (2026-07-22 관우T: 키패드 유무로 문항 유형이 티 나지 않게 통일 + 단답도 원하면 수식 키패드)
+        // 기본 = 일반 텍스트 입력(모든 기기에서 확실히 동작) · 링크로 수식 키패드 전환.
+        // 텍스트 수식(3/4, sqrt(2), x^2)도, 키패드 LaTeX도 서버가 수학적 동치로 채점(short·math 모두).
         answers[q.id] = '';
-        var mf = document.createElement('math-field');
-        mf.setAttribute('math-virtual-keyboard-policy','onfocus');
-        mf.addEventListener('input', function(){ answers[q.id] = mf.value; });
-        body.appendChild(mf);
-        // 아이폰(iOS WKWebView)에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비 — 탭하면 직접 show()
-        (function(el){
+        var inWrap = document.createElement('div');
+        body.appendChild(inWrap);
+        var inHint = document.createElement('div'); inHint.className = 'scaleLbl'; inHint.style.marginTop = '7px';
+        body.appendChild(inHint);
+        (function(qid, wrapEl, hintEl){
+          var mode = 'text';
           function showKb(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }
-          el.addEventListener('focusin', function(){ setTimeout(showKb, 60); });
-          el.addEventListener('pointerup', function(){ try{ el.focus(); }catch(e){} setTimeout(showKb, 150); });
-        })(mf);
-        var mfh = document.createElement('div'); mfh.className = 'scaleLbl'; mfh.style.marginTop = '7px';
-        mfh.innerHTML = '<span>칸을 누르면 수학 키패드가 떠요 · 분수·루트 입력 가능</span>' +
-          '<a href="#" class="mfFallbackLink" style="color:var(--primary);font-weight:700;white-space:nowrap;">키패드가 안 떠요</a>';
-        body.appendChild(mfh);
-        // 폴백(일반 입력칸 전환): ① MathLive 로드 실패 시 자동 ② '키패드가 안 떠요' 탭 시 수동.
-        //   텍스트 답(예: 3/4, sqrt(2), x^2)도 서버 mathEqual이 수학적 동치로 채점하므로 안전.
-        (function(mfEl, qid, hintEl){
-          function toText(){
-            if(!mfEl.parentNode) return;
-            var fb = document.createElement('input'); fb.type='text'; fb.className='ti';
-            fb.placeholder='답 입력 (예: 3/4, sqrt(2), x^2)';
-            try{ fb.value = answers[qid] || ''; }catch(e){}
-            fb.addEventListener('input', function(){ answers[qid] = fb.value; });
-            mfEl.parentNode.replaceChild(fb, mfEl);
-            hintEl.innerHTML = '<span>일반 키보드로 입력 · 분수는 3/4, 루트는 sqrt(2), 거듭제곱은 x^2</span>';
-            try{ fb.focus(); }catch(e){}
+          function setHint(msg, linkText){
+            hintEl.innerHTML = '<span>' + msg + '</span>' +
+              '<a href="#" class="mfToggleLink" style="color:var(--primary);font-weight:700;white-space:nowrap;">' + linkText + '</a>';
+            var lk = hintEl.querySelector('.mfToggleLink');
+            if(lk) lk.addEventListener('click', function(ev){ ev.preventDefault(); toggle(); });
           }
-          var lk = hintEl.querySelector('.mfFallbackLink');
-          if(lk) lk.addEventListener('click', function(ev){ ev.preventDefault(); toText(); });
-          setTimeout(function(){ if(!(window.customElements && customElements.get('math-field'))) toText(); }, 2500);
-        })(mf, q.id, mfh);
-      } else { // short
-        answers[q.id] = '';
-        var ti = document.createElement('input'); ti.type='text'; ti.className = 'ti'; ti.placeholder = '답변을 입력하세요';
-        ti.addEventListener('input', function(){ answers[q.id] = ti.value; });
-        body.appendChild(ti);
+          function toText(){
+            mode = 'text';
+            var ti = document.createElement('input'); ti.type='text'; ti.className='ti'; ti.placeholder='답변을 입력하세요';
+            try{ ti.value = answers[qid] || ''; }catch(e){}
+            ti.addEventListener('input', function(){ answers[qid] = ti.value; });
+            wrapEl.innerHTML = ''; wrapEl.appendChild(ti);
+            setHint('분수·루트도 3/4, sqrt(2), x^2처럼 입력 가능', '수식 키패드로 입력');
+          }
+          function toMath(){
+            if(!(window.customElements && customElements.get('math-field'))){
+              setHint('수식 키패드를 준비 중이에요 · 잠시 후 다시 눌러 주세요', '수식 키패드로 입력');
+              return;
+            }
+            mode = 'math';
+            var mf = document.createElement('math-field');
+            mf.setAttribute('math-virtual-keyboard-policy','onfocus');
+            try{ if(answers[qid]) mf.value = answers[qid]; }catch(e){}
+            mf.addEventListener('input', function(){ answers[qid] = mf.value; });
+            // 아이폰(iOS WKWebView)에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비 — 탭하면 직접 show()
+            mf.addEventListener('focusin', function(){ setTimeout(showKb, 60); });
+            mf.addEventListener('pointerup', function(){ try{ mf.focus(); }catch(e){} setTimeout(showKb, 150); });
+            wrapEl.innerHTML = ''; wrapEl.appendChild(mf);
+            setHint('칸을 누르면 수학 키패드가 떠요 · 안 뜨면 일반 키보드로', '일반 키보드로 입력');
+            try{ mf.focus(); }catch(e){} setTimeout(showKb, 200);
+          }
+          function toggle(){ if(mode === 'text') toMath(); else toText(); }
+          toText();
+        })(q.id, inWrap, inHint);
       }
       box.appendChild(body);
       viewEl.appendChild(box);
@@ -386,9 +393,11 @@
       var tag = d.pending ? '<span class="tag p">✍️ 채점 대기</span>'
               : d.correct ? '<span class="tag o">✔ 정답</span>' : '<span class="tag x">✕ 오답</span>';
       var isMath = (q.type==='math');
+      // 단답(short)을 수식 키패드로 낸 경우(LaTeX 포함) — 원문 대신 수식으로 렌더 (2026-07-22)
+      var hasTex = function(v){ return !Array.isArray(v) && /\\/.test(String(v==null?'':v)); };
       var h = '<div class="lab">' + esc(q.label) + tag + '</div>';
-      h += '<div class="mine">내 답: ' + (isMath ? fmtMathVal(sent[q.id]) : fmtAns(sent[q.id])) + '</div>';
-      if(!d.pending && !d.correct) h += '<div class="ans">정답: ' + (isMath ? fmtMathVal(d.answer) : fmtAns(d.answer)) + '</div>';
+      h += '<div class="mine">내 답: ' + ((isMath || hasTex(sent[q.id])) ? fmtMathVal(sent[q.id]) : fmtAns(sent[q.id])) + '</div>';
+      if(!d.pending && !d.correct) h += '<div class="ans">정답: ' + ((isMath || hasTex(d.answer)) ? fmtMathVal(d.answer) : fmtAns(d.answer)) + '</div>';
       qr.innerHTML = h;
       viewEl.appendChild(qr);
     });
