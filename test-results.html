@@ -339,12 +339,14 @@
   function ensureMathLive() {
     if (_mathLiveReady) return Promise.resolve(true);
     if (_mathLivePromise) return _mathLivePromise;
-    _mathLivePromise = import('https://cdn.jsdelivr.net/npm/mathlive/+esm')
+    _mathLivePromise = import('https://cdn.jsdelivr.net/npm/mathlive@0.110.0/+esm')  // 버전 고정(iOS 회귀 방지)
       .then(() => { _mathLiveReady = true; return true; })
       .catch(() => false);
     return _mathLivePromise;
   }
   // 수식 입력 위젯 — math-field(로드되면) 또는 텍스트 폴백. {el, getValue} 반환.
+  //   아이폰(iOS WKWebView)에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비:
+  //   탭 시 직접 show() + '키패드가 안 떠요' 수동 폴백 링크.
   function makeMathInput(initial) {
     const wrap = document.createElement('span');
     wrap.style.display = 'block';
@@ -352,16 +354,25 @@
     mf.setAttribute('math-virtual-keyboard-policy', 'onfocus');
     mf.className = 'twin-mf';
     wrap.appendChild(mf);
+    function showKb(){ try { if (window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); } catch (_) {} }
+    mf.addEventListener('focusin', () => setTimeout(showKb, 60));
+    mf.addEventListener('pointerup', () => { try { mf.focus(); } catch (_) {} setTimeout(showKb, 150); });
+    const fbLink = document.createElement('a');
+    fbLink.href = '#'; fbLink.textContent = '키패드가 안 떠요';
+    fbLink.style.cssText = 'display:inline-block;margin-top:5px;font-size:0.78rem;color:#862633;font-weight:700;';
+    wrap.appendChild(fbLink);
     let fellBack = false, textEl = null;
     function fallback() {
       if (fellBack) return;
       fellBack = true;
       textEl = document.createElement('input');
       textEl.type = 'text'; textEl.className = 'twin-text';
-      textEl.placeholder = '답 입력 (예: 1/2)';
-      textEl.value = initial || '';
+      textEl.placeholder = '답 입력 (예: 3/4, sqrt(2), x^2)';
+      let cur = ''; try { cur = mf.value || ''; } catch (_) {}
+      textEl.value = cur || initial || '';
       wrap.innerHTML = ''; wrap.appendChild(textEl);
     }
+    fbLink.addEventListener('click', (ev) => { ev.preventDefault(); fallback(); try { textEl && textEl.focus(); } catch (_) {} });
     ensureMathLive().then((ok) => {
       if (!ok) { fallback(); return; }
       customElements.whenDefined('math-field').then(() => { try { mf.value = initial || ''; } catch (_) {} });

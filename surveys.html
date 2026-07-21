@@ -96,10 +96,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<!-- 수식(math) 문제 응시·표시용 — MathLive 웹컴포넌트. 로드 실패 시 math 문항은 일반 입력칸으로 폴백. -->
+<!-- 수식(math) 문제 응시·표시용 — MathLive 웹컴포넌트. 로드 실패 시 math 문항은 일반 입력칸으로 폴백.
+     버전 고정(@0.110.0): 미고정 +esm은 최신판이 조용히 바뀌며 기기별(특히 iOS) 회귀를 만들 수 있어 고정. -->
 <script type="module">
   try {
-    await import('https://cdn.jsdelivr.net/npm/mathlive/+esm');
+    await import('https://cdn.jsdelivr.net/npm/mathlive@0.110.0/+esm');
     // 커스텀 간소 키패드: 분수·√·ⁿ√·xⁿ·행렬만 (적분·삼각·그리스문자 제외)
     if (window.mathVirtualKeyboard) {
       window.mathVirtualKeyboard.layouts = {
@@ -286,20 +287,33 @@
         mf.setAttribute('math-virtual-keyboard-policy','onfocus');
         mf.addEventListener('input', function(){ answers[q.id] = mf.value; });
         body.appendChild(mf);
+        // 아이폰(iOS WKWebView)에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비 — 탭하면 직접 show()
+        (function(el){
+          function showKb(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }
+          el.addEventListener('focusin', function(){ setTimeout(showKb, 60); });
+          el.addEventListener('pointerup', function(){ try{ el.focus(); }catch(e){} setTimeout(showKb, 150); });
+        })(mf);
         var mfh = document.createElement('div'); mfh.className = 'scaleLbl'; mfh.style.marginTop = '7px';
-        mfh.innerHTML = '<span>칸을 누르면 수학 키패드가 떠요 · 분수·루트 입력 가능</span>';
+        mfh.innerHTML = '<span>칸을 누르면 수학 키패드가 떠요 · 분수·루트 입력 가능</span>' +
+          '<a href="#" class="mfFallbackLink" style="color:var(--primary);font-weight:700;white-space:nowrap;">키패드가 안 떠요</a>';
         body.appendChild(mfh);
-        // MathLive 로드 실패(CDN 차단 등) 대비 — 컴포넌트가 안 뜨면 일반 입력칸으로 폴백
-        (function(mfEl, qid){
-          setTimeout(function(){
-            if(!(window.customElements && customElements.get('math-field'))){
-              var fb = document.createElement('input'); fb.type='text'; fb.className='ti';
-              fb.placeholder='답을 입력하세요';
-              fb.addEventListener('input', function(){ answers[qid] = fb.value; });
-              if(mfEl.parentNode) mfEl.parentNode.replaceChild(fb, mfEl);
-            }
-          }, 2500);
-        })(mf, q.id);
+        // 폴백(일반 입력칸 전환): ① MathLive 로드 실패 시 자동 ② '키패드가 안 떠요' 탭 시 수동.
+        //   텍스트 답(예: 3/4, sqrt(2), x^2)도 서버 mathEqual이 수학적 동치로 채점하므로 안전.
+        (function(mfEl, qid, hintEl){
+          function toText(){
+            if(!mfEl.parentNode) return;
+            var fb = document.createElement('input'); fb.type='text'; fb.className='ti';
+            fb.placeholder='답 입력 (예: 3/4, sqrt(2), x^2)';
+            try{ fb.value = answers[qid] || ''; }catch(e){}
+            fb.addEventListener('input', function(){ answers[qid] = fb.value; });
+            mfEl.parentNode.replaceChild(fb, mfEl);
+            hintEl.innerHTML = '<span>일반 키보드로 입력 · 분수는 3/4, 루트는 sqrt(2), 거듭제곱은 x^2</span>';
+            try{ fb.focus(); }catch(e){}
+          }
+          var lk = hintEl.querySelector('.mfFallbackLink');
+          if(lk) lk.addEventListener('click', function(ev){ ev.preventDefault(); toText(); });
+          setTimeout(function(){ if(!(window.customElements && customElements.get('math-field'))) toText(); }, 2500);
+        })(mf, q.id, mfh);
       } else { // short
         answers[q.id] = '';
         var ti = document.createElement('input'); ti.type='text'; ti.className = 'ti'; ti.placeholder = '답변을 입력하세요';

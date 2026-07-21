@@ -138,10 +138,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<!-- 수식(math) 문제유형 입력용 — MathLive 웹컴포넌트. 로드 실패해도 나머지 빌더는 정상 동작. -->
+<!-- 수식(math) 문제유형 입력용 — MathLive 웹컴포넌트. 로드 실패해도 나머지 빌더는 정상 동작.
+     버전 고정(@0.110.0): 미고정 +esm은 최신판이 조용히 바뀌며 기기별(특히 iOS) 회귀를 만들 수 있어 고정. -->
 <script type="module">
   try {
-    await import('https://cdn.jsdelivr.net/npm/mathlive/+esm');
+    await import('https://cdn.jsdelivr.net/npm/mathlive@0.110.0/+esm');
     // 커스텀 간소 키패드: 분수·√·ⁿ√·xⁿ·행렬만 (적분·삼각·그리스문자 제외)
     if (window.mathVirtualKeyboard) {
       window.mathVirtualKeyboard.layouts = {
@@ -634,6 +635,9 @@
         (function(mfEl, qq){
           customElements.whenDefined('math-field').then(function(){ try{ mfEl.value = qq._ct || ''; }catch(_){} });
           mfEl.addEventListener('input', function(){ qq._ct = mfEl.value; refreshAutoPoints(); });
+          // iOS에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비 — 탭하면 직접 show()
+          mfEl.addEventListener('focusin', function(){ setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 60); });
+          mfEl.addEventListener('pointerup', function(){ try{ mfEl.focus(); }catch(e){} setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 150); });
         })(mf, q);
         mcr.appendChild(mf);
         var mh = document.createElement('div'); mh.className = 'qhint';
@@ -654,6 +658,9 @@
           (function(mfEl, qq){
             customElements.whenDefined('math-field').then(function(){ try{ mfEl.value = qq._ctTwin || ''; }catch(_){} });
             mfEl.addEventListener('input', function(){ qq._ctTwin = mfEl.value; });
+            // iOS 키패드 미표시 대비 — 탭하면 직접 show()
+            mfEl.addEventListener('focusin', function(){ setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 60); });
+            mfEl.addEventListener('pointerup', function(){ try{ mfEl.focus(); }catch(e){} setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 150); });
           })(tmf, q);
           twr.appendChild(tmf);
         } else {
