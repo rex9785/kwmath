@@ -9,6 +9,7 @@ import { safeError } from './_errors.js';
 import { dispatchNoticePush } from './notices-write.js';
 import { runPayrollReminder } from './payroll-reminder.js';
 import { runAttendanceReminder } from './admin-reminders.js';
+import { flushNightPushQueue } from './_push.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 
@@ -48,6 +49,14 @@ export async function onRequest({ request, env, waitUntil }) {
   try {
     const arP = Promise.resolve(runAttendanceReminder(env)).catch(() => {});
     if (typeof waitUntil === 'function') waitUntil(arP); else await arP;
+  } catch (_) {}
+
+  // 밤에 쌓인 학부모 푸시(자료·리포트 업로드)를 아침에 모아 발송.
+  //   flushNightPushQueue 내부가 침묵 시간엔 no-op → 아침 첫 틱(07시~)에 큐를 비우고 발송.
+  //   반드시 아래 '침묵 시간 return'보다 앞에서 호출해야 07시 틱에 실행됨.
+  try {
+    const nqP = Promise.resolve(flushNightPushQueue(env)).catch(() => {});
+    if (typeof waitUntil === 'function') waitUntil(nqP); else await nqP;
   } catch (_) {}
 
   // 침묵 시간(밤 11시 ~ 아침 7시 KST)이면 (공지) 발송 보류

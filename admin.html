@@ -552,11 +552,19 @@
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <select id="viewFolder" onchange="loadFiles()" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
-          <option value="class">📚 수업자료·교재 (반별)</option>
-          <option value="reports">📋 학생 리포트 (학생별)</option>
-          <option value="materials">📢 공개 자료 (전체 공개)</option>
-        </select>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select id="viewFolder" onchange="loadFiles()" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
+            <option value="class">📚 수업자료·교재 (반별)</option>
+            <option value="reports">📋 학생 리포트 (학생별)</option>
+            <option value="materials">📢 공개 자료 (전체 공개)</option>
+          </select>
+          <select id="viewAcademy" onchange="onClassFilterChange('academy')" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;display:none;">
+            <option value="">전체 학원</option>
+          </select>
+          <select id="viewClass" onchange="onClassFilterChange('class')" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;display:none;">
+            <option value="">전체 반</option>
+          </select>
+        </div>
         <span id="fileCount" style="font-size:0.82rem;color:var(--text-light);"></span>
       </div>
       <div id="fileList"><div class="empty">파일이 없습니다.</div></div>
@@ -1487,44 +1495,120 @@
             body: JSON.stringify({ academy: acad, className: cls, date: csd, count: successCount }),
           });
           const nd = await nres.json().catch(() => ({}));
-          if (nd && nd.ok && nd.targeted) showToast('🔔 ' + cls + ' 학부모 ' + nd.targeted + '명에게 알림을 보냈어요.');
+          if (nd && nd.ok && nd.targeted) {
+            // 밤(KST 23~7시)엔 즉시 발송이 아니라 아침 07시에 모아 보냄 → 토스트를 정직하게 구분.
+            showToast(nd.night
+              ? ('🌙 지금은 야간(23~7시)이라 ' + cls + ' 학부모 ' + nd.targeted + '명 알림을 오전 7시에 모아 보낼게요.')
+              : ('🔔 ' + cls + ' 학부모 ' + nd.targeted + '명에게 알림을 보냈어요.'));
+          }
         } catch (_) { /* 알림 실패는 업로드 성공에 영향 없음 */ }
       }
     }
   }
 
   // ── 자료실: 파일 목록 조회 ──
+  let currentFiles = [];   // 현재 폴더의 파일 캐시 (반별 필터용)
+
+  // #csAcademy 옵션 = 알려진 학원명(업로드 드롭다운과 동기화)
+  function knownAcademies() {
+    return Array.from(document.querySelectorAll('#csAcademy option')).map(o => o.value).filter(Boolean);
+  }
+  // class/{학원}_{반}/{MMDD}/파일 → {학원, 반}
+  function parseClassKey(key) {
+    const seg = (key || '').split('/')[1] || '';   // {학원}_{반}
+    for (const a of knownAcademies()) {
+      if (seg === a) return { academy: a, className: '' };
+      if (seg.startsWith(a + '_')) return { academy: a, className: seg.slice(a.length + 1) };
+    }
+    const i = seg.indexOf('_');
+    return i < 0 ? { academy: seg, className: '' } : { academy: seg.slice(0, i), className: seg.slice(i + 1) };
+  }
+
   async function loadFiles() {
     const folder = document.getElementById('viewFolder').value;
     const list = document.getElementById('fileList');
     const countEl = document.getElementById('fileCount');
+    const acadSel = document.getElementById('viewAcademy');
+    const clsSel  = document.getElementById('viewClass');
+    const isClass = folder === 'class';
+    // 학원·반 필터 드롭다운은 '수업자료·교재(반별)'에서만 노출
+    acadSel.style.display = isClass ? '' : 'none';
+    clsSel.style.display  = isClass ? '' : 'none';
     list.innerHTML = '<div class="empty">불러오는 중...</div>';
     try {
       const res = await fetch(`/api/list-files?folder=${folder}`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
       const files = await res.json();
-      if (!Array.isArray(files) || !files.length) {
+      currentFiles = Array.isArray(files) ? files : [];
+      if (isClass) currentFiles.forEach(f => { const p = parseClassKey(f.key); f._academy = p.academy; f._className = p.className; });
+      if (!currentFiles.length) {
         list.innerHTML = '<div class="empty">파일이 없습니다.</div>';
         countEl.textContent = '';
+        acadSel.innerHTML = '<option value="">전체 학원</option>';
+        clsSel.innerHTML  = '<option value="">전체 반</option>';
         return;
       }
-      countEl.textContent = `총 ${files.length}개`;
-      list.innerHTML = files.map(f => `
-        <div class="report-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div>
-            <div style="font-weight:700;font-size:0.9rem;">${escapeHtml(f.displayName)}</div>
-            <div style="font-size:0.78rem;color:var(--text-light);">${f.sizeLabel || f.size || ''} ${f.lastModified ? '· '+new Date(f.lastModified).toLocaleDateString('ko-KR') : ''}</div>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button onclick="downloadFile('${f.key}')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">⬇ 다운</button>
-            <button onclick="deleteFile('${f.key}')" style="background:#fff;color:#c0392b;border:1.5px solid #c0392b;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">🗑</button>
-          </div>
-        </div>
-      `).join('');
+      if (isClass) { populateClassFilters(); applyClassFilter(); }
+      else { renderFileList(currentFiles); }
     } catch(e) {
       list.innerHTML = '<div class="empty">오류가 발생했습니다.</div>';
     }
+  }
+
+  // 학원·반 필터: 드롭다운 채우기 / 변경 / 적용
+  function populateClassFilters() {
+    const acadSel = document.getElementById('viewAcademy');
+    const acads = [...new Set(currentFiles.map(f => f._academy).filter(Boolean))].sort();
+    const cur = acadSel.value;   // 새로고침 시 선택 유지
+    acadSel.innerHTML = '<option value="">전체 학원</option>' + acads.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+    if (cur && acads.includes(cur)) acadSel.value = cur;
+    updateViewClassOptions();
+  }
+  function updateViewClassOptions() {
+    const a = document.getElementById('viewAcademy').value;
+    const clsSel = document.getElementById('viewClass');
+    const pool = a ? currentFiles.filter(f => f._academy === a) : currentFiles;
+    const classes = [...new Set(pool.map(f => f._className).filter(Boolean))].sort();
+    const cur = clsSel.value;
+    clsSel.innerHTML = '<option value="">전체 반</option>' + classes.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if (cur && classes.includes(cur)) clsSel.value = cur;
+  }
+  function onClassFilterChange(which) {
+    if (which === 'academy') updateViewClassOptions();
+    applyClassFilter();
+  }
+  function applyClassFilter() {
+    const a = document.getElementById('viewAcademy').value;
+    const c = document.getElementById('viewClass').value;
+    let files = currentFiles;
+    if (a) files = files.filter(f => f._academy === a);
+    if (c) files = files.filter(f => f._className === c);
+    renderFileList(files);
+  }
+
+  // 파일 목록 렌더 (필터 결과 공용)
+  function renderFileList(files) {
+    const list = document.getElementById('fileList');
+    const countEl = document.getElementById('fileCount');
+    if (!files.length) {
+      list.innerHTML = '<div class="empty">해당 조건의 파일이 없습니다.</div>';
+      countEl.textContent = '총 0개';
+      return;
+    }
+    countEl.textContent = `총 ${files.length}개`;
+    list.innerHTML = files.map(f => `
+      <div class="report-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:700;font-size:0.9rem;">${escapeHtml(f.displayName)}</div>
+          <div style="font-size:0.78rem;color:var(--text-light);">${f.sizeLabel || f.size || ''} ${f.lastModified ? '· '+new Date(f.lastModified).toLocaleDateString('ko-KR') : ''}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="downloadFile('${f.key}')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">⬇ 다운</button>
+          <button onclick="deleteFile('${f.key}')" style="background:#fff;color:#c0392b;border:1.5px solid #c0392b;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">🗑</button>
+        </div>
+      </div>
+    `).join('');
   }
 
   // ── 자료실: 다운로드 ──

@@ -203,20 +203,36 @@ export async function sendPushToUsers(env, userIds, payload, opts = {}) {
   let ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean).map(String))];
   if (!ids.length) return { ok: true, sent: 0 };
 
-  // 밤(KST 23:00~07:00) 무음 — 학부모 수신자만 제외(관우T: 학부모만·학생/원장은 발송, 밤 알림은 그냥 건너뜀).
-  if (opts && opts.nightSilent && isKstQuietHours()) {
-    if (opts.nightSilent === true) return { ok: true, sent: 0, skipped: ids.length, note: 'quiet-hours(parent)' };
-    const silent = new Set((Array.isArray(opts.nightSilent) ? opts.nightSilent : [opts.nightSilent]).filter(Boolean).map(String));
-    if (silent.size) ids = ids.filter(id => !silent.has(id));
-    if (!ids.length) return { ok: true, sent: 0, skipped: silent.size, note: 'quiet-hours(parent)' };
-  }
-
   const msg = {
     title: payload.title || '이관우 수학연구소',
     body:  payload.body  || '',
     url:   payload.url   || '/portal',
     tag:   payload.tag   || 'kwmath',
   };
+
+  // 밤(KST 23:00~07:00) 무음 — 학부모 수신자만 제외(관우T: 학부모만·학생/원장은 발송).
+  //   기본: 그냥 건너뜀(드롭). opts.queueIfNight=true 면 드롭 대신 R2 야간 큐에 쌓아
+  //   아침 첫 크론 틱에 발송(자료·리포트 업로드). flush는 notices-flush가 flushNightPushQueue로 수행.
+  if (opts && opts.nightSilent && isKstQuietHours()) {
+    const silencedAll = opts.nightSilent === true;
+    let silencedIds;
+    if (silencedAll) {
+      silencedIds = ids;
+    } else {
+      const silent = new Set((Array.isArray(opts.nightSilent) ? opts.nightSilent : [opts.nightSilent]).filter(Boolean).map(String));
+      silencedIds = ids.filter(id => silent.has(id));
+      ids = ids.filter(id => !silent.has(id));
+    }
+    let queued = 0;
+    if (opts.queueIfNight && silencedIds.length) {
+      const q = await enqueueNightPush(env, silencedIds, msg, opts.queueTag || opts.kind || msg.tag);
+      queued = (q && q.queued) || 0;
+    }
+    if (silencedAll || !ids.length) {
+      return { ok: true, sent: 0, skipped: silencedIds.length, queued, note: queued ? 'quiet-hours→queued(parent)' : 'quiet-hours(parent)' };
+    }
+    // 일부만 무음(학생·원장 등은 계속) → 남은 ids는 아래에서 즉시 발송.
+  }
 
   // ① Web Push (브라우저·PWA) — 기존 경로 유지
   let webSent = 0, webTotal = 0;
@@ -248,4 +264,65 @@ export async function sendPushToUsers(env, userIds, payload, opts = {}) {
   const fcm = await sendFcmToUsers(env, ids, msg);
 
   return { ok: true, sent: webSent + (fcm.sent || 0), web: { sent: webSent, total: webTotal }, fcm };
+}
+
+// ── 야간 큐: 밤(KST 23~7)에 드롭될 학부모 푸시를 R2에 쌓아 아침에 발송 ──────────────
+//   opt-in 경로만 사용: sendPushToUsers(..., { nightSilent:true, queueIfNight:true })
+//                       또는 push-send body.queueIfNight (리포트 경로).
+//   → 자료 업로드(notify-class-materials) · 리포트 업로드(reports-write→push-send)만 큐잉.
+//     출결·수동공지·승인 등 나머지 학부모 푸시는 기존대로 밤엔 드롭(옵트인 안 함).
+//   저장: R2 night-push-queue/{ts}-{rand}.json = { ids:[…], msg:{title,body,url,tag}, kind, enqueuedAt }
+//   발송: notices-flush 크론이 매 틱 flushNightPushQueue(env) 호출 → 비침묵(아침 07시~) 때 발송·삭제.
+const NIGHT_QUEUE_PREFIX = 'night-push-queue/';
+
+export async function enqueueNightPush(env, ids, msg, kind = '') {
+  try {
+    const uids = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean).map(String))];
+    if (!uids.length || !env || !env.BUCKET) return { queued: 0 };
+    const m = msg || {};
+    const rec = {
+      ids: uids,
+      msg: { title: m.title || '이관우 수학연구소', body: m.body || '', url: m.url || '/portal', tag: m.tag || 'kwmath' },
+      kind: String(kind || ''),
+      enqueuedAt: new Date().toISOString(),
+    };
+    const key = NIGHT_QUEUE_PREFIX + Date.now() + '-' + Math.random().toString(36).slice(2, 10) + '.json';
+    await env.BUCKET.put(key, JSON.stringify(rec), { httpMetadata: { contentType: 'application/json' } });
+    return { queued: uids.length, key };
+  } catch (e) {
+    return { queued: 0, error: String((e && e.message) || e) };
+  }
+}
+
+// 아침(비침묵 시간)에 쌓인 야간 큐를 실제 발송. notices-flush가 매 틱 호출(침묵 시간엔 자체 no-op).
+//   at-least-once: 발송 시도 후 삭제. 발송은 sendPushToUsers 재사용(nightSilent 없음 → 즉시 web+FCM).
+//   재귀 재큐 없음: flush는 비침묵 때만 도는데, 그 시각엔 nightSilent 분기 자체가 안 걸림.
+export async function flushNightPushQueue(env) {
+  if (isKstQuietHours()) return { ok: true, flushed: 0, sent: 0, reason: 'quiet-hours' };
+  if (!env || !env.BUCKET) return { ok: true, flushed: 0, sent: 0, reason: 'no-bucket' };
+  let flushed = 0, sent = 0, failed = 0;
+  try {
+    let cursor;
+    do {
+      const listing = await env.BUCKET.list({ prefix: NIGHT_QUEUE_PREFIX, limit: 100, cursor });
+      for (const obj of (listing.objects || [])) {
+        let rec = null;
+        try {
+          const g = await env.BUCKET.get(obj.key);
+          if (g) rec = JSON.parse(await g.text());
+        } catch { rec = null; }
+        if (rec && Array.isArray(rec.ids) && rec.ids.length && rec.msg) {
+          try {
+            const r = await sendPushToUsers(env, rec.ids, rec.msg);   // nightSilent 미지정 → 즉시 발송
+            sent += (r && r.sent) || 0;
+          } catch { failed++; }
+        }
+        try { await env.BUCKET.delete(obj.key); flushed++; } catch {}
+      }
+      cursor = (listing && listing.truncated) ? listing.cursor : null;
+    } while (cursor);
+  } catch (e) {
+    return { ok: false, flushed, sent, failed, error: String((e && e.message) || e) };
+  }
+  return { ok: true, flushed, sent, failed };
 }

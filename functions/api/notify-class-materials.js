@@ -7,7 +7,7 @@
 //   best-effort: 실패해도 등록/업로드는 이미 끝났으니 알림만 조용히 실패.
 import { normalizePhone } from './_auth.js';
 import { listStudents } from './_db.js';
-import { sendPushToUsers } from './_push.js';
+import { sendPushToUsers, isKstQuietHours } from './_push.js';
 import { safeError } from './_errors.js';
 
 export async function onRequest(context) {
@@ -34,17 +34,19 @@ export async function onRequest(context) {
     if (!phones.length) return Response.json({ ok: true, targeted: 0, note: '대상 학부모 없음' });
 
     const nice = date && date.length >= 10 ? date.slice(5).replace('-', '/') : date;   // 2026-07-14 → 07/14
+    const night = isKstQuietHours();   // 밤이면 지금 발송 대신 아침 큐로(아래 queueIfNight) — 토스트 정직화에 사용.
     const p = sendPushToUsers(env, phones, {
       title: '📚 새 수업자료가 올라왔어요',
       body: className + (nice ? (' · ' + nice) : '') + ' 수업자료' + (count ? (' ' + count + '개') : '') + ' — 앱에서 확인하세요',
       url: '/materials',                                   // 포털 "수업 자료실" = materials.html (반 전용 R2 자료 로드)
       // tag를 반+날짜로 고유화 → 형제(다른 반)·다른 날 알림이 서로 덮어쓰지 않음. 같은 반·같은 날 재업로드는 1건으로 합쳐짐.
       tag: 'kwmath-mat-' + academy + '_' + className + (date ? '-' + date : ''),
-    }, { nightSilent: true });   // 전원 학부모 → 밤(KST 23~7)엔 발송 건너뜀
+    }, { nightSilent: true, queueIfNight: true });   // 전원 학부모 → 밤(KST 23~7)엔 드롭 대신 아침 큐로 예약
     if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
     else if (p && typeof p.catch === 'function') p.catch(() => {});
 
-    return Response.json({ ok: true, targeted: phones.length });
+    // night=true면 실발송은 아침(07시~) 큐로 예약됨 → admin 토스트가 "오전에 모아 보냄"으로 정직하게 표시.
+    return Response.json({ ok: true, targeted: phones.length, night, queued: night ? phones.length : 0 });
   } catch (e) {
     return safeError(e, env, { message: '알림 발송 중 오류가 발생했습니다.' });
   }
