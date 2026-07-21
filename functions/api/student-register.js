@@ -54,14 +54,25 @@ export async function onRequest(context) {
   // 이름 살균 — HTML 위험문자(< > " ') 제거. 저장형 XSS 방지: admin 화면 onclick 등 모든 렌더 사이트 보호.
   const safeName = String(name).replace(/[<>"']/g, '').trim().slice(0, 60);
   if (!safeName) return Response.json({ error: '이름에 사용할 수 없는 문자가 포함되어 있습니다.' }, { status: 400 });
-  const requiredExtras = { mathMockGrade, korMockGrade, engMockGrade, schoolMathGrade, advanceProgress, weakness, dreamUniv };
-  for (const [k, v] of Object.entries(requiredExtras)) {
-    if (!v || (typeof v === 'string' && !v.trim())) {
-      return Response.json({ error: '추가 정보가 누락되었습니다: ' + k + ' (모르면 "모름" 선택)' }, { status: 400 });
-    }
+  // 필수(2026-07-21 관우T 지시): 수학 성적(모의고사·내신 등급) + 선행 진도 + 취약단원 + 희망대학 + 등원요일.
+  // 선택(빈 값 허용): 국어·영어 등급, 원점수, 유입경로 등. 빈 값은 createStudent에서 ''/[]로 안전 저장.
+  if (!mathMockGrade || !String(mathMockGrade).trim()) {
+    return Response.json({ error: '모의고사 수학 등급을 선택해주세요. (모르면 "모름")' }, { status: 400 });
   }
-  if (!Array.isArray(availableDays) || !availableDays.length) {
-    return Response.json({ error: '등원 가능 요일을 선택해주세요. (모르면 "협의")' }, { status: 400 });
+  if (!schoolMathGrade || !String(schoolMathGrade).trim()) {
+    return Response.json({ error: '내신 수학 등급을 선택해주세요. (모르면 "모름")' }, { status: 400 });
+  }
+  if (!advanceProgress || !String(advanceProgress).trim()) {
+    return Response.json({ error: '선행 진도를 선택해주세요. (모르면 "모름")' }, { status: 400 });
+  }
+  if (!weakness || !String(weakness).trim()) {
+    return Response.json({ error: '취약 단원을 입력해주세요. (특별히 없으면 "없음")' }, { status: 400 });
+  }
+  if (!dreamUniv || !String(dreamUniv).trim()) {
+    return Response.json({ error: '희망 대학/계열을 입력해주세요. (아직 없으면 "미정")' }, { status: 400 });
+  }
+  if (!Array.isArray(availableDays) || availableDays.length === 0) {
+    return Response.json({ error: '등원 가능 요일을 하나 이상 선택해주세요.' }, { status: 400 });
   }
 
   // 🔑 반 코드 → 학원/반 자동 배정 (서버측 권위 검증). 코드 없거나 틀리면 등록 불가(스팸 차단).

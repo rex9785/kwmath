@@ -98,7 +98,7 @@
           <div class="form-hint">입력하신 휴대폰 번호가 포털 로그인 아이디가 됩니다. (승인 완료 후, 초기 비밀번호 0000)</div>
         </div>
         <div class="form-row">
-          <label>학부모 관계 <span class="req">*</span></label>
+          <label>학부모 관계</label>
           <select id="parentRelation">
             <option value="">선택하세요</option><option value="어머니">어머니</option><option value="아버지">아버지</option><option value="기타">기타</option>
           </select>
@@ -108,7 +108,7 @@
       <div class="form-section">
         <div class="form-section-title">수업 정보</div>
         <div class="form-row">
-          <label>수강 목적 <span class="req">*</span> (중복 선택 가능)</label>
+          <label>수강 목적 (중복 선택 가능)</label>
           <div class="check-group" id="goalGroup">
             <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="수능"> 📌 수능</label>
             <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="내신"> 📚 내신</label>
@@ -135,8 +135,8 @@
       </div>
 
       <div class="form-section">
-        <div class="form-section-title">추가 정보 <span class="req" style="color:var(--primary);">*</span> (모르면 '모름' 선택)</div>
-        <div style="font-size:0.78rem;color:var(--text-light);margin-bottom:14px;line-height:1.6;">📊 모의고사·내신·선행 진도·희망 진로 — 정확히 모르겠으면 '모름'을 선택해주세요. 선생님이 맞춤 수업 준비에 활용합니다.</div>
+        <div class="form-section-title">추가 정보 <span style="font-weight:400;font-size:0.78rem;color:var(--text-light);">(수학 성적은 필수 · 나머지는 선택)</span></div>
+        <div style="font-size:0.78rem;color:var(--text-light);margin-bottom:14px;line-height:1.6;">📊 <b>수학 성적(모의고사·내신 등급)은 꼭 선택</b>해주세요 — 모르면 '모름'. 국어·영어·선행·진로 등 나머지는 아는 만큼만 적으면 됩니다.</div>
         <div>
             <div class="form-row"><label>📐 모의고사 수학 <span class="req">*</span></label></div>
             <div class="row2">
@@ -153,11 +153,12 @@
               <div class="form-row">
                 <label style="font-weight:500;font-size:0.78rem;color:var(--text-light);">원점수 (0~100)</label>
                 <input id="mathMockScore" type="number" min="0" max="100" placeholder="예: 78">
+                <div class="form-hint">모르면 안 써도 됩니다.</div>
               </div>
             </div>
             <div class="row2">
               <div class="form-row">
-                <label>📖 모의고사 국어 등급 <span class="req">*</span></label>
+                <label>📖 모의고사 국어 등급</label>
                 <select id="korMockGrade">
                   <option value="">선택</option>
                   <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
@@ -167,7 +168,7 @@
                 </select>
               </div>
               <div class="form-row">
-                <label>🌐 모의고사 영어 등급 <span class="req">*</span></label>
+                <label>🌐 모의고사 영어 등급</label>
                 <select id="engMockGrade">
                   <option value="">선택</option>
                   <option value="1등급">1등급</option><option value="2등급">2등급</option><option value="3등급">3등급</option>
@@ -202,15 +203,17 @@
               </div>
             </div>
             <div class="form-row">
-              <label>🎯 취약 단원 / 어려워하는 부분 <span class="req">*</span> (모르면 '모름' 입력)</label>
-              <textarea id="weakness" placeholder="예: 함수의 극한, 도형의 방정식, 삼각함수 그래프 등"></textarea>
+              <label>🎯 취약 단원 / 어려워하는 부분 <span class="req">*</span></label>
+              <textarea id="weakness" placeholder="예: 함수의 극한, 도형의 방정식 등 (특별히 없으면 '없음')"></textarea>
+              <div class="form-hint">특별히 없으면 '없음'이라고 적어주세요.</div>
             </div>
             <div class="form-row">
-              <label>🎓 희망 대학 / 계열 <span class="req">*</span> (모르면 '미정' 입력)</label>
-              <input id="dreamUniv" type="text" placeholder="예: 의대, 공대, 자연계열 / SKY, 인서울 등">
+              <label>🎓 희망 대학 / 계열 <span class="req">*</span></label>
+              <input id="dreamUniv" type="text" placeholder="예: 의대, 공대, 자연계열 / SKY, 인서울 등 (아직 없으면 '미정')">
+              <div class="form-hint">아직 없으면 '미정'이라고 적어주세요.</div>
             </div>
             <div class="form-row">
-              <label>📅 등원 가능 요일 <span class="req">*</span> (중복 선택 / 모르면 '협의')</label>
+              <label>📅 등원 가능 요일 (중복 선택 / 협의 가능) <span class="req">*</span></label>
               <div class="check-group" id="dayGroup">
                 <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="월"> 월</label>
                 <label class="check-item" onclick="toggleCheck(event, this)"><input type="checkbox" value="화"> 화</label>
@@ -391,18 +394,14 @@
     if (!grade) { showErr('학년을 선택해주세요.'); return; }
     if (studentDigits.length < 10) { showErr('학생 휴대폰 번호를 정확히 입력해주세요.'); return; }
     if (parentDigits.length < 10)  { showErr('학부모 휴대폰 번호를 정확히 입력해주세요.'); return; }
-    if (!parentRelation) { showErr('학부모 관계를 선택해주세요.'); return; }
-    if (!goals.length) { showErr('수강 목적을 한 개 이상 선택해주세요.'); return; }
     if (!classCode) { showErr('반 코드를 입력해주세요. (선생님께 받은 숫자코드)'); return; }
     if (!resolvedClassName) { showErr('반 코드를 확인할 수 없습니다. 코드를 다시 확인해주세요.'); return; }
     if (!mathMockGrade)   { showErr('모의고사 수학 등급을 선택해주세요. (모르면 "모름")'); return; }
-    if (!korMockGrade)    { showErr('모의고사 국어 등급을 선택해주세요. (모르면 "모름")'); return; }
-    if (!engMockGrade)    { showErr('모의고사 영어 등급을 선택해주세요. (모르면 "모름")'); return; }
     if (!schoolMathGrade) { showErr('내신 수학 등급을 선택해주세요. (모르면 "모름")'); return; }
     if (!advanceProgress) { showErr('선행 진도를 선택해주세요. (모르면 "모름")'); return; }
-    if (!weakness)        { showErr('취약 단원을 입력해주세요. (모르면 "모름")'); return; }
-    if (!dreamUniv)       { showErr('희망 대학/계열을 입력해주세요. (모르면 "미정")'); return; }
-    if (!availableDays.length) { showErr('등원 가능 요일을 선택해주세요. (모르면 "협의")'); return; }
+    if (!weakness)        { showErr('취약 단원을 입력해주세요. (특별히 없으면 "없음")'); return; }
+    if (!dreamUniv)       { showErr('희망 대학/계열을 입력해주세요. (아직 없으면 "미정")'); return; }
+    if (!availableDays.length) { showErr('등원 가능 요일을 하나 이상 선택해주세요.'); return; }
 
     const parentPhone4 = parentDigits.slice(-4);
 
