@@ -34,6 +34,7 @@
     --primary:#8B1A35;--primary-mid:#B02347;--primary-light:#F9EEF1;
     --text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;
     --hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;
+    --primary-dark:#661327;--border2:#E9E1D9;--gold-soft:#FBF3DF;
     --serif:'Noto Serif KR',serif;
   }
   html{background:#862633;} /* iOS native splash → JS splash 전환 시 흰 깜빡임 방지 */
@@ -200,11 +201,66 @@
           <select id="childSelect" onchange="onChildChange()" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:0.9rem;font-family:inherit;background:#fff;outline:none;"></select>
         </div>
       </div>
-      <!-- 3a 데이터 브리핑: 상단 3칸 스탯 스트립 (칸2·3은 추후 데이터 연동) -->
-      <div id="statStrip" style="display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border:1px solid var(--border);border-radius:14px;margin-top:14px;overflow:hidden;">
-        <div style="padding:13px 8px;text-align:center;"><div style="font-size:0.66rem;font-weight:600;color:var(--gold);margin-bottom:3px;">수능까지</div><div id="statDday" style="font-family:var(--serif);font-size:1.19rem;font-weight:900;color:var(--primary);">–</div></div>
-        <div style="padding:13px 8px;text-align:center;border-left:1px solid var(--hairline);"><div style="font-size:0.66rem;font-weight:600;color:var(--text-light);margin-bottom:3px;">이번 달 출석</div><div id="statAttend" style="font-family:var(--serif);font-size:1.19rem;font-weight:900;color:var(--text);">–</div></div>
-        <div style="padding:13px 8px;text-align:center;border-left:1px solid var(--hairline);"><div style="font-size:0.66rem;font-weight:600;color:var(--text-light);margin-bottom:3px;">최근 테스트</div><div id="statTest" style="font-family:var(--serif);font-size:1.19rem;font-weight:900;color:var(--text);">–</div></div>
+      <!-- 6c 데이터 브리핑: 상단 스탯 칩 3개 (수능D · 이번 달 출석 · 최근 테스트) -->
+      <div id="statStrip" style="display:flex;gap:8px;margin-top:14px;">
+        <div style="flex:1;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border2);border-radius:11px;padding:9px 11px;min-width:0;">
+          <span style="flex-shrink:0;width:26px;height:26px;border-radius:8px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;color:var(--primary);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg></span>
+          <span style="min-width:0;"><span style="display:block;font-size:9.5px;font-weight:600;color:var(--text-light);">수능까지</span><span id="statDday" style="display:block;font-family:var(--serif);font-size:14px;font-weight:900;color:var(--primary);line-height:1.2;">–</span></span>
+        </div>
+        <div style="flex:1;background:#fff;border:1px solid var(--border2);border-radius:11px;padding:9px 11px;min-width:0;"><span style="display:block;font-size:9.5px;font-weight:600;color:var(--text-light);">이번 달 출석</span><span id="statAttend" style="display:block;font-family:var(--serif);font-size:14px;font-weight:900;color:var(--text);line-height:1.2;">–</span></div>
+        <div style="flex:1;background:#fff;border:1px solid var(--border2);border-radius:11px;padding:9px 11px;min-width:0;"><span style="display:block;font-size:9.5px;font-weight:600;color:var(--text-light);">최근 테스트</span><span id="statTest" style="display:block;font-family:var(--serif);font-size:14px;font-weight:900;color:var(--text);line-height:1.2;">–</span></div>
+      </div>
+    </div>
+
+    <!-- 6c: 다음 수업 + 숙제 히어로 -->
+    <div id="heroCard" style="display:none;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:18px;padding:18px 20px 16px;margin-bottom:14px;color:#fff;box-shadow:0 6px 20px rgba(102,19,39,0.28);">
+      <div style="display:flex;align-items:center;gap:6px;color:var(--gold-bright);font-size:11px;font-weight:700;letter-spacing:0.1em;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+        다음 수업
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;margin-top:7px;flex-wrap:wrap;">
+        <span id="heroDate" style="font-family:var(--serif);font-size:23px;font-weight:700;line-height:1.15;">일정 조율 중</span>
+        <span id="heroDday" style="display:none;background:var(--gold-bright);color:#3A0F1C;font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px;white-space:nowrap;"></span>
+      </div>
+      <div id="heroSub" style="font-size:11.5px;color:rgba(255,255,255,0.62);margin-top:5px;"></div>
+      <div id="heroHwWrap" style="display:none;background:rgba(255,255,255,0.1);border-radius:12px;padding:12px 14px;margin-top:13px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"/><path d="M14.5 6.5l2.8 2.8"/></svg>
+            이번 숙제
+          </span>
+          <span id="heroHwCount" style="display:none;font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.35);border-radius:999px;padding:2px 8px;white-space:nowrap;"></span>
+        </div>
+        <div id="heroHwText" style="font-size:12px;color:rgba(255,255,255,0.82);margin-top:6px;line-height:1.5;"></div>
+      </div>
+    </div>
+
+    <!-- 6c: 확인이 필요해요 액션 존 (테스트 응답 + 읽지 않은 공지) -->
+    <div id="actionZone" style="display:none;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:7px;margin:0 2px 9px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
+        <span style="font-size:11.5px;font-weight:800;color:var(--primary);letter-spacing:0.02em;">확인이 필요해요</span>
+        <span id="actionCount" style="display:none;background:var(--primary);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:1px 7px;min-width:16px;text-align:center;line-height:1.5;"></span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(70,20,35,0.04);">
+        <!-- 테스트 응답 행 (기존 surveyBanner 로직·id 이전) -->
+        <a id="surveyBanner" href="/surveys" style="display:none;align-items:center;gap:11px;text-decoration:none;color:inherit;padding:13px 15px;">
+          <span style="flex-shrink:0;width:34px;height:34px;border-radius:10px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;color:var(--primary);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg></span>
+          <span style="flex:1;min-width:0;">
+            <span style="display:block;font-weight:800;font-size:13.5px;color:var(--text);" id="surveyBannerTitle">진행 중인 설문이 있어요</span>
+            <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:1px;" id="surveyBannerSub">눌러서 응답하기</span>
+          </span>
+          <span style="flex-shrink:0;font-size:11px;font-weight:800;background:var(--primary);color:#fff;border-radius:999px;padding:5px 13px;white-space:nowrap;">응답</span>
+        </a>
+        <!-- 읽지 않은 공지 행 -->
+        <a id="actionNoticeRow" href="javascript:void(0)" onclick="openNoticesFromAction()" style="display:none;align-items:center;gap:11px;text-decoration:none;color:inherit;padding:13px 15px;border-top:1px solid var(--hairline);">
+          <span style="flex-shrink:0;width:34px;height:34px;border-radius:10px;background:var(--gold-soft);display:flex;align-items:center;justify-content:center;color:var(--gold);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"/><path d="M17.5 9a4 4 0 0 1 0 6"/></svg></span>
+          <span style="flex:1;min-width:0;">
+            <span style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:13.5px;color:var(--text);flex-wrap:wrap;">읽지 않은 공지 <span id="actionNoticeCount">0</span>건 <span style="background:var(--primary);color:#fff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:0.03em;">NEW</span></span>
+            <span id="actionNoticeTitle" style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          </span>
+          <span style="flex-shrink:0;color:var(--text-light);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></span>
+        </a>
       </div>
     </div>
 
@@ -221,17 +277,8 @@
       </div>
     </div>
 
-    <!-- 설문·조사 얇은 배너 (열린 설문이 있을 때만 노출) -->
-    <a id="surveyBanner" href="/surveys" style="display:none;align-items:center;gap:10px;text-decoration:none;
-       background:#fff;border:1.5px solid var(--primary);border-radius:14px;
-       padding:12px 16px;margin-bottom:16px;color:var(--primary);box-shadow:0 2px 10px rgba(70,20,35,0.05);">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg>
-      <span style="flex:1;min-width:0;">
-        <span style="display:block;font-weight:800;font-size:0.92rem;" id="surveyBannerTitle">진행 중인 설문이 있어요</span>
-        <span style="display:block;font-size:0.78rem;color:var(--text-light);" id="surveyBannerSub">눌러서 응답하기</span>
-      </span>
-      <span style="font-size:0.8rem;font-weight:800;background:var(--primary);color:#fff;border-radius:999px;padding:5px 12px;white-space:nowrap;">응답하기 ›</span>
-    </a>
+    <!-- 설문·조사 배너: 6c에서 '확인이 필요해요' 액션 존 안으로 이전됨 (id=surveyBanner) -->
+
 
     <!-- 학원 공지/안내 박스 -->
     <div id="noticeBox" class="notice-box" style="display:none;">
@@ -642,6 +689,8 @@
     renderWelcome();
     renderChildSelect();
     try { loadStatStrip(); } catch (_) {}
+    try { loadHero(); } catch (_) {}
+    try { loadActionNotices(); } catch (_) {}
     updatePushButton();
     showInstallHintIfNeeded();
     try { updateFaceLockLink(); } catch (_) {}                        // Face ID 잠금 링크 노출/문구 갱신
@@ -866,6 +915,7 @@
     // 메인 페이지에서 기능 버튼 누를 때 학생 이름이 자동으로 적용되게 할 예정 (Phase 3에서 query string 또는 sessionStorage로 넘김)
     sessionStorage.setItem('kwmath_selected_student', JSON.stringify(selectedStudent));
     try { loadStatStrip(); } catch (_) {}
+    try { loadHero(); } catch (_) {}
   }
 
   // ════════ 비밀번호 변경 ════════
@@ -1645,10 +1695,116 @@
         if (pop) pop.style.display = 'flex';
       }
     } catch (e) { /* silent */ }
+    finally { try { refreshActionZone(); } catch (_) {} }
   }
   function dismissSurveyPopup() {
     const pop = document.getElementById('surveyPopup');
     if (pop) pop.style.display = 'none';
+  }
+
+  // ════════ 6c: 다음 수업·숙제 히어로 (me.html 로직 재사용, 새 요소에만 채움) ════════
+  const KW_DAY_TO_IDX = { '일':0,'월':1,'화':2,'수':3,'목':4,'금':5,'토':6 };
+  const KW_IDX_TO_DAY = ['일','월','화','수','목','금','토'];
+  function kwCalcNextClass(availableDays){
+    const days = (availableDays || []).map(d => KW_DAY_TO_IDX[d]).filter(i => i != null);
+    if (!days.length) return null;
+    days.sort((a,b) => a-b);
+    const today = new Date();
+    const ti = today.getDay();
+    let ni = days.find(i => i >= ti), ahead;
+    if (ni == null) { ni = days[0]; ahead = (7 - ti) + ni; } else { ahead = ni - ti; }
+    const nd = new Date(today); nd.setDate(today.getDate() + ahead);
+    return { date: nd, dayName: KW_IDX_TO_DAY[ni], daysAhead: ahead, regularDays: days.map(i => KW_IDX_TO_DAY[i]) };
+  }
+  let _heroSeq = 0;
+  async function loadHero(){
+    const seq = ++_heroSeq;
+    const card = document.getElementById('heroCard');
+    if (!card) return;
+    const st = selectedStudent || currentStudents[0];
+    if (!st || !currentToken) { card.style.display = 'none'; return; }
+    const dateEl = document.getElementById('heroDate'), ddayEl = document.getElementById('heroDday'), subEl = document.getElementById('heroSub');
+    const hwWrap = document.getElementById('heroHwWrap'), hwText = document.getElementById('heroHwText');
+    card.style.display = 'block';   // 데이터 오기 전에도 카드 노출(폴백 문구 유지)
+    try {
+      const hdr = { 'Authorization': 'Bearer ' + currentToken };
+      const [dRes, rRes] = await Promise.all([
+        (st.id != null) ? fetch('/api/me-detail?id=' + encodeURIComponent(st.id), { headers: hdr }) : Promise.resolve(null),
+        st.name ? fetch('/api/reports?name=' + encodeURIComponent(st.name), { headers: hdr }) : Promise.resolve(null),
+      ]);
+      if (seq !== _heroSeq) return;
+      // 다음 수업
+      let detail = null;
+      try { if (dRes && dRes.ok) { const dj = await dRes.json(); if (dj && dj.ok) detail = dj.student; } } catch (_) {}
+      if (seq !== _heroSeq) return;
+      const next = detail ? kwCalcNextClass(detail.availableDays) : null;
+      if (next) {
+        const ddayText = next.daysAhead === 0 ? '오늘' : next.daysAhead === 1 ? '내일' : ('D-' + next.daysAhead);
+        if (dateEl) dateEl.textContent = next.daysAhead === 0
+          ? ('오늘 · ' + next.dayName + '요일 수업')
+          : ((next.date.getMonth()+1) + '월 ' + next.date.getDate() + '일 (' + next.dayName + ')');
+        if (ddayEl) { ddayEl.textContent = ddayText; ddayEl.style.display = 'inline-block'; }
+        if (subEl) subEl.textContent = '정기 수업 ' + next.regularDays.join('·') + '요일' + ((detail && detail.academy) ? (' · ' + detail.academy) : '');
+      } else {
+        if (dateEl) dateEl.textContent = '일정 조율 중';
+        if (ddayEl) ddayEl.style.display = 'none';
+        if (subEl) subEl.textContent = detail ? '등원 요일 미등록 — 관우T께 문의해주세요' : '';
+      }
+      // 이번 숙제
+      let latest = null;
+      try { if (rRes && rRes.ok) { const rj = await rRes.json(); const reps = Array.isArray(rj) ? rj : (rj.reports || []); latest = reps[0] || null; } } catch (_) {}
+      if (seq !== _heroSeq) return;
+      if (hwText) hwText.textContent = (latest && latest.homework) ? latest.homework
+        : (latest ? '이번 수업엔 등록된 숙제가 없습니다.' : '아직 등록된 수업 리포트가 없습니다.');
+      if (hwWrap) hwWrap.style.display = 'block';
+    } catch (_) { /* 네트워크 실패 시 폴백 문구 유지 */ }
+  }
+
+  // ════════ 6c: 확인이 필요해요 액션 존 ════════
+  function refreshActionZone(){
+    const zone = document.getElementById('actionZone');
+    if (!zone) return;
+    let n = 0;
+    ['surveyBanner','actionNoticeRow'].forEach(function(id){
+      const el = document.getElementById(id);
+      if (el && el.style.display !== 'none') n++;
+    });
+    const cnt = document.getElementById('actionCount');
+    if (cnt) { if (n > 0) { cnt.textContent = String(n); cnt.style.display = 'inline-block'; } else cnt.style.display = 'none'; }
+    zone.style.display = n > 0 ? 'block' : 'none';
+  }
+  const KW_NOTICE_READ_KEY = 'kwmath_notices_read';
+  function _kwNoticeSig(n){ return String((n.date || '') + '|' + (n.title || '')); }
+  let _kwAllNoticeSigs = [];
+  async function loadActionNotices(){
+    try {
+      const tk = (function(){ try { return sessionStorage.getItem('kwmath_portal_token') || localStorage.getItem('kwmath_portal_token') || ''; } catch(e){ return ''; } })();
+      if (!tk) return;
+      const res = await fetch('/api/notices', { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (!res.ok) return;
+      const list = await res.json();
+      const arr = Array.isArray(list) ? list : [];
+      _kwAllNoticeSigs = arr.map(_kwNoticeSig);
+      let readSet = [];
+      try { readSet = JSON.parse(localStorage.getItem(KW_NOTICE_READ_KEY) || '[]') || []; } catch (_) {}
+      const unread = arr.filter(function(n){ return readSet.indexOf(_kwNoticeSig(n)) < 0; });
+      const row = document.getElementById('actionNoticeRow');
+      if (row) {
+        if (unread.length) {
+          const cEl = document.getElementById('actionNoticeCount'); if (cEl) cEl.textContent = String(unread.length);
+          const tEl = document.getElementById('actionNoticeTitle'); if (tEl) tEl.textContent = (unread[0].title || '새 공지');
+          row.style.display = 'flex';
+        } else { row.style.display = 'none'; }
+      }
+    } catch (_) { /* silent */ }
+    finally { try { refreshActionZone(); } catch (_) {} }
+  }
+  function openNoticesFromAction(){
+    try { localStorage.setItem(KW_NOTICE_READ_KEY, JSON.stringify(_kwAllNoticeSigs)); } catch (_) {}
+    const row = document.getElementById('actionNoticeRow'); if (row) row.style.display = 'none';
+    refreshActionZone();
+    const box = document.getElementById('noticeBox');
+    if (box && box.style.display !== 'none') { try { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {} }
   }
 
   // 로그인 후 메인 화면이 보이면 자동 호출
@@ -1659,6 +1815,7 @@
         loadTodayStudyBadge();
         loadNoticesBox();
         loadSurveyAlert();
+        loadActionNotices();
         loadInbox();
       }
     });
@@ -1668,6 +1825,7 @@
     setTimeout(loadTodayStudyBadge, 1000);
     setTimeout(loadNoticesBox, 1100);
     setTimeout(loadSurveyAlert, 1200);
+    setTimeout(loadActionNotices, 1250);
     setTimeout(loadInbox, 1300);
   })();
 </script>
