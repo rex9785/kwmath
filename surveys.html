@@ -6,10 +6,12 @@
 <meta name="robots" content="noindex, nofollow">
 <title>설문 · 이관우 수학연구소</title>
 <style>
-  :root{ --primary:#862633; --primary-light:#F9ECED; --primary-mid:#A83040;
-         --text:#2A2320; --text-light:#8a847e; --line:#ece7e3; --bg:#faf8f6; }
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
+  :root{ --primary:#8B1A35; --primary-light:#F9EEF1; --primary-mid:#B02347;
+         --text:#241318; --text-light:#9A8C85; --line:#E9E1D9; --bg:#FAF9F6; --serif:'Noto Serif KR',serif; }
   *{ box-sizing:border-box; }
-  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  body{ margin:0; font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif; letter-spacing:-0.01em;
         background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%; }
   header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
           padding:calc(env(safe-area-inset-top) + 14px) 0 14px; }
@@ -31,7 +33,7 @@
   .badge.quiz{ background:#EDE7F6; color:#5E35B1; }
   /* 테스트 결과 */
   .scoreBig{ text-align:center; padding:8px 0 4px; }
-  .scoreBig .n{ font-size:2.4rem; font-weight:800; color:var(--primary); }
+  .scoreBig .n{ font-size:2.4rem; font-weight:800; color:var(--primary); font-family:var(--serif); }
   .scoreBig .d{ font-size:1rem; color:var(--text-light); }
   .qr{ border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff; }
   .qr .lab{ font-weight:600; margin-bottom:6px; font-size:0.96rem; line-height:1.5; }
@@ -72,7 +74,7 @@
   .submitBar button{ width:100%; border:none; border-radius:12px; padding:14px; font-size:1rem; font-weight:700;
                      cursor:pointer; background:var(--primary); color:#fff; }
   .submitBar button:disabled{ opacity:0.5; }
-  .toast{ position:fixed; left:50%; bottom:80px; transform:translateX(-50%); background:#2A2320; color:#fff;
+  .toast{ position:fixed; left:50%; bottom:80px; transform:translateX(-50%); background:#241318; color:#fff;
           padding:11px 18px; border-radius:10px; font-size:0.88rem; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50; }
   .toast.show{ opacity:0.95; }
   .hidden{ display:none !important; }
