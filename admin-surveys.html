@@ -77,8 +77,8 @@
   .ptsIn{ width:52px !important; flex:0 0 auto !important; font-size:0.8rem; padding:5px 6px; text-align:center; }
   .ptsWrap{ display:flex; align-items:center; gap:5px; font-size:0.78rem; color:var(--text-light); flex:0 0 auto; }
   .qcorrect{ margin-top:6px; }
-  .qcorrect math-field{ display:block; width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:1.25rem; background:#fff; }
-  .qcorrect math-field:focus-within{ border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+  .qcorrect math-field, math-field.ansEdit{ display:block; width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:1.25rem; background:#fff; }
+  .qcorrect math-field:focus-within, math-field.ansEdit:focus-within{ border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
   math-field[read-only]{ border:none; padding:0 2px; font-size:1.05rem; background:transparent; width:auto; display:inline-block; vertical-align:middle; box-shadow:none; }
   .qhint{ font-size:0.76rem; color:var(--text-light); margin-top:5px; }
   .badge.quiz{ background:#EDE7F6; color:#5E35B1; }
@@ -1054,9 +1054,11 @@
           } else if(q.type==='long'){
             s += '<textarea class="ansEdit" data-qid="' + escAttr(q.id) + '" rows="3" style="' + inp + 'resize:vertical;">' + esc(a==null?'':String(a)) + '</textarea>'
               + '<div class="sub" style="font-size:0.72rem;">답을 고치면 기존 O·X 판정은 취소되고 다시 채점 대기가 돼요.</div>';
-          } else {   // short | math
+          } else if(q.type==='math'){
+            s += '<math-field class="ansEdit" data-qid="' + escAttr(q.id) + '" data-latex="' + escAttr(a==null?'':String(a)) + '" math-virtual-keyboard-policy="onfocus"></math-field>'
+              + '<div class="sub" style="font-size:0.72rem;">칸을 누르면 수학 키패드가 떠요. 형태가 달라도(예: 2/4 = 1/2) 수학적으로 같으면 정답 처리돼요.</div>';
+          } else {   // short
             s += '<input type="text" class="ansEdit" data-qid="' + escAttr(q.id) + '" value="' + escAttr(a==null?'':String(a)) + '" style="' + inp + '">';
-            if(q.type==='math') s += '<div class="sub" style="font-size:0.72rem;">수식은 LaTeX 그대로 수정해요 (예: \\frac{1}{2} · 2\\sqrt{2} — 형태가 달라도 수학적으로 같으면 정답)</div>';
           }
           s += '</div>';
         });
@@ -1091,6 +1093,13 @@
       });
       sc.innerHTML = sch;
       viewEl.appendChild(sc);
+      // ✏️ 답 수정 폼의 수식칸(math-field) — 초기값 주입 + 키패드 표시(빌더와 동일 패턴)
+      sc.querySelectorAll('math-field.ansEdit').forEach(function(mf){
+        var init = mf.getAttribute('data-latex') || '';
+        customElements.whenDefined('math-field').then(function(){ try{ mf.value = init; }catch(_){} });
+        mf.addEventListener('focusin', function(){ setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 60); });
+        mf.addEventListener('pointerup', function(){ try{ mf.focus(); }catch(e){} setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 150); });
+      });
       sc.querySelectorAll('[data-toggle]').forEach(function(el){
         el.addEventListener('click', function(){
           var rid = parseInt(el.dataset.toggle,10);
