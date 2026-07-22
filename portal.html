@@ -252,15 +252,8 @@
           </span>
           <span style="flex-shrink:0;font-size:11px;font-weight:800;background:var(--primary);color:#fff;border-radius:999px;padding:5px 13px;white-space:nowrap;">응답</span>
         </a>
-        <!-- 읽지 않은 공지 행 -->
-        <a id="actionNoticeRow" href="javascript:void(0)" onclick="openNoticesFromAction()" style="display:none;align-items:center;gap:11px;text-decoration:none;color:inherit;padding:13px 15px;border-top:1px solid var(--hairline);">
-          <span style="flex-shrink:0;width:34px;height:34px;border-radius:10px;background:var(--gold-soft);display:flex;align-items:center;justify-content:center;color:var(--gold);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"/><path d="M17.5 9a4 4 0 0 1 0 6"/></svg></span>
-          <span style="flex:1;min-width:0;">
-            <span style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:13.5px;color:var(--text);flex-wrap:wrap;">읽지 않은 공지 <span id="actionNoticeCount">0</span>건 <span style="background:var(--primary);color:#fff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:0.03em;">NEW</span></span>
-            <span id="actionNoticeTitle" style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-          </span>
-          <span style="flex-shrink:0;color:var(--text-light);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></span>
-        </a>
+        <!-- 읽지 않은 공지 행: 아래 '학원 공지·안내' 박스와 같은 공지가 두 번 보여 제거(2026-07-23). 공지는 박스에서 단일 표시. -->
+
       </div>
     </div>
 
