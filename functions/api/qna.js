@@ -83,6 +83,9 @@ async function ensureTable(env) {
   try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN images TEXT').run(); } catch (_) {}
   // 질문/문의 구분(kind) — 'question'(수학 질문) | 'inquiry'(학원·수업 문의). 기존 테이블이면 컬럼만 추가.
   try { await env.DB.prepare("ALTER TABLE qna ADD COLUMN kind TEXT DEFAULT 'question'").run(); } catch (_) {}
+  // 작성자 역할(author_role) — 'student'(학생 본인) | 'parent'(학부모). _auth.js가 로그인폰↔학생폰/학부모폰 비교로 계산.
+  // 기존 행은 NULL → 화면에서 'student'로 간주(과거 데이터엔 소급 표시 불가).
+  try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN author_role TEXT').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_qna_phone ON qna(author_phone)').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_qna_created ON qna(created_at)').run(); } catch (_) {}
   // 토큰 사용량(6/23 추가) — AI 답변 1건당 사용 토큰. 기존 테이블이면 컬럼만 추가.
@@ -133,6 +136,7 @@ function rowOut(r, opts = {}) {
     authorName: showName,
     mode: r.mode || 'teacher',
     kind: r.kind || 'question',
+    authorRole: r.author_role || 'student',   // 'student'(학생 본인) | 'parent'(학부모)
     isPrivate: priv,
     title: r.title || '',
     question: r.question || '',
@@ -280,7 +284,9 @@ async function askGemini(env, question, studentMeta, image) {
 //   비밀글은 내용 미리보기를 빼고 이름만. AI 자동답변(answered)은 알림 안 함.
 function notifyAdminNewQuestion(context, env, q) {
   try {
-    const who = (q.authorName || '학생').toString().slice(0, 20);
+    const baseName = (q.authorName || '학생').toString().slice(0, 20);
+    // 학생 본인인지 학부모인지 알림 제목에도 드러냄(관우T가 푸시만 보고 구분 가능하게)
+    const who = baseName + ((q.authorRole === 'parent') ? ' 학부모' : ' 학생');
     const isInquiry = (q.kind === 'inquiry');
     let detail;
     if (q.isPrivate && !isInquiry) {
@@ -293,7 +299,7 @@ function notifyAdminNewQuestion(context, env, q) {
     }
     const p = sendPushToUsers(env, ADMIN_PUSH_USERS, {
       title: isInquiry ? '📩 새 문의가 등록됐어요' : '💬 새 질문이 등록됐어요',
-      body: who + (isInquiry ? ' · ' : ' 학생 · ') + detail,
+      body: who + ' · ' + detail,
       url: '/admin-qna.html',
       tag: isInquiry ? 'kwmath-inquiry-new' : 'kwmath-qna-new',
     });
@@ -537,6 +543,8 @@ export async function onRequest(context) {
       const imageToStore  = (imgList.length === 1) ? imgList[0].dataUrl : null;   // 1장 → image 컬럼(하위호환)
       const imagesToStore = (imgList.length > 1)  ? JSON.stringify(imgList.map(im => im.dataUrl)) : null;  // 여러 장 → images 컬럼(JSON)
       const authorName = student.name || '학생';
+      // 작성자 역할 — 로그인 계정이 이 학생의 '학부모폰'이면 parent, '학생폰'이면 student (_auth.js가 계산).
+      const authorRole = (student.role === 'parent') ? 'parent' : 'student';
       const now = new Date().toISOString();
       const today = kstDateStr();
 
@@ -550,10 +558,10 @@ export async function onRequest(context) {
         if (ai.error) {
           // AI 실패 시 질문이 사라지지 않게 — 선생님 대기글로 저장(횟수 차감 안 함). 사진도 함께 보존.
           const res = await env.DB.prepare(
-            'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-          ).bind(student.id || null, phone, authorName, 'teacher', isPrivate, title, storedQuestion, imageToStore, null, null, 'pending', today, now, null).run();
-          notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: !!imageToStore });
+            'INSERT INTO qna (student_id, author_phone, author_name, author_role, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+          ).bind(student.id || null, phone, authorName, authorRole, 'teacher', isPrivate, title, storedQuestion, imageToStore, null, null, 'pending', today, now, null).run();
+          notifyAdminNewQuestion(context, env, { authorName, authorRole, title, question: storedQuestion, isPrivate, hasImage: !!imageToStore });
           return jsonOk({
             ok: true, id: res.meta && res.meta.last_row_id, mode: 'teacher', status: 'pending',
             aiFailed: true, message: ai.error + ' 대신 선생님께 질문이 전달됐어요.',
@@ -562,9 +570,9 @@ export async function onRequest(context) {
         }
         const u = ai.usage || { in: null, out: null, total: null };
         const res = await env.DB.prepare(
-          'INSERT INTO qna (student_id, author_phone, author_name, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at, tokens_total, tokens_in, tokens_out) ' +
-          "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        ).bind(student.id || null, phone, authorName, 'ai', isPrivate, title, storedQuestion, imageToStore, ai.text, 'AI', 'answered', today, now, now, u.total, u.in, u.out).run();
+          'INSERT INTO qna (student_id, author_phone, author_name, author_role, mode, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at, tokens_total, tokens_in, tokens_out) ' +
+          "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        ).bind(student.id || null, phone, authorName, authorRole, 'ai', isPrivate, title, storedQuestion, imageToStore, ai.text, 'AI', 'answered', today, now, now, u.total, u.in, u.out).run();
         // 토큰 80% 경고 체크 (응답 지연 없이 백그라운드)
         const budgetP = checkTokenBudgetAlert(env).catch(() => {});
         if (context && typeof context.waitUntil === 'function') context.waitUntil(budgetP);
@@ -578,10 +586,10 @@ export async function onRequest(context) {
 
       // ── 선생님/조교 모드(질문) · 문의 모드: 대기글 저장 (사진 1장은 image, 여러 장은 images) ──
       const res = await env.DB.prepare(
-        'INSERT INTO qna (student_id, author_phone, author_name, mode, kind, is_private, title, question, image, images, answer, answered_by, status, qdate, created_at, answered_at) ' +
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-      ).bind(student.id || null, phone, authorName, 'teacher', kind, isPrivate, title, storedQuestion, imageToStore, imagesToStore, null, null, 'pending', today, now, null).run();
-      notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: hasImg, kind });
+        'INSERT INTO qna (student_id, author_phone, author_name, author_role, mode, kind, is_private, title, question, image, images, answer, answered_by, status, qdate, created_at, answered_at) ' +
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+      ).bind(student.id || null, phone, authorName, authorRole, 'teacher', kind, isPrivate, title, storedQuestion, imageToStore, imagesToStore, null, null, 'pending', today, now, null).run();
+      notifyAdminNewQuestion(context, env, { authorName, authorRole, title, question: storedQuestion, isPrivate, hasImage: hasImg, kind });
       return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id, mode: 'teacher', kind, status: 'pending' });
     }
 

@@ -37,6 +37,8 @@
   .b-priv{ background:#F0E9D8; color:#8A6D1B; }
   .b-pending{ background:#FFF7E0; color:#B07A00; }
   .b-done{ background:#E5F5E8; color:#1F7A33; }
+  .b-parent{ background:#FDE9D6; color:#B45309; }   /* 👪 학부모 계정이 올린 글 */
+  .b-student{ background:#E3F0FF; color:#1D4ED8; }  /* 🎓 학생 본인이 올린 글 */
   .qtitle{ font-weight:800; font-size:0.92rem; margin-bottom:3px; }
   .qbody{ font-size:0.9rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:var(--ink); }
   .qphoto{ margin-top:9px; }
@@ -596,6 +598,11 @@
 
   function cardHtml(q){
     var isInq = (q.kind==='inquiry');
+    // 누가 올렸나 — 학부모 계정이면 '학부모', 학생 본인이면 '학생'.
+    // (예전 글은 author_role이 비어 있어 학생으로 표시됨 — 신규 글부터 정확)
+    var roleBadge = (q.authorRole==='parent')
+      ? '<span class="badge b-parent">👪 학부모</span>'
+      : '<span class="badge b-student">🎓 학생</span>';
     var kindBadge = isInq ? '<span class="badge b-inq">📩 문의</span>' : '';
     var modeBadge = isInq ? '' : (q.mode==='ai' ? '<span class="badge b-ai">🤖 AI</span>' : '<span class="badge b-teacher">🧑‍🏫 선생님요청</span>');
     var privBadge = (q.isPrivate && !isInq) ? '<span class="badge b-priv">🔒 비밀</span>' : '';
@@ -642,7 +649,7 @@
     return '<div class="card'+(q.status==='pending'?' pending':'')+'">'+
       '<div class="chead">'+
         '<span class="nm">'+esc(q.authorName||'학생')+'</span>'+
-        kindBadge + modeBadge + privBadge + statBadge +
+        roleBadge + kindBadge + modeBadge + privBadge + statBadge +
         '<span class="meta">'+fmtDate(q.createdAt)+'</span>'+
       '</div>'+
       titleHtml +
