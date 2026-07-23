@@ -14,7 +14,7 @@
 //         type='manual'        → 원장 전용 자유 문구(title/body).
 //        → 알림 1건 생성(dedup 시 재삽입 안 함) + 학부모/학생 폰으로 푸시(best-effort).
 // ───────────────────────────────────────────────────────────
-import { requireStudentAccess } from './_auth.js';
+import { requireStudentAccess, normalizePhone } from './_auth.js';
 import { getStudentByName, getStudentById, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { sendPushToUsers } from './_push.js';
@@ -144,10 +144,12 @@ export async function onRequest(context) {
           const targets = audience === 'parent' ? [st.parentPhone]
                         : audience === 'student' ? [st.studentPhone]
                         : [st.parentPhone, st.studentPhone];
-          const phones = targets.map(p => String(p || '').replace(/\D/g, '')).filter(Boolean);
+            // ⚠️ 푸시 조회키는 포털이 구독에 쓴 형식(하이픈형 010-1234-5678)이어야 매칭됨(_auth.normalizePhone).
+            //    숫자만(replace \D)으로 조회하면 R2 fcm-tokens/push-subs 키 불일치 → 토큰 미발견 → 푸시 누락(알람함만 남음).
+          const phones = targets.map(p => normalizePhone(p)).filter(Boolean);
           if (phones.length) {
             // 학부모 번호만 밤(KST 23~7) 무음 — 학생 대상(audience:student)이면 무음 없음.
-            const nightSilent = audience === 'student' ? [] : [String(st.parentPhone || '').replace(/\D/g, '')].filter(Boolean);
+            const nightSilent = audience === 'student' ? [] : [normalizePhone(st.parentPhone)].filter(Boolean);
             const p = sendPushToUsers(env, phones, { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' }, nightSilent.length ? { nightSilent } : {});
             if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
             else if (p && typeof p.catch === 'function') p.catch(() => {});
@@ -189,9 +191,10 @@ export async function onRequest(context) {
           const targets = audience === 'parent' ? [st.parentPhone]
                         : audience === 'student' ? [st.studentPhone]
                         : [st.parentPhone, st.studentPhone];
-          for (const p of targets) { const d = String(p || '').replace(/\D/g, ''); if (d) pushPhones.add(d); }
+          // ⚠️ 하이픈형(010-1234-5678)으로 정규화해야 포털이 등록한 푸시 구독키와 일치(위 create 경로 주석 참조).
+          for (const p of targets) { const d = normalizePhone(p); if (d) pushPhones.add(d); }
           // 학부모 번호만 밤(KST 23~7) 무음 대상 — 학생 대상(audience:student)이면 제외 안 함.
-          if (audience !== 'student') { const pd = String(st.parentPhone || '').replace(/\D/g, ''); if (pd) nightSilentPhones.add(pd); }
+          if (audience !== 'student') { const pd = normalizePhone(st.parentPhone); if (pd) nightSilentPhones.add(pd); }
         }
 
         // 문구가 모두 같으니 푸시는 한 번에(모든 대상 폰). best-effort — 발송 흐름과 분리.

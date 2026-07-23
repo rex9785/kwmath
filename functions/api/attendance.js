@@ -9,7 +9,7 @@
 //
 // status: '출석' / '지각' / '결석' / '병결' / '공결'   homework: 0~100
 
-import { requireStudentAccess } from './_auth.js';
+import { requireStudentAccess, normalizePhone } from './_auth.js';
 import { getStudentByName, getStudentsByPhone, getAttendance, upsertAttendance, deleteAttendance, listAllAttendance, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
@@ -87,7 +87,8 @@ async function notifyOnAttendance(env, st, date, updates, opts = {}) {
   if (!fresh.length) return;
 
   const phones = [st.parentPhone]   // 결석·숙제 알림은 학부모 전용 — 학생폰 푸시 제외
-    .map(p => String(p || '').replace(/\D/g, '')).filter(Boolean);
+    // ⚠️ 하이픈형(010-1234-5678)으로 정규화 — 포털 푸시 구독키와 일치해야 토큰 조회됨(notifications.js와 동일).
+    .map(p => normalizePhone(p)).filter(Boolean);
   if (!phones.length) return;
   const payload = fresh.length === 1
     ? { title: fresh[0].title, body: fresh[0].body, url: '/portal', tag: 'kwmath-att-' + fresh[0].type }
