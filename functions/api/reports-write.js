@@ -44,7 +44,8 @@ export async function onRequest({ request, env }) {
     if (!r.ok) return safeError(r.error || 'createReport failed', env, { message: '리포트 저장에 실패했습니다.' });
 
     // 푸쉬 알림 (비치명적 — 실패해도 생성은 성공)
-    try {
+    //   noPush=true면 조용히 생략 — "이미 올린 레포트를 다른 학생에게 복사"할 때 그 학부모엔 알림 안 보냄(관우T 확정 2026-07-23).
+    if (!body.noPush) try {
       const parentPhone = await findParentPhone(env, studentName);
       if (parentPhone) {
         await fetch(new URL('/api/push-send', request.url), {

@@ -192,9 +192,11 @@
       (meta ? ' <span style="color:var(--muted);font-weight:400;font-size:0.82rem;">(' + esc(meta) + ')</span>' : '') + '</div>';
     head += '<div style="color:var(--muted);font-size:0.82rem;margin-bottom:12px;">수업 날짜 ' + esc(d.date) +
       ' · 출결: ' + esc(d.status || '기록 없음') +
-      (d.blocked ? (d.grantStatus === 'approved'
-        ? ' <span style="color:#1E7B41;font-weight:700;">(인강 열림)</span>'
-        : ' <span style="color:#C0392B;font-weight:700;">(결석 잠금)</span>') : '') + '</div>';
+      (d.present
+        ? ' <span style="color:#1E7B41;font-weight:700;">(출석 — 자동 열림)</span>'
+        : d.approved
+          ? ' <span style="color:#1E7B41;font-weight:700;">(인강 열림)</span>'
+          : ' <span style="color:#C0392B;font-weight:700;">(' + (d.blocked ? '결석 잠금' : '미출석 잠금') + ')</span>') + '</div>';
 
     // 학원 정보 없음 → 영상 매칭 불가
     if (d.note){ box.innerHTML = head + '<div class="empty">' + esc(d.note) + '</div>'; return; }
@@ -213,16 +215,17 @@
         '</div><div class="sp">' + statusBadge(v) + '</div></div>';
     });
 
-    // 날짜 단위 액션 — 결석 잠금만 여기서 열고/다시 잠근다
+    // 날짜 단위 액션 — 미출석(결석계열 + 기록없는 전입/신규생) 잠금을 여기서 열고/다시 잠근다 (정책B)
     var action = '';
-    if (d.blocked && d.grantStatus === 'approved'){
+    if (d.approved && !d.present){
       action = '<button class="mini gray" onclick="toggleLock(\'revoke\')">🔒 이 날짜 다시 잠금</button>' +
-        '<div class="dt" style="margin-top:6px;">지금은 인강이 열려 있습니다. 다시 잠그면 결석 잠금으로 돌아갑니다.</div>';
-    } else if (d.blocked){
-      action = '<button class="mini" onclick="toggleLock(\'grant\')">🔓 이 날짜 영상 열기</button>';
+        '<div class="dt" style="margin-top:6px;">지금은 인강이 열려 있습니다. 다시 잠그면 ' + (d.blocked ? '결석' : '미출석') + ' 잠금으로 돌아갑니다.</div>';
+    } else if (d.dayLocked){
+      action = '<button class="mini" onclick="toggleLock(\'grant\')">🔓 이 날짜 영상 열기</button>' +
+        '<div class="dt" style="margin-top:6px;">' + (d.blocked ? '결석' : '미출석') + '으로 잠긴 날입니다. 출석 처리하거나 여기서 바로 열 수 있어요.</div>';
       if (d.grantStatus === 'requested') action += '<div class="dt" style="margin-top:6px;color:#B26A00;">학생이 인강을 신청했습니다.</div>';
     } else {
-      action = '<div class="dt">이 날짜는 결석 잠금이 아닙니다. (여기서 여닫는 건 결석 잠금만 다룹니다)</div>';
+      action = '<div class="dt">이 날짜는 출석(또는 지각)한 날이라 이미 열려 있습니다.</div>';
     }
 
     // 수업코드만으로 잠긴 영상은 여기서 못 연다는 안내

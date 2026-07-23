@@ -1281,6 +1281,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <button class="edit-btn" onclick="event.stopPropagation();startEditReport('${r.id}')">✏️ 수정</button>
+          <button class="edit-btn" onclick="event.stopPropagation();shareReport('${r.id}')" title="이미 올린 이 레포트를 다른 학생에게도 복사 (알림 없음)">📤 주기</button>
           <button class="del-btn" onclick="event.stopPropagation();deleteReport('${r.id}')">🗑 삭제</button>
           <span style="font-size:0.85rem;color:var(--text-light);margin-left:4px;display:inline-block;transition:transform .25s;${isOpen?'transform:rotate(180deg);':''}">▾</span>
         </div>
@@ -1373,6 +1374,82 @@
         showToast('삭제 실패: ' + (data.error || '오류'));
       }
     } catch(e) { showToast('오류: ' + e.message); }
+  }
+
+  // ── 레포트 공유: 이미 올린 레포트를 다른 학생에게도 복사 (알림 없이) ──
+  //   전입/추가 학생처럼 "레포트 쓸 당시 그 반에 없던" 학생에게 같은 수업 레포트를 넣어줄 때 사용.
+  //   /api/reports-write POST를 대상 학생 이름으로 재호출(noPush:true) → 그 학부모엔 푸시 안 감.
+  async function shareReport(id) {
+    const r = allReportsAdmin.find(x => x.id === id);
+    if (!r) return;
+    if (!(allStudents && allStudents.length)) { try { await loadStudents(); } catch(_){} }
+    const el = document.getElementById('rr-' + id);
+    if (!el) return;
+    // 학원·반 목록은 하드코딩 맵(CLASS_OPTIONS_BY_ACADEMY)이 아니라 실제 학생 데이터에서 뽑는다.
+    //   (그 맵은 세정학원 반이 비어 있어, 전입 학생이 있는 반을 못 고르는 문제가 있음.)
+    const acadOpts = [...new Set((allStudents||[]).filter(s=>s.academy).map(s=>s.academy))].sort((a,b)=>a.localeCompare(b));
+    el.outerHTML = `<div class="notice-edit" id="rr-${id}" style="background:#fff;">
+      <div style="font-size:0.85rem;font-weight:700;margin-bottom:8px;">📤 이 레포트를 다른 학생에게도 주기
+        <span style="color:var(--text-light);font-weight:500;">— ${escapeHtml(r.studentName||'')} · ${escapeHtml((r.date||'').replace(/-/g,'.'))} · 알림 없이 복사</span></div>
+      <div class="notice-edit-row">
+        <select id="sh-acad-${id}" onchange="shUpdateClass('${id}')"><option value="">학원 선택</option>${acadOpts.map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('')}</select>
+        <select id="sh-cls-${id}" onchange="shUpdateStudents('${id}')"><option value="">반 선택</option></select>
+      </div>
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">받을 학생 (여러 명 선택 가능 — Ctrl/⌘+클릭)</label>
+      <select id="sh-stu-${id}" multiple size="6" style="width:100%;padding:6px;">
+        <option value="">학원·반을 먼저 고르세요</option></select>
+      <div id="sh-msg-${id}" style="font-size:0.8rem;color:var(--text-light);margin-top:4px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+        <button class="cancel-btn" onclick="cancelEditReport('${id}')">취소</button>
+        <button class="save-btn" onclick="doShareReport('${id}')">📤 복사</button>
+      </div>
+    </div>`;
+  }
+
+  function shUpdateClass(id) {
+    const acad = document.getElementById('sh-acad-' + id).value;
+    const sel = document.getElementById('sh-cls-' + id);
+    // 반 목록도 실제 학생 데이터에서 (그 학원에 실제 학생이 있는 반만 뜬다)
+    const opts = [...new Set((allStudents||[]).filter(s=>s.academy===acad && s.className).map(s=>s.className))].sort((a,b)=>a.localeCompare(b));
+    sel.innerHTML = '<option value="">반 선택</option>' + opts.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+    document.getElementById('sh-stu-' + id).innerHTML = '<option value="">반을 먼저 선택하세요</option>';
+  }
+
+  function shUpdateStudents(id) {
+    const acad = document.getElementById('sh-acad-' + id).value;
+    const cls  = document.getElementById('sh-cls-' + id).value;
+    const sel  = document.getElementById('sh-stu-' + id);
+    if (!acad || !cls) { sel.innerHTML = '<option value="">반을 먼저 선택하세요</option>'; return; }
+    const students = (allStudents || []).filter(s => s.academy === acad && s.className === cls);
+    if (!students.length) { sel.innerHTML = '<option value="">해당 반에 학생 없음</option>'; return; }
+    students.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    sel.innerHTML = students.map(s=>`<option value="${escapeAttr(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+  }
+
+  async function doShareReport(id) {
+    const r = allReportsAdmin.find(x => x.id === id);
+    if (!r) return;
+    const acad = document.getElementById('sh-acad-' + id).value;
+    const sel  = document.getElementById('sh-stu-' + id);
+    const msg  = document.getElementById('sh-msg-' + id);
+    const names = Array.from(sel.selectedOptions).map(o=>o.value).filter(Boolean);
+    if (!names.length) { msg.textContent = '⚠️ 받을 학생을 선택하세요.'; return; }
+    msg.textContent = '복사 중...';
+    let done = 0, fail = 0;
+    for (const nm of names) {
+      try {
+        const res = await fetch('/api/reports-write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+          body: JSON.stringify({ studentName: nm, date: r.date, school: acad || r.school || '',
+            content: r.content||'', homework: r.homework||'', notes: r.notes||'', noPush: true })
+        });
+        const data = await res.json();
+        if (data && data.ok) done++; else fail++;
+      } catch(e) { fail++; }
+    }
+    showToast(`📤 ${done}명에게 복사 완료${fail?` · 실패 ${fail}명`:''} (알림 없음)`);
+    await loadAllReports();
   }
 
   // ── 자료실: 폴더 선택에 따라 입력 wrapper 토글 ──

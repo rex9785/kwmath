@@ -9,7 +9,7 @@
 //   ※ 조회 전용 — 접근 로그(access_log)는 남기지 않는다(관우T가 보는 것은 학생 시청이 아님).
 
 import { getStudentById, getAttendance } from './_db.js';
-import { isBlockStatus, listGrantsForStudent } from './_makeup.js';
+import { isBlockStatus, listGrantsForStudent, PRESENT_STATUS } from './_makeup.js';
 import { safeError } from './_errors.js';
 
 const norm = (s) => (s || '').toString().replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
@@ -50,11 +50,15 @@ export async function onRequest({ request, env }) {
     const records = (attRes && attRes.records) || {};
     const rec = records[date];
     const status = (rec && typeof rec === 'object') ? (rec.status || null) : (typeof rec === 'string' ? rec : null);
-    const blocked = isBlockStatus(status);                        // 결석·병결·공결이면 그날 자동잠금 대상
+    const blocked = isBlockStatus(status);                        // 결석·병결·공결 기록이 있는 날(라벨용)
+    const present = PRESENT_STATUS.has(status);                   // 출석·지각한 날 = 자동 열림 (정책B 2026-07-21)
     const grant = (grants || []).find(g => g.date === date);
     const grantStatus = grant ? grant.status : null;              // 'approved' | 'requested' | null
     const approved = grantStatus === 'approved';
-    const absenceLocked = blocked && !approved;                   // 결석 잠금이 아직 안 풀린 상태
+    // 정책B: 온 날(출석·지각) 또는 관우T가 승인한 날만 열림. 그 외(결석계열 + 기록없는 전입/신규생)는 잠금.
+    //   class-videos.js의 isLocked(¬present ∧ ¬approved)와 동일하게 미러 — 관리자뷰/학생뷰 불일치 방지.
+    const absenceLocked = !present && !approved;                  // 미출석(기록없음 포함) & 미승인 → 잠김
+    const dayLocked = absenceLocked;                              // 날짜 단위 잠금 여부(관리자 액션 판정용)
 
     // R2에서 그 학원·반의 "그 날짜" 영상만 추림 (class-videos.js와 동일한 매칭 규칙)
     const targetSchool = norm(academy);
@@ -91,7 +95,7 @@ export async function onRequest({ request, env }) {
     return Response.json({
       ok: true,
       student: { id: st.id, name: st.name, academy, className },
-      date, status, blocked, grantStatus, videos,
+      date, status, blocked, present, approved, grantStatus, dayLocked, videos,
     });
   } catch (e) {
     return safeError(e, env, { message: '영상 잠금 상태를 불러오지 못했습니다.' });
