@@ -274,7 +274,7 @@
     <!-- 학원 공지/안내 박스 -->
     <div id="noticeBox" class="notice-box" style="display:none;">
       <div class="head">
-        <h3>학원 공지·안내 <span class="count" id="noticeCount">0</span></h3>
+        <h3>학원 공지·안내 <span class="count" id="noticeCount">0</span><span class="unread-badge" id="noticeUnread">0</span></h3>
       </div>
       <div id="noticeList"></div>
     </div>
@@ -440,6 +440,11 @@
   .notice-item .nt-imgs img{height:260px;width:auto;border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.06);flex-shrink:0;}
   .notice-item .nt-chevron{font-size:0.7rem;color:var(--gold);opacity:0.55;transition:transform .15s;display:inline-block;}
   .notice-item.open .nt-chevron{transform:rotate(180deg);opacity:1;}
+  /* 안읽음/읽음 표시 — 안읽음 = 빨간 점 + 진하게, 읽음 = 흐리게 */
+  .notice-item .nt-dot{width:7px;height:7px;border-radius:50%;background:#c0392b;flex-shrink:0;display:inline-block;}
+  .notice-item.read{opacity:0.5;transition:opacity .2s;}
+  .notice-item.read .nt-title{font-weight:600;}
+  .notice-box .unread-badge{display:none;min-width:17px;height:17px;line-height:17px;text-align:center;background:#c0392b;color:#fff;font-size:11px;font-weight:800;border-radius:9px;padding:0 5px;margin-left:5px;vertical-align:middle;}
 
   /* 바로가기 카드 — 큰(feat-big)·컴팩트(feat-compact)·와이드(feat-wide) 3변형 (디자인가이드 4.5 위계) */
   .feat-btn{text-decoration:none;color:var(--text);font-family:inherit;cursor:pointer;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -1508,6 +1513,10 @@
       const box = document.getElementById('noticeBox');
       if (!wrap || !count || !box) return;
       count.textContent = list.length;
+      try { _noticeReadSet = JSON.parse(localStorage.getItem(KW_NOTICE_READ_KEY) || '[]') || []; } catch(_) { _noticeReadSet = []; }
+      const unreadN = list.filter(n => _noticeReadSet.indexOf(_kwNoticeSig(n)) < 0).length;
+      const ub = document.getElementById('noticeUnread');
+      if (ub) { if (unreadN > 0) { ub.textContent = String(unreadN); ub.style.display = 'inline-block'; } else { ub.style.display = 'none'; } }
       const esc = (s) => String(s||'').replace(/[&<>\"\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
       const renderOne = (n) => {
         const badge = n.badge || '공지';
@@ -1517,8 +1526,11 @@
         const imgsHtml = imgs.length ? '<div class="nt-imgs">' + imgs.map(s => '<img src="' + esc(imgSrc(s)) + '" alt="공지 이미지" loading="lazy">').join('') + '</div>' : '';
         const hasContent = !!(n.content && n.content.trim());
         const contentText = hasContent ? esc(n.content).replace(/\n/g, '<br>') : (imgs.length ? '' : '<span style="color:#999;">(추가 내용 없음)</span>');
-        return '<div class="notice-item" onclick="this.classList.toggle(\'open\')">'
+        const sig = _kwNoticeSig(n);
+        const isRead = _noticeReadSet.indexOf(sig) >= 0;
+        return '<div class="notice-item ' + (isRead ? 'read' : 'unread') + '" data-sig="' + esc(sig) + '" onclick="kwNoticeClick(this)">'
           + '<div class="nt-head">'
+          + (isRead ? '' : '<span class="nt-dot"></span>')
           + '<span class="nt-badge ' + esc(badge) + '">' + esc(badge) + '</span>'
           + '<span class="nt-title">' + esc(n.title || '') + '</span>'
           + '<span class="nt-date">' + esc(dateShort) + '</span>'
@@ -1540,6 +1552,27 @@
       wrap.innerHTML = firstOne + restHtml;
       box.style.display = 'block';
     } catch (e) { /* silent */ }
+  }
+
+  // 공지 클릭 = 펼침 + (안읽음이면) 읽음 처리: 점 제거·흐리게·상단 배지 감소
+  function kwNoticeClick(el){
+    if (!el) return;
+    el.classList.toggle('open');
+    const sig = el.getAttribute('data-sig');
+    if (sig && el.classList.contains('unread')) {
+      el.classList.remove('unread'); el.classList.add('read');
+      const dot = el.querySelector('.nt-dot'); if (dot) dot.remove();
+      try {
+        let rs = JSON.parse(localStorage.getItem(KW_NOTICE_READ_KEY) || '[]') || [];
+        if (rs.indexOf(sig) < 0) { rs.push(sig); localStorage.setItem(KW_NOTICE_READ_KEY, JSON.stringify(rs)); }
+        _noticeReadSet = rs;
+      } catch(_){}
+      const ub = document.getElementById('noticeUnread');
+      if (ub) {
+        const cur = Math.max(0, (parseInt(ub.textContent, 10) || 1) - 1);
+        if (cur > 0) { ub.textContent = String(cur); } else { ub.style.display = 'none'; }
+      }
+    }
   }
 
   function toggleNoticeMore() {
@@ -1786,6 +1819,7 @@
   const KW_NOTICE_READ_KEY = 'kwmath_notices_read';
   function _kwNoticeSig(n){ return String((n.date || '') + '|' + (n.title || '')); }
   let _kwAllNoticeSigs = [];
+  let _noticeReadSet = [];   // 공지 읽음 sig 목록(localStorage 캐시) — loadNoticesBox·kwNoticeClick 공용
   async function loadActionNotices(){
     try {
       const tk = (function(){ try { return sessionStorage.getItem('kwmath_portal_token') || localStorage.getItem('kwmath_portal_token') || ''; } catch(e){ return ''; } })();
