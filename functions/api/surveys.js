@@ -96,10 +96,20 @@ async function ensureTables(env) {
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN aud_class TEXT').run(); } catch (_) {}
   // 테스트 종류(일일/주간/월말테스트) — 지정된 퀴즈만 채점 결과가 성적표에 자동 반영. 빈값=일반 퀴즈.
   try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN test_kind TEXT').run(); } catch (_) {}
+  // 재제출 허용 목록 — 관리자가 응답을 삭제(재제출 허용)하면 그 학생(휴대폰)을 여기 담아,
+  //   설문이 종료(closed)됐어도 이 학생만 다시 들어와 재제출할 수 있게 한다. JSON 배열(휴대폰 문자열).
+  //   재제출을 성공적으로 마치면 해당 휴대폰을 목록에서 제거(소비 — 1회성). (2026-07-23)
+  try { await env.DB.prepare('ALTER TABLE surveys ADD COLUMN resubmit_allow TEXT').run(); } catch (_) {}
   _surveysReady = true;
 }
 
 function nowIso() { return new Date().toISOString(); }
+
+// 재제출 허용 목록(휴대폰) 파싱 — surveys.resubmit_allow(JSON 배열 문자열). 컬럼이 없거나 깨져도 []. (2026-07-23)
+function resubmitPhones(s) {
+  try { const a = JSON.parse((s && s.resubmit_allow) || '[]'); return Array.isArray(a) ? a : []; }
+  catch (_) { return []; }
+}
 
 // ── 질문 정의 살균 — 관리자가 만든 questions[] 를 안전한 형태로 정규화 ──
 //   quiz=true면 배점을 자동 배분(수동 배점 폐지 — 2026-07-09 관우T 지시).
@@ -747,10 +757,19 @@ export async function onRequest(context) {
         if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
         if (isStaff && s.quiz !== 1) return jsonErr('조교는 테스트만 관리할 수 있어요.', 403);
         const resp = await env.DB.prepare(
-          'SELECT id, respondent_name FROM survey_responses WHERE id=? AND survey_id=?'
+          'SELECT id, respondent_name, respondent_phone FROM survey_responses WHERE id=? AND survey_id=?'
         ).bind(rid, id).first();
         if (!resp) return jsonErr('응답을 찾을 수 없습니다.', 404);
         await env.DB.prepare('DELETE FROM survey_responses WHERE id=?').bind(rid).run();
+        // 재제출 허용 grant 기록 — 이 학생(휴대폰)은 설문이 종료(closed)됐어도 다시 들어와 재제출 가능.
+        //   (열린 설문은 응답 삭제만으로 중복차단이 풀려 재입장되지만, 종료된 테스트는 grant가 없으면 막힌다.)
+        if (resp.respondent_phone) {
+          const grants = resubmitPhones(s);
+          if (!grants.includes(resp.respondent_phone)) {
+            grants.push(resp.respondent_phone);
+            try { await env.DB.prepare('UPDATE surveys SET resubmit_allow=? WHERE id=?').bind(JSON.stringify(grants), id).run(); } catch (_) {}
+          }
+        }
         if (s.test_kind && resp.respondent_name) {
           const p = deleteTestScore(env, { surveyId: s.id, respondentName: resp.respondent_name });
           if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
@@ -851,7 +870,7 @@ export async function onRequest(context) {
       if (!id) return jsonErr('id가 필요합니다.');
       const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
       if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-      if (s.status !== 'open') return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
+      if (s.status !== 'open' && !resubmitPhones(s).includes(access.phone)) return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
       if (!audienceMatchesStudents(s, access.students)) return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
 
       // 중복 응답 차단 — 휴대폰 1개당 설문 1회
@@ -881,6 +900,12 @@ export async function onRequest(context) {
         graded ? graded.score : null, graded ? graded.maxScore : null,
         ua, now
       ).run();
+
+      // 재제출 grant 소비 — 이 학생이 다시 제출했으니 허용 목록에서 제거(1회성). (2026-07-23)
+      if (resubmitPhones(s).includes(access.phone)) {
+        const left = resubmitPhones(s).filter(p => p !== access.phone);
+        try { await env.DB.prepare('UPDATE surveys SET resubmit_allow=? WHERE id=?').bind(JSON.stringify(left), id).run(); } catch (_) {}
+      }
 
       const anon = s.anonymous === 1;
       const who = anon ? '' : name;
@@ -1001,9 +1026,12 @@ export async function onRequest(context) {
     // ── GET ?mine=1 (나에게 열린 설문 목록) ──
     if (method === 'GET' && url.searchParams.get('mine') === '1') {
       const { results } = await env.DB.prepare(
-        "SELECT * FROM surveys WHERE status='open' ORDER BY id DESC"
+        "SELECT * FROM surveys WHERE status='open' OR (resubmit_allow IS NOT NULL AND resubmit_allow != '[]') ORDER BY id DESC"
       ).all();
-      const rows = (results || []).filter(r => audienceMatchesStudents(r, access.students));
+      // 종료된 설문은 '재제출 허용'을 받은 학생(휴대폰)에게만 목록에 노출. (2026-07-23)
+      const rows = (results || [])
+        .filter(r => r.status === 'open' || resubmitPhones(r).includes(access.phone))
+        .filter(r => audienceMatchesStudents(r, access.students));
       // 이미 응답한 설문 표시
       let answered = new Set();
       if (rows.length) {
@@ -1033,7 +1061,7 @@ export async function onRequest(context) {
       if (!id) return jsonErr('id가 필요합니다.');
       const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
       if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-      if (s.status !== 'open') return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
+      if (s.status !== 'open' && !resubmitPhones(s).includes(access.phone)) return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
       if (!audienceMatchesStudents(s, access.students)) return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
       const dup = await env.DB.prepare(
         'SELECT id FROM survey_responses WHERE survey_id=? AND respondent_phone=?'

@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>질문 관리 · 이관우 수학연구소</title>
+<!-- KaTeX: 답변 속 $...$ / $$...$$ 수식 렌더(작성 미리보기·기존 답변 표시) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
   :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ai:#1f6f78; --ai-light:#E3F1F2; }
   *{ box-sizing:border-box; }
@@ -50,6 +54,28 @@
   .ans .lab{ font-size:0.74rem; font-weight:800; color:var(--ai); margin-bottom:4px; }
   .ans.teacher .lab{ color:var(--primary); }
   .ans .txt{ font-size:0.86rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
+  .ans .txt .katex{ font-size:1.05em; }
+  /* 답변 작성칸 수식 도우미 */
+  .mathrow{ display:flex; align-items:center; gap:9px; margin-top:7px; flex-wrap:wrap; }
+  .mathbtn{ border:1px solid var(--primary); background:#fff; color:var(--primary); font-weight:700; font-size:0.8rem; padding:7px 12px; border-radius:8px; cursor:pointer; font-family:inherit; }
+  .mathbtn:active{ background:var(--primary-light); }
+  .mathrow-hint{ font-size:0.72rem; color:var(--muted); }
+  .mathrow-hint code{ background:var(--primary-light); color:var(--primary); padding:1px 5px; border-radius:4px; font-size:0.9em; }
+  .apreview{ margin-top:7px; background:#fff; border:1px dashed var(--border); border-radius:8px; padding:9px 11px; font-size:0.86rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:var(--ink); }
+  .apreview::before{ content:'미리보기 (학생 화면)'; display:block; font-size:0.68rem; font-weight:800; color:var(--muted); margin-bottom:4px; }
+  .apreview .katex{ font-size:1.05em; }
+  /* 수식 입력 모달 */
+  .mathmodal{ position:fixed; inset:0; background:rgba(10,4,6,0.55); display:none; align-items:center; justify-content:center; z-index:320; padding:18px; }
+  .mathmodal.show{ display:flex; }
+  .mm-box{ background:#fff; border-radius:14px; padding:18px 18px 16px; width:100%; max-width:520px; box-shadow:0 12px 40px rgba(0,0,0,0.3); }
+  .mm-title{ font-weight:800; font-size:1.0rem; margin-bottom:12px; }
+  .mm-box math-field{ width:100%; font-size:1.4rem; border:1px solid var(--border); border-radius:11px; padding:10px 12px; background:#fff; }
+  .mm-box math-field:focus-within{ border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+  .mm-hint{ font-size:0.76rem; color:var(--muted); margin-top:9px; line-height:1.5; }
+  .mm-btns{ display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+  .mm-btns button{ border:none; border-radius:9px; padding:9px 18px; font-weight:700; font-size:0.86rem; cursor:pointer; font-family:inherit; }
+  .mm-cancel{ background:#eee; color:#555; }
+  .mm-insert{ background:var(--primary); color:#fff; }
 
   .composer{ margin-top:11px; }
   .composer textarea{ width:100%; min-height:90px; padding:10px 12px; border:1.5px solid var(--border); border-radius:9px; font-size:0.88rem; font-family:inherit; line-height:1.6; resize:vertical; outline:none; }
@@ -153,6 +179,19 @@
 <div class="lightbox" id="lightbox" onclick="closePhoto()">
   <button class="lb-close" type="button" onclick="closePhoto()">✕</button>
   <img id="lightboxImg" alt="첨부 사진 크게 보기">
+</div>
+
+<!-- 수식 입력 모달 (답변칸에 $수식$ 삽입) -->
+<div class="mathmodal" id="mathModal">
+  <div class="mm-box">
+    <div class="mm-title">수식 입력</div>
+    <math-field id="mathInput" math-virtual-keyboard-policy="onfocus"></math-field>
+    <div class="mm-hint">키패드로 수식을 만든 뒤 <b>삽입</b>을 누르면 답변칸 커서 위치에 <code>$수식$</code> 형태로 들어갑니다. 학생 화면엔 수식으로 렌더돼 보여요.</div>
+    <div class="mm-btns">
+      <button type="button" class="mm-cancel" onclick="closeMath()">취소</button>
+      <button type="button" class="mm-insert" onclick="insertMath()">삽입</button>
+    </div>
+  </div>
 </div>
 <script>
   // 토큰: 조교는 portal 로그인 때 신뢰기기면 localStorage, 아니면 sessionStorage(ast_). 원장은 admin.html localStorage(adm_) 재사용.
@@ -552,6 +591,7 @@
       return;
     }
     $('content').innerHTML = head + list.map(cardHtml).join('');
+    renderAllMath();
   }
 
   function cardHtml(q){
@@ -579,7 +619,10 @@
     var by = byChoice[q.id] || (staffMode() ? '조교' : '선생님');
     var composer =
       '<div class="composer" id="comp_'+q.id+'" style="'+(composerOpen?'':'display:none;')+'">'+
-        '<textarea id="ans_'+q.id+'" placeholder="답변을 입력하세요. (학생에게 그대로 보여요)">'+esc(q.answeredBy && q.answeredBy!=='AI' ? q.answer : '')+'</textarea>'+
+        '<textarea id="ans_'+q.id+'" oninput="updatePreview('+q.id+')" placeholder="답변을 입력하세요. (학생에게 그대로 보여요)">'+esc(q.answeredBy && q.answeredBy!=='AI' ? q.answer : '')+'</textarea>'+
+        '<div class="mathrow"><button type="button" class="mathbtn" onclick="openMath('+q.id+')">➕ 수식</button>'+
+          '<span class="mathrow-hint"><code>$…$</code>로 직접 써도 학생 화면엔 수식으로 보여요.</span></div>'+
+        '<div class="apreview" id="pv_'+q.id+'" style="display:none;"></div>'+
         '<div class="crow">'+
           '<div class="byseg">'+
             (staffMode()
