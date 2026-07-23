@@ -235,7 +235,7 @@
       </div>
     </div>
 
-    <!-- 6c: 확인이 필요해요 액션 존 (테스트 응답 + 읽지 않은 공지) -->
+    <!-- 6c: 확인이 필요해요 액션 존 (테스트 응답만) — 공지는 아래 #noticeBox 한 곳에서만 노출(관우T 지시 2026-07-23). actionNoticeRow 제거됨. -->
     <div id="actionZone" style="display:none;margin-bottom:16px;">
       <div style="display:flex;align-items:center;gap:7px;margin:0 2px 9px;">
         <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span>
@@ -251,15 +251,6 @@
             <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;" id="surveyBannerSub">눌러서 응답하기</span>
           </span>
           <span style="flex-shrink:0;font-size:12px;font-weight:700;background:var(--primary);color:#fff;border-radius:999px;padding:7px 14px;white-space:nowrap;">응답</span>
-        </a>
-        <!-- 읽지 않은 공지 행: 액션존엔 '미읽음 요약'만(loadActionNotices의 localStorage 읽음 대조), 아래 #noticeBox 는 전체 목록 — 디자인가이드 12번의 의도된 이중 구조. 미읽음 0이면 JS가 이 행을 숨긴다. -->
-        <a id="actionNoticeRow" href="#" onclick="event.preventDefault();openNoticesFromAction()" style="display:none;align-items:center;gap:12px;text-decoration:none;color:inherit;padding:14px 16px;border-top:1px solid var(--hairline);">
-          <span style="flex-shrink:0;width:38px;height:38px;border-radius:11px;background:var(--gold-soft);display:flex;align-items:center;justify-content:center;color:var(--gold);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"/><path d="M17.5 9a4 4 0 0 1 0 6"/></svg></span>
-          <span style="flex:1;min-width:0;">
-            <span style="display:flex;align-items:center;gap:6px;"><span style="font-weight:700;font-size:13.5px;color:var(--text);">읽지 않은 공지 <span id="actionNoticeCount">0</span>건</span><span style="background:var(--primary);color:#fff;font-size:9.5px;font-weight:700;padding:1.5px 6px;border-radius:4px;">NEW</span></span>
-            <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="actionNoticeTitle">새 공지</span>
-          </span>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9B8AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m9 5 7 7-7 7"/></svg>
         </a>
       </div>
     </div>
