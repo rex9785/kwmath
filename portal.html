@@ -32,8 +32,8 @@
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
     --primary:#8B1A35;--primary-mid:#B02347;--primary-light:#F9EEF1;
-    --text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;
-    --hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;
+    --text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#ECE0D8;
+    --hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E4C577;
     --primary-dark:#661327;--border2:#E9E1D9;--gold-soft:#FBF3DF;
     --serif:'Noto Serif KR',serif;
   }
@@ -188,7 +188,7 @@
       <div id="welcomeBox" style="padding:4px 2px 0;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
           <div style="flex:1;min-width:0;">
-            <div id="welcomeMsg" style="font-size:18px;font-weight:800;letter-spacing:-0.02em;color:var(--text);margin-bottom:5px;"></div>
+            <div id="welcomeMsg" style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:var(--text);margin-bottom:5px;"></div>
             <div id="welcomePhone" style="font-size:12px;color:var(--text-light);"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end;">
@@ -213,13 +213,13 @@
     </div>
 
     <!-- 6c: 다음 수업 + 숙제 히어로 -->
-    <div id="heroCard" style="display:none;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:18px;padding:18px 20px 16px;margin-bottom:14px;color:#fff;box-shadow:0 6px 20px rgba(102,19,39,0.28);">
+    <div id="heroCard" style="display:none;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:16px;padding:16px 18px;margin-bottom:14px;color:#fff;">
       <div style="display:flex;align-items:center;gap:6px;color:var(--gold-bright);font-size:11px;font-weight:700;letter-spacing:0.1em;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
         다음 수업
       </div>
       <div style="display:flex;align-items:center;gap:9px;margin-top:7px;flex-wrap:wrap;">
-        <span id="heroDate" style="font-family:var(--serif);font-size:23px;font-weight:700;line-height:1.15;">일정 조율 중</span>
+        <span id="heroDate" style="font-family:var(--serif);font-size:21px;font-weight:700;line-height:1.15;">일정 조율 중</span>
         <span id="heroDday" style="display:none;background:var(--gold-bright);color:#3A0F1C;font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px;white-space:nowrap;"></span>
       </div>
       <div id="heroSub" style="font-size:11.5px;color:rgba(255,255,255,0.62);margin-top:5px;"></div>
@@ -242,18 +242,25 @@
         <span style="font-size:11.5px;font-weight:800;color:var(--primary);letter-spacing:0.02em;">확인이 필요해요</span>
         <span id="actionCount" style="display:none;background:var(--primary);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:1px 7px;min-width:16px;text-align:center;line-height:1.5;"></span>
       </div>
-      <div style="background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(70,20,35,0.04);">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(70,20,35,0.05);">
         <!-- 테스트 응답 행 (기존 surveyBanner 로직·id 이전) -->
-        <a id="surveyBanner" href="/surveys" style="display:none;align-items:center;gap:11px;text-decoration:none;color:inherit;padding:13px 15px;">
-          <span style="flex-shrink:0;width:34px;height:34px;border-radius:10px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;color:var(--primary);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg></span>
+        <a id="surveyBanner" href="/surveys" style="display:none;align-items:center;gap:12px;text-decoration:none;color:inherit;padding:14px 16px;">
+          <span style="flex-shrink:0;width:38px;height:38px;border-radius:11px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg></span>
           <span style="flex:1;min-width:0;">
-            <span style="display:block;font-weight:800;font-size:13.5px;color:var(--text);" id="surveyBannerTitle">진행 중인 설문이 있어요</span>
-            <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:1px;" id="surveyBannerSub">눌러서 응답하기</span>
+            <span style="display:block;font-weight:700;font-size:13.5px;color:var(--text);" id="surveyBannerTitle">진행 중인 설문이 있어요</span>
+            <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;" id="surveyBannerSub">눌러서 응답하기</span>
           </span>
-          <span style="flex-shrink:0;font-size:11px;font-weight:800;background:var(--primary);color:#fff;border-radius:999px;padding:5px 13px;white-space:nowrap;">응답</span>
+          <span style="flex-shrink:0;font-size:12px;font-weight:700;background:var(--primary);color:#fff;border-radius:999px;padding:7px 14px;white-space:nowrap;">응답</span>
         </a>
-        <!-- 읽지 않은 공지 행: 아래 '학원 공지·안내' 박스와 같은 공지가 두 번 보여 제거(2026-07-23). 공지는 박스에서 단일 표시. -->
-
+        <!-- 읽지 않은 공지 행: 액션존엔 '미읽음 요약'만(loadActionNotices의 localStorage 읽음 대조), 아래 #noticeBox 는 전체 목록 — 디자인가이드 12번의 의도된 이중 구조. 미읽음 0이면 JS가 이 행을 숨긴다. -->
+        <a id="actionNoticeRow" href="#" onclick="event.preventDefault();openNoticesFromAction()" style="display:none;align-items:center;gap:12px;text-decoration:none;color:inherit;padding:14px 16px;border-top:1px solid var(--hairline);">
+          <span style="flex-shrink:0;width:38px;height:38px;border-radius:11px;background:var(--gold-soft);display:flex;align-items:center;justify-content:center;color:var(--gold);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"/><path d="M17.5 9a4 4 0 0 1 0 6"/></svg></span>
+          <span style="flex:1;min-width:0;">
+            <span style="display:flex;align-items:center;gap:6px;"><span style="font-weight:700;font-size:13.5px;color:var(--text);">읽지 않은 공지 <span id="actionNoticeCount">0</span>건</span><span style="background:var(--primary);color:#fff;font-size:9.5px;font-weight:700;padding:1.5px 6px;border-radius:4px;">NEW</span></span>
+            <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="actionNoticeTitle">새 공지</span>
+          </span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9B8AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m9 5 7 7-7 7"/></svg>
+        </a>
       </div>
     </div>
 
@@ -296,62 +303,69 @@
       </div>
     </div>
 
-    <!-- 기능 버튼 그리드 -->
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:24px;">
-      <a href="/report" class="feat-btn" data-feat="report">
-        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg></span>
-        <span class="feat-title">수업영상 및 레포트</span>
-        <span class="feat-desc">날짜별 영상·수업내용·숙제</span>
-      </a>
-      <a href="/test-results" class="feat-btn" data-feat="test-results">
-        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M6 20V12"/><path d="M12 20V5"/><path d="M18 20V9"/></svg></span>
-        <span class="feat-title">테스트 결과</span>
-        <span class="feat-desc">점수·등급 진단 보고서</span>
-      </a>
-      <a href="/attendance" class="feat-btn" data-feat="attendance">
-        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
-        <span class="feat-title">출석 현황</span>
-        <span class="feat-desc">월별 출석 캘린더</span>
-      </a>
-      <a href="/materials" class="feat-btn" data-feat="materials">
-        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg></span>
-        <span class="feat-title">수업 자료실</span>
-        <span class="feat-desc">학습지·교재 다운로드</span>
-      </a>
-      <a href="/study" class="feat-btn" data-feat="study">
-        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"/></svg></span>
-        <span class="feat-title">KW-Study</span>
-        <span class="feat-desc">공부 시간 · 스트릭 · 통계</span>
-      </a>
-      <a href="/reviews" class="feat-btn" data-feat="reviews">
-        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"/><path d="M14.5 6.5l2.8 2.8"/></svg></span>
-        <span class="feat-title">수강 후기</span>
-        <span class="feat-desc">한 줄 후기 작성·조회</span>
-      </a>
-      <!-- 설문·조사: 상시 카드 제거. 열린 설문이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). -->
-      <!-- [주의] 질문방: 심사 중 숨김. 심사 통과 후 아래 QNA_ENABLED=true 로 바꾸고 배포하면 즉시 노출됨 -->
-      <a href="/qna" class="feat-btn" data-feat="qna" id="qnaFeatBtn" style="display:none;">
-        <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"/></svg></span>
-        <span class="feat-title">질문/문의방</span>
-        <span class="feat-desc">AI·선생님께 수학 질문 · 수업/결제 문의</span>
-      </a>
+    <!-- 바로가기: 큰 카드 2 + 컴팩트 4 (디자인가이드 4.5 위계). href·data-feat·class·id 유지, 겉모양만 시안 맞춤 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:800;color:#A08F87;letter-spacing:0.12em;margin-bottom:10px;padding-left:2px;">바로가기</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <a href="/report" class="feat-btn feat-big" data-feat="report">
+          <span class="feat-row"><span class="feat-icon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg></span><span class="feat-title">수업영상<br>및 레포트</span></span>
+          <span class="feat-desc">날짜별 영상·수업내용·숙제</span>
+        </a>
+        <a href="/test-results" class="feat-btn feat-big" data-feat="test-results">
+          <span class="feat-row"><span class="feat-icon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M6 20V12"/><path d="M12 20V5"/><path d="M18 20V9"/></svg></span><span class="feat-title">테스트<br>결과</span></span>
+          <span class="feat-desc">점수·등급 진단 보고서</span>
+        </a>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:10px;">
+        <a href="/attendance" class="feat-btn feat-compact" data-feat="attendance">
+          <span class="feat-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
+          <span class="feat-title">출석 현황</span>
+          <span class="feat-desc">월별 출석 캘린더</span>
+        </a>
+        <a href="/materials" class="feat-btn feat-compact" data-feat="materials">
+          <span class="feat-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg></span>
+          <span class="feat-title">수업 자료실</span>
+          <span class="feat-desc">학습지·교재 다운로드</span>
+        </a>
+        <a href="/study" class="feat-btn feat-compact" data-feat="study">
+          <span class="feat-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"/></svg></span>
+          <span class="feat-title">KW-Study</span>
+          <span class="feat-desc">공부 시간 · 스트릭 · 통계</span>
+        </a>
+        <a href="/reviews" class="feat-btn feat-compact" data-feat="reviews">
+          <span class="feat-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"/><path d="M14.5 6.5l2.8 2.8"/></svg></span>
+          <span class="feat-title">수강 후기</span>
+          <span class="feat-desc">한 줄 후기 작성·조회</span>
+        </a>
+      </div>
     </div>
 
+    <!-- 설문·조사: 상시 카드 제거. 열린 설문이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). -->
+    <!-- [주의] 질문방: 심사 중 숨김. QNA_ENABLED=true 면 JS가 display 해제해 노출. id·href·data-feat 유지 -->
+    <a href="/qna" class="feat-btn feat-wide" data-feat="qna" id="qnaFeatBtn" style="display:none;margin-bottom:24px;">
+      <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"/></svg></span>
+      <span style="flex:1;min-width:0;">
+        <span class="feat-title" style="display:block;">질문 / 문의방</span>
+        <span class="feat-desc" style="display:block;">AI·선생님께 수학 질문 · 수업/결제 문의</span>
+      </span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9B8AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;flex-shrink:0;"><path d="m9 5 7 7-7 7"/></svg>
+    </a>
+
     <!-- 하단 계정 관리 (로그아웃 · 비밀번호 변경 · 알림 설정) -->
-    <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:14px;font-size:0.82rem;color:var(--text-light);flex-wrap:wrap;">
-      <a href="#" onclick="event.preventDefault();doLogout()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">로그아웃</a>
-      <span style="color:var(--border);">|</span>
-      <a href="#" onclick="event.preventDefault();openPasswordModal()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">비밀번호 변경</a>
-      <span style="color:var(--border);">|</span>
-      <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">알림 설정</a>
-      <span style="color:var(--border);">|</span>
-      <a href="#" id="studyPushLink" onclick="event.preventDefault();toggleStudyPush()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">공부 알림</a>
-      <span style="color:var(--border);">|</span>
-      <a href="/push-help" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">알림이 안 와요?</a>
-      <span style="color:var(--border);">|</span>
-      <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;">앱 공유</a>
-      <span id="faceLockSep" style="color:var(--border);display:none;">|</span>
-      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:600;cursor:pointer;display:none;">생체인증 로그인</a>
+    <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--border2);display:flex;justify-content:center;align-items:center;gap:6px 14px;font-size:12px;color:var(--text-light);font-weight:500;flex-wrap:wrap;">
+      <a href="#" onclick="event.preventDefault();doLogout()" style="color:var(--text-light);text-decoration:none;font-weight:500;cursor:pointer;">로그아웃</a>
+      <span style="color:#DBCCC2;">·</span>
+      <a href="#" onclick="event.preventDefault();openPasswordModal()" style="color:var(--text-light);text-decoration:none;font-weight:500;cursor:pointer;">비밀번호 변경</a>
+      <span style="color:#DBCCC2;">·</span>
+      <a href="#" onclick="event.preventDefault();toggleEnablePush()" style="color:var(--text-light);text-decoration:none;font-weight:500;cursor:pointer;">알림 설정</a>
+      <span style="color:#DBCCC2;">·</span>
+      <a href="#" id="studyPushLink" onclick="event.preventDefault();toggleStudyPush()" style="color:var(--text-light);text-decoration:none;font-weight:500;cursor:pointer;">공부 알림</a>
+      <span style="color:#DBCCC2;">·</span>
+      <a href="/push-help" style="color:var(--text-light);text-decoration:none;font-weight:500;cursor:pointer;">알림이 안 와요?</a>
+      <span style="color:#DBCCC2;">·</span>
+      <a href="#" onclick="event.preventDefault();shareApp()" style="color:var(--text-light);text-decoration:none;font-weight:500;cursor:pointer;">앱 공유</a>
+      <span id="faceLockSep" style="color:#DBCCC2;display:none;">·</span>
+      <a href="#" id="faceLockLink" onclick="event.preventDefault();toggleFaceLock()" style="color:var(--text-light);text-decoration:none;font-weight:500;cursor:pointer;display:none;">생체인증 로그인</a>
     </div>
 
     <!-- 법적 고지 (스토어 심사 요건) -->
@@ -436,18 +450,30 @@
   .notice-item .nt-chevron{font-size:0.7rem;color:var(--gold);opacity:0.55;transition:transform .15s;display:inline-block;}
   .notice-item.open .nt-chevron{transform:rotate(180deg);opacity:1;}
 
-  /* 기능 버튼 그리드 — 3a: 헤어라인 분할 프레임 (개별 카드 그림자 제거) */
-  .feat-btn{display:flex;flex-direction:column;align-items:flex-start;gap:0;background:var(--bg2);border:none;border-radius:0;padding:18px 16px;text-decoration:none;color:var(--text);box-shadow:none;transition:background .15s;cursor:pointer;font-family:inherit;text-align:left;}
-  .feat-btn:hover{background:#fff;transform:none;box-shadow:none;}
-  .feat-btn:active{background:#fff;}
-  .feat-icon{font-size:0;line-height:1;margin-bottom:11px;}
+  /* 바로가기 카드 — 큰(feat-big)·컴팩트(feat-compact)·와이드(feat-wide) 3변형 (디자인가이드 4.5 위계) */
+  .feat-btn{text-decoration:none;color:var(--text);font-family:inherit;cursor:pointer;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  .feat-icon{font-size:0;line-height:1;}
   .feat-title{font-size:14px;font-weight:700;color:var(--text);}
-  .feat-desc{font-size:11.5px;color:var(--text-light);margin-top:3px;line-height:1.45;}
+  .feat-desc{font-size:11.5px;color:var(--text-light);line-height:1.45;}
+  /* 큰 카드 2개 (영상·테스트) */
+  .feat-big{display:block;background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;transition:background .15s;}
+  .feat-big:active{background:var(--primary-light);}
+  .feat-big .feat-row{display:flex;align-items:center;gap:10px;}
+  .feat-big .feat-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:var(--primary-light);color:var(--primary);flex-shrink:0;}
+  .feat-big .feat-title{line-height:1.25;}
+  .feat-big .feat-desc{margin-top:11px;}
+  /* 컴팩트 4개 (출석·자료실·KW-Study·후기) */
+  .feat-compact{display:flex;align-items:center;gap:11px;background:#fff;padding:14px 15px;transition:background .15s;}
+  .feat-compact:active{background:var(--primary-light);}
+  .feat-compact .feat-icon{display:flex;color:var(--primary);flex-shrink:0;}
+  .feat-compact .feat-title{font-size:13px;font-weight:600;}
+  .feat-compact .feat-desc{display:none;}
+  /* 질문/문의방 와이드 카드 */
+  .feat-wide{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:15px 17px;transition:background .15s;}
+  .feat-wide:active{background:var(--primary-light);}
+  .feat-wide .feat-icon{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--primary-light);color:var(--primary);flex-shrink:0;}
+  .feat-wide .feat-desc{margin-top:2px;}
   .feat-btn.disabled{opacity:.5;cursor:not-allowed;}
-  /* 질문/문의방: 전체 폭 가로형 */
-  #qnaFeatBtn{grid-column:1/-1;flex-direction:row;align-items:center;gap:11px;}
-  #qnaFeatBtn .feat-icon{margin-bottom:0;flex-shrink:0;}
-  #qnaFeatBtn .feat-desc{margin-top:0;margin-left:auto;text-align:right;}
 
   /* 알림함(인박스) 아이템 */
   .inbox-item{padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
