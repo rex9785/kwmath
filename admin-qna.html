@@ -685,6 +685,75 @@
     }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
   }
 
+  // ─────────────── 답변 수식 입력 ───────────────
+  //   답변은 글+수식이 섞이므로 칸 전체를 math-field로 바꾸지 않고, '➕ 수식' 버튼으로
+  //   math-field 팝업을 띄워 만든 LaTeX를 $…$ 로 감싸 커서 위치에 삽입한다.
+  //   학생(qna.html)·이 화면 모두 KaTeX로 $…$ / $$…$$ 를 수식으로 렌더한다.
+  (function loadMathlive(){
+    try { import('https://cdn.jsdelivr.net/npm/mathlive@0.110.0/+esm').catch(function(){}); } catch (_) {}
+  })();
+
+  var _mathTargetId = null;
+  function openMath(id){
+    _mathTargetId = id;
+    var mf = $('mathInput');
+    if(mf){ try{ mf.value=''; }catch(_){} }
+    var m = $('mathModal'); if(m) m.classList.add('show');
+    setTimeout(function(){ try{ mf && mf.focus(); }catch(_){} }, 60);
+  }
+  function closeMath(){
+    var m = $('mathModal'); if(m) m.classList.remove('show');
+    _mathTargetId = null;
+  }
+  function insertMath(){
+    var mf = $('mathInput');
+    var latex = mf ? String(mf.value||'').trim() : '';
+    var ta = (_mathTargetId!=null) ? $('ans_'+_mathTargetId) : null;
+    if(latex && ta){
+      var snippet = '$'+latex+'$';
+      var start = (ta.selectionStart!=null) ? ta.selectionStart : ta.value.length;
+      var end   = (ta.selectionEnd!=null)   ? ta.selectionEnd   : ta.value.length;
+      ta.value = ta.value.slice(0,start) + snippet + ta.value.slice(end);
+      var pos = start + snippet.length;
+      try{ ta.focus(); ta.setSelectionRange(pos,pos); }catch(_){}
+      updatePreview(_mathTargetId);
+    }
+    closeMath();
+  }
+
+  // $…$ / $$…$$ 를 KaTeX로 렌더(요소 내부 텍스트 대상). KaTeX 미로드 시 조용히 스킵.
+  function renderMathIn(el){
+    if(!el || !window.renderMathInElement) return;
+    try{
+      window.renderMathInElement(el, {
+        delimiters:[
+          { left:'$$', right:'$$', display:true },
+          { left:'\\[', right:'\\]', display:true },
+          { left:'$',  right:'$',  display:false },
+          { left:'\\(', right:'\\)', display:false },
+        ],
+        throwOnError:false,
+      });
+    }catch(e){}
+  }
+  // 작성칸 미리보기 갱신 — 학생 화면에 보일 모습 그대로.
+  function updatePreview(id){
+    var ta = $('ans_'+id), pv = $('pv_'+id);
+    if(!ta || !pv) return;
+    var v = ta.value || '';
+    if(!v.trim()){ pv.style.display='none'; pv.textContent=''; return; }
+    pv.style.display='block';
+    pv.textContent = v;        // 원문을 텍스트로 넣고(XSS 안전) KaTeX가 $…$만 수식으로 치환
+    renderMathIn(pv);
+  }
+  // 목록 렌더 직후: 기존 답변(.ans .txt) 수식 렌더 + 열린 작성칸 미리보기 초기화.
+  function renderAllMath(){
+    document.querySelectorAll('#content .ans .txt').forEach(function(el){ renderMathIn(el); });
+    document.querySelectorAll('#content textarea[id^="ans_"]').forEach(function(ta){
+      updatePreview(ta.id.slice(4));
+    });
+  }
+
   // 푸시 수신용 서비스워커 등록 (sw.js의 push 핸들러가 알림 표시)
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(function(){}); }
   applyRoleUI();
