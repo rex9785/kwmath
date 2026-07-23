@@ -7,11 +7,12 @@
 //  GET  /api/qna?mine=1         본인이 올린 질문만
 //  GET  /api/qna?admin=1        admin. 전체 (status=pending 필터 가능)
 //  POST /api/qna                토큰. 질문 작성
-//       body: { mode:'ai'|'teacher', isPrivate?:bool, title?:string, question:string, image?:dataURL }
-//       - mode='ai'      : 하루 제한(기본 10개) 내에서 Gemini 즉시 답변 → status='answered'
-//       - mode='teacher' : 선생님/조교 답변 대기 → status='pending'
-//       - image          : "data:image/jpeg;base64,..." 형태(선택). 첨부 시 Gemini가 사진을 읽고 답변.
-//                          사진만 올려도(질문 글 없이) 질문 가능. 사진은 image 컬럼에 저장돼 본인/관리자만 봄.
+//       body: { mode:'ai'|'teacher', isPrivate?:bool, title?:string, question:string, image?:dataURL, images?:dataURL[] }
+//       - mode='ai'      : 하루 제한(기본 10개) 내에서 Gemini 즉시 답변 → status='answered'. 사진은 1장만.
+//       - mode='teacher' : 선생님/조교 답변 대기 → status='pending'. 사진 여러 장(최대 MAX_IMAGES) 가능.
+//       - image          : "data:image/jpeg;base64,..." 형태(선택·1장). 첨부 시 Gemini가 사진을 읽고 답변.
+//       - images         : dataURL 배열(선택·비AI 전용, 최대 MAX_IMAGES장). 1장이면 image, 여러 장이면 images(JSON)로 저장.
+//                          사진만 올려도(질문 글 없이) 질문 가능. 사진은 본인/관리자만 봄.
 //  PATCH /api/qna?id=...        admin. 선생님/조교 답변 등록 { answer, answeredBy?('선생님'|'조교') }
 //  DELETE /api/qna?id=...       본인 질문(또는 admin) 삭제
 //
@@ -32,6 +33,11 @@ const MAX_Q_LEN = 1200;     // 질문 글자 제한
 const MAX_A_LEN = 20000;    // 저장 답변 글자 제한. 출력토큰 여유(maxOutputTokens-thinking≈1만토큰≈2만자)에 맞춤 —
                             // 모델이 끝까지 완성한 답(finishReason STOP)이 여기서 잘려 \boxed·LaTeX가 깨지지 않게.
 const MAX_IMG_B64 = 2_600_000;  // 첨부 사진 base64 최대 길이(약 1.9MB 바이너리). 클라이언트가 리사이즈해 보내므로 보통 그 한참 아래.
+// 다중 사진(선생님 질문·문의 전용, AI는 항상 1장). 2026-07-23 관우T 요청.
+const MAX_IMAGES = 4;           // 한 질문당 최대 사진 장수.
+// 여러 장은 image가 아니라 images(JSON 배열)로 저장. D1 한 행 최대 2MB 제한 아래로 여유를 두고 합계 상한.
+// (base64는 ASCII라 1자=1바이트. 다른 컬럼·JSON 따옴표/쉼표 여유로 ~300KB 남김.)
+const MAX_IMAGES_TOTAL_B64 = 1_700_000;
 
 // ── 토큰 사용량/비용 추정용 상수 (6/23 추가 · 7/11 gemini-3.1-pro-preview 단가로 갱신) ──
 // gemini-3.1-pro-preview 단가(2026-07 기준, USD per 1M tokens, ≤200k 컨텍스트 표준 티어). 바뀌면 여기만 수정.
@@ -73,6 +79,8 @@ async function ensureTable(env) {
   ).run();
   // 사진 첨부(6/23 추가) — 기존 테이블이면 컬럼만 추가. 이미 있으면 throw → 무시.
   try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN image TEXT').run(); } catch (_) {}
+  // 다중 사진(7/23 추가) — 여러 장은 여기에 JSON 배열["data:...","data:..."]로 저장(image는 1장·하위호환용).
+  try { await env.DB.prepare('ALTER TABLE qna ADD COLUMN images TEXT').run(); } catch (_) {}
   // 질문/문의 구분(kind) — 'question'(수학 질문) | 'inquiry'(학원·수업 문의). 기존 테이블이면 컬럼만 추가.
   try { await env.DB.prepare("ALTER TABLE qna ADD COLUMN kind TEXT DEFAULT 'question'").run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_qna_phone ON qna(author_phone)').run(); } catch (_) {}
@@ -102,6 +110,16 @@ function maskName(name) {
   return n.slice(0, mid) + 'O' + n.slice(mid + 1);
 }
 
+// 한 행의 첨부 사진을 배열로 정규화 — 다중(images JSON) 우선, 없으면 단일(image), 둘 다 없으면 빈 배열.
+function imagesOf(r) {
+  let arr = [];
+  if (r.images) {
+    try { const p = JSON.parse(r.images); if (Array.isArray(p)) arr = p.filter(x => typeof x === 'string' && x); } catch (_) {}
+  }
+  if (!arr.length && r.image) arr = [r.image];
+  return arr;
+}
+
 function rowOut(r, opts = {}) {
   const mine = opts.mine === true;
   const isAdmin = opts.isAdmin === true;
@@ -109,7 +127,7 @@ function rowOut(r, opts = {}) {
   // 공개 목록에서 남의 글이면 작성자 이름 마스킹 (본인/관리자는 실명)
   const showName = (mine || isAdmin) ? (r.author_name || '') : maskName(r.author_name);
   // 첨부 사진은 본인/관리자에게만 — 공개 피드에서 남의 사진은 노출 안 함
-  const showImage = (mine || isAdmin) ? (r.image || '') : '';
+  const showImages = (mine || isAdmin) ? imagesOf(r) : [];
   return {
     id: r.id,
     authorName: showName,
@@ -118,7 +136,8 @@ function rowOut(r, opts = {}) {
     isPrivate: priv,
     title: r.title || '',
     question: r.question || '',
-    image: showImage,
+    image: showImages[0] || '',   // 하위호환(1장) — 여러 장은 images 사용
+    images: showImages,
     answer: r.answer || '',
     answeredBy: r.answered_by || '',
     status: r.status || 'pending',
@@ -487,18 +506,36 @@ export async function onRequest(context) {
       const title = (body.title || '').toString().trim().slice(0, 80);
       const question = (body.question || '').toString().trim();
 
-      // 첨부 사진(선택) — data URL 파싱·용량 검증
-      const image = parseImage(body.image);
-      if (body.image && !image) return jsonErr('사진 형식을 인식하지 못했어요. (JPG·PNG만 가능)');
-      if (image && image.data.length > MAX_IMG_B64) return jsonErr('사진 용량이 너무 커요. 잠시 후 다시 시도해 주세요.');
+      // 첨부 사진(선택) — 단일(image) 또는 다중(images 배열, 선생님·문의 전용). AI는 항상 1장.
+      const single = parseImage(body.image);
+      if (body.image && !single) return jsonErr('사진 형식을 인식하지 못했어요. (JPG·PNG만 가능)');
 
+      let imgList = [];
+      if (Array.isArray(body.images) && mode !== 'ai') {   // 다중은 비AI(선생님 질문·문의)만
+        for (const raw of body.images) {
+          const im = parseImage(raw);
+          if (!im) return jsonErr('사진 형식을 인식하지 못했어요. (JPG·PNG만 가능)');
+          imgList.push(im);
+        }
+      }
+      if (!imgList.length && single) imgList = [single];   // 다중 없으면 단일을 목록으로
+      if (imgList.length > MAX_IMAGES) return jsonErr(`사진은 최대 ${MAX_IMAGES}장까지 올릴 수 있어요.`);
+      for (const im of imgList) {
+        if (im.data.length > MAX_IMG_B64) return jsonErr('사진 한 장의 용량이 너무 커요. 잠시 후 다시 시도해 주세요.');
+      }
+      const imgTotal = imgList.reduce((s, im) => s + im.dataUrl.length, 0);
+      if (imgTotal > MAX_IMAGES_TOTAL_B64) return jsonErr('사진 전체 용량이 너무 커요. 장수를 줄이거나 다시 시도해 주세요.');
+
+      const hasImg = imgList.length > 0;
       // 사진이 있으면 글이 짧거나 없어도 허용. 둘 다 없으면 거절.
-      if (!question && !image) return jsonErr('질문 내용을 입력하거나 사진을 올려주세요.');
-      if (!image && question.length < 4) return jsonErr('질문을 조금 더 자세히 적어주세요. (4자 이상)');
+      if (!question && !hasImg) return jsonErr('질문 내용을 입력하거나 사진을 올려주세요.');
+      if (!hasImg && question.length < 4) return jsonErr('질문을 조금 더 자세히 적어주세요. (4자 이상)');
       if (question.length > MAX_Q_LEN) return jsonErr(`질문은 ${MAX_Q_LEN}자 이하로 작성해주세요.`);
 
       const storedQuestion = question || '[사진으로 질문]';
-      const imageToStore = image ? image.dataUrl : null;
+      const image = imgList[0] || null;                                          // AI 멀티모달·하위호환용 첫 장
+      const imageToStore  = (imgList.length === 1) ? imgList[0].dataUrl : null;   // 1장 → image 컬럼(하위호환)
+      const imagesToStore = (imgList.length > 1)  ? JSON.stringify(imgList.map(im => im.dataUrl)) : null;  // 여러 장 → images 컬럼(JSON)
       const authorName = student.name || '학생';
       const now = new Date().toISOString();
       const today = kstDateStr();
@@ -539,12 +576,12 @@ export async function onRequest(context) {
         });
       }
 
-      // ── 선생님/조교 모드(질문) · 문의 모드: 대기글 저장 (사진 첨부 포함) ──
+      // ── 선생님/조교 모드(질문) · 문의 모드: 대기글 저장 (사진 1장은 image, 여러 장은 images) ──
       const res = await env.DB.prepare(
-        'INSERT INTO qna (student_id, author_phone, author_name, mode, kind, is_private, title, question, image, answer, answered_by, status, qdate, created_at, answered_at) ' +
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-      ).bind(student.id || null, phone, authorName, 'teacher', kind, isPrivate, title, storedQuestion, imageToStore, null, null, 'pending', today, now, null).run();
-      notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: !!imageToStore, kind });
+        'INSERT INTO qna (student_id, author_phone, author_name, mode, kind, is_private, title, question, image, images, answer, answered_by, status, qdate, created_at, answered_at) ' +
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+      ).bind(student.id || null, phone, authorName, 'teacher', kind, isPrivate, title, storedQuestion, imageToStore, imagesToStore, null, null, 'pending', today, now, null).run();
+      notifyAdminNewQuestion(context, env, { authorName, title, question: storedQuestion, isPrivate, hasImage: hasImg, kind });
       return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id, mode: 'teacher', kind, status: 'pending' });
     }
 

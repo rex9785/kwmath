@@ -18,7 +18,9 @@ export async function onRequest({ request, env }) {
 
   // 🔒 내부 전용 프리픽스 — download-file로 절대 노출 금지 (admin 제외).
   //    로그인 토큰·푸쉬구독·영상코드·라이브상태 등 운영 데이터. 프론트는 이 프리픽스를 받지 않음.
-  const INTERNAL_PREFIXES = ['auth/', 'video-codes/', 'push-subs/', 'study-live/'];
+  // staff-shared/ = 원장→조교 전용 자료. 조교/원장은 /api/staff-materials로만 받고,
+  //   일반(무인증·학생) 다운로드는 여기서 차단(공개 유출 방지). admin 토큰은 아래 isAdmin으로 통과.
+  const INTERNAL_PREFIXES = ['auth/', 'video-codes/', 'push-subs/', 'study-live/', 'staff-shared/'];
   if (!isAdmin && INTERNAL_PREFIXES.some((p) => key.startsWith(p))) {
     return Response.json({ error: '접근 권한이 없습니다.' }, { status: 403 });
   }

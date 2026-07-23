@@ -497,6 +497,7 @@
             <select id="fileFolder" onchange="togglePhoneInput()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
               <option value="class-shared">📚 수업자료·교재 (반별, 그 반 학생만)</option>
               <option value="reports">📋 학생 리포트 (학생별, 본인+학부모만)</option>
+              <option value="staff-shared">🧑‍🏫 조교 전용 자료 (모든 조교 공용·학생 안 보임)</option>
             </select>
           </div>
           <div id="classSharedWrap" style="display:none;">
@@ -556,6 +557,7 @@
           <select id="viewFolder" onchange="loadFiles()" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
             <option value="class">📚 수업자료·교재 (반별)</option>
             <option value="reports">📋 학생 리포트 (학생별)</option>
+            <option value="staff-shared">🧑‍🏫 조교 전용 자료 (모든 조교 공용)</option>
             <option value="materials">📢 공개 자료 (전체 공개)</option>
           </select>
           <select id="viewAcademy" onchange="onClassFilterChange('academy')" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;display:none;">

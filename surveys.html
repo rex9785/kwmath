@@ -303,6 +303,7 @@
           function toText(){
             mode = 'text';
             var ti = document.createElement('input'); ti.type='text'; ti.className='ti'; ti.placeholder='답변을 입력하세요';
+            ti.setAttribute('data-ans-qid', qid);   // 제출 시점 값 재동기화용(아이폰 대비)
             try{ ti.value = answers[qid] || ''; }catch(e){}
             ti.addEventListener('input', function(){ answers[qid] = ti.value; });
             wrapEl.innerHTML = ''; wrapEl.appendChild(ti);
@@ -315,9 +316,11 @@
             }
             mode = 'math';
             var mf = document.createElement('math-field');
+            mf.setAttribute('data-ans-qid', qid);   // 제출 시점 값 재동기화용(아이폰 대비)
             mf.setAttribute('math-virtual-keyboard-policy','onfocus');
             try{ if(answers[qid]) mf.value = answers[qid]; }catch(e){}
             mf.addEventListener('input', function(){ answers[qid] = mf.value; });
+            mf.addEventListener('change', function(){ answers[qid] = mf.value; });   // iOS: input 누락 대비 보조
             // 아이폰(iOS WKWebView)에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비 — 탭하면 직접 show()
             mf.addEventListener('focusin', function(){ setTimeout(showKb, 60); });
             mf.addEventListener('pointerup', function(){ try{ mf.focus(); }catch(e){} setTimeout(showKb, 150); });
@@ -336,6 +339,14 @@
   }
 
   function submit(){
+    // 아이폰(iOS WKWebView) 대비 — 수식(math-field)·단답 입력칸의 input 이벤트가 늦거나 누락돼도,
+    // 제출 시점의 화면 실제 값을 answers에 다시 반영. (갤럭시는 이미 이벤트로 채워져 있어 무해)
+    try{
+      document.querySelectorAll('[data-ans-qid]').forEach(function(el){
+        var qid = el.getAttribute('data-ans-qid');
+        if(qid && el.value != null) answers[qid] = el.value;
+      });
+    }catch(e){}
     var qs = current.questions || [];
     for(var i=0;i<qs.length;i++){
       var q = qs[i]; if(!q.required) continue;

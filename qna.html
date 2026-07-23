@@ -148,10 +148,20 @@
   .photo-preview img{display:block;width:100%;max-height:280px;object-fit:contain;background:#000;}
   .photo-remove{position:absolute;top:8px;right:8px;background:rgba(20,8,12,0.78);color:#fff;border:none;border-radius:8px;padding:6px 11px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .photo-busy{font-size:0.76rem;color:var(--ai);font-weight:700;margin-top:6px;display:flex;align-items:center;gap:6px;}
+  /* 다중 사진 썸네일(선생님 질문·문의 전용 · AI는 1장) */
+  .photo-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+  .photo-list:empty{display:none;}
+  .photo-thumb{position:relative;width:calc(50% - 4px);border:1.5px solid var(--border);border-radius:11px;overflow:hidden;background:#000;}
+  .photo-thumb img{display:block;width:100%;height:130px;object-fit:cover;cursor:zoom-in;}
+  .photo-list.single .photo-thumb{width:100%;}
+  .photo-list.single .photo-thumb img{height:auto;max-height:280px;object-fit:contain;}
+  .photo-thumb .rm{position:absolute;top:6px;right:6px;background:rgba(20,8,12,0.82);color:#fff;border:none;border-radius:7px;padding:5px 9px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;line-height:1;}
+  .photo-count{font-size:0.74rem;color:var(--text-light);margin-top:6px;font-weight:600;}
 
   /* 질문 카드 첨부 사진 */
   .q-photo{margin-top:10px;}
   .q-photo img{max-width:100%;max-height:340px;border-radius:10px;border:1px solid var(--border);cursor:zoom-in;display:block;}
+  .q-photo.multi img + img{margin-top:8px;}
 
   /* 선생님 질문 가이드 */
   .teacher-guide{margin-top:6px;background:#FFFBF3;border:1px solid #F0E2C0;border-radius:12px;padding:13px 14px;}
@@ -245,12 +255,10 @@
       <div class="field">
         <label id="photoLabel">사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span></label>
         <input type="file" id="photoInput" accept="image/*" style="display:none;">
+        <div class="photo-list" id="photoList"></div>
         <button type="button" class="photo-btn" id="photoBtn" onclick="document.getElementById('photoInput').click()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.2-2h5.4l1.2 2h1.6A2.5 2.5 0 0 1 20 8.5V17a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17z"/><circle cx="12" cy="13" r="3.2"/></svg>사진 찍기 / 앨범에서 고르기</button>
         <div class="photo-busy" id="photoBusy" style="display:none;">사진 준비 중…</div>
-        <div class="photo-preview" id="photoPreview" style="display:none;">
-          <img id="photoPreviewImg" alt="첨부한 사진">
-          <button type="button" class="photo-remove" onclick="removePhoto()">× 빼기</button>
-        </div>
+        <div class="photo-count" id="photoCount" style="display:none;"></div>
       </div>
 
       <div class="field">
@@ -332,7 +340,9 @@
   let kind = 'question';      // 'question'(수학 질문) | 'inquiry'(수업·결제·기타 문의)
   let isPrivate = false;
   let aiRemaining = null, aiDailyLimit = 10;
-  let attachedImage = null;   // 첨부 사진(data URL) — 리사이즈 후 저장
+  const MAX_PHOTOS = 4;       // 선생님 질문·문의 다중 사진 최대 장수(서버 MAX_IMAGES와 동일). AI는 항상 1장.
+  let attachedImages = [];    // 첨부 사진 data URL 배열(리사이즈 후 저장) — 1장이면 서버에 image, 여러 장이면 images로 전송
+  function allowMulti(){ return !(kind === 'question' && mode === 'ai'); }   // AI 질문만 단일, 그 외(선생님 질문·문의) 다중
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -376,6 +386,7 @@
       $('photoLabel').innerHTML = '사진 첨부 <span style="font-weight:400;color:var(--text-light);">(선택 · 문제를 찍어 올리면 AI가 읽고 풀어줘요)</span>';
       setMode(mode);   // 질문 방식(제출버튼·가이드·양식) 원복
     }
+    enforcePhotoCap();   // 질문↔문의 전환 시 허용 장수(다중/단일) 재적용
   }
 
   // ── 모드 선택 ──
@@ -397,6 +408,7 @@
       ta.value = '';
     }
     $('charCount').textContent = ta.value.length + ' / 1200';
+    enforcePhotoCap();   // AI↔선생님 전환 시 사진 허용 장수 재적용(AI로 가면 1장만)
   }
   function togglePrivate(){
     isPrivate = !isPrivate;
@@ -406,29 +418,63 @@
 
   // ── 사진 첨부: 선택 → 클라이언트 리사이즈 → 미리보기 ──
   $('photoInput').addEventListener('change', handlePhoto);
+  // 파일 입력의 multiple 속성을 현재 모드에 맞춤(선생님 질문·문의만 다중)
+  function syncPhotoInput(){ try{ $('photoInput').multiple = allowMulti(); }catch(e){} }
   async function handlePhoto(e){
-    const file = e.target.files && e.target.files[0];
+    const files = Array.prototype.slice.call((e.target && e.target.files) || []);
     e.target.value = '';               // 같은 파일 다시 선택 가능하게
-    if (!file) return;
-    if (!/^image\//.test(file.type || '')){ showToast('이미지 파일만 올릴 수 있어요.'); return; }
+    if (!files.length) return;
+    const multi = allowMulti();
+    const cap = multi ? MAX_PHOTOS : 1;
+    if (!multi) attachedImages = [];   // AI는 항상 1장 — 새로 고른 것으로 교체
+    const room = cap - attachedImages.length;
+    if (room <= 0){ showToast('사진은 최대 ' + cap + '장까지 올릴 수 있어요.'); return; }
+    const pick = files.slice(0, room);
+    const skipped = files.length - pick.length;
     $('photoBusy').style.display = 'flex';
     try {
-      attachedImage = await resizeImage(file, 1280, 0.72);
-      $('photoPreviewImg').src = attachedImage;
-      $('photoPreview').style.display = 'block';
-      $('photoBtn').style.display = 'none';
+      for (const file of pick){
+        if (!/^image\//.test(file.type || '')){ showToast('이미지 파일만 올릴 수 있어요.'); continue; }
+        // 여러 장이면 저장용량(D1 한 행 2MB) 아끼려 더 작게 압축, 1장이면 기존 화질 유지
+        const dataUrl = multi ? await resizeImage(file, 1120, 0.62) : await resizeImage(file, 1280, 0.72);
+        attachedImages.push(dataUrl);
+      }
+      if (skipped > 0) showToast('최대 ' + cap + '장까지만 첨부돼요. ' + skipped + '장은 제외했어요.');
     } catch (err) {
-      attachedImage = null;
       showToast('사진을 불러오지 못했어요. 다시 시도해 주세요.');
     } finally {
       $('photoBusy').style.display = 'none';
+      renderPhotos();
     }
   }
-  function removePhoto(){
-    attachedImage = null;
-    $('photoPreview').style.display = 'none';
-    $('photoPreviewImg').src = '';
-    $('photoBtn').style.display = 'flex';
+  function removePhoto(idx){
+    if (typeof idx === 'number') attachedImages.splice(idx, 1);
+    else attachedImages = [];
+    renderPhotos();
+  }
+  // 첨부 사진 썸네일 렌더 + 버튼/카운트 상태 갱신
+  function renderPhotos(){
+    const list = $('photoList');
+    list.innerHTML = attachedImages.map(function(src, i){
+      return '<div class="photo-thumb"><img src="' + src + '" alt="첨부 사진 ' + (i+1) + '" onclick="openPhoto(this.src)">' +
+             '<button type="button" class="rm" onclick="removePhoto(' + i + ')">× 빼기</button></div>';
+    }).join('');
+    list.classList.toggle('single', attachedImages.length === 1);
+    const cap = allowMulti() ? MAX_PHOTOS : 1;
+    $('photoBtn').style.display = (attachedImages.length >= cap) ? 'none' : 'flex';
+    const cnt = $('photoCount');
+    if (allowMulti() && attachedImages.length > 0){ cnt.style.display = 'block'; cnt.textContent = attachedImages.length + ' / ' + cap + '장'; }
+    else { cnt.style.display = 'none'; cnt.textContent = ''; }
+  }
+  // 모드 전환 등으로 허용 장수가 줄면 초과분 정리(AI로 가면 1장만 남김)
+  function enforcePhotoCap(){
+    const cap = allowMulti() ? MAX_PHOTOS : 1;
+    if (attachedImages.length > cap){
+      attachedImages = attachedImages.slice(0, cap);
+      showToast(cap === 1 ? 'AI 질문은 사진 1장만 첨부돼요. 첫 장만 남겼어요.' : ('사진은 최대 ' + cap + '장까지예요.'));
+    }
+    syncPhotoInput();
+    renderPhotos();
   }
   // 사진 긴 변을 maxEdge 이하로 줄이고 JPEG로 압축 → 용량/전송 절감
   function resizeImage(file, maxEdge, quality){
@@ -480,10 +526,11 @@
     const title = $('qTitle').value.trim();
     const question = $('qBody').value.trim();
     // 사진이 있으면 글이 짧거나 없어도 OK. 둘 다 없을 때만 막음.
-    if (!question && !attachedImage){ errBox.textContent='질문 내용을 입력하거나 사진을 올려주세요.'; return; }
-    if (!attachedImage && question.length < 4){ errBox.textContent='질문을 조금 더 자세히 적어주세요.'; return; }
+    const hasImg = attachedImages.length > 0;
+    if (!question && !hasImg){ errBox.textContent='질문 내용을 입력하거나 사진을 올려주세요.'; return; }
+    if (!hasImg && question.length < 4){ errBox.textContent='질문을 조금 더 자세히 적어주세요.'; return; }
     // 선생님 모드(질문): 기본 양식만 있고 실제 내용이 비어 있으면 막기 (문의엔 양식 없음)
-    if (kind==='question' && mode==='teacher' && !attachedImage && isTplUntouched()){
+    if (kind==='question' && mode==='teacher' && !hasImg && isTplUntouched()){
       errBox.textContent='양식의 각 항목(어디까지 했는지, 어디서 막혔는지 등)에 내용을 채워 주세요.'; return;
     }
 
@@ -494,11 +541,16 @@
     if (aiMode) $('aiLoading').classList.add('show');
     else btn.textContent = '등록 중…';
 
+    // 사진 전송: 여러 장 허용(선생님·문의)이고 2장 이상이면 images 배열, 그 외엔 image 1장
+    const photoField = (allowMulti() && attachedImages.length > 1)
+      ? { images: attachedImages }
+      : (attachedImages.length ? { image: attachedImages[0] } : {});
+
     try {
       const res = await fetch('/api/qna' + (nameQ('?') ? ('?'+nameQ('')) : ''), {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
-        body: JSON.stringify({ kind, mode, isPrivate, title, question, image: attachedImage || undefined }),
+        body: JSON.stringify(Object.assign({ kind, mode, isPrivate, title, question }, photoField)),
       });
       const data = await res.json();
       if (!res.ok){ errBox.textContent = data.error || '등록 실패'; return; }
@@ -507,7 +559,7 @@
       $('qTitle').value='';
       $('qBody').value = (kind==='question' && mode==='teacher') ? TEACHER_TPL : '';
       $('charCount').textContent = $('qBody').value.length + ' / 1200';
-      removePhoto();
+      attachedImages = []; renderPhotos();
       if (isPrivate) togglePrivate();
 
       // 사용량 갱신
@@ -535,7 +587,7 @@
     if (q.title && q.title.trim()) return q.title.trim();
     const body = (q.question||'').replace(/\s+/g,' ').trim();
     if (body) return body.slice(0, 60);
-    if (q.image) return '사진 질문';
+    if (q.image || (q.images && q.images.length)) return '사진 질문';
     return '질문';
   }
 
@@ -564,7 +616,10 @@
       answerHtml = '<div class="answer-pending">선생님·조교의 답변을 기다리는 중이에요.</div>';
     }
 
-    const photoHtml = q.image ? '<div class="q-photo"><img src="'+esc(q.image)+'" alt="첨부 사진" loading="lazy" onclick="openPhoto(this.src)"></div>' : '';
+    const imgs = (q.images && q.images.length) ? q.images : (q.image ? [q.image] : []);
+    const photoHtml = imgs.length
+      ? '<div class="q-photo'+(imgs.length>1?' multi':'')+'">'+imgs.map(function(src){ return '<img src="'+esc(src)+'" alt="첨부 사진" loading="lazy" onclick="openPhoto(this.src)">'; }).join('')+'</div>'
+      : '';
     const delBtn = q.mine ? '<div class="q-actions"><button class="btn-mini" onclick="delQuestion('+q.id+')">삭제</button></div>' : '';
 
     // 펼쳤을 때만 보일 상세(본문+사진+답변+삭제). 비밀글이 남의 글이면 본문 숨김(목록에 안 오지만 방어적으로).
@@ -666,6 +721,7 @@
   }
 
   // 초기 로드
+  syncPhotoInput(); renderPhotos();   // 사진 입력 multiple 속성·빈 목록 초기화
   loadRoom();
   ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW register fail:', e);});
 </script>
