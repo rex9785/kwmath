@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>과제 관리 | 관리자</title>
+<meta name="theme-color" content="#8B1A35">
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--ok:#1E7E45;--ok-light:#E6F4EA;--gold-line:#DEC98F;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .page{max-width:720px;margin:0 auto;padding:22px 18px 90px;}
+  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin:2px 0 12px;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+  .section-label .cnt{color:var(--text-light);font-weight:600;text-transform:none;letter-spacing:0;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:16px;box-shadow:0 2px 10px rgba(70,20,35,.05);margin-bottom:14px;}
+  .field{margin-bottom:11px;}
+  .field label{display:block;font-size:0.76rem;font-weight:700;color:var(--text-light);margin-bottom:5px;}
+  .field input,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.9rem;font-family:inherit;background:#fff;outline:none;color:var(--text);}
+  .field textarea{min-height:56px;resize:vertical;line-height:1.55;}
+  .field input:focus,.field textarea:focus{border-color:var(--primary);}
+  .field .hint{font-size:0.71rem;color:var(--text-light);margin-top:4px;}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .btn-primary{background:var(--primary);color:#fff;border:none;padding:12px 18px;border-radius:11px;font-size:0.9rem;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s;}
+  .btn-primary:hover{background:var(--primary-mid);}
+  .btn-primary:disabled{opacity:.55;cursor:not-allowed;}
+  .btn-primary.full{width:100%;margin-top:4px;}
+
+  .a-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
+  .a-card.closed{opacity:.72;}
+  .a-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+  .a-title{font-size:0.98rem;font-weight:800;flex:1;min-width:0;}
+  .a-detail{font-size:0.8rem;color:var(--text-light);line-height:1.5;margin:2px 0 8px;white-space:pre-wrap;}
+  .a-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.74rem;color:var(--text-light);}
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:0.69rem;font-weight:800;padding:3px 9px;border-radius:11px;}
+  .b-active{background:var(--ok-light);color:var(--ok);}
+  .b-closed{background:#F0E9D8;color:#8A6D1B;}
+  .b-cnt{background:var(--primary-light);color:var(--primary);}
+  .a-actions{margin-top:11px;display:flex;gap:6px;flex-wrap:wrap;}
+  .btn-mini{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:6px 12px;border-radius:8px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn-mini:hover{border-color:var(--primary);color:var(--primary);}
+  .btn-mini.go{border-color:var(--primary);color:var(--primary);}
+  .btn-mini.danger:hover{border-color:#C0392B;color:#C0392B;}
+
+  /* 제출 뷰 */
+  .back{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:8px 14px;border-radius:9px;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px;}
+  .back:hover{border-color:var(--primary);color:var(--primary);}
+  .s-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:10px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
+  .s-top{display:flex;align-items:center;gap:8px;cursor:pointer;}
+  .s-name{font-size:0.94rem;font-weight:800;}
+  .s-cnt{font-size:0.75rem;color:var(--text-light);margin-left:auto;}
+  .s-note{font-size:0.78rem;color:var(--text-light);margin-top:6px;background:var(--bg2);padding:7px 10px;border-radius:8px;line-height:1.5;}
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:11px;}
+  .thumb{position:relative;aspect-ratio:1;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;}
+  .thumb .dl{position:absolute;bottom:3px;right:3px;width:24px;height:24px;border-radius:6px;background:rgba(20,10,12,.62);color:#fff;border:none;font-size:0.82rem;line-height:24px;text-align:center;cursor:pointer;padding:0;}
+  .thumb .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-light);font-size:0.7rem;}
+
+  .state-box{text-align:center;padding:34px 22px;color:var(--text-light);}
+  .state-box .si{font-size:1.9rem;margin-bottom:8px;}
+  .state-box p{font-size:0.85rem;line-height:1.7;}
+  #loading{text-align:center;padding:60px 20px;color:var(--text-light);font-size:0.9rem;}
+  #login{max-width:340px;margin:60px auto;}
+  #login h2{font-size:1.05rem;font-weight:800;margin-bottom:14px;text-align:center;}
+  #loginErr{color:#B02347;font-size:0.82rem;font-weight:600;margin-top:8px;min-height:18px;text-align:center;}
+
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#241318;color:#fff;padding:11px 18px;border-radius:10px;font-size:0.84rem;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:200;max-width:90%;text-align:center;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #lightbox{position:fixed;inset:0;background:rgba(10,5,7,.92);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:8px;}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(139,26,53,.25);border-top-color:var(--primary);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="topbar-title" href="/admin.html">📸 과제 관리</a>
+    <a class="topbar-btn" href="/admin.html">← 관리자</a>
+  </div>
+
+  <div class="page">
+    <div id="loading">불러오는 중…</div>
+
+    <div id="login" style="display:none;">
+      <div class="card">
+        <h2>관리자 로그인</h2>
+        <div class="field"><label for="pw">비밀번호</label><input type="password" id="pw" placeholder="관리자 비밀번호"></div>
+        <button class="btn-primary full" id="loginBtn">로그인</button>
+        <div id="loginErr"></div>
+      </div>
+    </div>
+
+    <div id="main" style="display:none;">
+      <!-- 과제 목록 + 생성 -->
+      <div id="listView">
+        <div class="section-label">새 과제 만들기</div>
+        <div class="card">
+          <div class="field"><label for="fTitle">과제 제목 *</label><input type="text" id="fTitle" placeholder="예: 7/24 숙제 · 3단원 유형편 p.40~45"></div>
+          <div class="field"><label for="fDetail">설명 (선택)</label><textarea id="fDetail" placeholder="풀이 과정까지 찍어서 올리도록 안내 등"></textarea></div>
+          <div class="row2">
+            <div class="field"><label for="fDue">제출 기한 (선택)</label><input type="date" id="fDue"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="fAcademy">대상 학원 (선택)</label><input type="text" id="fAcademy" placeholder="비우면 전체"></div>
+            <div class="field"><label for="fClass">대상 반 (선택)</label><input type="text" id="fClass" placeholder="비우면 전체"></div>
+          </div>
+          <div class="field"><div class="hint">학원·반을 비워두면 모든 학생에게 보입니다. 특정 반만 지정하려면 학생 등록정보의 학원/반 이름과 똑같이 적어주세요.</div></div>
+          <button class="btn-primary full" id="createBtn">과제 만들기</button>
+        </div>
+
+        <div class="section-label">과제 목록 <span class="cnt" id="listCnt"></span></div>
+        <div id="assignList"></div>
+      </div>
+
+      <!-- 제출 현황 -->
+      <div id="subView" style="display:none;">
+        <button class="back" id="backBtn">← 과제 목록</button>
+        <div class="section-label" id="subTitle"></div>
+        <div id="subList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="lightbox"><img id="lightboxImg" src="" alt=""></div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  function show(id, on){ $(id).style.display = on ? '' : 'none'; }
+  function authHeaders(extra){ var h = extra || {}; if (token) h['Authorization'] = 'Bearer ' + token; return h; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function fmtDate(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return esc(iso); return (d.getMonth()+1)+'/'+d.getDate()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+  var toastTimer; function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); }, 2600); }
+  function openLightbox(src){ $('lightboxImg').src=src; $('lightbox').style.display='flex'; }
+  $('lightbox').addEventListener('click', function(){ this.style.display='none'; $('lightboxImg').src=''; });
+
+  // 401 처리 공통 fetch
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = authHeaders(opts.headers || {});
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); var had=token; token=null; showLogin(had ? '비밀번호가 틀렸습니다' : ''); throw new Error('401'); }
+    return r;
+  }
+  function showLogin(err){ show('loading', false); show('main', false); show('login', true); $('loginErr').textContent = err || ''; var p=$('pw'); if(p) p.focus(); }
+  function doLogin(){ token = ($('pw').value || '').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw', token); load(); }
+  $('loginBtn').addEventListener('click', doLogin);
+  $('pw').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+
+  // 토큰 보호 이미지 (헤더 fetch → objectURL) + 다운로드
+  var urlCache = {};
+  function loadImg(imgEl, key){
+    if (urlCache[key]){ imgEl.src = urlCache[key]; return; }
+    fetch('/api/homework?photo=1&key=' + encodeURIComponent(key), { headers: authHeaders(), credentials:'same-origin' })
+      .then(function(r){ return r.ok ? r.blob() : Promise.reject(); })
+      .then(function(b){ var u = URL.createObjectURL(b); urlCache[key]=u; imgEl.src=u; })
+      .catch(function(){ if(imgEl.parentNode) imgEl.parentNode.innerHTML = '<div class="ph">✕</div>'; });
+  }
+  function downloadKey(key){
+    fetch('/api/homework?photo=1&key=' + encodeURIComponent(key), { headers: authHeaders(), credentials:'same-origin' })
+      .then(function(r){ return r.ok ? r.blob() : Promise.reject(); })
+      .then(function(b){ var u=URL.createObjectURL(b); var a=document.createElement('a'); a.href=u; a.download=(key.split('/').pop()||'photo.jpg'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(u); }, 4000); })
+      .catch(function(){ showToast('다운로드 실패'); });
+  }
+
+  // ══════════════ 로드 ══════════════
+  var assignments = [];
+  async function load(){
+    show('login', false); show('main', false); show('loading', true);
+    $('loading').textContent = '불러오는 중…';
+    var r;
+    try { r = await api('/api/homework?admin=1'); }
+    catch(e){ if(String(e.message)!=='401') $('loading').textContent='네트워크 오류. 새로고침 해주세요.'; return; }
+    var j = await r.json().catch(function(){ return null; });
+    if (!j || !j.ok){ $('loading').textContent = (j&&j.error) || '불러오지 못했습니다.'; return; }
+    assignments = j.assignments || [];
+    show('loading', false); show('main', true); show('listView', true); show('subView', false);
+    renderList();
+  }
+
+  function renderList(){
+    $('listCnt').textContent = assignments.length ? ('· ' + assignments.length + '개') : '';
+    if (!assignments.length){ $('assignList').innerHTML = '<div class="state-box"><div class="si">📭</div><p>아직 만든 과제가 없어요.<br>위에서 첫 과제를 만들어 보세요.</p></div>'; return; }
+    $('assignList').innerHTML = assignments.map(function(a){
+      var stBadge = a.active ? '<span class="badge b-active">진행중</span>' : '<span class="badge b-closed">마감</span>';
+      var cntBadge = '<span class="badge b-cnt">제출 '+ a.submitCount +'명 · '+ a.photoTotal +'장</span>';
+      var due = a.dueDate ? ('· 기한 '+ esc(a.dueDate)) : '';
+      return '<div class="a-card '+ (a.active?'':'closed') +'" data-id="'+ a.id +'">' +
+        '<div class="a-top"><div class="a-title">'+ esc(a.title) +'</div>'+ stBadge +'</div>' +
+        (a.detail ? '<div class="a-detail">'+ esc(a.detail) +'</div>' : '') +
+        '<div class="a-meta">'+ cntBadge +' '+ due +'</div>' +
+        '<div class="a-actions">' +
+          '<button class="btn-mini go" data-act="view">제출 보기</button>' +
+          '<button class="btn-mini" data-act="toggle">'+ (a.active?'마감하기':'다시 열기') +'</button>' +
+          '<button class="btn-mini danger" data-act="del">삭제</button>' +
+        '</div></div>';
+    }).join('');
+    Array.prototype.forEach.call($('assignList').querySelectorAll('.a-card'), function(el){
+      var id = Number(el.getAttribute('data-id'));
+      el.querySelectorAll('[data-act]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var act = btn.getAttribute('data-act');
+          if (act==='view') openSubs(id);
+          else if (act==='toggle') toggleAssign(id);
+          else if (act==='del') delAssign(id);
+        });
+      });
+    });
+  }
+
+  // 과제 생성
+  $('createBtn').addEventListener('click', function(){
+    var title = ($('fTitle').value||'').trim();
+    if (!title){ showToast('과제 제목을 입력해 주세요.'); $('fTitle').focus(); return; }
+    var body = {
+      title: title,
+      detail: ($('fDetail').value||'').trim(),
+      dueDate: ($('fDue').value||'').trim(),
+      targetAcademy: ($('fAcademy').value||'').trim(),
+      targetClass: ($('fClass').value||'').trim()
+    };
+    var b = $('createBtn'); b.disabled = true; b.innerHTML = '<span class="spin"></span>만드는 중…';
+    api('/api/homework?admin=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        b.disabled=false; b.textContent='과제 만들기';
+        if (!j.ok){ showToast(j.error||'생성 실패'); return; }
+        $('fTitle').value=''; $('fDetail').value=''; $('fDue').value=''; $('fAcademy').value=''; $('fClass').value='';
+        showToast('과제를 만들었어요.');
+        load();
+      })
+      .catch(function(e){ if(String(e.message)!=='401'){ b.disabled=false; b.textContent='과제 만들기'; showToast('네트워크 오류'); } });
+  });
+
+  function toggleAssign(id){
+    api('/api/homework?admin=1&action=toggle&id=' + id, { method:'POST' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if(j.ok){ showToast(j.active?'다시 열었어요.':'마감했어요.'); load(); } else showToast(j.error||'실패'); })
+      .catch(function(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); });
+  }
+  function delAssign(id){
+    var a = assignments.filter(function(x){return x.id===id;})[0];
+    var warn = a && a.photoTotal>0 ? ('\n\n제출된 사진 '+a.photoTotal+'장도 함께 영구 삭제됩니다.') : '';
+    if (!confirm('이 과제를 삭제할까요?'+warn)) return;
+    api('/api/homework?admin=1&id=' + id, { method:'DELETE' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if(j.ok){ showToast('삭제했어요.'); load(); } else showToast(j.error||'실패'); })
+      .catch(function(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); });
+  }
+
+  // ══════════════ 제출 현황 ══════════════
+  function openSubs(id){
+    var a = assignments.filter(function(x){return x.id===id;})[0];
+    show('listView', false); show('subView', true);
+    $('subTitle').textContent = (a? a.title : '제출') + ' · 제출 현황';
+    $('subList').innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
+    window.scrollTo(0,0);
+    api('/api/homework?admin=1&assignment_id=' + id)
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j.ok){ $('subList').innerHTML = '<div class="state-box"><p>'+ (j.error||'오류') +'</p></div>'; return; }
+        var subs = j.submissions || [];
+        if (!subs.length){ $('subList').innerHTML = '<div class="state-box"><div class="si">📭</div><p>아직 제출한 학생이 없어요.</p></div>'; return; }
+        $('subList').innerHTML = subs.map(function(s, i){
+          return '<div class="s-card" data-i="'+ i +'">' +
+            '<div class="s-top"><div class="s-name">'+ esc(s.studentName || ('학생#'+s.studentId)) +'</div>' +
+              '<div class="s-cnt">'+ s.photoCount +'장 · '+ fmtDate(s.updatedAt) +' ▾</div></div>' +
+            (s.note ? '<div class="s-note">💬 '+ esc(s.note) +'</div>' : '') +
+            '<div class="photo-grid" style="display:none;"></div>' +
+          '</div>';
+        }).join('');
+        Array.prototype.forEach.call($('subList').querySelectorAll('.s-card'), function(el){
+          var i = Number(el.getAttribute('data-i'));
+          var grid = el.querySelector('.photo-grid');
+          var loaded = false;
+          el.querySelector('.s-top').addEventListener('click', function(){
+            var open = grid.style.display !== 'none';
+            grid.style.display = open ? 'none' : 'grid';
+            if (!open && !loaded){
+              loaded = true;
+              var keys = subs[i].photoKeys || [];
+              grid.innerHTML = keys.map(function(k){ return '<div class="thumb" data-key="'+ esc(k) +'"><img alt="제출 사진"><button class="dl" title="다운로드">⤓</button></div>'; }).join('');
+              grid.querySelectorAll('.thumb').forEach(function(t){
+                var k = t.getAttribute('data-key'); var img = t.querySelector('img');
+                loadImg(img, k);
+                img.addEventListener('click', function(){ if(img.src) openLightbox(img.src); });
+                t.querySelector('.dl').addEventListener('click', function(ev){ ev.stopPropagation(); downloadKey(k); });
+              });
+            }
+          });
+        });
+      })
+      .catch(function(e){ if(String(e.message)!=='401') $('subList').innerHTML = '<div class="state-box"><p>네트워크 오류.</p></div>'; });
+  }
+  $('backBtn').addEventListener('click', function(){ show('subView', false); show('listView', true); });
+
+  // 시작
+  if (!token) showLogin(''); else load();
+})();
+</script>
+</body>
+</html>
