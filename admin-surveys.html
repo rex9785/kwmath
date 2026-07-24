@@ -178,7 +178,10 @@
 
   // ox·multi는 빌더 전용 표시 처리 — ox 저장은 single+['O','X']. 객관식은 드롭다운 한 항목('객관식')으로 통합하고
   // '복수 응답 허용' 토글로 single↔multi 전환. 내부 저장 type은 그대로 single/multi → 서버·학생화면 무수정.
-  var QTYPE_LABEL = { single:'객관식', ox:'OX형(참/거짓)', short:'단답', math:'수식(분수·루트)', long:'장문', scale:'척도', dropdown:'드롭다운' };
+  // 단답·수식 통합(2026-07-24 관우T): 문항 유형에서 '수식'을 없애고 '단답' 하나로. 수식은 단답 정답칸의
+  //   키패드 버튼으로 입력(선택). 옛 저장 'math' 문항은 type을 그대로 두되 dispType로 '단답'처럼 표시 →
+  //   서버 math 채점 분기는 무변경(하위호환). 새 문항은 전부 short로 저장·채점(텍스트일치 또는 수식동치).
+  var QTYPE_LABEL = { single:'객관식', ox:'OX형(참/거짓)', short:'단답', long:'장문', scale:'척도', dropdown:'드롭다운' };
   function isOXQuestion(q){
     return q.type==='single' && Array.isArray(q.options) && q.options.length===2 && q.options[0]==='O' && q.options[1]==='X';
   }
@@ -521,7 +524,7 @@
       var gradable = (q.type==='single'||q.type==='multi'||q.type==='dropdown'||q.type==='short'||q.type==='math');
       var isOX = isOXQuestion(q);   // OX형 = single + 고정 선택지 O/X (표시만 'OX형')
       var qc = document.createElement('div'); qc.className = 'qcard';
-      var dispType = isOX ? 'ox' : (q.type==='multi' ? 'single' : q.type);  // multi도 드롭다운은 '객관식'으로 표시
+      var dispType = isOX ? 'ox' : (q.type==='multi' ? 'single' : (q.type==='math' ? 'short' : q.type));  // multi→'객관식', 옛 math→'단답'(수식 통합)
       var typeOpts = Object.keys(QTYPE_LABEL).map(function(t){
         return '<option value="' + t + '"' + (dispType===t?' selected':'') + '>' + QTYPE_LABEL[t] + '</option>';
       }).join('');
@@ -622,28 +625,48 @@
           });
           extra.appendChild(mlab);
         }
-      } else if(draft.quiz && q.type==='short'){
+      } else if(draft.quiz && (q.type==='short' || q.type==='math')){
+        // 단답·수식 통합(2026-07-24 관우T): 정답칸은 기본 텍스트 + 키패드 아이콘 버튼으로 수식(math-field) 전환.
+        //   저장은 _ct 문자열 1개(텍스트 수식 3/4·sqrt(2)도, 키패드 LaTeX도 서버가 값 동치로 채점).
+        //   옛 'math' 문항은 type을 그대로 두고(하위호환) 이 칸만 수식모드로 시작 — 서버 math 채점 분기 유지.
         var cr = document.createElement('div'); cr.className = 'qcorrect';
-        cr.innerHTML = '<input type="text" placeholder="정답 (대소문자·공백 무시하고 채점)" value="' + esc(q._ct||'') + '">';
-        cr.querySelector('input').addEventListener('input', function(e){ q._ct = e.target.value; refreshAutoPoints(); });
         extra.appendChild(cr);
-      } else if(draft.quiz && q.type==='math'){
-        // 수식 정답 — MathLive로 분수·루트 입력(LaTeX 저장). 학생 답이 형태가 달라도 수학적으로 같으면 서버가 정답 처리.
-        var mcr = document.createElement('div'); mcr.className = 'qcorrect';
-        var mf = document.createElement('math-field');
-        mf.setAttribute('math-virtual-keyboard-policy','onfocus');
-        (function(mfEl, qq){
-          customElements.whenDefined('math-field').then(function(){ try{ mfEl.value = qq._ct || ''; }catch(_){} });
-          mfEl.addEventListener('input', function(){ qq._ct = mfEl.value; refreshAutoPoints(); });
-          // iOS에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비 — 탭하면 직접 show()
-          mfEl.addEventListener('focusin', function(){ setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 60); });
-          mfEl.addEventListener('pointerup', function(){ try{ mfEl.focus(); }catch(e){} setTimeout(function(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }, 150); });
-        })(mf, q);
-        mcr.appendChild(mf);
-        var mh = document.createElement('div'); mh.className = 'qhint';
-        mh.textContent = '칸을 누르면 수학 키패드가 떠요. 형태가 달라도(예: 2/4 = 1/2) 수학적으로 같으면 정답 처리됩니다.';
-        mcr.appendChild(mh);
-        extra.appendChild(mcr);
+        (function(qq, host){
+          var KBD = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="1.3"/><circle cx="15" cy="9" r="1.3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="13" r="1.3"/><circle cx="9" cy="17" r="1.3"/><circle cx="15" cy="17" r="1.3"/></svg>';
+          function kbShow(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }
+          function mkBtn(html, title, onClick){
+            var b = document.createElement('button'); b.type='button'; b.innerHTML=html; b.title=title; b.setAttribute('aria-label',title);
+            b.style.cssText='flex:0 0 auto;min-width:46px;padding:0 11px;border:1px solid var(--line,#ddd);border-radius:10px;background:#fff;color:#333;font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+            b.addEventListener('click', function(ev){ ev.preventDefault(); onClick(); });
+            return b;
+          }
+          function toText(){
+            host.innerHTML='';
+            var row=document.createElement('div'); row.style.cssText='display:flex;gap:6px;align-items:stretch;';
+            var ip=document.createElement('input'); ip.type='text'; ip.placeholder='정답 (대소문자·공백 무시하고 채점)'; ip.value=qq._ct||''; ip.style.flex='1';
+            ip.addEventListener('input', function(){ qq._ct=ip.value; refreshAutoPoints(); });
+            row.appendChild(ip); row.appendChild(mkBtn(KBD,'수식 키패드로 입력',toMath)); host.appendChild(row);
+            var h=document.createElement('div'); h.className='qhint'; h.style.margin='4px 0 0';
+            h.textContent='분수·루트는 오른쪽 키패드 버튼, 또는 3/4·sqrt(2)·x^2처럼 입력';
+            host.appendChild(h);
+          }
+          function toMath(){
+            if(!(window.customElements && customElements.get('math-field'))){ toast('수식 키패드 준비 중 — 잠시 후 다시 눌러 주세요'); return; }
+            host.innerHTML='';
+            var row=document.createElement('div'); row.style.cssText='display:flex;gap:6px;align-items:stretch;';
+            var mf=document.createElement('math-field'); mf.setAttribute('math-virtual-keyboard-policy','onfocus'); mf.style.flex='1';
+            try{ mf.value=qq._ct||''; }catch(e){}
+            mf.addEventListener('input', function(){ qq._ct=mf.value; refreshAutoPoints(); });
+            mf.addEventListener('focusin', function(){ setTimeout(kbShow,60); });
+            mf.addEventListener('pointerup', function(){ try{ mf.focus(); }catch(e){} setTimeout(kbShow,150); });
+            row.appendChild(mf); row.appendChild(mkBtn('일반','일반 키보드로 입력',toText)); host.appendChild(row);
+            var h=document.createElement('div'); h.className='qhint'; h.style.margin='4px 0 0';
+            h.textContent='칸을 누르면 수학 키패드 · 형태가 달라도(2/4=1/2) 값 같으면 정답';
+            host.appendChild(h);
+            try{ mf.focus(); }catch(e){}
+          }
+          if(qq.type==='math' || /\\/.test(qq._ct||'')) toMath(); else toText();
+        })(q, cr);
       }
       // ── 쌍둥이 정답(오답 재도전용) — 모든 채점형 문항에 선택 입력. 비우면 그 문항은 재도전 없음. ──
       //   재도전 때 학생은 쌍둥이 문제를 종이(매쓰홀릭)로 풀고 '답만' 입력하므로 문자열 1개.

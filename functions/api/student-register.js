@@ -54,8 +54,11 @@ export async function onRequest(context) {
   // 이름 살균 — HTML 위험문자(< > " ') 제거. 저장형 XSS 방지: admin 화면 onclick 등 모든 렌더 사이트 보호.
   const safeName = String(name).replace(/[<>"']/g, '').trim().slice(0, 60);
   if (!safeName) return Response.json({ error: '이름에 사용할 수 없는 문자가 포함되어 있습니다.' }, { status: 400 });
-  // 필수(2026-07-21 관우T 지시): 수학 성적(모의고사·내신 등급) + 선행 진도 + 취약단원 + 희망대학 + 등원요일.
-  // 선택(빈 값 허용): 국어·영어 등급, 원점수, 유입경로 등. 빈 값은 createStudent에서 ''/[]로 안전 저장.
+  // 학교명 — 필수(2026-07-24 관우T 지시). 이름과 동일 살균(저장형 XSS 방지: admin 렌더 보호).
+  const safeSchool = String(school || '').replace(/[<>"']/g, '').trim().slice(0, 60);
+  if (!safeSchool) return Response.json({ error: '학교명을 입력해주세요.' }, { status: 400 });
+  // 필수(2026-07-21 관우T 지시 + 07-24 학교명·유입경로 추가): 학교명 + 수학 성적(모의고사·내신 등급) + 선행 진도 + 취약단원 + 희망대학 + 등원요일 + 유입경로.
+  // 선택(빈 값 허용): 국어·영어 등급, 원점수 등. 빈 값은 createStudent에서 ''/[]로 안전 저장.
   if (!mathMockGrade || !String(mathMockGrade).trim()) {
     return Response.json({ error: '모의고사 수학 등급을 선택해주세요. (모르면 "모름")' }, { status: 400 });
   }
@@ -73,6 +76,9 @@ export async function onRequest(context) {
   }
   if (!Array.isArray(availableDays) || availableDays.length === 0) {
     return Response.json({ error: '등원 가능 요일을 하나 이상 선택해주세요.' }, { status: 400 });
+  }
+  if (!referral || !String(referral).trim()) {
+    return Response.json({ error: '저를 어떻게 알게 되셨는지 선택해주세요. (없으면 "기타")' }, { status: 400 });
   }
 
   // 🔑 반 코드 → 학원/반 자동 배정 (서버측 권위 검증). 코드 없거나 틀리면 등록 불가(스팸 차단).
@@ -99,7 +105,7 @@ export async function onRequest(context) {
   const daysArray  = Array.isArray(availableDays) ? availableDays : [];
   const personalKey = generateKey();
 
-  // 유입경로(선택) — 이름과 동일 살균(저장형 XSS 방지)
+  // 유입경로(필수, 2026-07-24) — 이름과 동일 살균(저장형 XSS 방지)
   const safeReferral = String(referral || '').replace(/[<>"']/g, '').trim().slice(0, 40);
   const safeReferralDetail = String(referralDetail || '').replace(/[<>"']/g, '').trim().slice(0, 60);
 
@@ -108,7 +114,7 @@ export async function onRequest(context) {
   try { await env.DB.prepare('ALTER TABLE students ADD COLUMN referral_detail TEXT').run(); } catch (_) {}
 
   const r = await createStudent(env, {
-    name: safeName, school, grade,
+    name: safeName, school: safeSchool, grade,
     parentPhone4: phone4,
     studentPhone: normalizePhone(studentPhone) || studentPhone || '',
     parentPhone:  normalizePhone(parentPhone)  || parentPhone  || '',

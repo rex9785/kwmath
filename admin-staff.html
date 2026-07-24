@@ -55,6 +55,20 @@
   .payline{display:flex;gap:8px;align-items:center;margin-top:11px;flex-wrap:wrap;font-size:0.84rem;}
   .payline .tag{background:var(--primary-light);color:var(--primary);font-weight:800;padding:5px 12px;border-radius:9px;}
   .payline .dim{color:var(--text-light);font-size:0.78rem;}
+  .payline .more{margin-left:auto;background:#fff;border:1.5px solid var(--primary);color:var(--primary);border-radius:8px;padding:5px 11px;font-size:0.78rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  /* 조교 일자별 근무 표 */
+  .wl{margin-top:11px;border-top:1px dashed var(--border);padding-top:11px;}
+  .wl .wlbtns{display:flex;gap:8px;margin-bottom:9px;flex-wrap:wrap;}
+  .wl .xbtn{background:#fff;border:1.5px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .wl table{width:100%;border-collapse:collapse;font-size:0.78rem;}
+  .wl th,.wl td{border:1px solid var(--border);padding:6px 7px;text-align:center;font-variant-numeric:tabular-nums;}
+  .wl th{background:var(--primary-light);color:var(--primary);font-weight:800;white-space:nowrap;}
+  .wl td.memo{text-align:left;color:var(--text-light);word-break:break-all;}
+  .wl tfoot td{font-weight:800;background:var(--bg2);}
+  .wl .empty{color:var(--text-light);font-size:0.82rem;padding:12px 0;text-align:center;}
+  /* 전체 조교 내보내기 툴바 */
+  .exbar{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;}
+  .exbar button{background:#fff;border:1.5px solid var(--primary);color:var(--primary);border-radius:8px;padding:7px 14px;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:inherit;}
 </style>
 </head>
 <body>
@@ -79,6 +93,10 @@
     <button onclick="moveMonth(-1)">‹</button>
     <div class="ml" id="monthLabel">—</div>
     <button onclick="moveMonth(1)">›</button>
+  </div>
+  <div class="exbar" id="exbar" style="display:none;">
+    <button onclick="exportAllCsv()">📊 전체 합계 CSV</button>
+    <button onclick="printAll()">🖨️ 전체 합계 인쇄(PDF)</button>
   </div>
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
@@ -174,6 +192,7 @@
     var ok   = staff.filter(function(s){ return s.approved; });
     $('summary').style.display='flex';
     $('monthbar').style.display = staff.length ? 'flex' : 'none';
+    $('exbar').style.display = ok.length ? 'flex' : 'none';
     $('monthLabel').textContent = month.replace('-','년 ')+'월 급여';
     $('cntWait').textContent = wait.length;
     $('cntOk').textContent = ok.length;
@@ -234,7 +253,9 @@
           '<div class="payline">'+
             '<span class="tag">'+month.slice(5)+'월 '+won(pay.totalPay)+'</span>'+
             '<span class="dim">'+(pay.dayCount||0)+'일 · '+(pay.totalHours||0)+'시간'+(wage?'':' · ⚠️시급 미설정')+'</span>'+
+            '<button class="more" onclick="toggleDetail(\''+phone+'\')">📅 일자별 보기</button>'+
           '</div>'+
+          '<div class="wl" id="wl_'+phone+'" style="display:none;"></div>'+
         '</div>';
     }
 
@@ -301,6 +322,158 @@
       showToast('네트워크 오류. 다시 시도해 주세요.');
       if(card){ card.querySelectorAll('button').forEach(function(b){ b.disabled=false; }); }
     }
+  }
+
+  // ───────── 조교 일자별 근무 표: 보기 / CSV / 인쇄 ─────────
+  var wlCache = {};   // digits → { name, academy, hourlyWage, account, month, totalHours, totalPay, dayCount, entries:[] }
+
+  function hhmm(s){ return s ? esc(s) : '—'; }
+
+  // 카드의 '일자별 보기' 토글 — 처음 열 때 그 달 상세를 서버에서 받아 표로.
+  async function toggleDetail(phone){
+    var box = $('wl_'+phone);
+    if(!box) return;
+    if(box.style.display!=='none' && box.dataset.month===month){ box.style.display='none'; return; }
+    box.style.display='block';
+    box.dataset.month = month;
+    box.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var d = digits(phone);
+    try{
+      var r = await fetch('/api/staff-worklog?phone='+encodeURIComponent(d)+'&month='+month, { headers:{ 'Authorization':'Bearer '+token } });
+      if(r.status===401||r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var j = await r.json();
+      if(!r.ok || !j.ok){ box.innerHTML='<div class="empty">'+esc(j.error||'불러오지 못했어요')+'</div>'; return; }
+      wlCache[d] = j;
+      renderWl(box, d);
+    }catch(e){ box.innerHTML='<div class="empty">네트워크 오류</div>'; }
+  }
+
+  function renderWl(box, d){
+    var j = wlCache[d] || {};
+    var rows = j.entries || [];
+    var wage = j.hourlyWage||0;
+    var btns =
+      '<div class="wlbtns">'+
+        '<button class="xbtn" onclick="exportStaffCsv(\''+d+'\')">📄 CSV</button>'+
+        '<button class="xbtn" onclick="printStaff(\''+d+'\')">🖨️ 인쇄(PDF)</button>'+
+      '</div>';
+    if(!rows.length){
+      box.innerHTML = btns + '<div class="empty">'+month.slice(5)+'월 입력된 근무기록이 없어요.</div>';
+      return;
+    }
+    var body = rows.map(function(e){
+      return '<tr>'+
+        '<td>'+esc(e.date)+'</td>'+
+        '<td>'+hhmm(e.start)+'</td>'+
+        '<td>'+hhmm(e.end)+'</td>'+
+        '<td>'+(e.hours||0)+'</td>'+
+        '<td class="memo">'+esc(e.memo||'')+'</td>'+
+      '</tr>';
+    }).join('');
+    var foot =
+      '<tr><td colspan="3">합계</td>'+
+      '<td>'+(j.totalHours||0)+'시간</td>'+
+      '<td class="memo">'+(j.dayCount||0)+'일'+(wage?(' · '+won(j.totalPay)):' · ⚠️시급 미설정')+'</td></tr>';
+    box.innerHTML = btns +
+      '<table><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>시간</th><th>메모</th></tr></thead>'+
+      '<tbody>'+body+'</tbody>'+
+      '<tfoot>'+foot+'</tfoot></table>';
+  }
+
+  // ── CSV (엑셀에서 바로 열림 — UTF-8 BOM) ──
+  function csvCell(v){ v = (v==null?'':String(v)); return '"'+v.replace(/"/g,'""')+'"'; }
+  function downloadCsv(filename, aoa){
+    var csv = aoa.map(function(row){ return row.map(csvCell).join(','); }).join('\r\n');
+    var blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8;' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  function exportStaffCsv(d){
+    var j = wlCache[d]; if(!j){ showToast('먼저 일자별 보기를 열어주세요'); return; }
+    var wage = j.hourlyWage||0;
+    var aoa = [
+      [ (j.name||'조교')+' 근무기록', month ],
+      [],
+      [ '날짜','출근','퇴근','시간','메모' ],
+    ];
+    (j.entries||[]).forEach(function(e){
+      aoa.push([ e.date, e.start||'', e.end||'', e.hours||0, e.memo||'' ]);
+    });
+    aoa.push([]);
+    aoa.push([ '합계','','', (j.totalHours||0), (j.dayCount||0)+'일' ]);
+    aoa.push([ '시급', wage, '정산금액', (wage? j.totalPay : '시급 미설정'), '' ]);
+    downloadCsv('근무_'+(j.name||d)+'_'+month+'.csv', aoa);
+  }
+
+  function exportAllCsv(){
+    var ok = staff.filter(function(s){ return s.approved; });
+    var aoa = [
+      [ month+' 조교 근무 합계' ],
+      [],
+      [ '이름','담당학원','시급','근무일수','총시간','정산금액','계좌' ],
+    ];
+    var sumPay = 0;
+    ok.forEach(function(s){
+      var p = payByPhone[digits(s.phone)] || {};
+      var wage = s.hourlyWage||0;
+      sumPay += (p.totalPay||0);
+      aoa.push([ s.name||'', s.academy||'', wage, (p.dayCount||0), (p.totalHours||0), (wage?(p.totalPay||0):'시급미설정'), s.account||'' ]);
+    });
+    aoa.push([]);
+    aoa.push([ '합계','','','','', sumPay, '' ]);
+    downloadCsv('조교근무합계_'+month+'.csv', aoa);
+  }
+
+  // ── 인쇄(PDF): 새 창에 표만 그리고 브라우저 인쇄 → PDF로 저장 ──
+  function printHtml(title, theadHtml, tbodyHtml, tfootHtml){
+    var w = window.open('', '_blank');
+    if(!w){ showToast('팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.'); return; }
+    var doc =
+      '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'+
+      '<title>'+esc(title)+'</title><style>'+
+      'body{font-family:sans-serif;color:#1E1E1E;padding:22px;}'+
+      'h1{font-size:1.15rem;margin:0 0 4px;} .sub{color:#666;font-size:0.85rem;margin-bottom:14px;}'+
+      'table{width:100%;border-collapse:collapse;font-size:0.85rem;}'+
+      'th,td{border:1px solid #ccc;padding:7px 9px;text-align:center;}'+
+      'th{background:#F9EEF1;color:#8B1A35;} tfoot td{font-weight:bold;background:#f4f4f4;}'+
+      'td.memo{text-align:left;color:#444;}'+
+      '@media print{body{padding:0;}}'+
+      '</style></head><body>'+
+      '<h1>'+esc(title)+'</h1><div class="sub">'+esc(month)+' · kwmath</div>'+
+      '<table><thead>'+theadHtml+'</thead><tbody>'+tbodyHtml+'</tbody>'+
+      (tfootHtml?('<tfoot>'+tfootHtml+'</tfoot>'):'')+'</table>'+
+      '</body></html>';
+    w.document.open(); w.document.write(doc); w.document.close();
+    w.focus();
+    setTimeout(function(){ try{ w.print(); }catch(e){} }, 350);   // 오프너에서 인쇄 트리거(자식 인라인 스크립트 불필요 → CSP 안전)
+  }
+
+  function printStaff(d){
+    var j = wlCache[d]; if(!j){ showToast('먼저 일자별 보기를 열어주세요'); return; }
+    var wage = j.hourlyWage||0;
+    var thead = '<tr><th>날짜</th><th>출근</th><th>퇴근</th><th>시간</th><th>메모</th></tr>';
+    var tbody = (j.entries||[]).map(function(e){
+      return '<tr><td>'+esc(e.date)+'</td><td>'+esc(e.start||'—')+'</td><td>'+esc(e.end||'—')+'</td><td>'+(e.hours||0)+'</td><td class="memo">'+esc(e.memo||'')+'</td></tr>';
+    }).join('');
+    var tfoot = '<tr><td colspan="3">합계</td><td>'+(j.totalHours||0)+'시간</td><td class="memo">'+(j.dayCount||0)+'일'+(wage?(' · '+won(j.totalPay)):' · 시급 미설정')+'</td></tr>';
+    printHtml((j.name||'조교')+' 근무기록', thead, tbody, tfoot);
+  }
+
+  function printAll(){
+    var ok = staff.filter(function(s){ return s.approved; });
+    var thead = '<tr><th>이름</th><th>담당학원</th><th>시급</th><th>근무일수</th><th>총시간</th><th>정산금액</th><th>계좌</th></tr>';
+    var sumPay = 0;
+    var tbody = ok.map(function(s){
+      var p = payByPhone[digits(s.phone)] || {};
+      var wage = s.hourlyWage||0; sumPay += (p.totalPay||0);
+      return '<tr><td>'+esc(s.name||'')+'</td><td>'+esc(s.academy||'')+'</td><td>'+(wage?won(wage):'—')+'</td><td>'+(p.dayCount||0)+'일</td><td>'+(p.totalHours||0)+'시간</td><td>'+(wage?won(p.totalPay||0):'시급미설정')+'</td><td class="memo">'+esc(s.account||'')+'</td></tr>';
+    }).join('');
+    var tfoot = '<tr><td colspan="5">합계</td><td>'+won(sumPay)+'</td><td></td></tr>';
+    printHtml('조교 근무 합계', thead, tbody, tfoot);
   }
 
   load();

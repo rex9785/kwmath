@@ -292,43 +292,47 @@
         var inHint = document.createElement('div'); inHint.className = 'scaleLbl'; inHint.style.marginTop = '7px';
         body.appendChild(inHint);
         (function(qid, wrapEl, hintEl){
-          var mode = 'text';
+          // 단답·수식 공통 입력 — 기본 텍스트칸 + 키패드 아이콘 버튼으로 수식(math-field) 전환 (2026-07-24 관우T).
+          //   1을 키보드로 치든 키패드로 치든 서버가 값 동치로 같게 채점(short = 텍스트일치 또는 수식동치).
+          var KBD = '<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="1.3"/><circle cx="15" cy="9" r="1.3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="13" r="1.3"/><circle cx="9" cy="17" r="1.3"/><circle cx="15" cy="17" r="1.3"/></svg>';
           function showKb(){ try{ if(window.mathVirtualKeyboard && !window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.show(); }catch(e){} }
-          function setHint(msg, linkText){
-            hintEl.innerHTML = '<span>' + msg + '</span>' +
-              '<a href="#" class="mfToggleLink" style="color:var(--primary);font-weight:700;white-space:nowrap;">' + linkText + '</a>';
-            var lk = hintEl.querySelector('.mfToggleLink');
-            if(lk) lk.addEventListener('click', function(ev){ ev.preventDefault(); toggle(); });
+          function mkBtn(html, title, onClick){
+            var b = document.createElement('button'); b.type='button'; b.innerHTML=html; b.title=title; b.setAttribute('aria-label',title);
+            b.style.cssText='flex:0 0 auto;min-width:48px;padding:0 12px;border:1px solid var(--line,#e0d6cc);border-radius:10px;background:#fff;color:var(--primary,#c0392b);font-weight:800;font-size:0.95rem;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+            b.addEventListener('click', function(ev){ ev.preventDefault(); onClick(); });
+            return b;
           }
           function toText(){
-            mode = 'text';
-            var ti = document.createElement('input'); ti.type='text'; ti.className='ti'; ti.placeholder='답변을 입력하세요';
+            wrapEl.innerHTML='';
+            var row=document.createElement('div'); row.style.cssText='display:flex;gap:7px;align-items:stretch;';
+            var ti=document.createElement('input'); ti.type='text'; ti.className='ti'; ti.placeholder='답변을 입력하세요';
             ti.setAttribute('data-ans-qid', qid);   // 제출 시점 값 재동기화용(아이폰 대비)
             try{ ti.value = answers[qid] || ''; }catch(e){}
             ti.addEventListener('input', function(){ answers[qid] = ti.value; });
-            wrapEl.innerHTML = ''; wrapEl.appendChild(ti);
-            setHint('분수·루트도 3/4, sqrt(2), x^2처럼 입력 가능', '수식 키패드로 입력');
+            ti.style.flex='1';
+            row.appendChild(ti); row.appendChild(mkBtn(KBD,'수식 키패드로 입력',toMath)); wrapEl.appendChild(row);
+            hintEl.innerHTML='<span>수식은 오른쪽 키패드 버튼, 또는 3/4·sqrt(2)·x^2처럼 입력</span>';
           }
           function toMath(){
             if(!(window.customElements && customElements.get('math-field'))){
-              setHint('수식 키패드를 준비 중이에요 · 잠시 후 다시 눌러 주세요', '수식 키패드로 입력');
+              hintEl.innerHTML='<span>수식 키패드를 준비 중이에요 · 잠시 후 다시 눌러 주세요</span>';
               return;
             }
-            mode = 'math';
-            var mf = document.createElement('math-field');
+            wrapEl.innerHTML='';
+            var row=document.createElement('div'); row.style.cssText='display:flex;gap:7px;align-items:stretch;';
+            var mf=document.createElement('math-field');
             mf.setAttribute('data-ans-qid', qid);   // 제출 시점 값 재동기화용(아이폰 대비)
             mf.setAttribute('math-virtual-keyboard-policy','onfocus');
+            mf.style.flex='1';
             try{ if(answers[qid]) mf.value = answers[qid]; }catch(e){}
             mf.addEventListener('input', function(){ answers[qid] = mf.value; });
             mf.addEventListener('change', function(){ answers[qid] = mf.value; });   // iOS: input 누락 대비 보조
-            // 아이폰(iOS WKWebView)에서 onfocus 정책만으론 키패드가 안 뜨는 문제 대비 — 탭하면 직접 show()
-            mf.addEventListener('focusin', function(){ setTimeout(showKb, 60); });
+            mf.addEventListener('focusin', function(){ setTimeout(showKb, 60); });   // iOS: onfocus 정책 보강
             mf.addEventListener('pointerup', function(){ try{ mf.focus(); }catch(e){} setTimeout(showKb, 150); });
-            wrapEl.innerHTML = ''; wrapEl.appendChild(mf);
-            setHint('칸을 누르면 수학 키패드가 떠요 · 안 뜨면 일반 키보드로', '일반 키보드로 입력');
+            row.appendChild(mf); row.appendChild(mkBtn('일반','일반 키보드로 입력',toText)); wrapEl.appendChild(row);
+            hintEl.innerHTML='<span>칸을 누르면 수학 키패드가 떠요 · 안 뜨면 오른쪽 버튼으로 일반 키보드</span>';
             try{ mf.focus(); }catch(e){} setTimeout(showKb, 200);
           }
-          function toggle(){ if(mode === 'text') toMath(); else toText(); }
           toText();
         })(q.id, inWrap, inHint);
       }

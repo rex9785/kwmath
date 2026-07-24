@@ -83,7 +83,7 @@
             </select>
           </div>
         </div>
-        <div class="form-row"><label>학교명</label><input id="school" type="text" placeholder="○○중학교 / ○○고등학교"></div>
+        <div class="form-row"><label>학교명 <span class="req">*</span></label><input id="school" type="text" placeholder="○○중학교 / ○○고등학교"></div>
       </div>
 
       <div class="form-section">
@@ -232,9 +232,9 @@
       <div class="form-section">
         <div class="form-section-title">하고 싶은 말</div>
         <div class="form-row">
-          <label>💡 저를 어떻게 알게 되셨나요? (선택)</label>
+          <label>💡 저를 어떻게 알게 되셨나요? <span class="req">*</span></label>
           <select id="referral" onchange="onReferralChange()">
-            <option value="">선택 안 함</option>
+            <option value="">선택하세요</option>
             <option value="친구·지인 추천">친구·지인 추천</option>
             <option value="형제·자매가 다님(다녔음)">형제·자매가 다님(다녔음)</option>
             <option value="인스타그램">인스타그램</option>
@@ -393,6 +393,7 @@
 
     if (!name) { showErr('이름을 입력해주세요.'); return; }
     if (!grade) { showErr('학년을 선택해주세요.'); return; }
+    if (!school) { showErr('학교명을 입력해주세요.'); return; }
     if (studentDigits.length < 10) { showErr('학생 휴대폰 번호를 정확히 입력해주세요.'); return; }
     if (parentDigits.length < 10)  { showErr('학부모 휴대폰 번호를 정확히 입력해주세요.'); return; }
     if (!classCode) { showErr('반 코드를 입력해주세요. (선생님께 받은 숫자코드)'); return; }
@@ -403,6 +404,7 @@
     if (!weakness)        { showErr('취약 단원을 입력해주세요. (특별히 없으면 "없음")'); return; }
     if (!dreamUniv)       { showErr('희망 대학/계열을 입력해주세요. (아직 없으면 "미정")'); return; }
     if (!availableDays.length) { showErr('등원 가능 요일을 하나 이상 선택해주세요.'); return; }
+    if (!referral)        { showErr('저를 어떻게 알게 되셨는지 선택해주세요. (없으면 "기타")'); return; }
 
     const parentPhone4 = parentDigits.slice(-4);
 

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>과제 제출 | 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=3">
+<meta name="theme-color" content="#8B1A35">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--ok:#1E7E45;--ok-light:#E6F4EA;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .topbar-btn:hover{background:rgba(255,255,255,0.26);}
+  .page{max-width:640px;margin:0 auto;padding:22px 18px 90px;}
+  .section-label{font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;margin:2px 0 12px;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+  .section-label .cnt{color:var(--text-light);font-weight:600;text-transform:none;letter-spacing:0;}
+
+  /* 과제 카드 */
+  .a-card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:15px 16px;margin-bottom:11px;box-shadow:0 2px 10px rgba(70,20,35,.05);cursor:pointer;transition:border-color .12s;}
+  .a-card:hover{border-color:var(--primary);}
+  .a-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .a-title{font-size:0.98rem;font-weight:800;color:var(--text);flex:1;min-width:0;}
+  .a-detail{font-size:0.82rem;color:var(--text-light);line-height:1.55;margin-bottom:8px;white-space:pre-wrap;}
+  .a-foot{display:flex;align-items:center;gap:8px;}
+  .a-due{font-size:0.74rem;color:var(--text-light);}
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:0.7rem;font-weight:800;padding:3px 9px;border-radius:11px;}
+  .b-todo{background:#FFF7E0;color:#B07A00;}
+  .b-done{background:var(--ok-light);color:var(--ok);}
+  .a-go{margin-left:auto;font-size:0.78rem;font-weight:800;color:var(--primary);}
+
+  /* 상세 */
+  .back{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:8px 14px;border-radius:9px;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px;}
+  .back:hover{border-color:var(--primary);color:var(--primary);}
+  .d-title{font-size:1.15rem;font-weight:900;margin-bottom:5px;}
+  .d-detail{font-size:0.86rem;color:var(--text-light);line-height:1.6;margin-bottom:4px;white-space:pre-wrap;}
+  .d-due{font-size:0.78rem;color:var(--primary);font-weight:700;margin-bottom:16px;}
+
+  .up-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(70,20,35,.05);margin-bottom:22px;}
+  .pick-btn{width:100%;border:2px dashed var(--gold-line,#DEC98F);background:var(--primary-light);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;transition:background .12s;}
+  .pick-btn:hover{background:#F4E4E8;}
+  .pick-btn .pi{font-size:1.7rem;line-height:1;margin-bottom:6px;}
+  .pick-btn .pt{font-size:0.92rem;font-weight:800;color:var(--primary);}
+  .pick-btn .ps{font-size:0.74rem;color:var(--text-light);margin-top:3px;}
+
+  .prev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:12px;}
+  .thumb{position:relative;aspect-ratio:1;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;}
+  .thumb .rm{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(20,10,12,.62);color:#fff;border:none;font-size:0.9rem;line-height:22px;text-align:center;cursor:pointer;padding:0;}
+  .thumb .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-light);font-size:0.7rem;}
+
+  .field label{display:block;font-size:0.78rem;font-weight:700;color:var(--text-light);margin:14px 0 5px;}
+  .field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.9rem;font-family:inherit;min-height:60px;resize:vertical;outline:none;color:var(--text);}
+  .field textarea:focus{border-color:var(--primary);}
+
+  .btn-primary{background:var(--primary);color:#fff;border:none;padding:13px 18px;border-radius:11px;font-size:0.92rem;font-weight:800;cursor:pointer;font-family:inherit;width:100%;margin-top:14px;transition:background .15s;}
+  .btn-primary:hover{background:var(--primary-mid);}
+  .btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
+  .up-hint{font-size:0.74rem;color:var(--text-light);margin-top:9px;line-height:1.5;text-align:center;}
+
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;}
+  .state-box{text-align:center;padding:34px 22px;color:var(--text-light);}
+  .state-box .si{font-size:1.9rem;margin-bottom:8px;}
+  .state-box p{font-size:0.85rem;line-height:1.7;}
+
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#241318;color:#fff;padding:11px 18px;border-radius:10px;font-size:0.84rem;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:200;max-width:90%;text-align:center;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #lightbox{position:fixed;inset:0;background:rgba(10,5,7,.92);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:8px;}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="topbar-title" href="/portal.html">📸 과제 제출</a>
+    <a class="topbar-btn" href="/portal.html">홈</a>
+  </div>
+
+  <div class="page">
+    <!-- 목록 -->
+    <div id="listView">
+      <div class="section-label">과제 <span class="cnt" id="listCnt"></span></div>
+      <div id="assignList"><div class="state-box"><div class="si">⏳</div><p>불러오는 중…</p></div></div>
+    </div>
+
+    <!-- 상세 -->
+    <div id="detailView" style="display:none;">
+      <button class="back" id="backBtn">← 과제 목록</button>
+      <div class="d-title" id="dTitle"></div>
+      <div class="d-detail" id="dDetail"></div>
+      <div class="d-due" id="dDue"></div>
+
+      <div class="up-card">
+        <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
+        <div class="pick-btn" id="pickBtn">
+          <div class="pi">🖼️</div>
+          <div class="pt">사진 선택하기</div>
+          <div class="ps">여러 장 한꺼번에 고를 수 있어요</div>
+        </div>
+        <div class="prev-grid" id="prevGrid"></div>
+        <div class="field">
+          <label for="noteInput">메모 (선택)</label>
+          <textarea id="noteInput" placeholder="선생님께 남길 말이 있으면 적어주세요 (선택)"></textarea>
+        </div>
+        <button class="btn-primary" id="upBtn" disabled>사진을 선택해 주세요</button>
+        <div class="up-hint" id="upHint"></div>
+      </div>
+
+      <div class="section-label">제출한 사진 <span class="cnt" id="subCnt"></span></div>
+      <div id="photoGrid" class="photo-grid"><div class="state-box"><p>아직 제출한 사진이 없어요.</p></div></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="lightbox"><img id="lightboxImg" src="" alt=""></div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  // ── 토큰 ──
+  var TOKEN_KEY = 'kwmath_portal_token';
+  var token = '';
+  try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch(e){}
+  if (!token) { location.href = '/portal.html'; return; }
+
+  // ── 자녀 선택(여러 자녀 학부모) ──
+  var selectedName = '';
+  try { var s = sessionStorage.getItem('kwmath_selected_student'); if (s){ var o = JSON.parse(s); selectedName = (o && o.name) || ''; } } catch(e){}
+  function nameQ(prefix){ return selectedName ? (prefix + 'name=' + encodeURIComponent(selectedName)) : ''; }
+
+  function authHeaders(extra){ var h = Object.assign({}, extra||{}); h['Authorization'] = 'Bearer ' + token; return h; }
+
+  var toastTimer;
+  function showToast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); }, 2600); }
+
+  // ── 토큰 보호 이미지: 헤더로 fetch 후 objectURL (토큰을 URL에 절대 넣지 않음) ──
+  var urlCache = {};
+  function loadImg(imgEl, key){
+    if (urlCache[key]) { imgEl.src = urlCache[key]; return; }
+    fetch('/api/homework?photo=1&key=' + encodeURIComponent(key), { headers: authHeaders() })
+      .then(function(r){ return r.ok ? r.blob() : Promise.reject(); })
+      .then(function(b){ var u = URL.createObjectURL(b); urlCache[key] = u; imgEl.src = u; })
+      .catch(function(){ imgEl.parentNode.innerHTML = '<div class="ph">✕</div>'; });
+  }
+
+  function openLightbox(src){ $('lightboxImg').src = src; $('lightbox').style.display = 'flex'; }
+  $('lightbox').addEventListener('click', function(){ this.style.display='none'; $('lightboxImg').src=''; });
+
+  // ══════════════ 목록 ══════════════
+  var assignments = [];
+  function loadList(){
+    fetch('/api/homework' + (nameQ('?') ? ('?'+nameQ('')) : ''), { headers: authHeaders() })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j.ok) { $('assignList').innerHTML = '<div class="state-box"><p>'+ (j.error||'불러오지 못했어요.') +'</p></div>'; return; }
+        assignments = j.assignments || [];
+        renderList();
+      })
+      .catch(function(){ $('assignList').innerHTML = '<div class="state-box"><p>네트워크 오류로 불러오지 못했어요.</p></div>'; });
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function renderList(){
+    $('listCnt').textContent = assignments.length ? ('· ' + assignments.length + '개') : '';
+    if (!assignments.length){ $('assignList').innerHTML = '<div class="state-box"><div class="si">📭</div><p>등록된 과제가 없어요.<br>선생님이 과제를 올리면 여기에 표시됩니다.</p></div>'; return; }
+    $('assignList').innerHTML = assignments.map(function(a){
+      var done = a.submitted;
+      var badge = done
+        ? '<span class="badge b-done">✓ 제출 '+ a.myPhotoCount +'장</span>'
+        : '<span class="badge b-todo">미제출</span>';
+      var due = a.dueDate ? ('<span class="a-due">📅 '+ esc(a.dueDate) +'까지</span>') : '';
+      return '<div class="a-card" data-id="'+ a.id +'">' +
+        '<div class="a-top"><div class="a-title">'+ esc(a.title) +'</div></div>' +
+        (a.detail ? '<div class="a-detail">'+ esc(a.detail) +'</div>' : '') +
+        '<div class="a-foot">'+ badge + due +'<span class="a-go">사진 올리기 →</span></div>' +
+        '</div>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('.a-card'), function(el){
+      el.addEventListener('click', function(){ openDetail(Number(el.getAttribute('data-id'))); });
+    });
+  }
+
+  // ══════════════ 상세 ══════════════
+  var curId = null;
+  var picked = [];   // 업로드 대기 파일(File)
+
+  function openDetail(id){
+    var a = assignments.filter(function(x){ return x.id === id; })[0];
+    if (!a) return;
+    curId = id; picked = [];
+    $('dTitle').textContent = a.title;
+    $('dDetail').textContent = a.detail || '';
+    $('dDetail').style.display = a.detail ? 'block' : 'none';
+    $('dDue').textContent = a.dueDate ? ('📅 제출 기한: ' + a.dueDate) : '';
+    $('dDue').style.display = a.dueDate ? 'block' : 'none';
+    $('noteInput').value = '';
+    $('prevGrid').innerHTML = '';
+    renderUpBtn();
+    $('listView').style.display = 'none';
+    $('detailView').style.display = 'block';
+    window.scrollTo(0,0);
+    loadPhotos();
+  }
+  $('backBtn').addEventListener('click', function(){ $('detailView').style.display='none'; $('listView').style.display='block'; loadList(); });
+
+  function loadPhotos(){
+    $('photoGrid').innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
+    fetch('/api/homework?mine=1&assignment_id=' + curId + (nameQ('&') ? ('&'+nameQ('')) : ''), { headers: authHeaders() })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j.ok){ $('photoGrid').innerHTML = '<div class="state-box"><p>'+ (j.error||'오류') +'</p></div>'; return; }
+        var keys = j.photoKeys || [];
+        $('subCnt').textContent = keys.length ? ('· ' + keys.length + '장') : '';
+        if (!keys.length){ $('photoGrid').innerHTML = '<div class="state-box"><p>아직 제출한 사진이 없어요.</p></div>'; return; }
+        $('photoGrid').innerHTML = keys.map(function(k){
+          return '<div class="thumb" data-key="'+ esc(k) +'"><img alt="제출 사진"><button class="rm" title="삭제">×</button></div>';
+        }).join('');
+        Array.prototype.forEach.call($('photoGrid').querySelectorAll('.thumb'), function(el){
+          var k = el.getAttribute('data-key');
+          var img = el.querySelector('img');
+          loadImg(img, k);
+          img.addEventListener('click', function(){ if (img.src) openLightbox(img.src); });
+          el.querySelector('.rm').addEventListener('click', function(ev){ ev.stopPropagation(); deletePhoto(k); });
+        });
+      })
+      .catch(function(){ $('photoGrid').innerHTML = '<div class="state-box"><p>네트워크 오류.</p></div>'; });
+  }
+
+  function deletePhoto(key){
+    if (!confirm('이 사진을 삭제할까요?')) return;
+    fetch('/api/homework?key=' + encodeURIComponent(key) + (nameQ('&') ? ('&'+nameQ('')) : ''), { method:'DELETE', headers: authHeaders() })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if (j.ok){ showToast('삭제했어요.'); loadPhotos(); } else { showToast(j.error||'삭제 실패'); } })
+      .catch(function(){ showToast('네트워크 오류'); });
+  }
+
+  // ── 파일 선택 & 미리보기 ──
+  $('pickBtn').addEventListener('click', function(){ $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+    var MAX = 50;
+    for (var i=0;i<files.length;i++){
+      if (picked.length >= MAX){ showToast('한 번에 최대 '+MAX+'장까지 올릴 수 있어요.'); break; }
+      picked.push(files[i]);
+    }
+    renderPreview();
+    renderUpBtn();
+  });
+  function renderPreview(){
+    var g = $('prevGrid');
+    g.innerHTML = picked.map(function(f, i){
+      return '<div class="thumb" data-i="'+ i +'"><img src="'+ URL.createObjectURL(f) +'" alt="선택 사진"><button class="rm" title="빼기">×</button></div>';
+    }).join('');
+    Array.prototype.forEach.call(g.querySelectorAll('.thumb'), function(el){
+      var i = Number(el.getAttribute('data-i'));
+      el.querySelector('img').addEventListener('click', function(){ openLightbox(this.src); });
+      el.querySelector('.rm').addEventListener('click', function(){ picked.splice(i,1); renderPreview(); renderUpBtn(); });
+    });
+  }
+  function renderUpBtn(){
+    var b = $('upBtn');
+    if (!picked.length){ b.disabled = true; b.textContent = '사진을 선택해 주세요'; $('upHint').textContent=''; }
+    else { b.disabled = false; b.textContent = '이 사진 ' + picked.length + '장 제출하기'; $('upHint').textContent = '큰 사진은 자동으로 압축해서 올려요.'; }
+  }
+
+  // ── 이미지 축소(canvas). HEIC 등 디코딩 실패하면 원본 사용 ──
+  function loadImage(file){ return new Promise(function(res, rej){ var img=new Image(); img.onload=function(){ res(img); }; img.onerror=rej; img.src=URL.createObjectURL(file); }); }
+  function shrink(file){
+    return new Promise(function(resolve){
+      if (!/^image\/(jpe?g|png|webp)$/i.test(file.type||'')) { resolve(file); return; }
+      loadImage(file).then(function(img){
+        var max=1600, w=img.naturalWidth, h=img.naturalHeight;
+        if (Math.max(w,h) > max){ var r=max/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
+        var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        cv.toBlob(function(blob){
+          if (!blob || blob.size >= file.size){ resolve(file); return; }
+          resolve(new File([blob], (file.name||'photo').replace(/\.\w+$/,'')+'.jpg', { type:'image/jpeg' }));
+        }, 'image/jpeg', 0.82);
+      }).catch(function(){ resolve(file); });
+    });
+  }
+
+  // ── 업로드(5장씩 배치로 순차 전송 → 대용량 단일요청 회피 + 진행률) ──
+  var uploading = false;
+  $('upBtn').addEventListener('click', function(){
+    if (uploading || !picked.length || !curId) return;
+    uploading = true;
+    var b = $('upBtn'); b.disabled = true;
+    var files = picked.slice();
+    var total = files.length, doneN = 0, note = $('noteInput').value || '';
+    var BATCH = 5;
+
+    function sendBatch(start){
+      if (start >= files.length){
+        uploading = false;
+        showToast('제출 완료! (' + total + '장)');
+        picked = []; renderPreview(); renderUpBtn();
+        loadPhotos();
+        return;
+      }
+      var slice = files.slice(start, start + BATCH);
+      b.innerHTML = '<span class="spin"></span>올리는 중 (' + Math.min(start+slice.length,total) + '/' + total + ')';
+      Promise.all(slice.map(shrink)).then(function(shrunk){
+        var fd = new FormData();
+        fd.append('assignment_id', String(curId));
+        if (selectedName) fd.append('name', selectedName);
+        if (start === 0 && note) fd.append('note', note);
+        shrunk.forEach(function(f){ fd.append('file', f, f.name || 'photo.jpg'); });
+        return fetch('/api/homework', { method:'POST', headers: authHeaders(), body: fd });
+      }).then(function(r){ return r.json(); }).then(function(j){
+        if (!j.ok){ uploading=false; b.disabled=false; renderUpBtn(); showToast(j.error || '업로드 실패'); return; }
+        doneN += slice.length;
+        sendBatch(start + BATCH);
+      }).catch(function(){ uploading=false; b.disabled=false; renderUpBtn(); showToast('네트워크 오류로 중단됐어요. 다시 시도해 주세요.'); });
+    }
+    sendBatch(0);
+  });
+
+  loadList();
+})();
+</script>
+</body>
+</html>
