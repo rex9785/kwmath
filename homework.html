@@ -311,10 +311,11 @@
       Promise.all(slice.map(shrink)).then(function(shrunk){
         var fd = new FormData();
         fd.append('assignment_id', String(curId));
-        if (selectedName) fd.append('name', selectedName);
         if (start === 0 && note) fd.append('note', note);
         shrunk.forEach(function(f){ fd.append('file', f, f.name || 'photo.jpg'); });
-        return fetch('/api/homework', { method:'POST', headers: authHeaders(), body: fd });
+        // 다자녀 학부모 식별은 ?name= 쿼리로 보냄 — requireStudentAccess는 URL 쿼리에서만 name을 읽음(폼 바디 X).
+        var upUrl = '/api/homework' + (selectedName ? ('?name=' + encodeURIComponent(selectedName)) : '');
+        return fetch(upUrl, { method:'POST', headers: authHeaders(), body: fd });
       }).then(function(r){ return r.json(); }).then(function(j){
         if (!j.ok){ uploading=false; b.disabled=false; renderUpBtn(); showToast(j.error || '업로드 실패'); return; }
         doneN += slice.length;
