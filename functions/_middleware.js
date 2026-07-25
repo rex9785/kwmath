@@ -12,7 +12,8 @@ import {
   verifyStaffSession, isStaffSessionToken,
 } from './api/_admin.js';
 import { getStaffRecord } from './api/_staff.js';
-import { normalizePhone } from './api/_auth.js';
+import { normalizePhone, verifyToken } from './api/_auth.js';
+import { logEvent, classifyPath } from './api/_eventlog.js';
 
 const PRIMARY_ORIGIN = 'https://kwmath.co.kr';
 
@@ -74,6 +75,8 @@ function staffAllowed(url, method) {
 
 export async function onRequest(context) {
   const acao = allowOrigin(context.request);
+  let logIdentity = {};   // 접근로깅용 신원 — 원장/조교는 아래 토큰검증에서 채움
+  let clientBearer = '';  // 원본 Bearer — 학생/학부모 포털토큰 백그라운드 해석용
 
   if (context.request.method === 'OPTIONS') {
     return new Response(null, {
@@ -99,6 +102,7 @@ export async function onRequest(context) {
       const method = context.request.method.toUpperCase();
       const authz = context.request.headers.get('Authorization') || '';
       const bearer = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
+      clientBearer = bearer;
 
       // staffPhone이 주어지면 다운스트림에 X-Staff-Phone(검증된 신원)을 실어 보낸다.
       //   ⚠️ 클라이언트가 직접 넣은 X-Staff-Phone은 항상 지운 뒤(스푸핑 방지) 토큰에서 나온 값만 세팅.
@@ -113,7 +117,7 @@ export async function onRequest(context) {
 
       if (isAdminSessionToken(bearer)) {
         // 원장(adm_) 풀권한 세션 — 기존 동작 그대로 (X-Staff-Phone 없음 → 전체 열람)
-        if (await verifyAdminSession(env, bearer)) translate();
+        if (await verifyAdminSession(env, bearer)) { translate(); logIdentity = { role: 'owner' }; }
       } else if (isStaffSessionToken(bearer)) {
         // 조교(ast_) 제한 세션 — 허용 경로만 번역, 그 외 403. 토큰에 박힌 전화번호를 X-Staff-Phone로 전달.
         const sv = await verifyStaffSession(env, bearer);
@@ -130,6 +134,7 @@ export async function onRequest(context) {
           }
           if (staffAllowed(url, method)) {
             translate(sv.phone);   // ← 검증된 조교 신원(숫자만)
+            logIdentity = { role: 'staff', phone: normalizePhone(sv.phone) || null };
           } else {
             return new Response(
               JSON.stringify({ error: '조교 권한으로는 이 작업을 할 수 없어요. (열람·질문답변만 가능)' }),
@@ -139,7 +144,7 @@ export async function onRequest(context) {
         }
       } else if (!authz) {
         const ck = readCookie(context.request, 'admin_session');     // 쿠키 전용 경로(미래)
-        if (isAdminSessionToken(ck) && await verifyAdminSession(env, ck)) translate();
+        if (isAdminSessionToken(ck) && await verifyAdminSession(env, ck)) { translate(); logIdentity = { role: 'owner' }; }
       }
     }
   } catch (_) {}
@@ -147,5 +152,31 @@ export async function onRequest(context) {
   const response = forwardRequest ? await context.next(forwardRequest) : await context.next();
   const newResponse = new Response(response.body, response);
   newResponse.headers.set('Access-Control-Allow-Origin', acao);
+
+  // ── 접근 로깅(조용히 기록만) — page·api만, 정적자원 제외. 백그라운드라 응답을 안 막음.
+  try {
+    const pth = new URL(context.request.url).pathname;
+    const kind = classifyPath(pth);
+    if (kind) {
+      const method = context.request.method;
+      const status = newResponse.status;
+      const ident = logIdentity;
+      const cb = clientBearer;
+      const task = (async () => {
+        let id2 = ident;
+        // 학생/학부모 포털 토큰(64 hex)은 백그라운드에서 신원 해석 → 응답 지연 0.
+        if (!id2.phone && cb && /^[0-9a-f]{64}$/i.test(cb)) {
+          try { const p = await verifyToken(context.env, cb); if (p && p.phone) id2 = { role: 'user', phone: p.phone }; } catch (_) {}
+        }
+        await logEvent(context.env, context.request, {
+          kind, method, path: pth, status,
+          role: id2.role || null, phone: id2.phone || null,
+        });
+      })();
+      if (typeof context.waitUntil === 'function') context.waitUntil(task);
+      else if (task && typeof task.catch === 'function') task.catch(() => {});
+    }
+  } catch (_) { /* 로깅 실패는 실제 요청을 막지 않음 */ }
+
   return newResponse;
 }

@@ -12,6 +12,7 @@ import {
 import { issueAdminSession, issueStaffSession } from '../_admin.js';
 import { getStaffRecord } from '../_staff.js';
 import { checkLockout, recordFailure, clearLockout, fmtRetry } from '../_lockout.js';
+import { logEvent } from '../_eventlog.js';
 
 // 운영진(원장) 번호 — 원장 식별 (staff-register.js·me.js와 동일하게 유지)
 const ADMIN_PHONES = ['01041149785'];
@@ -72,6 +73,7 @@ export async function onRequest({ request, env }) {
   if (ADMIN_PHONES.includes(digits)) {
     const adminToken = await issueAdminSession(env);
     if (!adminToken) return jsonError('관리자 세션 설정이 누락됐습니다. (ADMIN_PASSWORD 미설정)', 500);
+    await logEvent(env, request, { kind: 'login', phone, role: 'owner', name: '관우T' });
     return Response.json({ ok: true, role: 'owner', isAdmin: true, phone, adminToken });
   }
 
@@ -83,6 +85,7 @@ export async function onRequest({ request, env }) {
     }
     const staffToken = await issueStaffSession(env, phone);
     if (!staffToken) return jsonError('운영진 세션 설정이 누락됐습니다. (ADMIN_PASSWORD 미설정)', 500);
+    await logEvent(env, request, { kind: 'login', phone, role: 'staff', name: staff.name || '' });
     return Response.json({
       ok: true, role: 'staff', isStaff: true, phone,
       name: staff.name || '',
@@ -118,6 +121,7 @@ export async function onRequest({ request, env }) {
     return jsonError('학원 등록이 거부됐거나 활성 학생이 없습니다. 관우T께 문의해주세요.', 403);
   }
 
+  await logEvent(env, request, { kind: 'login', phone, role: 'student', name: (approvedStudents[0] && approvedStudents[0].name) || '' });
   return Response.json({
     ok: true,
     role: 'student',
