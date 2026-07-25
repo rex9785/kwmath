@@ -78,6 +78,18 @@
   .sendbar button:disabled{opacity:0.45;cursor:default;}
   .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:11px 18px;border-radius:9px;font-size:0.84rem;font-weight:600;z-index:100;display:none;max-width:88%;text-align:center;line-height:1.5;}
   .toast.show{display:block;}
+
+  /* 자유칸 기본 + 상세 접기 */
+  .freewrap{margin-bottom:2px;}
+  .freewrap label{display:flex;flex-direction:column;gap:4px;font-size:0.8rem;color:var(--clinic);font-weight:800;}
+  .freewrap .sub{color:var(--muted);font-weight:600;font-size:0.72rem;}
+  .freearea{border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-family:inherit;font-size:0.9rem;color:var(--ink);outline:none;font-weight:400;min-height:78px;resize:vertical;line-height:1.55;}
+  .freearea:focus{border-color:var(--clinic);}
+  .morebtn{background:none;border:none;color:var(--muted);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;padding:8px 0 2px;display:flex;align-items:center;gap:6px;}
+  .morebtn:hover{color:var(--clinic);}
+  .morebtn .arr{font-size:0.68rem;}
+  .more{display:none;margin-top:8px;}
+  .more.open{display:block;}
 </style>
 </head>
 <body>
@@ -170,10 +182,10 @@
     else if(rev.difficulty==='hard') lines.push('· 난이도: 오늘 문제를 다소 어려워했습니다.');
     else if(rev.difficulty==='normal') lines.push('· 난이도: 적절한 수준으로 학습했습니다.');
     if(rev.improvement) lines.push('· 개선 방향: '+rev.improvement);
-    var out = nm+' 학생의 오늘 클리닉 학습 내용입니다.';
-    if(lines.length) out += '\n'+lines.join('\n');
-    if(rev.summary) out += '\n\n'+rev.summary;
-    return out;
+    var blocks=[ nm+' 학생의 오늘 클리닉 학습 내용입니다.' ];
+    if(rev.summary) blocks.push(rev.summary);        // 자유 총평이 상세보다 먼저
+    if(lines.length) blocks.push(lines.join('\n'));  // 상세 항목은 그 아래
+    return blocks.join('\n\n');
   }
 
   // clinic 참석자 + 기존 총평 + 수동추가 를 student_id로 합침(동명이인 안전).
@@ -206,24 +218,31 @@
     var wc=(rv.wrongCount!==null&&rv.wrongCount!==undefined)?rv.wrongCount:'';
     var canSend = !!row.review;   // 저장된 초안만 발송 대상(서버도 no-review는 skip)
     var prev = composeBody({asked:rv.asked,attitude:rv.attitude,improvement:rv.improvement,summary:rv.summary,wrongCount:wc,difficulty:rv.difficulty}, row.name);
+    var hasDetail = !!(rv.asked||rv.attitude||rv.improvement||(wc!==''&&wc!==null&&wc!==undefined)||rv.difficulty);  // 상세가 이미 있으면 펼쳐서 보여줌
     var h='';
     h+='<div class="rcard" data-sid="'+sid+'">';
     h+= '<div class="rhead"><div><span class="nm">'+esc(row.name)+'</span>'+clsLabel(row)+'</div>'+(row.review?'<span class="badge draft">초안</span>':'')+'</div>';
-    h+= '<div class="grid">';
-    h+=  '<label>물어본 것 / 오늘 다룬 것<textarea id="f_asked_'+sid+'" oninput="onField(\''+sid+'\')" placeholder="예) 소인수분해, 최소공배수">'+esc(rv.asked)+'</textarea></label>';
-    h+=  '<label>태도<input id="f_attitude_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.attitude)+'" placeholder="예) 집중 잘함 / 빨리 끝내려 함"></label>';
-    h+=  '<label>개선 방향<input id="f_improve_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.improvement)+'" placeholder="예) 계산 과정 깔끔히 정리, 식 이항 연습"></label>';
-    h+=  '<div class="row2">';
-    h+=   '<label class="w">틀린 개수<input type="number" min="0" id="f_wrong_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(wc)+'" placeholder="0"></label>';
-    h+=   '<div class="diffwrap">난이도 적절성'+
-          '<div class="diffbtns">'+
-            '<button type="button" class="db'+on('easy')+'" onclick="setDiff(\''+sid+'\',\'easy\')">쉬움</button>'+
-            '<button type="button" class="db'+on('normal')+'" onclick="setDiff(\''+sid+'\',\'normal\')">적절</button>'+
-            '<button type="button" class="db'+on('hard')+'" onclick="setDiff(\''+sid+'\',\'hard\')">어려움</button>'+
-          '</div>'+
-          '<input type="hidden" id="f_diff_'+sid+'" value="'+esc(rv.difficulty)+'"></div>';
+    // 자유 칸(기본) — 조교는 이 한 칸만 써도 됨
+    h+= '<div class="freewrap"><label>총평 <span class="sub">· 자유롭게 쓰세요 (학부모께 전달)</span>'+
+        '<textarea class="freearea" id="f_summary_'+sid+'" oninput="onField(\''+sid+'\')" placeholder="예) 오늘 소인수분해를 다뤘어요. 최소공배수에서 실수가 잦아, 계산 과정을 천천히 정리하는 연습이 필요합니다.">'+esc(rv.summary)+'</textarea></label></div>';
+    // 상세 항목(선택) — 기본 접힘, 값이 있으면 자동 펼침
+    h+= '<button type="button" class="morebtn" onclick="toggleMore(\''+sid+'\')"><span class="arr" id="morearr_'+sid+'">'+(hasDetail?'▾':'▸')+'</span> 상세 항목 (물어본 것·태도·개선·틀린 개수·난이도)</button>';
+    h+= '<div class="more'+(hasDetail?' open':'')+'" id="more_'+sid+'">';
+    h+=  '<div class="grid">';
+    h+=   '<label>물어본 것 / 오늘 다룬 것<textarea id="f_asked_'+sid+'" oninput="onField(\''+sid+'\')" placeholder="예) 소인수분해, 최소공배수">'+esc(rv.asked)+'</textarea></label>';
+    h+=   '<label>태도<input id="f_attitude_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.attitude)+'" placeholder="예) 집중 잘함 / 빨리 끝내려 함"></label>';
+    h+=   '<label>개선 방향<input id="f_improve_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.improvement)+'" placeholder="예) 계산 과정 깔끔히 정리, 식 이항 연습"></label>';
+    h+=   '<div class="row2">';
+    h+=    '<label class="w">틀린 개수<input type="number" min="0" id="f_wrong_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(wc)+'" placeholder="0"></label>';
+    h+=    '<div class="diffwrap">난이도 적절성'+
+           '<div class="diffbtns">'+
+             '<button type="button" class="db'+on('easy')+'" onclick="setDiff(\''+sid+'\',\'easy\')">쉬움</button>'+
+             '<button type="button" class="db'+on('normal')+'" onclick="setDiff(\''+sid+'\',\'normal\')">적절</button>'+
+             '<button type="button" class="db'+on('hard')+'" onclick="setDiff(\''+sid+'\',\'hard\')">어려움</button>'+
+           '</div>'+
+           '<input type="hidden" id="f_diff_'+sid+'" value="'+esc(rv.difficulty)+'"></div>';
+    h+=   '</div>';
     h+=  '</div>';
-    h+=  '<label>한 줄 총평<input id="f_summary_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.summary)+'" placeholder="학부모께 전할 한 줄 (선택)"></label>';
     h+= '</div>';
     h+= '<div class="ractions"><button class="save" onclick="saveRow(\''+sid+'\')">💾 저장</button>'+
         (row.review?'<button class="del" onclick="delRow(\''+sid+'\',\''+escAttr(row.name)+'\')">삭제</button>':'')+'</div>';
@@ -289,6 +308,7 @@
     onField(sid);
   }
   function findRow(sid){ var rows=buildRows(); for(var i=0;i<rows.length;i++) if(String(rows[i].studentId)===String(sid)) return rows[i]; return null; }
+  function toggleMore(sid){ var m=$('more_'+sid); if(!m) return; var open=m.classList.toggle('open'); var a=$('morearr_'+sid); if(a) a.textContent=open?'▾':'▸'; }
 
   async function saveRow(sid){
     var wc=val('f_wrong_'+sid);

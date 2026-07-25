@@ -79,10 +79,10 @@ function composeBody(rev, name) {
   else if (rev.difficulty === 'hard') lines.push('· 난이도: 오늘 문제를 다소 어려워했습니다.');
   else if (rev.difficulty === 'normal') lines.push('· 난이도: 적절한 수준으로 학습했습니다.');
   if (rev.improvement) lines.push('· 개선 방향: ' + rev.improvement);
-  let out = nm + ' 학생의 오늘 클리닉 학습 내용입니다.';
-  if (lines.length) out += '\n' + lines.join('\n');
-  if (rev.summary) out += '\n\n' + rev.summary;
-  return out;
+  const blocks = [nm + ' 학생의 오늘 클리닉 학습 내용입니다.'];
+  if (rev.summary) blocks.push(rev.summary);           // 자유 총평이 상세보다 먼저
+  if (lines.length) blocks.push(lines.join('\n'));     // 상세 항목은 그 아래
+  return blocks.join('\n\n');
 }
 
 export async function onRequest(context) {
