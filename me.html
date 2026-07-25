@@ -171,6 +171,7 @@
     phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
     trend:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
     clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    clipboard:'<rect x="6" y="4.5" width="12" height="16" rx="2"/><path d="M9 4.5V3.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 3.5v1"/><path d="M9 11h6M9 15h4"/>',
     arrowRight:'<path d="M4 12h16m-6-6 6 6-6 6"/>'
   };
   function kwIco(name, size){ return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+(KW_ICONS[name]||'')+'</svg>'; }
@@ -230,10 +231,11 @@
     if (!selectedStudent) return;
     $('content').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></svg></div><p>정보를 불러오는 중...</p></div>';
     try {
-      const [dRes, rRes, sRes] = await Promise.all([
+      const [dRes, rRes, sRes, cRes] = await Promise.all([
         fetch('/api/me-detail?id=' + encodeURIComponent(selectedStudent.id), { headers: authHeaders() }),
         fetch('/api/reports?name=' + encodeURIComponent(selectedStudent.name), { headers: authHeaders() }),
         fetch('/api/scores?name=' + encodeURIComponent(selectedStudent.name), { headers: authHeaders() }),
+        fetch('/api/clinic-review', { headers: authHeaders() }),
       ]);
       const dData = await dRes.json();
       if (!dRes.ok || !dData.ok) {
@@ -247,6 +249,7 @@
         latestReport = reports[0] || null;
       } catch (_) {}
       try { const sData = await sRes.json(); curScores = (sData && sData.scores) || []; } catch (_) { curScores = []; }
+      try { const cData = await cRes.json(); curClinicReviews = (cData && cData.reviews) || []; } catch (_) { curClinicReviews = []; }
       curStudentDetail = dData.student; curLatestReport = latestReport;
       renderMyInfo(dData.student, latestReport);
     } catch (e) {
@@ -409,12 +412,35 @@
         <div class="muted" style="margin-top:9px;font-size:0.74rem;line-height:1.6;">회원 탈퇴 시 계정과 모든 학습 기록(수업 리포트·출결·공부 기록·시험 성적)이 영구 삭제되며 되돌릴 수 없습니다.</div>
       </div>`;
 
-    $('content').innerHTML = heroHtml + hwHtml + basicHtml + gradeHtml + scoreCardHtml() + goalHtml + contactHtml + dangerHtml;
+    $('content').innerHTML = heroHtml + hwHtml + clinicReviewCardHtml() + basicHtml + gradeHtml + scoreCardHtml() + goalHtml + contactHtml + dangerHtml;
     syncMeLabels();
   }
 
+  // ───────── 클리닉 총평 (발송 완료된 것만 · 선택한 자녀 기준) ─────────
+  function clinicReviewCardHtml(){
+    if (!selectedStudent) return '';
+    var mine = (curClinicReviews || []).filter(function(r){ return String(r.studentId) === String(selectedStudent.id); });
+    if (!mine.length) return '';                       // 도착한 총평 없으면 카드 숨김
+    var WD = ['일','월','화','수','목','금','토'];
+    var blocks = mine.slice(0, 12).map(function(r){
+      var dot = (r.date || '').replace(/-/g, '.');
+      var wd = ''; try { var dt = new Date((r.date||'') + 'T00:00:00'); wd = WD[dt.getDay()] || ''; } catch (_) {}
+      var body = escapeHtml(r.sentBody || '').replace(/\n/g, '<br>');
+      return '<div style="padding:11px 0;border-top:1px solid var(--hairline);">'
+        + '<div style="font-weight:800;font-size:0.82rem;color:var(--primary);margin-bottom:5px;">' + escapeHtml(dot) + (wd ? (' (' + wd + ')') : '') + '</div>'
+        + '<div style="font-size:0.86rem;line-height:1.65;color:var(--text);">' + body + '</div>'
+        + '</div>';
+    }).join('');
+    var more = mine.length > 12 ? '<div class="muted" style="font-size:0.74rem;margin-top:8px;">최근 12건만 표시했어요.</div>' : '';
+    return '<div class="card">'
+      + '<div class="card-label">' + kwIco('clipboard', 15) + ' 클리닉 총평</div>'
+      + '<div class="muted" style="font-size:0.76rem;margin-bottom:2px;">클리닉 학습 내용을 날짜별로 모았어요.</div>'
+      + blocks + more
+      + '</div>';
+  }
+
   // ───────── 시험 성적 (수학) ─────────
-  var curScores = [], curStudentDetail = null, curLatestReport = null;
+  var curScores = [], curStudentDetail = null, curLatestReport = null, curClinicReviews = [];
   var editingScoreId = null, scoreMetric = 'raw', scoreTab = '내신';
   var SC_LABELS = { '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
                     '모의':['3월','4월','5월','6월','7월','9월','10월','11월(수능)'] };

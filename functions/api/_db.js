@@ -509,6 +509,166 @@ export async function deleteClinicRoster(env, studentId, date) {
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
+// ════════════ 클리닉 총평(clinic_reviews) — 조교 코멘트 → 원장 검토 → 학부모 푸시 ════════════
+// 클리닉 끝나고 조교가 학생별로 "물어본 것·태도·개선방향·틀린개수·난이도·한줄총평"을 draft로 저장.
+// 원장이 검토 후 발송하면 status='sent'로 바뀌고 그때 본문 스냅샷(sent_body)을 남긴다.
+// 학생 식별은 이름이 아니라 student_id(동명이인 안전). 마이그레이션 러너 없으니 첫 사용 시 보장(아이솔레이트당 1회).
+// difficulty: 'easy'(쉬움) / 'normal'(적절) / 'hard'(어려움) — 배정 난이도가 그 학생에게 적절했는지.
+// status: 'draft'(조교 작성/원장 미발송) / 'sent'(원장 발송 완료).
+let _clinicReviewsReady = false;
+async function ensureClinicReviews(env) {
+  if (_clinicReviewsReady) return;
+  await env.DB.prepare(
+    'CREATE TABLE IF NOT EXISTS clinic_reviews (' +
+    'student_id TEXT NOT NULL, date TEXT NOT NULL, ' +
+    'author_phone TEXT, author_name TEXT, ' +
+    'asked TEXT, attitude TEXT, improvement TEXT, ' +
+    'wrong_count INTEGER, difficulty TEXT, summary TEXT, ' +
+    'status TEXT, sent_body TEXT, ' +
+    'created_at TEXT, updated_at TEXT, sent_at TEXT, ' +
+    'PRIMARY KEY (student_id, date))'
+  ).run();
+  _clinicReviewsReady = true;
+}
+
+function clinicReviewRow(r) {
+  if (!r) return null;
+  return {
+    studentId: r.student_id,
+    date: r.date,
+    authorPhone: r.author_phone || '',
+    authorName: r.author_name || '',
+    asked: r.asked || '',
+    attitude: r.attitude || '',
+    improvement: r.improvement || '',
+    wrongCount: (r.wrong_count === null || r.wrong_count === undefined) ? null : r.wrong_count,
+    difficulty: r.difficulty || '',
+    summary: r.summary || '',
+    status: r.status || 'draft',
+    sentBody: r.sent_body || '',
+    createdAt: r.created_at || null,
+    updatedAt: r.updated_at || null,
+    sentAt: r.sent_at || null,
+  };
+}
+
+export async function getClinicReview(env, studentId, date) {
+  await ensureClinicReviews(env);
+  const r = await env.DB.prepare('SELECT * FROM clinic_reviews WHERE student_id=? AND date=?')
+    .bind(studentId, date).first();
+  return clinicReviewRow(r);
+}
+
+// 부분 업데이트. fields에 든 컬럼만 갱신. 신규면 created_at·status(기본 draft) 세팅.
+export async function upsertClinicReview(env, studentId, date, fields) {
+  await ensureClinicReviews(env);
+  const cols = ['author_phone', 'author_name', 'asked', 'attitude', 'improvement', 'wrong_count', 'difficulty', 'summary', 'status'];
+  const present = cols.filter(c => fields[c] !== undefined);
+  try {
+    const now = new Date().toISOString();
+    const existing = await env.DB.prepare('SELECT student_id FROM clinic_reviews WHERE student_id=? AND date=?')
+      .bind(studentId, date).first();
+    if (existing) {
+      if (present.length) {
+        const setSql = present.map(c => c + '=?').join(', ') + ', updated_at=?';
+        await env.DB.prepare('UPDATE clinic_reviews SET ' + setSql + ' WHERE student_id=? AND date=?')
+          .bind(...present.map(c => fields[c]), now, studentId, date).run();
+      }
+    } else {
+      const insCols = ['student_id', 'date', ...present];
+      const insVals = [studentId, date, ...present.map(c => fields[c])];
+      if (!present.includes('status')) { insCols.push('status'); insVals.push('draft'); }
+      insCols.push('created_at', 'updated_at');
+      insVals.push(now, now);
+      await env.DB.prepare('INSERT INTO clinic_reviews (' + insCols.join(',') + ') VALUES (' + insCols.map(() => '?').join(',') + ')')
+        .bind(...insVals).run();
+    }
+    const got = await getClinicReview(env, studentId, date);
+    return { ok: true, record: got };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+// 발송 확정: status='sent' + 본문 스냅샷 + sent_at 기록.
+export async function markClinicReviewSent(env, studentId, date, sentBody) {
+  await ensureClinicReviews(env);
+  try {
+    const now = new Date().toISOString();
+    const res = await env.DB.prepare(
+      'UPDATE clinic_reviews SET status=?, sent_body=?, sent_at=?, updated_at=? WHERE student_id=? AND date=?'
+    ).bind('sent', sentBody || '', now, now, studentId, date).run();
+    return { ok: true, changed: (res.meta && res.meta.changes) || 0 };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+export async function deleteClinicReview(env, studentId, date) {
+  await ensureClinicReviews(env);
+  try {
+    const res = await env.DB.prepare('DELETE FROM clinic_reviews WHERE student_id=? AND date=?')
+      .bind(studentId, date).run();
+    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
+// 특정 날짜 전체 총평(원장 검토 화면용). students JOIN으로 이름·학원·반 덧붙임.
+export async function listClinicReviewsByDate(env, date) {
+  await ensureClinicReviews(env);
+  const { results } = await env.DB.prepare(
+    'SELECT r.*, s.name, s.academy, s.class_name ' +
+    'FROM clinic_reviews r LEFT JOIN students s ON s.id = r.student_id WHERE r.date = ?'
+  ).bind(date).all();
+  return (results || []).map(r => ({
+    ...clinicReviewRow(r),
+    name: r.name || '',
+    academy: r.academy || '',
+    className: r.class_name || '',
+  }));
+}
+
+// 학부모/학생 아카이브용: 지정한 student_id들의 '발송 완료' 총평만 최신순.
+export async function listSentReviewsForStudentIds(env, studentIds) {
+  await ensureClinicReviews(env);
+  if (!studentIds || !studentIds.length) return [];
+  const placeholders = studentIds.map(() => '?').join(',');
+  const { results } = await env.DB.prepare(
+    'SELECT r.*, s.name FROM clinic_reviews r LEFT JOIN students s ON s.id = r.student_id ' +
+    'WHERE r.status = ? AND r.student_id IN (' + placeholders + ') ORDER BY r.date DESC'
+  ).bind('sent', ...studentIds).all();
+  return (results || []).map(r => ({ ...clinicReviewRow(r), name: r.name || '' }));
+}
+
+// ════════════ 클리닉 하루 전체 메모(clinic_day_memo) — 원장님만 봄 ════════════
+// 조교가 그날 세션 전체 요약(귀가시각·전반 난이도 등)을 남기는 곳. 학부모 발송 대상 아님.
+// date 하나당 한 줄. 마이그레이션 러너 없으니 첫 사용 시 보장(아이솔레이트당 1회).
+let _clinicDayMemoReady = false;
+async function ensureClinicDayMemo(env) {
+  if (_clinicDayMemoReady) return;
+  await env.DB.prepare(
+    'CREATE TABLE IF NOT EXISTS clinic_day_memo (' +
+    'date TEXT PRIMARY KEY, memo TEXT, updated_at TEXT)'
+  ).run();
+  _clinicDayMemoReady = true;
+}
+
+export async function getClinicDayMemo(env, date) {
+  await ensureClinicDayMemo(env);
+  const r = await env.DB.prepare('SELECT memo, updated_at FROM clinic_day_memo WHERE date=?').bind(date).first();
+  return { memo: (r && r.memo) || '', updatedAt: (r && r.updated_at) || null };
+}
+
+export async function setClinicDayMemo(env, date, memo) {
+  await ensureClinicDayMemo(env);
+  try {
+    const now = new Date().toISOString();
+    const existing = await env.DB.prepare('SELECT date FROM clinic_day_memo WHERE date=?').bind(date).first();
+    if (existing) {
+      await env.DB.prepare('UPDATE clinic_day_memo SET memo=?, updated_at=? WHERE date=?').bind(memo || '', now, date).run();
+    } else {
+      await env.DB.prepare('INSERT INTO clinic_day_memo (date, memo, updated_at) VALUES (?,?,?)').bind(date, memo || '', now).run();
+    }
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
 // ════════════ 앱 설정 (app_config) — 강제업데이트 최소버전 등 ════════════
 // 관리자만 변경. key-value 한 줄씩. 마이그레이션 러너 없으니 첫 사용 시 보장(아이솔레이트당 1회).
 let _appConfigReady = false;

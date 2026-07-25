@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>클리닉 총평 · 이관우 수학연구소</title>
+<link rel="manifest" href="/manifest.json?v=3">
+<meta name="theme-color" content="#8B1A35">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--ink:#1E1E1E;--muted:#777;--border:#EDE0E3;--bg:#FAF7F8;
+    --clinic:#1f6f78;--clinic-light:#E3F1F2;--att:#1F7A33;--late:#B07A00;--abs:#B02347;}
+  body{font-family:'Noto Sans KR',sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;word-break:keep-all;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 18px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  .page{max-width:640px;margin:0 auto;padding:20px 16px 110px;}
+
+  .datebar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-bottom:12px;gap:6px;}
+  .datebar button{background:none;border:none;font-size:1.2rem;color:var(--primary);cursor:pointer;padding:2px 8px;font-family:inherit;}
+  .datebar input[type=date]{border:1.5px solid var(--border);border-radius:8px;padding:6px 8px;font-family:inherit;font-size:0.9rem;outline:none;}
+  .datebar .today{font-size:0.76rem;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--muted);}
+
+  .memobox{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
+  .memobox .h{font-weight:800;font-size:0.86rem;color:var(--ink);margin-bottom:2px;}
+  .memobox .sub{font-size:0.72rem;color:var(--muted);font-weight:500;}
+  .memobox textarea{width:100%;border:1.5px solid var(--border);border-radius:9px;padding:9px 10px;font-family:inherit;font-size:0.86rem;outline:none;margin-top:8px;min-height:56px;resize:vertical;line-height:1.55;}
+  .memobox textarea:focus{border-color:var(--clinic);}
+  .memobox .mrow{display:flex;justify-content:flex-end;margin-top:8px;}
+  .memobox button{background:var(--clinic);color:#fff;border:none;border-radius:8px;padding:7px 15px;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;}
+
+  .rcard{background:#fff;border:1px solid var(--border);border-radius:13px;padding:13px 14px;margin-bottom:11px;}
+  .rhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;}
+  .rhead .nm{font-weight:800;font-size:1.02rem;}
+  .rhead .cls{font-size:0.71rem;color:var(--primary);font-weight:700;background:var(--primary-light);padding:1px 8px;border-radius:9px;margin-left:6px;}
+  .badge{font-size:0.7rem;font-weight:800;padding:2px 9px;border-radius:9px;white-space:nowrap;}
+  .badge.draft{background:var(--clinic-light);color:var(--clinic);}
+  .badge.sent{background:#E4F3E7;color:var(--att);}
+
+  .grid{display:flex;flex-direction:column;gap:8px;}
+  .grid label{display:flex;flex-direction:column;gap:3px;font-size:0.75rem;color:var(--muted);font-weight:700;}
+  .grid input,.grid textarea{border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:0.88rem;color:var(--ink);outline:none;font-weight:400;}
+  .grid textarea{min-height:44px;resize:vertical;line-height:1.5;}
+  .grid input:focus,.grid textarea:focus{border-color:var(--clinic);}
+  .row2{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .row2 .w{width:110px;} .row2 .w input{width:100%;}
+  .diffwrap{flex:1;min-width:180px;font-size:0.75rem;color:var(--muted);font-weight:700;}
+  .diffbtns{display:flex;gap:6px;margin-top:3px;}
+  .diffbtns button{flex:1;background:#fff;border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;font-size:0.8rem;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;}
+  .diffbtns button.on{border-color:var(--clinic);background:var(--clinic-light);color:var(--clinic);}
+
+  .ractions{display:flex;gap:7px;margin-top:10px;}
+  .ractions .save{background:var(--clinic);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.83rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .ractions .del{background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .ractions .del:hover{border-color:var(--abs);color:var(--abs);}
+
+  .prevwrap{margin-top:11px;border-top:1px dashed var(--border);padding-top:10px;}
+  .prevwrap .pl{font-size:0.73rem;font-weight:800;color:var(--clinic);margin-bottom:5px;display:flex;align-items:center;gap:7px;}
+  .prevwrap .sel{width:16px;height:16px;accent-color:var(--clinic);}
+  .prevwrap textarea{width:100%;border:1.5px solid var(--clinic-light);background:#FCFEFE;border-radius:8px;padding:9px 10px;font-family:inherit;font-size:0.84rem;line-height:1.55;outline:none;min-height:96px;resize:vertical;color:var(--ink);}
+  .prevwrap textarea:focus{border-color:var(--clinic);}
+  .sentbody{margin-top:10px;background:#F7FBF8;border:1px solid #DCEBE0;border-radius:9px;padding:10px 12px;font-size:0.84rem;line-height:1.6;color:#2B4A32;white-space:pre-wrap;}
+  .senttime{font-size:0.71rem;color:var(--muted);margin-top:6px;}
+
+  .addbox{background:#fff;border:1px dashed var(--clinic);border-radius:12px;padding:12px 14px;margin-top:14px;}
+  .addbox .h{font-weight:800;font-size:0.84rem;color:var(--clinic);margin-bottom:8px;}
+  .addrow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+  .addrow input{flex:1;min-width:140px;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:0.86rem;outline:none;}
+  .addrow input:focus{border-color:var(--clinic);}
+  .addrow button{background:var(--clinic);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;}
+
+  .empty{background:#fff;border:1px dashed var(--border);border-radius:13px;padding:34px 18px;text-align:center;color:var(--muted);font-size:0.9rem;line-height:1.7;}
+  .sendbar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--border);padding:11px 16px max(11px,env(safe-area-inset-bottom,11px));display:none;align-items:center;gap:10px;z-index:60;}
+  .sendbar.show{display:flex;}
+  .sendbar .hint{flex:1;font-size:0.8rem;color:var(--muted);font-weight:700;}
+  .sendbar button{background:var(--primary);color:#fff;border:none;border-radius:9px;padding:12px 18px;font-size:0.9rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .sendbar button:disabled{opacity:0.45;cursor:default;}
+  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:11px 18px;border-radius:9px;font-size:0.84rem;font-weight:600;z-index:100;display:none;max-width:88%;text-align:center;line-height:1.5;}
+  .toast.show{display:block;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/portal" class="topbar-title"><span>🩺 클리닉 총평</span></a>
+  <a href="/portal" class="topbar-btn">← 포털</a>
+</div>
+
+<div class="page">
+  <div class="datebar">
+    <button onclick="shiftDate(-1)">‹</button>
+    <input type="date" id="datePick" onchange="onDateChange()">
+    <button onclick="shiftDate(1)">›</button>
+    <button class="today" onclick="goToday()">오늘</button>
+  </div>
+
+  <div class="memobox">
+    <div class="h">📝 오늘 클리닉 전체 메모 <span class="sub">· 원장님만 봄 (학부모에게 안 감)</span></div>
+    <textarea id="dayMemo" placeholder="예) 20문제 중 3~4개 실수, 3시 반 전원 귀가. 소인수·최소공배수·식 이항 기초 보강 필요."></textarea>
+    <div class="mrow"><button onclick="saveMemo()">메모 저장</button></div>
+  </div>
+
+  <div id="content"><div class="empty">불러오는 중…</div></div>
+
+  <div class="addbox">
+    <div class="h">➕ 총평 쓸 학생 추가</div>
+    <div class="addrow">
+      <input id="addName" list="studentList" placeholder="학생 이름 (클리닉 참석자는 자동으로 떠요)">
+      <button onclick="doAddStudent()">추가</button>
+    </div>
+    <datalist id="studentList"></datalist>
+  </div>
+</div>
+
+<div class="sendbar" id="sendbar">
+  <div class="hint" id="sendhint"></div>
+  <button id="sendbtn" onclick="sendAll()">✅ 검토완료 · 학부모께 발송</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function readToken(){
+    var keys = ['kwmath_admin_token','kwmath_admin_pw'];
+    for (var i=0;i<keys.length;i++){
+      var v = sessionStorage.getItem(keys[i]) || localStorage.getItem(keys[i]);
+      if (v) return v;
+    }
+    return '';
+  }
+  var token = readToken();
+  if(!token){ location.replace('/portal?next=/clinic-review'); }
+
+  var reviews=[], clinicStudents=[], allStudents=[], added=[], stById={}, isOwner=false;
+  function $(id){ return document.getElementById(id); }
+  function val(id){ var e=$(id); return e ? (e.value||'') : ''; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function escAttr(s){ return String(s==null?'':s).replace(/'/g,"\\'"); }
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2600); }
+  function pad(n){ return ('0'+n).slice(-2); }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  var viewDate = todayStr();
+
+  async function api(path, opts){
+    opts=opts||{}; opts.headers=opts.headers||{};
+    if(token) opts.headers['Authorization']='Bearer '+token;
+    opts.credentials='same-origin';
+    var r=await fetch(path,opts);
+    if(r.status===401){ location.replace('/portal?next=/clinic-review'); throw new Error('401'); }
+    return r;
+  }
+
+  function shiftDate(delta){
+    var d=new Date(viewDate+'T00:00:00'); d.setDate(d.getDate()+delta);
+    viewDate=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    $('datePick').value=viewDate; load();
+  }
+  function onDateChange(){ var v=$('datePick').value; if(v){ viewDate=v; load(); } }
+  function goToday(){ viewDate=todayStr(); $('datePick').value=viewDate; load(); }
+
+  // 서버 composeBody와 동일 로직 — 발송 문구 미리보기.
+  function composeBody(rev, name){
+    var nm = name || (rev&&rev.name) || '학생';
+    var lines=[];
+    if(rev.asked) lines.push('· 오늘 다룬 것/질문: '+rev.asked);
+    if(rev.attitude) lines.push('· 수업 태도: '+rev.attitude);
+    if(rev.wrongCount!==null && rev.wrongCount!==undefined && rev.wrongCount!=='') lines.push('· 틀린 문제 수: '+rev.wrongCount+'개');
+    if(rev.difficulty==='easy') lines.push('· 난이도: 오늘 문제는 비교적 수월하게 소화했습니다.');
+    else if(rev.difficulty==='hard') lines.push('· 난이도: 오늘 문제를 다소 어려워했습니다.');
+    else if(rev.difficulty==='normal') lines.push('· 난이도: 적절한 수준으로 학습했습니다.');
+    if(rev.improvement) lines.push('· 개선 방향: '+rev.improvement);
+    var out = nm+' 학생의 오늘 클리닉 학습 내용입니다.';
+    if(lines.length) out += '\n'+lines.join('\n');
+    if(rev.summary) out += '\n\n'+rev.summary;
+    return out;
+  }
+
+  // clinic 참석자 + 기존 총평 + 수동추가 를 student_id로 합침(동명이인 안전).
+  function buildRows(){
+    var map={};
+    clinicStudents.forEach(function(c){ if(c&&c.studentId&&!map[c.studentId]) map[c.studentId]={studentId:c.studentId,name:c.name,clinicStatus:c.status}; });
+    reviews.forEach(function(rv){ if(rv&&rv.studentId){ if(!map[rv.studentId]) map[rv.studentId]={studentId:rv.studentId,name:rv.name}; map[rv.studentId].review=rv; } });
+    added.forEach(function(a){ if(a&&a.studentId&&!map[a.studentId]) map[a.studentId]={studentId:a.studentId,name:a.name}; });
+    var rows=Object.keys(map).map(function(k){
+      var row=map[k]; var st=stById[k];
+      if(st){ row.academy=row.academy||st.academy; row.className=st.className; row.grade=st.grade; if(!row.name) row.name=st.name; }
+      return row;
+    });
+    rows.sort(function(a,b){
+      var as=(a.review&&a.review.status==='sent')?1:0, bs=(b.review&&b.review.status==='sent')?1:0;
+      if(as!==bs) return as-bs;                       // 초안 먼저, 발송완료 뒤
+      return String(a.name||'').localeCompare(String(b.name||''),'ko');
+    });
+    return rows;
+  }
+
+  function clsLabel(row){
+    var bits=[]; if(row.academy) bits.push(row.academy); if(row.className) bits.push(row.className);
+    return bits.length ? '<span class="cls">'+esc(bits.join(' · '))+'</span>' : '';
+  }
+
+  function draftCard(row){
+    var sid=escAttr(String(row.studentId)); var rv=row.review||{};
+    function on(d){ return rv.difficulty===d?' on':''; }
+    var wc=(rv.wrongCount!==null&&rv.wrongCount!==undefined)?rv.wrongCount:'';
+    var canSend = !!row.review;   // 저장된 초안만 발송 대상(서버도 no-review는 skip)
+    var prev = composeBody({asked:rv.asked,attitude:rv.attitude,improvement:rv.improvement,summary:rv.summary,wrongCount:wc,difficulty:rv.difficulty}, row.name);
+    var h='';
+    h+='<div class="rcard" data-sid="'+sid+'">';
+    h+= '<div class="rhead"><div><span class="nm">'+esc(row.name)+'</span>'+clsLabel(row)+'</div>'+(row.review?'<span class="badge draft">초안</span>':'')+'</div>';
+    h+= '<div class="grid">';
+    h+=  '<label>물어본 것 / 오늘 다룬 것<textarea id="f_asked_'+sid+'" oninput="onField(\''+sid+'\')" placeholder="예) 소인수분해, 최소공배수">'+esc(rv.asked)+'</textarea></label>';
+    h+=  '<label>태도<input id="f_attitude_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.attitude)+'" placeholder="예) 집중 잘함 / 빨리 끝내려 함"></label>';
+    h+=  '<label>개선 방향<input id="f_improve_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.improvement)+'" placeholder="예) 계산 과정 깔끔히 정리, 식 이항 연습"></label>';
+    h+=  '<div class="row2">';
+    h+=   '<label class="w">틀린 개수<input type="number" min="0" id="f_wrong_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(wc)+'" placeholder="0"></label>';
+    h+=   '<div class="diffwrap">난이도 적절성'+
+          '<div class="diffbtns">'+
+            '<button type="button" class="db'+on('easy')+'" onclick="setDiff(\''+sid+'\',\'easy\')">쉬움</button>'+
+            '<button type="button" class="db'+on('normal')+'" onclick="setDiff(\''+sid+'\',\'normal\')">적절</button>'+
+            '<button type="button" class="db'+on('hard')+'" onclick="setDiff(\''+sid+'\',\'hard\')">어려움</button>'+
+          '</div>'+
+          '<input type="hidden" id="f_diff_'+sid+'" value="'+esc(rv.difficulty)+'"></div>';
+    h+=  '</div>';
+    h+=  '<label>한 줄 총평<input id="f_summary_'+sid+'" oninput="onField(\''+sid+'\')" value="'+esc(rv.summary)+'" placeholder="학부모께 전할 한 줄 (선택)"></label>';
+    h+= '</div>';
+    h+= '<div class="ractions"><button class="save" onclick="saveRow(\''+sid+'\')">💾 저장</button>'+
+        (row.review?'<button class="del" onclick="delRow(\''+sid+'\',\''+escAttr(row.name)+'\')">삭제</button>':'')+'</div>';
+    if(isOwner){
+      h+= '<div class="prevwrap">'+
+          '<div class="pl">'+(canSend?'<input type="checkbox" class="sel" id="sel_'+sid+'" '+(canSend?'checked':'')+'>':'')+'학부모 발송 문구 (원장님이 직접 고쳐도 됩니다)</div>'+
+          '<textarea id="prev_'+sid+'" '+(canSend?'':'disabled')+'>'+esc(prev)+'</textarea>'+
+          (canSend?'':'<div class="senttime">먼저 💾 저장하면 발송 대상이 됩니다.</div>')+
+          '</div>';
+    }
+    h+='</div>';
+    return h;
+  }
+
+  function sentCard(row){
+    var rv=row.review||{}; var sid=escAttr(String(row.studentId));
+    var when=rv.sentAt?('발송: '+new Date(rv.sentAt).toLocaleString('ko-KR')):'';
+    var h='';
+    h+='<div class="rcard" data-sid="'+sid+'">';
+    h+= '<div class="rhead"><div><span class="nm">'+esc(row.name)+'</span>'+clsLabel(row)+'</div><span class="badge sent">✅ 발송완료</span></div>';
+    h+= '<div class="sentbody">'+esc(rv.sentBody||composeBody(rv,row.name))+'</div>';
+    if(when) h+='<div class="senttime">'+esc(when)+'</div>';
+    if(isOwner) h+='<div class="ractions"><button class="del" onclick="delRow(\''+sid+'\',\''+escAttr(row.name)+'\')">기록 삭제</button></div>';
+    h+='</div>';
+    return h;
+  }
+
+  function render(){
+    var rows=buildRows();
+    if(!rows.length){
+      $('content').innerHTML='<div class="empty">이 날짜에 클리닉 참석 기록이 없어요.<br><span style="font-size:0.78rem;">아래 ➕에서 학생을 추가해 총평을 쓸 수 있어요.</span></div>';
+    } else {
+      $('content').innerHTML=rows.map(function(row){
+        return (row.review&&row.review.status==='sent') ? sentCard(row) : draftCard(row);
+      }).join('');
+    }
+    // 발송바(원장 전용): 발송 가능한 초안 수
+    var drafts=rows.filter(function(r){ return r.review && r.review.status==='draft'; }).length;
+    if(isOwner){
+      $('sendbar').classList.add('show');
+      $('sendhint').textContent = drafts ? ('발송 대기 초안 '+drafts+'건') : '발송할 초안이 없어요';
+      $('sendbtn').disabled = drafts===0;
+    } else {
+      $('sendbar').classList.remove('show');
+    }
+  }
+
+  function onField(sid){
+    var prev=$('prev_'+sid); if(!prev) return;
+    var row=findRow(sid);
+    prev.value=composeBody({
+      asked:val('f_asked_'+sid), attitude:val('f_attitude_'+sid), improvement:val('f_improve_'+sid),
+      summary:val('f_summary_'+sid), wrongCount:val('f_wrong_'+sid), difficulty:val('f_diff_'+sid)
+    }, row?row.name:'');
+  }
+  function setDiff(sid, d){
+    var cur=val('f_diff_'+sid);
+    var nv=(cur===d)?'':d;                       // 다시 누르면 해제
+    var hid=$('f_diff_'+sid); if(hid) hid.value=nv;
+    var card=document.querySelector('.rcard[data-sid="'+sid+'"]');
+    if(card){ card.querySelectorAll('.diffbtns .db').forEach(function(b){ b.classList.remove('on'); });
+      if(nv){ var idx={easy:0,normal:1,hard:2}[nv]; var btns=card.querySelectorAll('.diffbtns .db'); if(btns[idx]) btns[idx].classList.add('on'); } }
+    onField(sid);
+  }
+  function findRow(sid){ var rows=buildRows(); for(var i=0;i<rows.length;i++) if(String(rows[i].studentId)===String(sid)) return rows[i]; return null; }
+
+  async function saveRow(sid){
+    var wc=val('f_wrong_'+sid);
+    var body={ action:'save', id:sid, date:viewDate,
+      asked:val('f_asked_'+sid), attitude:val('f_attitude_'+sid), improvement:val('f_improve_'+sid),
+      summary:val('f_summary_'+sid), difficulty:val('f_diff_'+sid), wrong_count: wc===''?'':wc };
+    try{
+      var r=await api('/api/clinic-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'저장에 실패했어요.'); return; }
+      showToast('💾 저장했어요.');
+      await load();
+    }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); }
+  }
+
+  async function delRow(sid, name){
+    if(!confirm((name||'이 학생')+' 총평 기록을 삭제할까요?')) return;
+    try{
+      var r=await api('/api/clinic-review',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:sid,date:viewDate})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'삭제에 실패했어요.'); return; }
+      showToast('삭제했어요.'); await load();
+    }catch(e){ if(String(e.message)!=='401') showToast('삭제 중 오류가 났어요.'); }
+  }
+
+  async function saveMemo(){
+    var memo=val('dayMemo');
+    try{
+      var r=await api('/api/clinic-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'saveMemo',date:viewDate,memo:memo})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'메모 저장 실패.'); return; }
+      showToast('📝 메모를 저장했어요.');
+    }catch(e){ if(String(e.message)!=='401') showToast('메모 저장 중 오류가 났어요.'); }
+  }
+
+  async function sendAll(){
+    var rows=buildRows();
+    var items=[];
+    rows.forEach(function(r){
+      if(!(r.review && r.review.status==='draft')) return;
+      var sid=String(r.studentId);
+      var chk=$('sel_'+sid); if(chk && !chk.checked) return;          // 원장이 체크 해제한 학생 제외
+      var prev=$('prev_'+sid);
+      items.push({ id:sid, body: prev?prev.value:'' });
+    });
+    if(!items.length){ showToast('발송할 초안이 없어요.'); return; }
+    if(!confirm(items.length+'명 학부모께 클리닉 총평을 발송합니다.\n보낸 알림은 되돌릴 수 없어요. 진행할까요?')) return;
+    $('sendbtn').disabled=true;
+    try{
+      var r=await api('/api/clinic-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'send',date:viewDate,items:items})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'발송에 실패했어요.'); $('sendbtn').disabled=false; return; }
+      var miss=(j.misses&&j.misses.length)?(' · '+j.misses.length+'명 건너뜀'):'';
+      showToast('📨 '+(j.sent||0)+'명 학부모께 발송했어요.'+miss);
+      await load();
+    }catch(e){ if(String(e.message)!=='401'){ showToast('발송 중 오류가 났어요.'); $('sendbtn').disabled=false; } }
+  }
+
+  function doAddStudent(){
+    var name=($('addName').value||'').trim();
+    if(!name){ showToast('학생 이름을 입력해주세요.'); return; }
+    var matches=allStudents.filter(function(s){ return s.name===name; });
+    if(!matches.length){ showToast('그 이름의 학생을 찾지 못했어요.'); return; }
+    if(matches.length>1){ showToast('동명이인이 있어요. 클리닉 참석자 목록에서 골라 주세요.'); return; }
+    var st=matches[0];
+    if(!added.some(function(a){return a.studentId===st.id;})) added.push({studentId:st.id,name:st.name});
+    $('addName').value='';
+    render();
+    showToast(name+' 추가했어요. 총평을 입력하고 저장하세요.');
+  }
+
+  async function loadStudents(){
+    try{
+      var r=await api('/api/students'); var j=await r.json();
+      allStudents=Array.isArray(j)?j:[];
+      stById={}; allStudents.forEach(function(s){ if(s&&s.id) stById[s.id]=s; });
+      $('studentList').innerHTML=allStudents.map(function(s){ return '<option value="'+esc(s.name)+'">'; }).join('');
+    }catch(e){}
+  }
+
+  async function load(){
+    $('content').innerHTML='<div class="empty">불러오는 중…</div>';
+    try{
+      var r=await api('/api/clinic-review?date='+encodeURIComponent(viewDate));
+      var j=await r.json();
+      reviews=(j&&j.reviews)||[]; clinicStudents=(j&&j.clinicStudents)||[]; isOwner=!!(j&&j.isOwner);
+      $('dayMemo').value=(j&&j.memo)||'';
+      render();
+    }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="empty">총평을 불러오지 못했어요.</div>'; }
+  }
+
+  $('datePick').value=viewDate;
+  (async function(){ await loadStudents(); await load(); })();
+  ('serviceWorker' in navigator) && navigator.serviceWorker.register('/sw.js').catch(function(){});
+</script>
+</body>
+</html>

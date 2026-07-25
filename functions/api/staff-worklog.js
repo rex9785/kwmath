@@ -27,8 +27,9 @@ const isDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
 const isHHMM = (t) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(t || ''));
 
 function thisMonth() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  // 한국시간(UTC+9) 기준 '이번 달'. UTC로 계산하면 한국 새벽 0~9시에 지난 달로 잡힘.
+  const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
 }
 
 // 한 항목의 실제 근무시간(시간 단위, 소수 2자리). start/end 우선, 없으면 hours.
@@ -126,14 +127,30 @@ export async function onRequest({ request, env }) {
         hourlyWage: wage, account: rec ? (rec.account || '') : '',
         totalHours: sum.totalHours, totalPay: sum.totalPay, dayCount: sum.dayCount,
         entries: sum.rows,
+        locked: !!md.locked, lockedAt: md.lockedAt || null,
       });
     }
 
-    // ───────── POST (조교 본인만) ─────────
+    // ───────── POST ─────────
     if (request.method === 'POST') {
-      if (!isStaff) return Response.json({ error: '근무기록은 조교 본인만 입력할 수 있어요.' }, { status: 403 });
       let body = {};
       try { body = await request.json(); } catch (_) {}
+
+      // 원장: 특정 조교의 그 달을 잠금/해제(정산 확정). 잠그면 그 조교는 그 달 기록을 못 고침.
+      //   원장(adm_)은 X-Staff-Phone이 없어 isStaff=false. body.lock 있으면 근무입력이 아니라 잠금 처리.
+      if (!isStaff && body.lock !== undefined) {
+        const ld = onlyDigits(body.phone || '');
+        const lm = String(body.month || '');
+        if (!ld || !isMonth(lm)) return Response.json({ error: '조교(phone)와 달(month)이 필요합니다.' }, { status: 400 });
+        const lmd = await readMonth(env, ld, lm);
+        lmd.locked = !!body.lock;
+        lmd.lockedAt = lmd.locked ? new Date().toISOString() : null;
+        await writeMonth(env, ld, lm, lmd);
+        return Response.json({ ok: true, phone: ld, month: lm, locked: lmd.locked });
+      }
+
+      // 이하(근무기록 입력·계좌변경)는 조교 본인만.
+      if (!isStaff) return Response.json({ error: '근무기록은 조교 본인만 입력할 수 있어요.' }, { status: 403 });
 
       // 급여 계좌 변경 — date 없이 account만 보내면 본인 계좌 업데이트(근무기록 아님)
       if (body.account !== undefined && !body.date) {
@@ -168,6 +185,7 @@ export async function onRequest({ request, env }) {
 
       const month = date.slice(0, 7);
       const md = await readMonth(env, selfDigits, month);
+      if (md.locked) return Response.json({ error: '이 달은 정산이 확정(잠금)되어 수정할 수 없어요. 원장님께 문의해주세요.' }, { status: 423 });
       md.entries = md.entries || {};
       md.entries[date] = entry;
       await writeMonth(env, selfDigits, month, md);
@@ -182,6 +200,7 @@ export async function onRequest({ request, env }) {
       if (!isDate(date)) return Response.json({ error: 'date(YYYY-MM-DD)가 필요합니다.' }, { status: 400 });
       const month = date.slice(0, 7);
       const md = await readMonth(env, selfDigits, month);
+      if (md.locked) return Response.json({ error: '이 달은 정산이 확정(잠금)되어 삭제할 수 없어요. 원장님께 문의해주세요.' }, { status: 423 });
       if (md.entries && md.entries[date]) {
         delete md.entries[date];
         await writeMonth(env, selfDigits, month, md);

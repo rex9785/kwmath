@@ -311,13 +311,31 @@ export async function flushNightPushQueue(env) {
           const g = await env.BUCKET.get(obj.key);
           if (g) rec = JSON.parse(await g.text());
         } catch { rec = null; }
-        if (rec && Array.isArray(rec.ids) && rec.ids.length && rec.msg) {
-          try {
-            const r = await sendPushToUsers(env, rec.ids, rec.msg);   // nightSilent 미지정 → 즉시 발송
-            sent += (r && r.sent) || 0;
-          } catch { failed++; }
+
+        // 형식이 깨진 레코드는 재시도 의미 없음 → 폐기
+        if (!(rec && Array.isArray(rec.ids) && rec.ids.length && rec.msg)) {
+          try { await env.BUCKET.delete(obj.key); flushed++; } catch {}
+          continue;
         }
-        try { await env.BUCKET.delete(obj.key); flushed++; } catch {}
+
+        const attempts = (Number(rec.attempts) || 0) + 1;
+        let ok = false;
+        try {
+          const r = await sendPushToUsers(env, rec.ids, rec.msg);   // nightSilent 미지정 → 즉시 발송
+          sent += (r && r.sent) || 0;
+          ok = true;                                                 // 예외 없이 끝나면 발송 완료로 간주(죽은 기기 0건도 성공)
+        } catch { failed++; }
+
+        if (ok || attempts >= 3) {
+          // 발송 성공, 또는 3회까지 실패해 포기 → 삭제. (예전엔 실패해도 무조건 삭제 = 유실)
+          try { await env.BUCKET.delete(obj.key); flushed++; } catch {}
+        } else {
+          // 일시적 실패 → 시도횟수만 올려 다시 저장. 다음 틱에 재시도(유실 방지).
+          try {
+            rec.attempts = attempts;
+            await env.BUCKET.put(obj.key, JSON.stringify(rec), { httpMetadata: { contentType: 'application/json' } });
+          } catch {}
+        }
       }
       cursor = (listing && listing.truncated) ? listing.cursor : null;
     } while (cursor);

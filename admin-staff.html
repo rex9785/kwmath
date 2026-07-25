@@ -352,11 +352,17 @@
     var j = wlCache[d] || {};
     var rows = j.entries || [];
     var wage = j.hourlyWage||0;
+    var locked = !!j.locked;
+    var lockBtn = locked
+      ? '<button class="xbtn" style="background:#8B1A35;color:#fff;" onclick="toggleLock(\''+d+'\',false)">🔓 잠금 해제</button>'
+      : '<button class="xbtn" onclick="toggleLock(\''+d+'\',true)">🔒 이 달 정산확정</button>';
     var btns =
       '<div class="wlbtns">'+
         '<button class="xbtn" onclick="exportStaffCsv(\''+d+'\')">📄 CSV</button>'+
         '<button class="xbtn" onclick="printStaff(\''+d+'\')">🖨️ 인쇄(PDF)</button>'+
-      '</div>';
+        lockBtn +
+      '</div>'+
+      (locked ? '<div class="empty" style="color:#8B1A35;">🔒 정산확정(잠금) — 조교는 이 달 기록을 수정·삭제할 수 없어요.</div>' : '');
     if(!rows.length){
       box.innerHTML = btns + '<div class="empty">'+month.slice(5)+'월 입력된 근무기록이 없어요.</div>';
       return;
@@ -378,6 +384,24 @@
       '<table><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>시간</th><th>메모</th></tr></thead>'+
       '<tbody>'+body+'</tbody>'+
       '<tfoot>'+foot+'</tfoot></table>';
+  }
+
+  // ── 원장: 그 달 정산확정(잠금)/해제 — 잠그면 조교가 그 달 기록을 못 고침 ──
+  async function toggleLock(d, lock){
+    if(lock && !confirm(month+' 근무기록을 정산확정(잠금)할까요?\n잠그면 조교가 이 달 기록을 수정·삭제할 수 없어요. (원장은 언제든 해제 가능)')) return;
+    try{
+      var r = await fetch('/api/staff-worklog', {
+        method:'POST',
+        headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+        body: JSON.stringify({ lock: !!lock, phone: d, month: month })
+      });
+      if(r.status===401||r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var j = await r.json();
+      if(!r.ok || !j.ok){ showToast(j.error||'처리하지 못했어요'); return; }
+      if(wlCache[d]) wlCache[d].locked = j.locked;
+      var box = $('wl_'+d); if(box) renderWl(box, d);
+      showToast(j.locked ? '🔒 이 달을 잠갔어요' : '🔓 잠금을 해제했어요');
+    }catch(e){ showToast('네트워크 오류'); }
   }
 
   // ── CSV (엑셀에서 바로 열림 — UTF-8 BOM) ──

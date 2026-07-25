@@ -10,6 +10,8 @@ import { dispatchNoticePush } from './notices-write.js';
 import { runPayrollReminder } from './payroll-reminder.js';
 import { runAttendanceReminder } from './admin-reminders.js';
 import { flushNightPushQueue } from './_push.js';
+import { runDailyBackup } from './_backup.js';
+import { writeHeartbeat } from './_heartbeat.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 
@@ -38,6 +40,10 @@ export async function onRequest({ request, env, waitUntil }) {
     return Response.json({ error: '인증이 필요합니다.' }, { status: 401 });
   }
 
+  // 크론 생존 신호(하트비트) — 매 틱 R2에 마지막 실행 시각을 남긴다. /api/cron-health가 이걸 읽어 감시.
+  //   침묵 시간(밤)에도 크론은 계속 돌므로, 아래 '침묵 시간 return'보다 앞에서 기록해야 야간 정지도 감지된다.
+  await writeHeartbeat(env);
+
   // 이 5분 크론에 월급 리마인더도 얹는다(매월 4·5일 아침 1발).
   // 발송 여부 판단(4·5일·아침 08~22시·하루1발)은 runPayrollReminder 내부 게이트가 전담.
   try {
@@ -57,6 +63,12 @@ export async function onRequest({ request, env, waitUntil }) {
   try {
     const nqP = Promise.resolve(flushNightPushQueue(env)).catch(() => {});
     if (typeof waitUntil === 'function') waitUntil(nqP); else await nqP;
+  } catch (_) {}
+
+  // 하루 1회 D1 전체 백업(R2). 내부 게이트가 하루1회 실행·30일 정리 담당. 침묵시간과 무관.
+  try {
+    const bkP = Promise.resolve(runDailyBackup(env)).catch(() => {});
+    if (typeof waitUntil === 'function') waitUntil(bkP); else await bkP;
   } catch (_) {}
 
   // 침묵 시간(밤 11시 ~ 아침 7시 KST)이면 (공지) 발송 보류

@@ -44,6 +44,17 @@ export async function onRequest({ request, env }) {
     const { results: studs } = await env.DB.prepare(
       'SELECT id, parent_phone, student_phone, school, grade, created_at FROM students WHERE name = ?'
     ).bind(name).all();
+
+    // 동명이인 안전장치: 같은 이름이 2명 이상이면 이름 삭제를 막는다.
+    //   이름 삭제는 같은 이름 전원 + 그 이름의 리포트/PDF까지 지운다. 리포트는 이름으로만 저장돼
+    //   누구 것인지 구분이 안 되므로, 사람이 직접 확인하도록 개별(studentId) 처리를 안내한다.
+    if ((studs || []).length > 1) {
+      return Response.json({
+        error: '같은 이름(' + name + ')의 학생이 ' + studs.length + '명 있어, 이름으로 한 번에 삭제하지 않습니다. 학생을 개별(studentId)로 처리해주세요.',
+        duplicates: (studs || []).map((s) => ({ studentId: s.id, school: s.school || '', grade: s.grade || '', created_at: s.created_at || '' })),
+      }, { status: 409 });
+    }
+
     for (const s of (studs || [])) {
       if (s.parent_phone) phones.add(s.parent_phone);
       if (s.student_phone) phones.add(s.student_phone);
@@ -60,17 +71,25 @@ export async function onRequest({ request, env }) {
     }
 
     // 리포트 (이름 기준)
+    // 삭제 전에 리포트 행 전체를 R2 아카이브에 보존한다(되돌릴 수단). D1 백업엔 PDF가 안 들어가므로 여기서 텍스트/메타를 남긴다.
+    try {
+      const { results: repRows } = await env.DB.prepare('SELECT * FROM reports WHERE student_name = ?').bind(name).all();
+      if ((repRows || []).length) {
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        await env.BUCKET.put(
+          'archive/reports/' + name + '/' + stamp + '.json',
+          JSON.stringify({ archivedAt: new Date().toISOString(), student_name: name, count: repRows.length, rows: repRows }),
+          { httpMetadata: { contentType: 'application/json' } }
+        );
+      }
+    } catch (e) { result.errors.push('report 아카이브 실패'); }
+
     const rd = await env.DB.prepare('DELETE FROM reports WHERE student_name = ?').bind(name).run();
     result.reports_archived = (rd.meta && rd.meta.changes) || 0;
 
-    // R2 reports/{이름}/ 파일 삭제 (리포트 PDF는 R2 유지 중)
-    try {
-      const listed = await env.BUCKET.list({ prefix: 'reports/' + name + '/', limit: 500 });
-      for (const obj of (listed.objects || [])) {
-        try { await env.BUCKET.delete(obj.key); result.files_deleted++; }
-        catch (e) { result.errors.push('file ' + obj.key); }
-      }
-    } catch (e) { result.errors.push('R2 list 실패'); }
+    // R2 reports/{이름}/ PDF는 삭제하지 않고 남긴다(되돌릴 수단으로 보존).
+    //   D1 백업엔 PDF가 안 들어가므로 여기서 지우면 복구 불가 → 파일은 보존, 리포트 행만 삭제.
+    //   (동일 이름 재등록 시 파일키에 날짜/식별자가 들어가 충돌 위험은 낮음. 누적 용량은 소규모 학원 기준 무시 가능.)
 
     // 계정 — 같은 번호 쓰는 다른 학생 없을 때만 삭제 (형제 로그인 보호)
     for (const phone of phones) {

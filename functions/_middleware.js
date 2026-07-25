@@ -42,6 +42,7 @@ const STAFF_GET_BLOCK = new Set([
   '/api/admin-analytics',  // AI 사용량·비용 (원장 전용)
   '/api/admin-seed-demo',
   '/api/admin-seed-test',
+  '/api/cron-health',      // 크론(스케줄러) 생존 점검 — 원장 콘솔 전용
   '/api/inquiry',          // 홈페이지 상담 문의(리드=학부모 연락처) — 원장 전용
   // '/api/surveys'는 staffAllowed 특례로 처리(조교=퀴즈만). surveys.js가 X-Staff-Phone로 quiz=1 전용 강제.
 ]);
@@ -54,6 +55,7 @@ const STAFF_WRITE_ALLOW = new Set([
   '/api/clinic',           // 조교: 자기 학원 학생 클리닉 출결/성취도/시간 입력·삭제 (POST·DELETE) — 학원 스코프는 clinic.js가 X-Staff-Phone로 강제
   '/api/clinic-roster',    // 조교: 자기 학원 학생 클리닉 필수명단 수동 추가/제외 (POST) — 학원 스코프는 clinic-roster.js가 X-Staff-Phone로 강제
   '/api/notifications',    // 조교: 자기 학원 학생 클리닉 미참석 연락 (POST action=create type=clinic_absent) — 학원 스코프·정형알림 강제는 notifications.js가 X-Staff-Phone로 처리
+  '/api/clinic-review',    // 조교: 자기 학원 학생 클리닉 총평 초안 저장·수정·삭제 + 하루메모 (POST save/saveMemo·DELETE) — 학원 스코프는 clinic-review.js가 X-Staff-Phone로 강제. 발송(action=send)은 API가 원장 전용으로 재차 차단.
 ]);
 function staffAllowed(url, method) {
   const pathname = url.pathname;
