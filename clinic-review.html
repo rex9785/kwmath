@@ -77,6 +77,7 @@
   .sendbar .hint{flex:1;font-size:0.8rem;color:var(--muted);font-weight:700;}
   .sendbar button{background:var(--primary);color:#fff;border:none;border-radius:9px;padding:12px 18px;font-size:0.9rem;font-weight:800;cursor:pointer;font-family:inherit;}
   .sendbar button:disabled{opacity:0.45;cursor:default;}
+  .sendbar .saveall{background:var(--clinic);}
   .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:11px 18px;border-radius:9px;font-size:0.84rem;font-weight:600;z-index:100;display:none;max-width:88%;text-align:center;line-height:1.5;}
   .toast.show{display:block;}
 
@@ -140,9 +141,8 @@
   </div>
 
   <div class="memobox">
-    <div class="h">📝 오늘 클리닉 전체 메모 <span class="sub">· 원장님만 봄 (학부모에게 안 감)</span></div>
+    <div class="h">📝 오늘 클리닉 전체 메모 <span class="sub">· 원장님만 봄(학부모 X) · 아래 '전체 저장'에 함께 저장</span></div>
     <textarea id="dayMemo" placeholder="예) 20문제 중 3~4개 실수, 3시 반 전원 귀가. 소인수·최소공배수·식 이항 기초 보강 필요."></textarea>
-    <div class="mrow"><button onclick="saveMemo()">메모 저장</button></div>
   </div>
 
   <div id="content"><div class="empty">불러오는 중…</div></div>
@@ -162,6 +162,7 @@
 
 <div class="sendbar" id="sendbar">
   <div class="hint" id="sendhint"></div>
+  <button class="saveall" id="saveallbtn" onclick="saveAll()">💾 전체 저장</button>
   <button id="sendbtn" onclick="sendAll()">✅ 검토완료 · 학부모께 발송</button>
 </div>
 
@@ -279,13 +280,14 @@
     h+=   '</div>';
     h+=  '</div>';
     h+= '</div>';
-    h+= '<div class="ractions"><button class="save" onclick="saveRow(\''+sid+'\')">💾 저장</button>'+
-        (row.review?'<button class="del" onclick="delRow(\''+sid+'\',\''+escAttr(row.name)+'\')">삭제</button>':'')+'</div>';
+    if(row.review){
+      h+= '<div class="ractions"><button class="del" onclick="delRow(\''+sid+'\',\''+escAttr(row.name)+'\')">삭제</button></div>';
+    }
     if(isOwner){
       h+= '<div class="prevwrap">'+
           '<div class="pl">'+(canSend?'<input type="checkbox" class="sel" id="sel_'+sid+'" '+(canSend?'checked':'')+'>':'')+'학부모 발송 문구 (원장님이 직접 고쳐도 됩니다)</div>'+
           '<textarea id="prev_'+sid+'" '+(canSend?'':'disabled')+'>'+esc(prev)+'</textarea>'+
-          (canSend?'':'<div class="senttime">먼저 💾 저장하면 발송 대상이 됩니다.</div>')+
+          (canSend?'':'<div class="senttime">먼저 전체 저장하면 발송 대상이 됩니다.</div>')+
           '</div>';
     }
     h+='</div>';
@@ -314,14 +316,17 @@
         return (row.review&&row.review.status==='sent') ? sentCard(row) : draftCard(row);
       }).join('');
     }
-    // 발송바(원장 전용): 발송 가능한 초안 수
+    // 하단 바: '전체 저장'은 조교·원장 공통 / '학부모 발송'은 원장 전용
     var drafts=rows.filter(function(r){ return r.review && r.review.status==='draft'; }).length;
+    $('sendbar').classList.add('show');
+    var sb=$('sendbtn');
     if(isOwner){
-      $('sendbar').classList.add('show');
-      $('sendhint').textContent = drafts ? ('발송 대기 초안 '+drafts+'건') : '발송할 초안이 없어요';
-      $('sendbtn').disabled = drafts===0;
+      sb.style.display='';
+      $('sendhint').textContent = drafts ? ('저장 후 발송 대기 '+drafts+'건') : '입력하고 전체 저장하세요';
+      sb.disabled = drafts===0;
     } else {
-      $('sendbar').classList.remove('show');
+      sb.style.display='none';
+      $('sendhint').textContent = '입력이 끝나면 전체 저장을 누르세요';
     }
   }
 
@@ -377,6 +382,45 @@
       if(!r.ok){ showToast(j.error||'메모 저장 실패.'); return; }
       showToast('📝 메모를 저장했어요.');
     }catch(e){ if(String(e.message)!=='401') showToast('메모 저장 중 오류가 났어요.'); }
+  }
+
+  // 전체 저장: 하루 메모(원장님만 봄) + 내용 있는 학생 카드 초안을 한 번에 저장.
+  //  · 조교가 눌러도 메모까지 자동 저장 → 원장이 나중에 검토·수정 후 학부모께 발송.
+  //  · 발송완료(sent) 카드와 완전히 빈 카드는 건너뜀(서버 400/409 방지).
+  async function saveAll(){
+    var rows=buildRows();
+    var jobs=[];
+    rows.forEach(function(r){
+      if(r.review && r.review.status==='sent') return;
+      var sid=String(r.studentId);
+      if(!$('f_summary_'+sid)) return;
+      var summary=val('f_summary_'+sid), asked=val('f_asked_'+sid), attitude=val('f_attitude_'+sid),
+          improve=val('f_improve_'+sid), wrong=val('f_wrong_'+sid), diff=val('f_diff_'+sid);
+      if(!summary && !asked && !attitude && !improve && wrong==='' && !diff) return;
+      jobs.push({ action:'save', id:sid, date:viewDate, asked:asked, attitude:attitude,
+        improvement:improve, summary:summary, difficulty:diff, wrong_count: wrong===''?'':wrong });
+    });
+    var memo=val('dayMemo');
+    if(!jobs.length && !memo.trim()){ showToast('저장할 내용이 없어요.'); return; }
+    var btn=$('saveallbtn'); if(btn){ btn.disabled=true; }
+    var ok=0, fail=0;
+    try{
+      try{
+        var rm=await api('/api/clinic-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'saveMemo',date:viewDate,memo:memo})});
+        if(!rm.ok) fail++;
+      }catch(em){ if(String(em.message)==='401') throw em; fail++; }
+      for(var i=0;i<jobs.length;i++){
+        try{
+          var r=await api('/api/clinic-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(jobs[i])});
+          if(r.ok) ok++; else fail++;
+        }catch(e){ if(String(e.message)==='401') throw e; fail++; }
+      }
+      await load();
+      var msg='💾 저장 완료 · 학생 '+ok+'명';
+      if(fail) msg+=' · '+fail+'건 실패';
+      showToast(msg);
+    }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); }
+    finally{ var b=$('saveallbtn'); if(b){ b.disabled=false; } }
   }
 
   async function sendAll(){
