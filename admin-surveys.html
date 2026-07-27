@@ -1334,5 +1334,20 @@
   loadList();
 })();
 </script>
+<!-- 조교 홈 복귀 pill: ast_ 세션에서만 노출(원장/학생엔 안 뜸) → /staff-home -->
+<script>
+(function(){
+  try{
+    var _pw = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || '';
+    if(!/^ast_/.test(_pw)) return;
+    var a = document.createElement('a');
+    a.href = '/staff-home';
+    a.textContent = '🏠 홈';
+    a.setAttribute('aria-label','조교 홈');
+    a.style.cssText = 'position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:40;background:#862633;color:#fff;font-weight:800;font-size:0.9rem;text-decoration:none;padding:10px 15px;border-radius:999px;box-shadow:0 4px 14px rgba(134,38,51,0.35);font-family:inherit;line-height:1;';
+    document.body.appendChild(a);
+  }catch(_){}
+})();
+</script>
 </body>
 </html>
