@@ -235,6 +235,19 @@
       </div>
     </div>
 
+    <!-- 수업 & 클리닉 총평: 발송된 자녀 총평 최신 1건 미리보기 → 누르면 /clinic-summary 전체목록 (loadClinicReviewCard가 채움·없으면 숨김) -->
+    <a id="clinicReviewCard" href="/clinic-summary" style="display:none;text-decoration:none;color:inherit;background:#fff;border:1px solid var(--gold-line);border-radius:16px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(168,134,61,0.08);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--primary);letter-spacing:0.02em;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4" width="15" height="17" rx="2.5"/><path d="M9 4h6v3H9z"/><path d="M8.5 12h7M8.5 16h4.5"/></svg>
+          수업 &amp; 클리닉 총평
+        </span>
+        <span id="clinicReviewDate" style="font-size:11px;font-weight:700;color:var(--text-light);white-space:nowrap;"></span>
+      </div>
+      <div id="clinicReviewPreview" style="font-size:12.5px;color:var(--text);line-height:1.6;margin-top:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;"></div>
+      <div style="display:flex;align-items:center;gap:3px;margin-top:9px;font-size:11px;font-weight:700;color:var(--primary);">전체 총평 보기<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+    </a>
+
     <!-- 6c: 확인이 필요해요 액션 존 (테스트 응답만) — 공지는 아래 #noticeBox 한 곳에서만 노출(관우T 지시 2026-07-23). actionNoticeRow 제거됨. -->
     <div id="actionZone" style="display:none;margin-bottom:16px;">
       <div style="display:flex;align-items:center;gap:7px;margin:0 2px 9px;">
@@ -715,6 +728,7 @@
     renderChildSelect();
     try { loadStatStrip(); } catch (_) {}
     try { loadHero(); } catch (_) {}
+    try { loadClinicReviewCard(); } catch (_) {}
     try { loadActionNotices(); } catch (_) {}
     updatePushButton();
     showInstallHintIfNeeded();
@@ -941,6 +955,7 @@
     sessionStorage.setItem('kwmath_selected_student', JSON.stringify(selectedStudent));
     try { loadStatStrip(); } catch (_) {}
     try { loadHero(); } catch (_) {}
+    try { loadClinicReviewCard(); } catch (_) {}
   }
 
   // ════════ 비밀번호 변경 ════════
@@ -1811,6 +1826,35 @@
         : (latest ? '이번 수업엔 등록된 숙제가 없습니다.' : '아직 등록된 수업 리포트가 없습니다.');
       if (hwWrap) hwWrap.style.display = 'block';
     } catch (_) { /* 네트워크 실패 시 폴백 문구 유지 */ }
+  }
+
+  // ════════ 수업 & 클리닉 총평 카드 (발송 완료된 자녀 총평 최신 1건 미리보기) ════════
+  let _clinicRevSeq = 0;
+  async function loadClinicReviewCard(){
+    const seq = ++_clinicRevSeq;
+    const card = document.getElementById('clinicReviewCard');
+    if (!card) return;
+    const st = selectedStudent || currentStudents[0];
+    if (!st || !currentToken) { card.style.display = 'none'; return; }
+    try {
+      const res = await fetch('/api/clinic-review', { headers: { 'Authorization': 'Bearer ' + currentToken } });
+      if (seq !== _clinicRevSeq) return;
+      if (!res.ok) { card.style.display = 'none'; return; }
+      const data = await res.json();
+      const all = (data && Array.isArray(data.reviews)) ? data.reviews : [];
+      const nsid = (v) => String(v==null?'':v).trim().replace(/\.0+$/,'');   // "24.0"→"24" 방어
+      const mine = all.filter(r => nsid(r.studentId) === nsid(st.id));
+      if (!mine.length) { card.style.display = 'none'; return; }
+      const r = mine[0];
+      const dot = (r.date || '').replace(/-/g, '.');
+      const WD = ['일','월','화','수','목','금','토'];
+      let wd = ''; try { const dt = new Date((r.date||'') + 'T00:00:00'); wd = WD[dt.getDay()] || ''; } catch (_) {}
+      const dateEl = document.getElementById('clinicReviewDate');
+      const prevEl = document.getElementById('clinicReviewPreview');
+      if (dateEl) dateEl.textContent = dot + (wd ? (' (' + wd + ')') : '');
+      if (prevEl) prevEl.textContent = String(r.sentBody || '').replace(/\s*\n\s*/g, ' ').trim();
+      card.style.display = 'block';
+    } catch (_) { card.style.display = 'none'; }
   }
 
   // ════════ 6c: 확인이 필요해요 액션 존 ════════
