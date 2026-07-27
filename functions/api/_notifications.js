@@ -36,6 +36,17 @@ function rowToNotif(r) {
   };
 }
 
+// ── student_id ".0" 정규화 (숫자 18.0 / "18.0" → "18") ──
+//   students.id가 REAL(18.0)인 옛 데이터 탓에 알림 student_id가 "18.0"으로 저장돼 왔음.
+//   쓰기는 항상 "18"로 저장하고, 읽기는 옛 "18.0" 행도 매칭되게 두 표기를 다 넣는다(무회귀).
+function _normSid(id) { return String(id == null ? '' : id).trim().replace(/\.0+$/, ''); }
+function _sidVariants(id) { const s = _normSid(id); return s ? [s, s + '.0'] : []; }
+function _expandIds(ids) {
+  const out = [];
+  for (const id of (ids || [])) for (const v of _sidVariants(id)) out.push(v);
+  return [...new Set(out)];
+}
+
 // ── 수신 대상(audience) 스코프 → SQL WHERE 조각 + 바인드 ──
 //   scope 형태:
 //     - 배열 [id,...]  → 하위호환: 전체 조회(관리자/옛 호출부). audience 무시.
@@ -54,18 +65,21 @@ function normalizeScope(scope) {
 }
 function scopeWhere(scope) {
   const s = normalizeScope(scope);
+  const allIds = _expandIds(s.allIds);        // "18" 신규저장분 + "18.0" 옛저장분 둘 다 매칭
+  const parentIds = _expandIds(s.parentIds);
+  const studentIds = _expandIds(s.studentIds);
   const parts = []; const binds = [];
-  if (s.allIds.length) {
-    parts.push('student_id IN (' + s.allIds.map(() => '?').join(',') + ')');
-    binds.push(...s.allIds);
+  if (allIds.length) {
+    parts.push('student_id IN (' + allIds.map(() => '?').join(',') + ')');
+    binds.push(...allIds);
   }
-  if (s.parentIds.length) {
-    parts.push('(student_id IN (' + s.parentIds.map(() => '?').join(',') + ") AND (audience IS NULL OR audience IN ('all','parent')))");
-    binds.push(...s.parentIds);
+  if (parentIds.length) {
+    parts.push('(student_id IN (' + parentIds.map(() => '?').join(',') + ") AND (audience IS NULL OR audience IN ('all','parent')))");
+    binds.push(...parentIds);
   }
-  if (s.studentIds.length) {
-    parts.push('(student_id IN (' + s.studentIds.map(() => '?').join(',') + ") AND (audience IS NULL OR audience IN ('all','student')))");
-    binds.push(...s.studentIds);
+  if (studentIds.length) {
+    parts.push('(student_id IN (' + studentIds.map(() => '?').join(',') + ") AND (audience IS NULL OR audience IN ('all','student')))");
+    binds.push(...studentIds);
   }
   if (!parts.length) return { where: '1=0', binds: [] };
   return { where: '(' + parts.join(' OR ') + ')', binds };
@@ -75,6 +89,7 @@ function scopeWhere(scope) {
 export async function createNotification(env, { studentId, type, title, body, url, dedupKey, audience }) {
   await ensureNotifications(env);
   if (!studentId) return { ok: false, error: 'studentId 필수' };
+  const sid = _normSid(studentId);   // 저장은 항상 정규화된 "18" (숫자 18.0/"18.0" 유입 차단)
   try {
     if (dedupKey) {
       const existing = await env.DB.prepare('SELECT id FROM notifications WHERE dedup_key=?').bind(dedupKey).first();
@@ -83,7 +98,7 @@ export async function createNotification(env, { studentId, type, title, body, ur
     const id = uuid();
     await env.DB.prepare(
       'INSERT INTO notifications (id, student_id, type, title, body, url, created_at, read_at, dedup_key, audience) VALUES (?,?,?,?,?,?,?,?,?,?)'
-    ).bind(id, studentId, type || '', title || '', body || '', url || '', new Date().toISOString(), null, dedupKey || null, audience || null).run();
+    ).bind(id, sid, type || '', title || '', body || '', url || '', new Date().toISOString(), null, dedupKey || null, audience || null).run();
     return { ok: true, created: true, id };
   } catch (e) { return { ok: false, error: e.message }; }
 }
