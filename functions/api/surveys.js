@@ -248,6 +248,7 @@ function normText(s) {
 //   숫자로 환원 불가(변수 포함 등)하면 정규화 문자열 비교로 폴백. 대수적 전개((x+1)^2=x^2+2x+1)는 v1 미지원.
 function normTextLatex(s) {
   return String(s == null ? '' : s)
+    .replace(/[−‒–—―]/g, '-')   // 유니코드 마이너스/대시 → ASCII '-' (문자열 폴백 일관성)
     .replace(/\\left|\\right/g, '')
     .replace(/\\dfrac|\\tfrac/g, '\\frac')
     .replace(/\\cdot|\\times/g, '*')
@@ -307,6 +308,9 @@ function latexToNumber(src) {
 function preLatex(s) {
   return String(s == null ? '' : s)
     .replace(/√/g, '\\sqrt').replace(/π/g, '\\pi')
+    .replace(/[−‒–—―]/g, '-')   // 유니코드 마이너스/대시 → ASCII '-' (MathLive 키패드가 U+2212 삽입)
+    .replace(/⁄/g, '/')          // 분수 슬래시 ⁄(U+2044) → /
+    .replace(/\{([^{}]*)\}\s*\\over\s*\{([^{}]*)\}/g, '\\frac{$1}{$2}')  // {a}\over{b} → \frac{a}{b}
     .replace(/×/g, '*').replace(/÷/g, '/')
     .replace(/(^|[^\\a-zA-Z])sqrt/gi, '$1\\sqrt')
     .replace(/(^|[^\\a-zA-Z])pi($|[^a-zA-Z])/gi, '$1\\pi$2');
