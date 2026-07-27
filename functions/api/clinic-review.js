@@ -44,7 +44,9 @@ async function staffIdScope(env, request) {
   const academy = await staffScopeAcademy(env, request);
   if (academy === null) return null;                                // 원장 → 전체
   const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
-  return new Set(roster.map(s => s.id));
+  // ⚠️ id는 반드시 String으로 — D1 PK는 INTEGER(number)지만 클라이언트/POST는 문자열 id를 보냄.
+  //    Set을 문자열로 통일하고 비교값도 String()으로 맞춰야 조교 스코프가 정상 동작한다.
+  return new Set(roster.map(s => String(s.id)));
 }
 
 // 학부모/학생 GET에서 자녀 스코프(부모로 매칭된 학생 id만). 학생 본인 로그인이면 빈 배열 → 아카이브 미노출.
@@ -108,7 +110,7 @@ export async function onRequest(context) {
       const idScope = await staffIdScope(env, request);   // null=원장
 
       let reviews = await listClinicReviewsByDate(env, date);
-      if (idScope) reviews = reviews.filter(r => idScope.has(r.studentId));
+      if (idScope) reviews = reviews.filter(r => idScope.has(String(r.studentId)));
 
       // 그날 클리닉 참석자(총평 추가용 후보). listClinicByDate 행 → {studentId,name,status,achieve,minutes}
       let clinicRows = await listClinicByDate(env, date);
@@ -116,7 +118,7 @@ export async function onRequest(context) {
         studentId: r.student_id, name: r.name || '',
         status: r.status || '', achieve: r.achieve, minutes: r.minutes,
       }));
-      if (idScope) clinicStudents = clinicStudents.filter(s => idScope.has(s.studentId));
+      if (idScope) clinicStudents = clinicStudents.filter(s => idScope.has(String(s.studentId)));
 
       const memoObj = await getClinicDayMemo(env, date);
       return Response.json({ date, reviews, clinicStudents, memo: memoObj.memo, isOwner: idScope === null });
@@ -131,7 +133,7 @@ export async function onRequest(context) {
       const academy = await staffScopeAcademy(env, request);   // null=원장
       const isOwner = (academy === null);
       const idScope = isOwner ? null
-        : new Set((academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : []).map(s => s.id));
+        : new Set((academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : []).map(s => String(s.id)));
 
       // 하루 전체 메모 저장(원장님만 봄) — 조교·원장 모두 작성 가능
       if (action === 'saveMemo') {
@@ -260,7 +262,7 @@ export async function onRequest(context) {
       const academy = await staffScopeAcademy(env, request);   // null=원장
       const isOwner = (academy === null);
       if (!isOwner) {
-        const scope = new Set((academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : []).map(s => s.id));
+        const scope = new Set((academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : []).map(s => String(s.id)));
         if (!scope.has(sid)) return Response.json({ error: '담당 학원 학생만 삭제할 수 있어요.' }, { status: 403 });
       }
       const existing = await getClinicReview(env, sid, date);
