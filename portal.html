@@ -668,7 +668,7 @@
       }
       // ── 운영진(원장·조교) 라우팅 — 학생 포털 대신 관리 콘솔로 ──
       //   원장(adm_)  → /admin       (admin.html이 localStorage 토큰으로 자동 로그인)
-      //   조교(ast_)  → /admin-qna   (신뢰기기면 localStorage, 아니면 sessionStorage 저장; 권한은 미들웨어가 제한)
+      //   조교(ast_)  → /staff-home  (카드형 조교 홈; 신뢰기기면 localStorage, 아니면 sessionStorage 저장; 권한은 미들웨어가 제한)
       // 신뢰기기 체크 시 localStorage(영구, 자동로그인 유지), 해제 시 sessionStorage(앱 종료시 소멸).
       //   기본 체크 → 기존 학생/학부모 자동로그인과 동일(무회귀). 조교도 이 선택을 따라 자동로그인.
       const trustDevice = !document.getElementById('trustDevice') || document.getElementById('trustDevice').checked;
@@ -683,7 +683,7 @@
       if (data.role === 'staff' && data.staffToken) {
         _sess.setItem('kwmath_admin_pw', data.staffToken);
         _other.removeItem('kwmath_admin_pw');           // 반대편 잔존 조교토큰 제거
-        location.href = '/admin-qna';
+        location.href = '/staff-home';
         return;
       }
       // 토큰 저장 (학생/학부모)
@@ -1450,11 +1450,11 @@
       const _adm = localStorage.getItem('kwmath_admin_token');
       if (_adm) { const _m = /^adm_(\d+)_/.exec(_adm); if (_m && Number(_m[1]) > Date.now()) { location.replace('/admin'); return; } }
     } catch (_) {}
-    // 조교(ast_) 세션 복원 — 신뢰기기로 로그인한 조교 토큰은 localStorage에 남으므로 /admin-qna로 되돌린다.
-    //   (권한해제된 조교면 /admin-qna 첫 API가 401 → 거기서 양쪽 저장소 토큰 삭제 후 /portal 복귀 → 무한루프 방지)
+    // 조교(ast_) 세션 복원 — 신뢰기기로 로그인한 조교 토큰은 localStorage에 남으므로 /staff-home으로 되돌린다.
+    //   (권한해제된 조교면 staff-home 메뉴만 뜨고, 데이터 페이지 진입 시 첫 API가 401 → 양쪽 저장소 토큰 삭제 후 /portal 복귀 → 무한루프 방지)
     try {
       const _ast = localStorage.getItem('kwmath_admin_pw') || sessionStorage.getItem('kwmath_admin_pw');
-      if (_ast) { const _s = /^ast_(\d+)_/.exec(_ast); if (_s && Number(_s[1]) > Date.now()) { location.replace('/admin-qna'); return; } }
+      if (_ast) { const _s = /^ast_(\d+)_/.exec(_ast); if (_s && Number(_s[1]) > Date.now()) { location.replace('/staff-home'); return; } }
     } catch (_) {}
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW register fail:', err));

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>조교 홈 · 이관우 수학연구소</title>
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ai:#1f6f78; --ai-light:#E3F1F2; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
+  .top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:4px; }
+  h1{ font-size:1.35rem; margin:6px 0 2px; }
+  .sub{ color:var(--muted); font-size:0.84rem; margin-bottom:20px; }
+  .back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; }
+  .sec{ font-size:0.76rem; font-weight:800; color:var(--muted); margin:22px 2px 10px; letter-spacing:.02em; }
+  .sec:first-of-type{ margin-top:4px; }
+  .menu{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:13px; }
+  .mcard{ display:block; text-decoration:none; background:#fff; border:1.5px solid var(--border); border-radius:16px; padding:20px 14px; text-align:center; color:var(--ink); box-shadow:0 2px 10px rgba(134,38,51,0.05); transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease; }
+  .mcard:hover{ border-color:var(--primary); transform:translateY(-3px); box-shadow:0 6px 16px rgba(134,38,51,0.10); }
+  .mcard:active{ transform:translateY(-1px); }
+  .mcard .ic{ font-size:2.1rem; line-height:1; }
+  .mcard .t{ font-weight:800; font-size:1.02rem; margin-top:9px; }
+  .mcard .d{ font-size:0.75rem; color:var(--muted); margin-top:4px; line-height:1.35; }
+  .mcard.cli:hover{ border-color:var(--ai); box-shadow:0 6px 16px rgba(31,111,120,0.12); }
+  .mcard.cli .t{ color:var(--ai); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>👋 조교 콘솔</h1><div class="sub">필요한 메뉴를 눌러 들어가세요</div></div>
+    <button class="back" onclick="logout()">로그아웃</button>
+  </div>
+
+  <div class="sec">수업 · 학생</div>
+  <div class="menu">
+    <a class="mcard" href="/staff-students"><div class="ic">🎓</div><div class="t">학생</div><div class="d">담당 학원 학생 정보</div></a>
+    <a class="mcard" href="/staff-scores"><div class="ic">📈</div><div class="t">성적</div><div class="d">시험 성적 입력·조회</div></a>
+    <a class="mcard" href="/staff-reports"><div class="ic">📋</div><div class="t">리포트</div><div class="d">수업 리포트 작성</div></a>
+    <a class="mcard" href="/staff-materials"><div class="ic">📚</div><div class="t">수업자료</div><div class="d">반별 수업자료</div></a>
+  </div>
+
+  <div class="sec">클리닉</div>
+  <div class="menu">
+    <a class="mcard cli" href="/clinic-roster"><div class="ic">🩺</div><div class="t">클리닉 명단</div><div class="d">오늘 클리닉 대상</div></a>
+    <a class="mcard cli" href="/clinic-review"><div class="ic">📝</div><div class="t">클리닉 총평</div><div class="d">총평 작성·저장</div></a>
+  </div>
+
+  <div class="sec">소통 · 기록</div>
+  <div class="menu">
+    <a class="mcard" href="/admin-qna"><div class="ic">💬</div><div class="t">질문 답변</div><div class="d">학생·학부모 질문</div></a>
+    <a class="mcard" href="/admin-surveys"><div class="ic">🧪</div><div class="t">테스트</div><div class="d">테스트·퀴즈 관리</div></a>
+    <a class="mcard" href="/staff-worklog"><div class="ic">🗓️</div><div class="t">근무기록</div><div class="d">근무·급여 기록</div></a>
+  </div>
+</div>
+<script>
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  if(!token){ location.replace('/portal'); }
+  function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+</script>
+</body>
+</html>
