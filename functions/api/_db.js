@@ -476,6 +476,11 @@ async function ensureClinicRoster(env) {
   _clinicRosterReady = true;
 }
 
+// student_id 정규화(_makeup.js와 동일 규칙) — D1이 JS 숫자를 REAL로 바인딩해 TEXT칸에 "24.0"으로
+//   저장되던 과거 버그와 표준형 "24"를 수렴시킨다. write는 "24"로 저장, 조회/삭제는 신·구 둘 다 매칭.
+function _normSid(id) { return String(id == null ? '' : id).trim().replace(/\.0+$/, ''); }
+function _sidPair(id) { const s = _normSid(id); return [s, s + '.0']; }
+
 export async function listClinicRoster(env, date) {
   await ensureClinicRoster(env);
   const { results } = await env.DB.prepare(
@@ -487,14 +492,16 @@ export async function listClinicRoster(env, date) {
 export async function setClinicRoster(env, studentId, date, action, reason) {
   await ensureClinicRoster(env);
   try {
-    const existing = await env.DB.prepare('SELECT student_id FROM clinic_roster WHERE student_id=? AND date=?')
-      .bind(studentId, date).first();
+    const [a, b] = _sidPair(studentId);   // 신·구("24","24.0") 둘 다 매칭
+    const existing = await env.DB.prepare('SELECT student_id FROM clinic_roster WHERE (student_id=? OR student_id=?) AND date=?')
+      .bind(a, b, date).first();
     if (existing) {
-      await env.DB.prepare('UPDATE clinic_roster SET action=?, reason=?, updated_at=? WHERE student_id=? AND date=?')
-        .bind(action, reason || '', new Date().toISOString(), studentId, date).run();
+      // student_id도 표준형("24")으로 덮어 과거 "24.0" 행을 수렴시킨다.
+      await env.DB.prepare('UPDATE clinic_roster SET student_id=?, action=?, reason=?, updated_at=? WHERE (student_id=? OR student_id=?) AND date=?')
+        .bind(a, action, reason || '', new Date().toISOString(), a, b, date).run();
     } else {
       await env.DB.prepare('INSERT INTO clinic_roster (student_id, date, action, reason, updated_at) VALUES (?,?,?,?,?)')
-        .bind(studentId, date, action, reason || '', new Date().toISOString()).run();
+        .bind(a, date, action, reason || '', new Date().toISOString()).run();
     }
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
@@ -503,8 +510,9 @@ export async function setClinicRoster(env, studentId, date, action, reason) {
 export async function deleteClinicRoster(env, studentId, date) {
   await ensureClinicRoster(env);
   try {
-    const res = await env.DB.prepare('DELETE FROM clinic_roster WHERE student_id=? AND date=?')
-      .bind(studentId, date).run();
+    const [a, b] = _sidPair(studentId);   // 신·구("24","24.0") 둘 다 삭제
+    const res = await env.DB.prepare('DELETE FROM clinic_roster WHERE (student_id=? OR student_id=?) AND date=?')
+      .bind(a, b, date).run();
     return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }

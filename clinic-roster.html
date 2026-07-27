@@ -51,9 +51,11 @@
   .addbox{background:#fff;border:1px dashed var(--clinic);border-radius:12px;padding:12px 14px;margin-top:14px;}
   .addbox .h{font-weight:800;font-size:0.84rem;color:var(--clinic);margin-bottom:8px;}
   .addrow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
-  .addrow input{border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:0.86rem;outline:none;}
-  .addrow input:focus{border-color:var(--clinic);}
+  .addrow input,.addrow select{border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:0.86rem;outline:none;background:#fff;color:var(--ink);}
+  .addrow input:focus,.addrow select:focus{border-color:var(--clinic);}
   .addrow .nmin{flex:1;min-width:120px;} .addrow .rsn{flex:1;min-width:110px;}
+  .addrow select{flex:1;min-width:104px;max-width:100%;}
+  .addrow select:disabled{background:#F4F1F2;color:var(--muted);}
   .addrow button{background:var(--clinic);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;}
 
   .exbox{margin-top:14px;}
@@ -124,11 +126,14 @@
   <div class="addbox">
     <div class="h">➕ 수동 추가</div>
     <div class="addrow">
-      <input class="nmin" id="addName" list="studentList" placeholder="학생 이름">
+      <select id="addAcad" onchange="onAcadChange()"><option value="">학원 선택…</option></select>
+      <select id="addCls" onchange="onClsChange()"><option value="">반 선택…</option></select>
+      <select id="addStu"><option value="">학원·반을 먼저 고르세요</option></select>
+    </div>
+    <div class="addrow" style="margin-top:8px;">
       <input class="rsn" id="addReason" placeholder="사유 (선택)">
       <button onclick="doAdd()">추가</button>
     </div>
-    <datalist id="studentList"></datalist>
   </div>
 
   <div class="exbox" id="exbox" style="display:none;">
@@ -208,7 +213,7 @@
       statusHtml+
       '<div class="acts">'+
         (did?'':'<button class="mini notify" onclick="doNotify(\''+sidEsc+'\',\''+nmEsc+'\')">📞 연락</button>')+
-        '<button class="mini" onclick="doExclude(\''+nmEsc+'\')">제외</button>'+
+        '<button class="mini" onclick="doExclude(\''+sidEsc+'\',\''+nmEsc+'\')">제외</button>'+
       '</div>'+
     '</div>';
   }
@@ -239,7 +244,8 @@
       $('exbox').style.display='block';
       $('exlist').innerHTML=excluded.map(function(e){
         var nmEsc=esc(e.name).replace(/'/g,"\\'");
-        return '<span class="exrow">'+esc(e.name)+' <button onclick="doClear(\''+nmEsc+'\')">되돌리기</button></span>';
+        var sidEsc=String(e.studentId==null?'':e.studentId).replace(/'/g,"\\'");
+        return '<span class="exrow">'+esc(e.name)+' <button onclick="doClear(\''+sidEsc+'\',\''+nmEsc+'\')">되돌리기</button></span>';
       }).join('');
     } else { $('exbox').style.display='none'; $('exlist').innerHTML=''; }
     $('hint').textContent = '숙제 50% 이하·결석·지각 자동 포함';
@@ -259,12 +265,46 @@
     try{
       var r=await api('/api/students'); var j=await r.json();
       allStudents=Array.isArray(j)?j:[];
-      $('studentList').innerHTML=allStudents.map(function(s){ return '<option value="'+esc(s.name)+'">'; }).join('');
+      buildAcadSelect();
     }catch(e){}
   }
 
-  async function post(name, action, reason){
-    var body={name:name, date:viewDate, action:action};
+  // 학원 → 반 → 학생 캐스케이드 (다른 관리 화면과 동일). 빈 학원/반은 '(미지정)'·'(반 없음)'으로 묶어 누락 방지.
+  var ACAD_NONE='(미지정)', CLS_NONE='(반 없음)';
+  function acadOf(s){ return (String(s.academy||'').trim())||ACAD_NONE; }
+  function clsOf(s){ return (String(s.className||'').trim())||CLS_NONE; }
+  function buildAcadSelect(){
+    var seen={}, list=[];
+    allStudents.forEach(function(s){ var a=acadOf(s); if(!seen[a]){ seen[a]=1; list.push(a); } });
+    list.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+    $('addAcad').innerHTML='<option value="">학원 선택…</option>'+
+      list.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+    buildClsSelect();
+  }
+  function buildClsSelect(){
+    var acad=$('addAcad').value, seen={}, list=[];
+    if(acad){
+      allStudents.forEach(function(s){ if(acadOf(s)===acad){ var c=clsOf(s); if(!seen[c]){ seen[c]=1; list.push(c); } } });
+      list.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+    }
+    $('addCls').innerHTML='<option value="">반 선택…</option>'+
+      list.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+    buildStuSelect();
+  }
+  function buildStuSelect(){
+    var acad=$('addAcad').value, cls=$('addCls').value;
+    var list=(acad&&cls)?allStudents.filter(function(s){ return acadOf(s)===acad&&clsOf(s)===cls; }):[];
+    list.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ko'); });
+    $('addStu').innerHTML='<option value="">'+(acad&&cls?'학생 선택…':'학원·반을 먼저 고르세요')+'</option>'+
+      list.map(function(s){ return '<option value="'+esc(String(s.id==null?'':s.id))+'">'+esc(s.name||'')+'</option>'; }).join('');
+  }
+  function onAcadChange(){ buildClsSelect(); }
+  function onClsChange(){ buildStuSelect(); }
+
+  async function post(studentId, action, reason, name){
+    var body={date:viewDate, action:action};
+    if(studentId) body.studentId=String(studentId);   // id 우선(동명이인 안전)
+    if(name) body.name=name;                            // 폴백
     if(reason) body.reason=reason;
     try{
       var r=await api('/api/clinic-roster',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -283,13 +323,15 @@
       else { showToast('📨 '+name+' 학부모님께 미참석 연락을 보냈어요.'); }
     }catch(e){ if(String(e.message)!=='401') showToast('연락 중 오류가 났어요.'); }
   }
-  async function doExclude(name){ if(await post(name,'exclude')){ showToast(name+' 제외했어요.'); load(); } }
-  async function doClear(name){ if(await post(name,'clear')){ showToast(name+' 되돌렸어요.'); load(); } }
+  async function doExclude(sid, name){ if(await post(sid,'exclude','',name)){ showToast(name+' 제외했어요.'); load(); } }
+  async function doClear(sid, name){ if(await post(sid,'clear','',name)){ showToast(name+' 되돌렸어요.'); load(); } }
   async function doAdd(){
-    var name=($('addName').value||'').trim();
-    if(!name){ showToast('학생 이름을 입력해주세요.'); return; }
+    var sid=($('addStu').value||'').trim();
+    if(!sid){ showToast('학원·반·학생을 골라주세요.'); return; }
+    var st=allStudents.filter(function(s){ return String(s.id)===sid; })[0];
+    var name=st?(st.name||''):'';
     var reason=($('addReason').value||'').trim();
-    if(await post(name,'add',reason)){ showToast(name+' 추가했어요.'); $('addName').value=''; $('addReason').value=''; load(); }
+    if(await post(sid,'add',reason,name)){ showToast((name||'학생')+' 추가했어요.'); $('addStu').value=''; $('addReason').value=''; load(); }
   }
 
   $('datePick').value=viewDate;

@@ -16,6 +16,18 @@
   .topbar-title .logo-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;background:#fff;border-radius:6px;overflow:hidden;padding:0;}
   .topbar-title .logo-mark img{width:100%;height:100%;object-fit:cover;display:block;}
   .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
+  /* 상단 통합 네비 (홈 + 메뉴 드롭다운) */
+  .kwnav{ display:flex; align-items:center; gap:8px; }
+  .kwnav-home{ display:inline-flex; align-items:center; gap:5px; background:var(--primary); color:#fff; font-weight:800; font-size:0.84rem; text-decoration:none; padding:8px 13px; border-radius:9px; font-family:inherit; white-space:nowrap; line-height:1; }
+  .kwnav-mw{ position:relative; }
+  .kwnav-toggle{ display:inline-flex; align-items:center; gap:5px; background:#fff; color:var(--primary); border:1.5px solid var(--primary); font-weight:800; font-size:0.84rem; padding:6px 13px; border-radius:9px; cursor:pointer; font-family:inherit; white-space:nowrap; line-height:1.25; }
+  .kwnav-pop{ position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,0.16); padding:6px; min-width:200px; z-index:200; display:none; }
+  .kwnav-pop.show{ display:block; }
+  .kwnav-pop a{ display:block; text-decoration:none; color:var(--text); font-weight:700; font-size:0.86rem; padding:9px 12px; border-radius:8px; white-space:nowrap; }
+  .kwnav-pop a:hover{ background:var(--primary-light); }
+  .kwnav-pop a.cur{ background:var(--primary-light); color:var(--primary); cursor:default; }
+  .kwnav--light .kwnav-home{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
+  .kwnav--light .kwnav-toggle{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
 
   .page-wrap{max-width:800px;margin:0 auto;padding:48px 5% 80px;}
 
@@ -67,7 +79,23 @@
     <span class="logo-mark"><img src="/icons/icon-192.png?v=6" alt="이관우 수학연구소"></span>
     <span>자료실</span>
   </a>
-  <a href="/portal" class="topbar-btn">← 포털</a>
+  <div class="kwnav kwnav--light" id="kwnav">
+    <a class="kwnav-home" id="kwnavHome" href="/portal">🏠 홈</a>
+    <div class="kwnav-mw">
+      <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
+      <div class="kwnav-pop" id="kwnavPop" role="menu">
+        <a role="menuitem" href="/report" data-p="/report">📋 수업·레포트</a>
+        <a role="menuitem" href="/test-results" data-p="/test-results">📊 테스트 결과</a>
+        <a role="menuitem" href="/attendance" data-p="/attendance">📅 출석 현황</a>
+        <a role="menuitem" href="/materials" data-p="/materials">📚 수업 자료실</a>
+        <a role="menuitem" href="/study" data-p="/study">🏆 KW-Study</a>
+        <a role="menuitem" href="/reviews" data-p="/reviews">✏️ 수강 후기</a>
+        <a role="menuitem" href="/homework" data-p="/homework">📸 과제 제출</a>
+        <a role="menuitem" href="/qna" data-p="/qna">💬 질문/문의방</a>
+        <a role="menuitem" href="/me" data-p="/me">🙋 내 정보</a>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="page-wrap">
@@ -251,6 +279,32 @@ async function requestMaterialMakeup(date, btn) {
 }
 
 loadFiles();
+</script>
+<!-- 학생 상단 네비: 홈(포털) + 메뉴 드롭다운 -->
+<script>
+(function(){
+  try{
+    var path = (location.pathname || '').replace(/\.html$/,''); if(path.length > 1){ path = path.replace(/\/+$/,''); }
+    var pop = document.getElementById('kwnavPop');
+    if(pop){
+      var links = pop.querySelectorAll('a[data-p]');
+      for(var i=0;i<links.length;i++){
+        if(links[i].getAttribute('data-p') === path){ links[i].className = 'cur'; links[i].removeAttribute('href'); }
+      }
+    }
+    var tog = document.getElementById('kwnavToggle');
+    if(tog && pop){
+      tog.addEventListener('click', function(e){
+        e.stopPropagation();
+        var open = pop.classList.toggle('show');
+        tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function(ev){
+        if(!pop.contains(ev.target) && ev.target !== tog){ pop.classList.remove('show'); tog.setAttribute('aria-expanded','false'); }
+      });
+    }
+  }catch(_){}
+})();
 </script>
 </body>
 </html>

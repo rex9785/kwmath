@@ -66,8 +66,9 @@
   .addbox{background:#fff;border:1px dashed var(--clinic);border-radius:12px;padding:12px 14px;margin-top:14px;}
   .addbox .h{font-weight:800;font-size:0.84rem;color:var(--clinic);margin-bottom:8px;}
   .addrow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
-  .addrow input{flex:1;min-width:140px;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:0.86rem;outline:none;}
-  .addrow input:focus{border-color:var(--clinic);}
+  .addrow input,.addrow select{flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:0.86rem;outline:none;background:#fff;color:var(--ink);}
+  .addrow input:focus,.addrow select:focus{border-color:var(--clinic);}
+  .addrow select:disabled{background:#F4F1F2;color:var(--muted);}
   .addrow button{background:var(--clinic);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;}
 
   .empty{background:#fff;border:1px dashed var(--border);border-radius:13px;padding:34px 18px;text-align:center;color:var(--muted);font-size:0.9rem;line-height:1.7;}
@@ -148,14 +149,14 @@
 
   <div class="addbox">
     <div class="h">➕ 총평 쓸 학생 추가</div>
-    <div class="addrow" id="addAcademyRow" style="display:none;margin-bottom:6px">
-      <select id="addAcademy" onchange="onAcademyChange()" style="width:100%"></select>
-    </div>
     <div class="addrow">
-      <input id="addName" list="studentList" placeholder="학생 이름 (클리닉 참석자는 자동으로 떠요)">
+      <select id="addAcad" onchange="onAcadChange()"><option value="">학원 선택…</option></select>
+      <select id="addCls" onchange="onClsChange()"><option value="">반 선택…</option></select>
+    </div>
+    <div class="addrow" style="margin-top:7px">
+      <select id="addStu"><option value="">학원·반을 먼저 고르세요</option></select>
       <button onclick="doAddStudent()">추가</button>
     </div>
-    <datalist id="studentList"></datalist>
   </div>
 </div>
 
@@ -178,7 +179,7 @@
   var token = readToken();
   if(!token){ location.replace('/portal?next=/clinic-review'); }
 
-  var reviews=[], clinicStudents=[], allStudents=[], added=[], stById={}, isOwner=false, curAcademy='';
+  var reviews=[], clinicStudents=[], allStudents=[], added=[], stById={}, isOwner=false;
   function $(id){ return document.getElementById(id); }
   function val(id){ var e=$(id); return e ? (e.value||'') : ''; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -402,55 +403,57 @@
   }
 
   function doAddStudent(){
-    var name=($('addName').value||'').trim();
-    if(!name){ showToast('학생 이름을 입력해주세요.'); return; }
-    var multi=!!($('addAcademyRow') && $('addAcademyRow').style.display!=='none');
-    if(multi && !curAcademy){ showToast('먼저 학원을 골라 주세요.'); return; }
-    // 선택된 학원 안에서만 이름 매칭(다른 학원 동명이인 오추가 방지).
-    var pool=curAcademy?allStudents.filter(function(s){ return (s.academy||'')===curAcademy; }):allStudents;
-    var matches=pool.filter(function(s){ return s.name===name; });
-    if(!matches.length){ showToast('그 이름의 학생을 찾지 못했어요.'); return; }
-    if(matches.length>1){ showToast('동명이인이 있어요. 클리닉 참석자 목록에서 골라 주세요.'); return; }
-    var st=matches[0];
-    if(!added.some(function(a){return a.studentId===st.id;})) added.push({studentId:st.id,name:st.name});
-    $('addName').value='';
+    var sid=($('addStu').value||'').trim();
+    if(!sid){ showToast('학원·반·학생을 골라주세요.'); return; }
+    // id로 학생 확정(동명이인 안전).
+    var st=stById[sid]||allStudents.filter(function(s){ return String(s.id)===sid; })[0];
+    if(!st){ showToast('학생을 찾지 못했어요.'); return; }
+    if(!added.some(function(a){return String(a.studentId)===String(st.id);})) added.push({studentId:st.id,name:st.name});
+    $('addStu').value='';
     render();
-    showToast(name+' 추가했어요. 총평을 입력하고 저장하세요.');
+    showToast((st.name||'학생')+' 추가했어요. 총평을 입력하고 저장하세요.');
   }
 
   async function loadStudents(){
     try{
       var r=await api('/api/students'); var j=await r.json();
       allStudents=Array.isArray(j)?j:[];
-      stById={}; allStudents.forEach(function(s){ if(s&&s.id) stById[s.id]=s; });
-      // 학원 목록 유니크 추출(학생 데이터에서 — 추가 API 없음). 조교는 자기 학원만 오므로 대개 1개.
-      var acs=[]; allStudents.forEach(function(s){ var a=(s&&s.academy)||''; if(a&&acs.indexOf(a)<0) acs.push(a); });
-      acs.sort();
-      var sel=$('addAcademy'), rowEl=$('addAcademyRow');
-      if(acs.length>1){
-        // 원장 등 여러 학원 → 학원 먼저 고르게. 고르기 전엔 목록 비움(다른 학원 안 뜨게).
-        if(sel) sel.innerHTML='<option value="">학원 선택…</option>'+acs.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
-        if(rowEl) rowEl.style.display='';
-        curAcademy='';
-      }else{
-        // 조교/단일 학원 → 학원칸 숨기고 그 학원(또는 전체) 그대로.
-        if(rowEl) rowEl.style.display='none';
-        curAcademy=(acs.length===1)?acs[0]:'';
-      }
-      renderStudentDatalist();
+      stById={}; allStudents.forEach(function(s){ if(s&&s.id!=null) stById[String(s.id)]=s; });
+      buildAcadSelect();
     }catch(e){}
   }
-  // 현재 선택된 학원(curAcademy) 기준으로 이름 자동완성 목록을 다시 채운다.
-  function renderStudentDatalist(){
-    var multi=!!($('addAcademyRow') && $('addAcademyRow').style.display!=='none');
-    var list;
-    if(curAcademy) list=allStudents.filter(function(s){ return (s.academy||'')===curAcademy; });
-    else list=multi?[]:allStudents;   // 여러 학원인데 미선택이면 비움
-    $('studentList').innerHTML=list.map(function(s){ return '<option value="'+esc(s.name)+'">'; }).join('');
-    var inp=$('addName');
-    if(inp) inp.placeholder=(multi&&!curAcademy)?'먼저 학원을 골라 주세요':'학생 이름 (클리닉 참석자는 자동으로 떠요)';
+
+  // 학원 → 반 → 학생 캐스케이드 (다른 관리 화면과 동일). 빈 학원/반은 '(미지정)'·'(반 없음)'으로 묶어 누락 방지.
+  var ACAD_NONE='(미지정)', CLS_NONE='(반 없음)';
+  function acadOf(s){ return (String(s.academy||'').trim())||ACAD_NONE; }
+  function clsOf(s){ return (String(s.className||'').trim())||CLS_NONE; }
+  function buildAcadSelect(){
+    var seen={}, list=[];
+    allStudents.forEach(function(s){ var a=acadOf(s); if(!seen[a]){ seen[a]=1; list.push(a); } });
+    list.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+    $('addAcad').innerHTML='<option value="">학원 선택…</option>'+
+      list.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+    buildClsSelect();
   }
-  function onAcademyChange(){ curAcademy=($('addAcademy')?$('addAcademy').value:'')||''; renderStudentDatalist(); }
+  function buildClsSelect(){
+    var acad=$('addAcad').value, seen={}, list=[];
+    if(acad){
+      allStudents.forEach(function(s){ if(acadOf(s)===acad){ var c=clsOf(s); if(!seen[c]){ seen[c]=1; list.push(c); } } });
+      list.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+    }
+    $('addCls').innerHTML='<option value="">반 선택…</option>'+
+      list.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+    buildStuSelect();
+  }
+  function buildStuSelect(){
+    var acad=$('addAcad').value, cls=$('addCls').value;
+    var list=(acad&&cls)?allStudents.filter(function(s){ return acadOf(s)===acad&&clsOf(s)===cls; }):[];
+    list.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ko'); });
+    $('addStu').innerHTML='<option value="">'+(acad&&cls?'학생 선택…':'학원·반을 먼저 고르세요')+'</option>'+
+      list.map(function(s){ return '<option value="'+esc(String(s.id==null?'':s.id))+'">'+esc(s.name||'')+'</option>'; }).join('');
+  }
+  function onAcadChange(){ buildClsSelect(); }
+  function onClsChange(){ buildStuSelect(); }
 
   async function load(){
     $('content').innerHTML='<div class="empty">불러오는 중…</div>';
