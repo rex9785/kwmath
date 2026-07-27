@@ -562,8 +562,9 @@ function clinicReviewRow(r) {
 
 export async function getClinicReview(env, studentId, date) {
   await ensureClinicReviews(env);
-  const r = await env.DB.prepare('SELECT * FROM clinic_reviews WHERE student_id=? AND date=?')
-    .bind(studentId, date).first();
+  const [a, b] = _sidPair(studentId);   // 신·구("24","24.0") 둘 다 매칭 — 과거 REAL 저장분 포함
+  const r = await env.DB.prepare('SELECT * FROM clinic_reviews WHERE (student_id=? OR student_id=?) AND date=?')
+    .bind(a, b, date).first();
   return clinicReviewRow(r);
 }
 
@@ -574,17 +575,18 @@ export async function upsertClinicReview(env, studentId, date, fields) {
   const present = cols.filter(c => fields[c] !== undefined);
   try {
     const now = new Date().toISOString();
-    const existing = await env.DB.prepare('SELECT student_id FROM clinic_reviews WHERE student_id=? AND date=?')
-      .bind(studentId, date).first();
+    const [a, b] = _sidPair(studentId);   // 저장은 "24"로, 조회/갱신은 신·구 둘 다 매칭(중복행 방지)
+    const existing = await env.DB.prepare('SELECT student_id FROM clinic_reviews WHERE (student_id=? OR student_id=?) AND date=?')
+      .bind(a, b, date).first();
     if (existing) {
       if (present.length) {
         const setSql = present.map(c => c + '=?').join(', ') + ', updated_at=?';
-        await env.DB.prepare('UPDATE clinic_reviews SET ' + setSql + ' WHERE student_id=? AND date=?')
-          .bind(...present.map(c => fields[c]), now, studentId, date).run();
+        await env.DB.prepare('UPDATE clinic_reviews SET ' + setSql + ' WHERE (student_id=? OR student_id=?) AND date=?')
+          .bind(...present.map(c => fields[c]), now, a, b, date).run();
       }
     } else {
       const insCols = ['student_id', 'date', ...present];
-      const insVals = [studentId, date, ...present.map(c => fields[c])];
+      const insVals = [a, date, ...present.map(c => fields[c])];
       if (!present.includes('status')) { insCols.push('status'); insVals.push('draft'); }
       insCols.push('created_at', 'updated_at');
       insVals.push(now, now);
@@ -601,9 +603,10 @@ export async function markClinicReviewSent(env, studentId, date, sentBody) {
   await ensureClinicReviews(env);
   try {
     const now = new Date().toISOString();
+    const [a, b] = _sidPair(studentId);   // 신·구 둘 다 매칭 — 과거 "24.0" draft도 발송확정됨
     const res = await env.DB.prepare(
-      'UPDATE clinic_reviews SET status=?, sent_body=?, sent_at=?, updated_at=? WHERE student_id=? AND date=?'
-    ).bind('sent', sentBody || '', now, now, studentId, date).run();
+      'UPDATE clinic_reviews SET status=?, sent_body=?, sent_at=?, updated_at=? WHERE (student_id=? OR student_id=?) AND date=?'
+    ).bind('sent', sentBody || '', now, now, a, b, date).run();
     return { ok: true, changed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }
@@ -611,8 +614,9 @@ export async function markClinicReviewSent(env, studentId, date, sentBody) {
 export async function deleteClinicReview(env, studentId, date) {
   await ensureClinicReviews(env);
   try {
-    const res = await env.DB.prepare('DELETE FROM clinic_reviews WHERE student_id=? AND date=?')
-      .bind(studentId, date).run();
+    const [a, b] = _sidPair(studentId);   // 신·구 둘 다 삭제
+    const res = await env.DB.prepare('DELETE FROM clinic_reviews WHERE (student_id=? OR student_id=?) AND date=?')
+      .bind(a, b, date).run();
     return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }
@@ -636,11 +640,14 @@ export async function listClinicReviewsByDate(env, date) {
 export async function listSentReviewsForStudentIds(env, studentIds) {
   await ensureClinicReviews(env);
   if (!studentIds || !studentIds.length) return [];
-  const placeholders = studentIds.map(() => '?').join(',');
+  // 각 id를 신·구 두 형태("24","24.0")로 확장 — 과거 REAL로 "24.0" 저장된 발송분도 아카이브에 포함
+  const expanded = [];
+  for (const id of studentIds) { const [a, b] = _sidPair(id); expanded.push(a, b); }
+  const placeholders = expanded.map(() => '?').join(',');
   const { results } = await env.DB.prepare(
     'SELECT r.*, s.name FROM clinic_reviews r LEFT JOIN students s ON s.id = r.student_id ' +
     'WHERE r.status = ? AND r.student_id IN (' + placeholders + ') ORDER BY r.date DESC'
-  ).bind('sent', ...studentIds).all();
+  ).bind('sent', ...expanded).all();
   return (results || []).map(r => ({ ...clinicReviewRow(r), name: r.name || '' }));
 }
 
