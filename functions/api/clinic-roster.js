@@ -133,7 +133,8 @@ export async function onRequest({ request, env }) {
 
       list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
       excluded.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
-      return Response.json({ date, threshold: HW_THRESHOLD, roster: list, excluded });
+      // isOwner=원장만 true(scopeAcademy===null). 조교앱에서 학부모 클리닉결석 알림 발송 버튼을 숨기는 데 사용.
+      return Response.json({ date, threshold: HW_THRESHOLD, roster: list, excluded, isOwner: scopeAcademy === null });
     } catch (e) {
       return safeError(e, env, { message: '클리닉 명단을 불러오지 못했습니다.' });
     }

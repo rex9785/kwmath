@@ -279,6 +279,7 @@
     var status = stBtn ? stBtn.dataset.st : '';
     var hwRaw = (box.querySelector('.aihw').value||'').trim();
     var body = { name: name, date: date };
+    body.notifyParent = false;   // 조교 출결 저장은 학부모 자동알림 억제 — 결석·지각·병결 푸시는 원장이 admin에서 확인 후 발송(2026-07-16 확정 방침)
     if(status) body.status = status;
     if(hwRaw!==''){
       var hw = Number(hwRaw);

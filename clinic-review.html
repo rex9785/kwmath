@@ -190,6 +190,7 @@
   if(!token){ location.replace('/portal?next=/clinic-review'); }
 
   var reviews=[], clinicStudents=[], allStudents=[], added=[], stById={}, isOwner=false;
+  var memoLoaded='';   // 서버에서 불러온 하루메모 원본 — 비워서 지우는 경우도 '변경됨'으로 잡아 저장(빈 메모=삭제)되게.
   function $(id){ return document.getElementById(id); }
   function val(id){ var e=$(id); return e ? (e.value||'') : ''; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -411,7 +412,8 @@
         improvement:improve, summary:summary, difficulty:diff, wrong_count: wrong===''?'':wrong });
     });
     var memo=val('dayMemo');
-    if(!jobs.length && !memo.trim()){ showToast('저장할 내용이 없어요.'); return; }
+    var memoChanged = memo !== memoLoaded;   // 지워서 비운 경우도 변경 → 저장(빈 메모=서버에서 삭제)
+    if(!jobs.length && !memo.trim() && !memoChanged){ showToast('저장할 내용이 없어요.'); return; }
     var btn=$('saveallbtn'); if(btn){ btn.disabled=true; }
     var ok=0, fail=0;
     try{
@@ -515,7 +517,8 @@
       var r=await api('/api/clinic-review?date='+encodeURIComponent(viewDate));
       var j=await r.json();
       reviews=(j&&j.reviews)||[]; clinicStudents=(j&&j.clinicStudents)||[]; isOwner=!!(j&&j.isOwner);
-      $('dayMemo').value=(j&&j.memo)||'';
+      memoLoaded=(j&&j.memo)||'';
+      $('dayMemo').value=memoLoaded;
       render();
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="empty">총평을 불러오지 못했어요.</div>'; }
   }

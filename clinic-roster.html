@@ -157,6 +157,7 @@
   if(!token){ location.replace('/portal?next=/clinic-roster'); }
 
   var roster = [], excluded = [], allStudents = [];
+  var isOwner = false;   // 원장만 true(서버 clinic-roster GET). 조교앱에서는 학부모 클리닉결석 알림 발송 버튼을 숨김.
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
   function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
@@ -212,7 +213,7 @@
       '</div>'+
       statusHtml+
       '<div class="acts">'+
-        (did?'':'<button class="mini notify" onclick="doNotify(\''+sidEsc+'\',\''+nmEsc+'\')">📞 연락</button>')+
+        ((did||!isOwner)?'':'<button class="mini notify" onclick="doNotify(\''+sidEsc+'\',\''+nmEsc+'\')">📞 연락</button>')+
         '<button class="mini" onclick="doExclude(\''+sidEsc+'\',\''+nmEsc+'\')">제외</button>'+
       '</div>'+
     '</div>';
@@ -257,6 +258,7 @@
       var r=await api('/api/clinic-roster?date='+encodeURIComponent(viewDate));
       var j=await r.json();
       roster=(j&&j.roster)||[]; excluded=(j&&j.excluded)||[];
+      isOwner=!!(j&&j.isOwner);
       renderList();
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="empty">명단을 불러오지 못했어요.</div>'; }
   }
