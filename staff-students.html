@@ -68,6 +68,30 @@
   .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
   .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
   .toast.show{ display:block; }
+  /* 반별 일괄 출석/클리닉 패널 */
+  .batch{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:13px 14px; margin-bottom:14px; box-shadow:0 2px 8px rgba(134,38,51,0.04); }
+  .bp-head{ font-weight:800; font-size:0.92rem; margin-bottom:9px; }
+  .bp-ctrl{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:9px; }
+  .bp-ctrl select,.bp-ctrl input{ flex:1; min-width:130px; padding:8px 10px; border:1.5px solid var(--border); border-radius:9px; font-family:inherit; font-size:0.86rem; outline:none; background:#fff; color:var(--ink); }
+  .bp-ctrl select:focus,.bp-ctrl input:focus{ border-color:var(--primary); }
+  .bp-modes{ display:flex; gap:7px; margin-bottom:11px; }
+  .bp-mode{ flex:1; background:#fff; color:var(--muted); border:1.5px solid var(--border); border-radius:9px; padding:8px; font-size:0.84rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .bp-mode.on{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  #bpMC.on{ background:var(--ai); border-color:var(--ai); }
+  .bp-row{ display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
+  .bp-row:last-child{ border-bottom:none; }
+  .bp-nm{ flex:0 0 84px; width:84px; font-weight:700; font-size:0.86rem; }
+  .bp-st{ display:flex; gap:5px; flex-wrap:wrap; flex:1; }
+  .bp-b{ background:#fff; color:var(--muted); border:1.5px solid var(--border); border-radius:8px; padding:6px 10px; font-size:0.8rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .bp-b:hover{ border-color:var(--primary); }
+  .bp-b.on{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  .batch.cli .bp-b.on{ background:var(--ai); border-color:var(--ai); }
+  .bp-empty{ color:var(--muted); font-size:0.82rem; padding:12px 0; text-align:center; }
+  .bp-foot{ display:flex; gap:8px; margin-top:11px; }
+  .bp-all{ background:#E5F5E8; color:#1F7A33; border:1.5px solid #1F7A33; border-radius:9px; padding:9px 14px; font-size:0.83rem; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  .bp-save{ flex:1; background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px; font-size:0.88rem; font-weight:800; cursor:pointer; font-family:inherit; }
+  .batch.cli .bp-save{ background:var(--ai); }
+  .bp-save:disabled{ opacity:0.5; cursor:default; }
   /* 상단 통합 네비 (홈 + 메뉴 드롭다운) */
   .kwnav{ display:flex; align-items:center; gap:8px; }
   .kwnav-home{ display:inline-flex; align-items:center; gap:5px; background:var(--primary); color:#fff; font-weight:800; font-size:0.84rem; text-decoration:none; padding:8px 13px; border-radius:9px; font-family:inherit; white-space:nowrap; line-height:1; }
@@ -110,6 +134,22 @@
   <div class="bar">
     <div class="count" id="count">불러오는 중…</div>
     <input class="search" id="search" placeholder="이름·반 검색" oninput="render()">
+  </div>
+  <div class="batch" id="batchPanel" style="display:none;">
+    <div class="bp-head">🚀 반별 일괄 <span id="bpModeLabel">출석</span> 체크 <span style="font-weight:500;color:var(--muted);font-size:0.78rem;">· 반을 고르고 학생마다 상태만 눌러 한 번에 저장</span></div>
+    <div class="bp-ctrl">
+      <select id="bpClass" onchange="bpRenderList()"></select>
+      <input type="date" id="bpDate">
+    </div>
+    <div class="bp-modes">
+      <button type="button" id="bpMA" class="bp-mode on" onclick="bpSetMode('att')">📅 수업 출결</button>
+      <button type="button" id="bpMC" class="bp-mode" onclick="bpSetMode('cli')">📋 클리닉</button>
+    </div>
+    <div id="bpList"></div>
+    <div class="bp-foot">
+      <button type="button" class="bp-all" onclick="bpAllPresent()">👥 전원 출석</button>
+      <button type="button" class="bp-save" id="bpSaveBtn" onclick="bpSave()">💾 이 반 저장</button>
+    </div>
   </div>
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
@@ -351,6 +391,81 @@
     finally{ btnEl.disabled=false; btnEl.textContent=old; }
   }
 
+  // ── 반별 일괄 출석/클리닉 (관리자 '반별 빠른 출석' 미러, 조교 학원 스코프) ──
+  var bpMode='att';   // 'att'=수업출결 /api/attendance, 'cli'=클리닉 /api/clinic
+  var STATS=['출석','지각','결석','병결','공결'];
+  function bpClassesOf(){
+    var seen={}, list=[];
+    students.forEach(function(s){ var c=(s.className||'').trim()||'(반 없음)'; if(!seen[c]){seen[c]=1;list.push(c);} });
+    list.sort(function(a,b){ return a.localeCompare(b,'ko'); });
+    return list;
+  }
+  function buildBatchPanel(){
+    if(!students.length) return;
+    $('batchPanel').style.display='block';
+    var cls=bpClassesOf();
+    $('bpClass').innerHTML=cls.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+    $('bpDate').value=todayStr();
+    bpRenderList();
+  }
+  function bpStudentsOfClass(){
+    var c=$('bpClass').value;
+    return students.filter(function(s){ return ((s.className||'').trim()||'(반 없음)')===c; })
+      .sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ko'); });
+  }
+  function bpRenderList(){
+    var list=bpStudentsOfClass();
+    if(!list.length){ $('bpList').innerHTML='<div class="bp-empty">이 반에 학생이 없어요.</div>'; return; }
+    $('bpList').innerHTML=list.map(function(s){
+      var nm=esc(s.name||'');
+      return '<div class="bp-row" data-name="'+nm+'"><span class="bp-nm">'+nm+'</span><div class="bp-st">'+
+        STATS.map(function(st){ return '<button type="button" class="bp-b" data-st="'+st+'" onclick="bpPick(this)">'+st+'</button>'; }).join('')+
+        '</div></div>';
+    }).join('');
+  }
+  function bpPick(btn){
+    var row=btn.closest('.bp-row'); if(!row) return;
+    var on=btn.classList.contains('on');
+    row.querySelectorAll('.bp-b').forEach(function(b){ b.classList.remove('on'); });
+    if(!on) btn.classList.add('on');
+  }
+  function bpAllPresent(){
+    document.querySelectorAll('#bpList .bp-row').forEach(function(row){
+      row.querySelectorAll('.bp-b').forEach(function(b){ b.classList.remove('on'); });
+      var first=row.querySelector('.bp-b[data-st="출석"]'); if(first) first.classList.add('on');
+    });
+  }
+  function bpSetMode(m){
+    bpMode=m;
+    $('bpMA').classList.toggle('on', m==='att');
+    $('bpMC').classList.toggle('on', m==='cli');
+    $('batchPanel').classList.toggle('cli', m==='cli');
+    $('bpModeLabel').textContent = m==='cli' ? '클리닉' : '출석';
+  }
+  async function bpSave(){
+    var date=($('bpDate').value||'').trim();
+    if(!date){ showToast('날짜를 선택해주세요.'); return; }
+    var rows=Array.prototype.slice.call(document.querySelectorAll('#bpList .bp-row'));
+    var jobs=[];
+    rows.forEach(function(row){ var on=row.querySelector('.bp-b.on'); if(!on) return; jobs.push({ name: row.getAttribute('data-name'), status: on.dataset.st }); });
+    if(!jobs.length){ showToast('상태를 고른 학생이 없어요.'); return; }
+    var path = bpMode==='cli' ? '/api/clinic' : '/api/attendance';
+    var kind = bpMode==='cli' ? '클리닉' : '출결';
+    var btn=$('bpSaveBtn'); btn.disabled=true; var old=btn.textContent; btn.textContent='저장 중…';
+    var ok=0, fail=0;
+    for(var i=0;i<jobs.length;i++){
+      try{
+        var body={name:jobs[i].name,date:date,status:jobs[i].status};
+        // 조교 일괄은 학부모 자동알림 억제 — 결석·지각·병결 푸시는 원장이 admin에서 확인 후 발송(2026-07-16 확정 방침 보존)
+        if(bpMode!=='cli') body.notifyParent=false;
+        var r=await api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        if(r.ok) ok++; else fail++;
+      }catch(e){ if(String(e.message)==='401'){ return; } fail++; }
+    }
+    btn.disabled=false; btn.textContent=old;
+    showToast('💾 '+kind+' 저장 · '+ok+'명'+(fail?(' · '+fail+'건 실패'):''));
+  }
+
   async function boot(){
     if(!token){ logout(); return; }
     try{
@@ -358,6 +473,7 @@
       var j = await r.json();
       students = Array.isArray(j) ? j : [];
       render();
+      buildBatchPanel();
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML = '<div class="msg">목록을 불러오지 못했어요. 다시 시도해주세요.</div>'; }
   }
   boot();

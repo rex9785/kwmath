@@ -92,6 +92,15 @@
   .morebtn .arr{font-size:0.68rem;}
   .more{display:none;margin-top:8px;}
   .more.open{display:block;}
+  /* 컴팩트 한 줄 — 이름 + 총평칸 (주르륵) */
+  .rrow{padding:9px 12px;margin-bottom:8px;}
+  .rmain{display:flex;align-items:flex-start;gap:8px;}
+  .rmain .nmcell{flex:0 0 76px;width:76px;display:flex;flex-direction:column;gap:2px;padding-top:6px;}
+  .rmain .nmcell .nm{font-weight:800;font-size:0.9rem;line-height:1.2;}
+  .rmain .nmcell .cls{font-size:0.62rem;color:var(--primary);font-weight:700;background:var(--primary-light);padding:1px 6px;border-radius:8px;align-self:flex-start;margin-left:0;}
+  .rmain .nmcell .badge{align-self:flex-start;}
+  .rmain .freearea{flex:1;min-width:0;min-height:40px;font-size:0.86rem;}
+  .morebtn-inline{flex:0 0 auto;white-space:nowrap;padding:8px 2px 0;}
   /* 상단 통합 네비 (홈 + 메뉴 드롭다운) */
   .kwnav{ display:flex; align-items:center; gap:8px; }
   .kwnav-home{ display:inline-flex; align-items:center; gap:5px; background:var(--primary); color:#fff; font-weight:800; font-size:0.84rem; text-decoration:none; padding:8px 13px; border-radius:9px; font-family:inherit; white-space:nowrap; line-height:1; }
@@ -256,13 +265,14 @@
     var prev = composeBody({asked:rv.asked,attitude:rv.attitude,improvement:rv.improvement,summary:rv.summary,wrongCount:wc,difficulty:rv.difficulty}, row.name);
     var hasDetail = !!(rv.asked||rv.attitude||rv.improvement||(wc!==''&&wc!==null&&wc!==undefined)||rv.difficulty);  // 상세가 이미 있으면 펼쳐서 보여줌
     var h='';
-    h+='<div class="rcard" data-sid="'+sid+'">';
-    h+= '<div class="rhead"><div><span class="nm">'+esc(row.name)+'</span>'+clsLabel(row)+'</div>'+(row.review?'<span class="badge draft">초안</span>':'')+'</div>';
-    // 자유 칸(기본) — 조교는 이 한 칸만 써도 됨
-    h+= '<div class="freewrap"><label>총평 <span class="sub">· 자유롭게 쓰세요 (학부모께 전달)</span>'+
-        '<textarea class="freearea" id="f_summary_'+sid+'" oninput="onField(\''+sid+'\')" placeholder="예) 오늘 소인수분해를 다뤘어요. 최소공배수에서 실수가 잦아, 계산 과정을 천천히 정리하는 연습이 필요합니다.">'+esc(rv.summary)+'</textarea></label></div>';
+    h+='<div class="rcard rrow" data-sid="'+sid+'">';
+    // 컴팩트 한 줄: [이름][총평칸][상세▸] — 조교는 총평칸만 써도 됨
+    h+= '<div class="rmain">';
+    h+=  '<div class="nmcell"><span class="nm">'+esc(row.name)+'</span>'+(row.review?'<span class="badge draft">초안</span>':'')+clsLabel(row)+'</div>';
+    h+=  '<textarea class="freearea rowarea" id="f_summary_'+sid+'" oninput="onField(\''+sid+'\')" placeholder="총평 입력 (학부모께 전달)">'+esc(rv.summary)+'</textarea>';
+    h+=  '<button type="button" class="morebtn morebtn-inline" onclick="toggleMore(\''+sid+'\')"><span class="arr" id="morearr_'+sid+'">'+(hasDetail?'▾':'▸')+'</span> 상세</button>';
+    h+= '</div>';
     // 상세 항목(선택) — 기본 접힘, 값이 있으면 자동 펼침
-    h+= '<button type="button" class="morebtn" onclick="toggleMore(\''+sid+'\')"><span class="arr" id="morearr_'+sid+'">'+(hasDetail?'▾':'▸')+'</span> 상세 항목 (물어본 것·태도·개선·틀린 개수·난이도)</button>';
     h+= '<div class="more'+(hasDetail?' open':'')+'" id="more_'+sid+'">';
     h+=  '<div class="grid">';
     h+=   '<label>물어본 것 / 오늘 다룬 것<textarea id="f_asked_'+sid+'" oninput="onField(\''+sid+'\')" placeholder="예) 소인수분해, 최소공배수">'+esc(rv.asked)+'</textarea></label>';
