@@ -50,22 +50,44 @@
   .msg{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:30px 18px; text-align:center; color:var(--muted); }
   .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
   .toast.show{ display:block; }
+  /* 상단 통합 네비 (홈 + 메뉴 드롭다운) */
+  .kwnav{ display:flex; align-items:center; gap:8px; }
+  .kwnav-home{ display:inline-flex; align-items:center; gap:5px; background:var(--primary); color:#fff; font-weight:800; font-size:0.84rem; text-decoration:none; padding:8px 13px; border-radius:9px; font-family:inherit; white-space:nowrap; line-height:1; }
+  .kwnav-mw{ position:relative; }
+  .kwnav-toggle{ display:inline-flex; align-items:center; gap:5px; background:#fff; color:var(--primary); border:1.5px solid var(--primary); font-weight:800; font-size:0.84rem; padding:6px 13px; border-radius:9px; cursor:pointer; font-family:inherit; white-space:nowrap; line-height:1.25; }
+  .kwnav-pop{ position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,0.16); padding:6px; min-width:196px; z-index:200; display:none; }
+  .kwnav-pop.show{ display:block; }
+  .kwnav-pop a{ display:block; text-decoration:none; color:var(--ink); font-weight:700; font-size:0.86rem; padding:9px 12px; border-radius:8px; white-space:nowrap; }
+  .kwnav-pop a:hover{ background:var(--primary-light); }
+  .kwnav-pop a.cur{ background:var(--primary-light); color:var(--primary); cursor:default; }
+  .kwnav-pop a.kwnav-logout{ color:var(--muted); border-top:1px solid var(--border); margin-top:4px; }
+  .kwnav-pop a.kwnav-logout:hover{ background:#FBE6E6; color:#b3261e; }
+  .kwnav--light .kwnav-home{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
+  .kwnav--light .kwnav-toggle{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
     <div><h1>📋 리포트·테스트 확인</h1><div class="sub">선택한 날짜에 수업 리포트·테스트 결과가 올라왔는지 확인해요 · 안 올라온 학생은 원장님께 보고</div></div>
-    <button class="back" onclick="logout()">로그아웃</button>
-  </div>
-  <div class="nav">
-    <a href="/admin-qna">💬 질문 답변</a>
-    <a href="/staff-students">🎓 학생</a>
-    <a href="/staff-scores">📈 성적</a>
-    <a href="/staff-reports" class="cur">📋 리포트</a>
-    <a href="/staff-materials">📚 수업자료</a>
-    <a href="/admin-surveys">📝 테스트</a>
-    <a href="/staff-worklog">🗓️ 근무기록</a>
+    <div class="kwnav" id="kwnav">
+      <a class="kwnav-home" id="kwnavHome" href="/staff-home">🏠 홈</a>
+      <div class="kwnav-mw">
+        <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
+        <div class="kwnav-pop" id="kwnavPop" role="menu">
+          <a role="menuitem" href="/admin-qna" data-p="/admin-qna">💬 질문 답변</a>
+          <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
+          <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
+          <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
+          <a role="menuitem" href="/staff-scores" data-p="/staff-scores">📈 성적</a>
+          <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
+          <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
+          <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
+          <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog">🗓️ 근무기록</a>
+          <a role="menuitem" href="#" class="kwnav-logout" id="kwnavLogout">🚪 로그아웃</a>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="bar">
     <input type="date" id="dateSel" onchange="render()">
@@ -257,18 +279,41 @@
 
   loadAll();
 </script>
-<!-- 조교 홈 복귀 pill: ast_ 세션에서만 노출(원장/학생엔 안 뜸) → /staff-home -->
+<!-- 조교/원장 공통 상단 네비: 홈(역할별) + 메뉴 드롭다운 -->
 <script>
 (function(){
   try{
-    var _pw = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || '';
-    if(!/^ast_/.test(_pw)) return;
-    var a = document.createElement('a');
-    a.href = '/staff-home';
-    a.textContent = '🏠 홈';
-    a.setAttribute('aria-label','조교 홈');
-    a.style.cssText = 'position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:40;background:#862633;color:#fff;font-weight:800;font-size:0.9rem;text-decoration:none;padding:10px 15px;border-radius:999px;box-shadow:0 4px 14px rgba(134,38,51,0.35);font-family:inherit;line-height:1;';
-    document.body.appendChild(a);
+    var pw = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || '';
+    var home = /^ast_/.test(pw) ? '/staff-home' : '/admin';
+    var h = document.getElementById('kwnavHome'); if(h){ h.setAttribute('href', home); }
+    var tt = document.getElementById('kwnavTitleHome'); if(tt){ tt.setAttribute('href', home); }
+    var path = (location.pathname || '').replace(/\.html$/,''); if(path.length > 1){ path = path.replace(/\/+$/,''); }
+    var pop = document.getElementById('kwnavPop');
+    if(pop){
+      var links = pop.querySelectorAll('a[data-p]');
+      for(var i=0;i<links.length;i++){
+        if(links[i].getAttribute('data-p') === path){ links[i].className = 'cur'; links[i].removeAttribute('href'); }
+      }
+    }
+    var tog = document.getElementById('kwnavToggle');
+    if(tog && pop){
+      tog.addEventListener('click', function(e){
+        e.stopPropagation();
+        var open = pop.classList.toggle('show');
+        tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function(ev){
+        if(!pop.contains(ev.target) && ev.target !== tog){ pop.classList.remove('show'); tog.setAttribute('aria-expanded','false'); }
+      });
+    }
+    var lo = document.getElementById('kwnavLogout');
+    if(lo){
+      lo.addEventListener('click', function(e){
+        e.preventDefault();
+        try{ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_token'); }catch(_){}
+        location.href = '/portal';
+      });
+    }
   }catch(_){}
 })();
 </script>
