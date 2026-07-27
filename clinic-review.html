@@ -117,6 +117,9 @@
 
   <div class="addbox">
     <div class="h">➕ 총평 쓸 학생 추가</div>
+    <div class="addrow" id="addAcademyRow" style="display:none;margin-bottom:6px">
+      <select id="addAcademy" onchange="onAcademyChange()" style="width:100%"></select>
+    </div>
     <div class="addrow">
       <input id="addName" list="studentList" placeholder="학생 이름 (클리닉 참석자는 자동으로 떠요)">
       <button onclick="doAddStudent()">추가</button>
@@ -144,7 +147,7 @@
   var token = readToken();
   if(!token){ location.replace('/portal?next=/clinic-review'); }
 
-  var reviews=[], clinicStudents=[], allStudents=[], added=[], stById={}, isOwner=false;
+  var reviews=[], clinicStudents=[], allStudents=[], added=[], stById={}, isOwner=false, curAcademy='';
   function $(id){ return document.getElementById(id); }
   function val(id){ var e=$(id); return e ? (e.value||'') : ''; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -370,7 +373,11 @@
   function doAddStudent(){
     var name=($('addName').value||'').trim();
     if(!name){ showToast('학생 이름을 입력해주세요.'); return; }
-    var matches=allStudents.filter(function(s){ return s.name===name; });
+    var multi=!!($('addAcademyRow') && $('addAcademyRow').style.display!=='none');
+    if(multi && !curAcademy){ showToast('먼저 학원을 골라 주세요.'); return; }
+    // 선택된 학원 안에서만 이름 매칭(다른 학원 동명이인 오추가 방지).
+    var pool=curAcademy?allStudents.filter(function(s){ return (s.academy||'')===curAcademy; }):allStudents;
+    var matches=pool.filter(function(s){ return s.name===name; });
     if(!matches.length){ showToast('그 이름의 학생을 찾지 못했어요.'); return; }
     if(matches.length>1){ showToast('동명이인이 있어요. 클리닉 참석자 목록에서 골라 주세요.'); return; }
     var st=matches[0];
@@ -385,9 +392,34 @@
       var r=await api('/api/students'); var j=await r.json();
       allStudents=Array.isArray(j)?j:[];
       stById={}; allStudents.forEach(function(s){ if(s&&s.id) stById[s.id]=s; });
-      $('studentList').innerHTML=allStudents.map(function(s){ return '<option value="'+esc(s.name)+'">'; }).join('');
+      // 학원 목록 유니크 추출(학생 데이터에서 — 추가 API 없음). 조교는 자기 학원만 오므로 대개 1개.
+      var acs=[]; allStudents.forEach(function(s){ var a=(s&&s.academy)||''; if(a&&acs.indexOf(a)<0) acs.push(a); });
+      acs.sort();
+      var sel=$('addAcademy'), rowEl=$('addAcademyRow');
+      if(acs.length>1){
+        // 원장 등 여러 학원 → 학원 먼저 고르게. 고르기 전엔 목록 비움(다른 학원 안 뜨게).
+        if(sel) sel.innerHTML='<option value="">학원 선택…</option>'+acs.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+        if(rowEl) rowEl.style.display='';
+        curAcademy='';
+      }else{
+        // 조교/단일 학원 → 학원칸 숨기고 그 학원(또는 전체) 그대로.
+        if(rowEl) rowEl.style.display='none';
+        curAcademy=(acs.length===1)?acs[0]:'';
+      }
+      renderStudentDatalist();
     }catch(e){}
   }
+  // 현재 선택된 학원(curAcademy) 기준으로 이름 자동완성 목록을 다시 채운다.
+  function renderStudentDatalist(){
+    var multi=!!($('addAcademyRow') && $('addAcademyRow').style.display!=='none');
+    var list;
+    if(curAcademy) list=allStudents.filter(function(s){ return (s.academy||'')===curAcademy; });
+    else list=multi?[]:allStudents;   // 여러 학원인데 미선택이면 비움
+    $('studentList').innerHTML=list.map(function(s){ return '<option value="'+esc(s.name)+'">'; }).join('');
+    var inp=$('addName');
+    if(inp) inp.placeholder=(multi&&!curAcademy)?'먼저 학원을 골라 주세요':'학생 이름 (클리닉 참석자는 자동으로 떠요)';
+  }
+  function onAcademyChange(){ curAcademy=($('addAcademy')?$('addAcademy').value:'')||''; renderStudentDatalist(); }
 
   async function load(){
     $('content').innerHTML='<div class="empty">불러오는 중…</div>';
