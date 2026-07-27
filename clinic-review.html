@@ -234,14 +234,21 @@
     return blocks.join('\n\n');
   }
 
-  // clinic 참석자 + 기존 총평 + 수동추가 를 student_id로 합침(동명이인 안전).
+  // student_id 정규화 — D1이 숫자를 REAL로 바인딩해 clinic/clinic_reviews에 "24.0"으로 저장된 과거 데이터와
+  //   표준형 "24"를 같은 키로 수렴시킨다(_db.js·clinic-roster.js와 동일 규칙). 이게 없으면 같은 학생이
+  //   출석기록("24.0")·총평기록("24") 두 키로 잡혀 카드가 2개 뜨고 아랫칸 학원·반 라벨도 안 붙는다.
+  function normSid(id){ return String(id==null?'':id).trim().replace(/\.0+$/,''); }
+
+  // clinic 참석자 + 기존 총평 + 수동추가 를 student_id로 합침(동명이인 안전, "24"/"24.0" 수렴).
+  //   ⚠️ 병합 키는 정규화값이지만, 총평이 있는 학생은 row.studentId를 '총평의 원본 id'로 유지한다.
+  //      저장·발송·삭제가 실제 clinic_reviews 행(그 id로 저장돼 있음)을 정확히 겨냥하게 하려는 것.
   function buildRows(){
     var map={};
-    clinicStudents.forEach(function(c){ if(c&&c.studentId&&!map[c.studentId]) map[c.studentId]={studentId:c.studentId,name:c.name,clinicStatus:c.status}; });
-    reviews.forEach(function(rv){ if(rv&&rv.studentId){ if(!map[rv.studentId]) map[rv.studentId]={studentId:rv.studentId,name:rv.name}; map[rv.studentId].review=rv; } });
-    added.forEach(function(a){ if(a&&a.studentId&&!map[a.studentId]) map[a.studentId]={studentId:a.studentId,name:a.name}; });
+    clinicStudents.forEach(function(c){ if(c&&c.studentId){ var k=normSid(c.studentId); if(!map[k]) map[k]={studentId:c.studentId,name:c.name,clinicStatus:c.status}; } });
+    reviews.forEach(function(rv){ if(rv&&rv.studentId){ var k=normSid(rv.studentId); if(!map[k]) map[k]={studentId:rv.studentId,name:rv.name}; map[k].review=rv; map[k].studentId=rv.studentId; if(!map[k].name) map[k].name=rv.name; } });
+    added.forEach(function(a){ if(a&&a.studentId){ var k=normSid(a.studentId); if(!map[k]) map[k]={studentId:a.studentId,name:a.name}; } });
     var rows=Object.keys(map).map(function(k){
-      var row=map[k]; var st=stById[k];
+      var row=map[k]; var st=stById[normSid(row.studentId)]||stById[String(row.studentId)];
       if(st){ row.academy=row.academy||st.academy; row.className=st.className; row.grade=st.grade; if(!row.name) row.name=st.name; }
       return row;
     });
