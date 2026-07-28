@@ -12,6 +12,30 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="KW 관리자">
 <script>('serviceWorker' in navigator)&&navigator.serviceWorker.register('/sw.js').catch(function(){});</script>
+<!-- 앱(Capacitor) 푸시 탭 → 해당 페이지 이동. 원장은 로그인 후 항상 /admin에 머무는데
+     이 페이지엔 탭 핸들러가 없어 알림을 눌러도 앱만 열리고 이동을 안 했다(2026-07-29 수정).
+     iOS=FirebaseMessaging(notificationActionPerformed) · Android=PushNotifications(pushNotificationActionPerformed).
+     data.url이 있으면 그 URL로 이동. 웹/PWA/구버전 앱에선 조용히 no-op(브리지 없으면 아무것도 안 함). -->
+<script>(function(){
+  try{
+    var C = window.Capacitor;
+    if(!(C && typeof C.isNativePlatform==='function' && C.isNativePlatform())) return; // 앱(네이티브)에서만
+    if(typeof C.nativeCallback!=='function') return;                                    // 저수준 브리지 없으면 무시
+    function go(ev){
+      try{
+        var n = ev && ev.notification;
+        var url = (n && n.data && n.data.url) || (ev && ev.data && ev.data.url);
+        if(url) location.href = url;
+      }catch(_){}
+    }
+    var plat = (typeof C.getPlatform==='function') ? C.getPlatform() : '';
+    if(plat==='ios'){
+      C.nativeCallback('FirebaseMessaging','addListener',{eventName:'notificationActionPerformed'}, go);
+    } else {
+      C.nativeCallback('PushNotifications','addListener',{eventName:'pushNotificationActionPerformed'}, go);
+    }
+  }catch(_){}
+})();</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
