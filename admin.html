@@ -402,10 +402,10 @@
           </div>
           <div class="form-row" id="newTargetValueWrap" style="display:none;">
             <label>대상 값</label>
+            <!-- 학원 목록은 하드코딩하지 않는다 — refreshAcademySelects()가 /api/class-options로 채운다.
+                 예전엔 여기에 학원 2개가 박혀 있어서, 학원·반 관리에서 새 학원을 만들어도 공지 대상에 안 떴다. -->
             <select id="newTargetAcademy" style="display:none;" onchange="onNewTargetAcademyChange()">
               <option value="">학원 선택</option>
-              <option value="대치동 정규반">대치동 정규반</option>
-              <option value="세정학원">세정학원</option>
             </select>
             <select id="newTargetClass" style="display:none;">
               <option value="">반 선택</option>
@@ -588,10 +588,9 @@
           </div>
           <div id="classSharedWrap" style="display:none;">
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학원</label>
+            <!-- 학원 목록 = refreshAcademySelects()가 /api/class-options로 채움 (하드코딩 금지) -->
             <select id="csAcademy" onchange="updateCsClassOptions()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
               <option value="">선택하세요</option>
-              <option value="대치동 정규반">대치동 정규반</option>
-              <option value="세정학원">세정학원</option>
             </select>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">반</label>
             <select id="csClass" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
@@ -603,10 +602,9 @@
           </div>
           <div id="reportStudentWrap" style="display:none;">
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학원</label>
+            <!-- 학원 목록 = refreshAcademySelects()가 /api/class-options로 채움 (하드코딩 금지) -->
             <select id="rsAcademy" onchange="rsUpdateClassOptions()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
               <option value="">선택하세요</option>
-              <option value="대치동 정규반">대치동 정규반</option>
-              <option value="세정학원">세정학원</option>
             </select>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">반</label>
             <select id="rsClass" onchange="rsUpdateStudentOptions()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;margin-bottom:8px;">
@@ -1474,10 +1472,7 @@
     el.outerHTML = `<div class="notice-edit" id="rr-${id}" style="background:#fff;">
       <div class="notice-edit-row">
         <input type="text" id="re-date-${id}" value="${escapeAttr(r.date||'')}" placeholder="YYYY-MM-DD">
-        <select id="re-school-${id}">
-          <option value="대치동 정규반" ${r.school==='대치동 정규반'?'selected':''}>대치동 정규반</option>
-          <option value="세정학원" ${r.school==='세정학원'?'selected':''}>세정학원</option>
-        </select>
+        <select id="re-school-${id}">${academyOptionsHtml(r.school)}</select>
       </div>
       <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">수업 내용</label>
       <textarea id="re-content-${id}" placeholder="수업 내용">${escapeHtml(r.content||'')}</textarea>
@@ -2172,6 +2167,8 @@
         _classOptionsCache = data;
       }
     } catch(_) {}
+    // 서버 응답이 실패해도 fallback 목록(학생 데이터 + CLASS_OPTIONS_BY_ACADEMY)으로는 채워야 한다.
+    try { refreshAcademySelects(); } catch(_) {}
     return _classOptionsCache;
   }
   function getAllClassOptionsByAcademy() {
@@ -2202,6 +2199,40 @@
     const dyn = getAllClassOptionsByAcademy();
     return Object.keys(dyn).sort();
   }
+  // ── 학원 <option> 만들기 (2026-07-29 하드코딩 제거) ──
+  // 예전엔 공지 대상·수업자료·리포트·리포트수정 4곳에 `대치동 정규반`·`세정학원`이 마크업에 박혀 있었다.
+  // 그래서 학원·반 관리에서 새 학원을 만들어도 그 4곳에서는 영영 안 보였다.
+  //
+  // ⚠️ 핵심 안전장치: 현재 값(sel)이 목록에 없어도 반드시 옵션으로 넣는다.
+  //    안 넣으면 <select>가 조용히 첫 항목으로 바뀌어, 리포트를 수정만 해도
+  //    학원이 딴 데로 바뀌어 저장된다(옛 학원명·오타가 들어 있는 과거 데이터).
+  function academyOptionsHtml(sel, placeholder) {
+    var cur = (sel == null) ? '' : String(sel);
+    var list = (typeof getAllAcademies === 'function') ? (getAllAcademies() || []).slice() : [];
+    if (cur && list.indexOf(cur) === -1) list.unshift(cur);
+    // 학원이 비어 있는 과거 데이터도 마찬가지다. 빈 옵션을 안 주면 <select>가 첫 학원으로 붙어버려서
+    // "수정 버튼만 눌렀다 저장"해도 없던 학원이 생긴다. 그래서 빈 값이면 (미지정) 옵션을 준다.
+    var head = (placeholder != null)
+      ? '<option value="">' + escapeHtml(placeholder) + '</option>'
+      : (cur ? '' : '<option value="" selected>(학원 미지정)</option>');
+    return head + list.map(function (a) {
+      return '<option value="' + escapeAttr(a) + '"' + (a === cur ? ' selected' : '') + '>' + escapeHtml(a) + '</option>';
+    }).join('');
+  }
+
+  // 마크업에 고정으로 박혀 있는 학원 드롭다운 3개를 다시 채운다(고른 값은 유지).
+  // loadClassOptionsFromServer()가 끝날 때마다 불리므로 학원을 추가·삭제하면 그 자리에서 반영된다.
+  function refreshAcademySelects() {
+    [['newTargetAcademy', '학원 선택'], ['csAcademy', '선택하세요'], ['rsAcademy', '선택하세요']]
+      .forEach(function (pair) {
+        var el = document.getElementById(pair[0]);
+        if (!el) return;
+        var keep = el.value;
+        el.innerHTML = academyOptionsHtml(keep, pair[1]);
+        el.value = keep;   // 목록에 없던 값도 위에서 옵션으로 넣었으므로 그대로 유지된다
+      });
+  }
+
   // 반/학원 학생 수 (서버에서 받은 counts 사용)
   function getClassStudentCount(acad, cls) {
     if (_classOptionsCache && _classOptionsCache.counts) {
@@ -3008,7 +3039,8 @@
     switchTab('files', findTabBtn('files'));
     const ff = document.getElementById('fileFolder');
     if (ff){ ff.value = 'class-shared'; if (typeof togglePhoneInput === 'function') togglePhoneInput(); }
-    // 학원 <option>은 하드코딩이라 전입·신규 학원이 빠져 있을 수 있다 → 없으면 그 자리에서 채워 넣는다.
+    // 2026-07-29: 학원 <option> 하드코딩은 없앴다(refreshAcademySelects가 채움). 다만 서버 목록에 아직
+    // 안 올라온 학원·반으로 지목해 올 수 있으니, 없으면 그 자리에서 채워 넣는 안전장치는 남겨 둔다.
     const addAndPick = (sel, v) => {
       if (!sel || !v) return;
       let has = false;
@@ -3570,10 +3602,9 @@
     }
   }
 
-  const CS_CLASS_OPTIONS = {
-    "대치동 정규반": ["썸머 공통수학2반", "썸머 미적반", "썸머 확통반"],
-    "세정학원":      ["썸머 기초특강반", "썸머 공통수학2반"],
-  };
+  // 2026-07-29 삭제: 여기 있던 CS_CLASS_OPTIONS(반 이름이 "썸머 …"로 박혀 있던 맵)는
+  // 아래 함수가 한 번도 읽지 않는 죽은 코드였고, 값도 지난 학기 것이라 낡아 있었다.
+  // 반 목록은 getAllClassOptionsByAcademy() → CLASS_OPTIONS_BY_ACADEMY 순으로 가져온다.
   function updateCsClassOptions() {
     const acad = document.getElementById("csAcademy").value;
     const sel  = document.getElementById("csClass");
