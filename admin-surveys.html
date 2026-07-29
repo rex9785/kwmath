@@ -884,6 +884,42 @@
       viewEl.appendChild(e); return;
     }
 
+    // ── 🎯 오답률 Top 5 (테스트 전용) — 자동채점 문항(객관식·단답·수식)만 · 미제출=오답 · 분모=전체 응시 인원 ──
+    //    서술형은 수동 O/X·채점대기가 섞여 오답률 개념이 애매해 제외(2026-07-29 관우T).
+    if(survey.quiz){
+      var wstat = qs.filter(function(q){
+          return q.correct!=null && (q.type==='single'||q.type==='multi'||q.type==='dropdown'||q.type==='short'||q.type==='math');
+        }).map(function(q, i){
+          var ok = 0;
+          responses.forEach(function(r){ if(isRight(q, r.answers[q.id])===true) ok++; });
+          var wrong = responses.length - ok;
+          return { label:(q.label||('문항 '+(i+1))), wrong:wrong, rate: responses.length?Math.round(wrong/responses.length*100):0, idx:i };
+        }).filter(function(s){ return s.wrong>0; });   // 다 맞힌 문항(오답 0)은 표시 안 함
+      wstat.sort(function(a,b){ return (b.rate-a.rate) || (b.wrong-a.wrong) || (a.idx-b.idx); });
+      var top5 = wstat.slice(0,5);
+      if(top5.length){
+        var wc = document.createElement('div'); wc.className='card';
+        var wh = '<div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">'
+               + '<span style="font-size:1.02rem;font-weight:800;color:var(--text);">🎯 오답률 Top 5</span>'
+               + '<span class="badge quiz">테스트</span></div>'
+               + '<div class="rsummary" style="margin-bottom:13px;font-size:0.82rem;color:var(--text-light);">가장 많이 틀린 문항이에요 · 미제출도 오답으로 셈 (분모 ' + responses.length + '명)</div>';
+        top5.forEach(function(s, i){
+          wh += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">'
+              +   '<span style="flex:0 0 22px;height:22px;border-radius:7px;background:' + (i===0?'#C5221F':'#8B1A35') + ';color:#fff;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;">' + (i+1) + '</span>'
+              +   '<div style="flex:1;min-width:0;">'
+              +     '<div style="display:flex;justify-content:space-between;gap:8px;font-size:0.86rem;margin-bottom:4px;">'
+              +       '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;">' + esc(s.label) + '</span>'
+              +       '<span style="flex:0 0 auto;font-weight:800;color:#C5221F;">' + s.rate + '%<span style="color:var(--text-light);font-weight:600;font-size:0.8rem;"> (' + s.wrong + '/' + responses.length + ')</span></span>'
+              +     '</div>'
+              +     '<div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;"><div style="width:' + s.rate + '%;height:100%;border-radius:6px;background:linear-gradient(90deg,#E8746F,#C5221F);"></div></div>'
+              +   '</div>'
+              + '</div>';
+        });
+        wc.innerHTML = wh;
+        viewEl.appendChild(wc);
+      }
+    }
+
     // 장문형(배점 있는) 문항 — 수동 O·X 채점 대상
     var longQs = survey.quiz ? qs.filter(function(q){ return q.type==='long' && q.points!=null; }) : [];
     function pendingCount(r){
