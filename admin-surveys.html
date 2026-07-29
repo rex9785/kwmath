@@ -326,9 +326,24 @@
       if(lb==='' || /^\d+번$/.test(lb)) q.label = i + '번';
     });
   }
+  // ── 대상 프리셋 (?acad=&cls=&new=1) ───────────────────────────
+  //   학생 목록의 반 헤더 ⋯더보기 → 🗳️ 테스트에서 넘어오면 그 반을 대상으로 새 테스트를 바로 연다.
+  //   new=1이 있어야 새로 만들기까지 진행한다(그냥 목록만 보러 온 경우와 구분).
+  //   반 체크박스 값은 "학원|반" 쌍 형식이다(다른 학원의 같은 이름 반과 안 섞이게, 2026-07-16).
+  var PRESET = (function(){
+    try{ var q = new URLSearchParams(location.search);
+         return { acad:q.get('acad'), cls:q.get('cls'), isNew:q.get('new')==='1' }; }
+    catch(_){ return { acad:null, cls:null, isNew:false }; }
+  })();
+
   function startNew(){
     // 상태 기본값 = 초안 (관우T 2026-07-09 확정: "초안 있는 게 낫겠다 — 미리 만들어두고 공개하게")
     draft = { title:'', description:'', audience:'all', audAcademy:[], audClass:[], anonymous:false, quiz:isStaff ? true : false, useTwin:true, status:'draft', questions:[ newQuestion('short') ] };
+    if(PRESET.acad){
+      draft.audAcademy = [PRESET.acad];
+      if(PRESET.cls) draft.audClass = [PRESET.acad + '|' + PRESET.cls];
+      PRESET.acad = null; PRESET.cls = null;   // 한 번만 적용
+    }
     renderBuilder();
   }
   function loadForEdit(id){
@@ -1298,22 +1313,23 @@
         });
         // 테스트: 정답률 표시 / 개인별 응답 접이식은 일반 설문에서만 (테스트는 응답자별 점수에서 펼침)
         if(survey.quiz && q.correct!=null){
-          var okC = 0, ansC = 0;
-          responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansC++; if(rt) okC++; } });
-          h += '<div class="rsummary" style="margin-top:6px;">정답률 <b>' + (ansC?Math.round(okC/ansC*100):0) + '%</b> (' + okC + '/' + ansC + '명)</div>';
+          // 정답률 분모 = 전체 응시 인원(responses.length). 미제출(무응답)도 오답으로 포함 (2026-07-29 관우T).
+          var okC = 0, totC = responses.length;
+          responses.forEach(function(r){ if(isRight(q, r.answers[q.id])===true) okC++; });
+          h += '<div class="rsummary" style="margin-top:6px;">정답률 <b>' + (totC?Math.round(okC/totC*100):0) + '%</b> (' + okC + '/' + totC + '명)</div>';
         }
         if(!survey.quiz) h += perPersonBlock(q, function(a){ return Array.isArray(a) ? a.join(', ') : a; });
       } else if(survey.quiz && q.type==='short' && q.correct!=null){
         // 단답형(테스트): 답이 제각각이라 나열하지 않고 정답률만 — 개별 답안은 응답자별 점수에서
-        var okS = 0, ansS = 0;
-        responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansS++; if(rt) okS++; } });
-        h += '<div class="rsummary">정답: <b>' + esc(q.correct) + '</b> · 정답률 <b>' + (ansS?Math.round(okS/ansS*100):0) + '%</b> (' + okS + '/' + ansS + '명 응답)</div>';
+        var okS = 0, totS = responses.length;   // 분모=전체 응시 인원, 미제출=오답 (2026-07-29 관우T)
+        responses.forEach(function(r){ if(isRight(q, r.answers[q.id])===true) okS++; });
+        h += '<div class="rsummary">정답: <b>' + esc(q.correct) + '</b> · 정답률 <b>' + (totS?Math.round(okS/totS*100):0) + '%</b> (' + okS + '/' + totS + '명)</div>';
         h += '<div class="sub">개별 답안은 위 "응답자별 점수"에서 이름을 누르면 보여요.</div>';
       } else if(survey.quiz && q.type==='math' && q.correct!=null){
         // 수식(테스트): 형태가 달라도 수학적으로 같으면 정답 — 정답률만, 개별 답안은 응답자별 점수에서
-        var okM = 0, ansM = 0;
-        responses.forEach(function(r){ var rt = isRight(q, r.answers[q.id]); if(rt!=null){ ansM++; if(rt) okM++; } });
-        h += '<div class="rsummary">정답: <b>' + fmtMathA(q.correct) + '</b> · 정답률 <b>' + (ansM?Math.round(okM/ansM*100):0) + '%</b> (' + okM + '/' + ansM + '명 응답)</div>';
+        var okM = 0, totM = responses.length;   // 분모=전체 응시 인원, 미제출=오답 (2026-07-29 관우T)
+        responses.forEach(function(r){ if(isRight(q, r.answers[q.id])===true) okM++; });
+        h += '<div class="rsummary">정답: <b>' + fmtMathA(q.correct) + '</b> · 정답률 <b>' + (totM?Math.round(okM/totM*100):0) + '%</b> (' + okM + '/' + totM + '명)</div>';
         h += '<div class="sub">형태가 달라도 수학적으로 같으면 정답으로 채점돼요. 개별 답안은 위 "응답자별 점수"에서 이름을 누르면 보여요.</div>';
       } else if(survey.quiz && q.type==='long' && q.points!=null){
         // 서술형(테스트): 여기선 채점 현황 요약만 — 채점은 맨 위 "✍️ 채점 대기"에서
@@ -1392,7 +1408,9 @@
   document.getElementById('cancelBuild').addEventListener('click', function(){ draft = null; loadList(); });
   document.getElementById('saveBuild').addEventListener('click', saveBuilder);
 
-  loadList();
+  // ?acad=&cls=&new=1 로 넘어왔으면 그 반을 대상으로 새 테스트 빌더를 바로 연다.
+  if(PRESET.isNew && PRESET.acad) startNew();
+  else loadList();
 })();
 </script>
 <!-- 조교/원장 공통 상단 네비: 홈(역할별) + 메뉴 드롭다운 -->

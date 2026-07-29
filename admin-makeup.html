@@ -157,7 +157,58 @@
              .sort(function(a, b){ return (a.name || '').localeCompare(b.name || '', 'ko'); });
     buildAcademySelect();
     show('loading', false); show('main', true);
+    applyPreset();   // ?acad=&cls=&sid= 로 넘어왔으면 대상을 미리 골라 둔다
     loadGrants();
+  }
+
+  // ── 대상 프리셋 (?acad=&cls=&sid=) ─────────────────────────────
+  //   학생 목록의 인라인 버튼에서 넘어올 때 학원·반·학생을 미리 골라 둔다.
+  //   식별은 반드시 student_id(sid) — 이름은 URL에 싣지 않는다.
+  //     ① 동명이인 오조작 방지(이름은 유일하지 않음)  ② 주소창·히스토리에 실명 안 남김.
+  //   이 화면은 $('stSel') option value가 원래부터 s.id라 sid를 그대로 넣으면 된다.
+  //   sid가 roster에 없으면(퇴원·반이동) 조용히 넘어가지 않고 경고를 띄우고 멈춘다.
+  //   날짜는 자동으로 채우지 않는다 — 인강 해제는 보통 '지난 결석일' 대상이라
+  //   오늘 날짜를 미리 넣으면 엉뚱한 날을 열어버릴 수 있다.
+  function presetHasOption(sel, v){
+    if (!sel) return false;
+    for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === v) return true;
+    return false;
+  }
+  function presetBanner(html, warn){
+    var box = $('svBox'); if (!box) return;
+    var host = box.parentNode, anchor = host.querySelector('.frm');
+    var el = document.getElementById('presetBanner');
+    if (!el){ el = document.createElement('div'); el.id = 'presetBanner'; host.insertBefore(el, anchor || box); }
+    el.style.cssText = 'margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:0.86rem;font-weight:700;line-height:1.5;'
+      + (warn ? 'background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;'
+              : 'background:#E8F1FB;color:#1B4F86;border:1px solid #A9C9EB;');
+    el.innerHTML = html;
+  }
+  function applyPreset(){
+    var q; try { q = new URLSearchParams(location.search); } catch(_) { return; }
+    var acad = q.get('acad'), cls = q.get('cls'), sid = q.get('sid');
+    if (!acad && !cls && !sid) return;
+    var stu = null;
+    if (sid){
+      stu = roster.filter(function(s){ return String(s.id) === String(sid); })[0];
+      if (!stu){
+        presetBanner('⚠️ 지정된 학생을 찾지 못했습니다. 퇴원했거나 반이 바뀌었을 수 있어요 — 학생을 직접 골라주세요.', true);
+        return;
+      }
+      acad = acadOf(stu); cls = clsOf(stu);   // 대상은 학생 데이터가 정본 (URL의 acad/cls보다 우선)
+    }
+    if (acad != null && presetHasOption($('acadSel'), acad)){ $('acadSel').value = acad; buildClassSelect(); }
+    if (cls  != null && presetHasOption($('clsSel'),  cls)){  $('clsSel').value  = cls;  buildStudentSelect(); }
+    if (!stu){
+      presetBanner('🔓 <b>' + esc(acad || '') + (cls ? ' · ' + esc(cls) : '') + '</b> — 학생과 수업 날짜를 골라주세요.');
+    } else if (presetHasOption($('stSel'), String(stu.id))){
+      $('stSel').value = String(stu.id);
+      presetBanner('🔓 <b>' + esc(stu.name || '') + '</b> 학생입니다. <span style="font-weight:500;">인강을 열/잠글 <b>수업 날짜</b>를 골라주세요.</span>');
+      loadStudentVideos();   // 날짜가 비어 있으면 안내문만 뜬다
+    } else {
+      presetBanner('⚠️ ' + esc(stu.name || '') + ' 학생이 이 반 목록에 없습니다 — 직접 골라주세요.', true);
+    }
+    try { $('svBox').parentNode.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){}
   }
 
   // 학원 → 반 → 학생 캐스케이드 (roster에서 파생). 다른 관리 화면과 동일한 분류 방식.
@@ -198,8 +249,10 @@
   }
 
   // 상위 선택이 바뀌면 하위를 다시 만들고, 학생이 리셋되므로 영상 영역도 안내문으로 되돌린다.
-  function onAcadChange(){ buildClassSelect(); loadStudentVideos(); }
-  function onClsChange(){ buildStudentSelect(); loadStudentVideos(); }
+  //   직접 다시 고른 순간 프리셋 안내는 낡은 정보가 되므로 지운다.
+  function dropPresetBanner(){ var b = document.getElementById('presetBanner'); if (b) b.remove(); }
+  function onAcadChange(){ dropPresetBanner(); buildClassSelect(); loadStudentVideos(); }
+  function onClsChange(){ dropPresetBanner(); buildStudentSelect(); loadStudentVideos(); }
 
   function grantResult(ok, msg){ var el = $('grantResult'); el.style.display = ''; el.className = 'result ' + (ok ? 'ok' : 'err'); el.textContent = msg; }
 

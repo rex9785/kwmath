@@ -190,10 +190,59 @@
     roster = d.filter(function(s){ var st = (s.approvalStatus || ''); return st === '' || st === '승인'; });
     show('loading', false); show('form', true);
     buildAcademies(); onAcademyChange();
+    applyPreset();   // ?acad=&cls=&sid= 로 넘어왔으면 대상을 미리 골라 둔다
     loadSent();   // 보낸 알림함도 같이 로드
   }
 
   function academyLabel(a){ return a || '(학원 미지정)'; }
+
+  // ── 대상 프리셋 (?acad=&cls=&sid=) ─────────────────────────────
+  //   학생 목록의 학생 카드·반 헤더 인라인 버튼에서 넘어올 때 대상을 미리 선택해 둔다.
+  //   식별은 반드시 student_id(sid). 이름은 URL에 싣지 않는다 —
+  //     ① 동명이인 오발송 방지(이름은 유일하지 않음)  ② 주소창·히스토리에 실명 안 남김.
+  //   sid가 roster에 없으면(퇴원·반이동) 조용히 넘어가지 않고 경고를 띄우고 멈춘다.
+  function presetHasOption(sel, v){
+    if (!sel) return false;
+    for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === v) return true;
+    return false;
+  }
+  function presetBanner(html, warn){
+    var host = $('form'); if (!host) return;
+    var el = document.getElementById('presetBanner');
+    if (!el){ el = document.createElement('div'); el.id = 'presetBanner'; host.insertBefore(el, host.firstChild); }
+    el.style.cssText = 'margin:0 0 14px;padding:10px 12px;border-radius:10px;font-size:0.86rem;font-weight:700;line-height:1.5;'
+      + (warn ? 'background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;'
+              : 'background:#E8F1FB;color:#1B4F86;border:1px solid #A9C9EB;');
+    el.innerHTML = html;
+  }
+  function applyPreset(){
+    var q; try { q = new URLSearchParams(location.search); } catch(_) { return; }
+    var acad = q.get('acad'), cls = q.get('cls'), sid = q.get('sid');
+    if (!acad && !cls && !sid) return;
+    var stu = null;
+    if (sid){
+      stu = roster.filter(function(s){ return String(s.id) === String(sid); })[0];
+      if (!stu){
+        presetBanner('⚠️ 지정된 학생을 찾지 못했습니다. 퇴원했거나 반이 바뀌었을 수 있어요 — 대상을 직접 골라주세요.', true);
+        return;
+      }
+      acad = stu.academy || '';       // 대상은 학생 데이터가 정본 (URL의 acad/cls보다 우선)
+      cls  = stu.className || '';
+    }
+    if (acad != null && presetHasOption($('acSel'), acad)){ $('acSel').value = acad; onAcademyChange(); }
+    if (cls  != null && presetHasOption($('clSel'), cls)){  $('clSel').value  = cls;  renderStudents(); }
+    if (stu){
+      var boxes = document.querySelectorAll('.stChk'), hit = false;
+      for (var i = 0; i < boxes.length; i++){
+        if (boxes[i].value === String(stu.id)){ boxes[i].checked = true; hit = true; break; }
+      }
+      updateCount();
+      if (hit) presetBanner('🔔 <b>' + esc(stu.name || '') + '</b> 학생에게 보냅니다. <span style="font-weight:500;">(아래에서 대상을 더하거나 뺄 수 있어요)</span>');
+      else     presetBanner('⚠️ ' + esc(stu.name || '') + ' 학생이 목록에 없습니다 — 대상을 직접 골라주세요.', true);
+    } else {
+      presetBanner('🔔 <b>' + esc(acad || '') + (cls ? ' · ' + esc(cls) : '') + '</b> 반에 보냅니다. <span style="font-weight:500;">(학생을 골라 일부에게만 보낼 수도 있어요)</span>');
+    }
+  }
 
   function buildAcademies(){
     var acs = uniq(roster.map(function(s){ return s.academy || ''; })).sort();

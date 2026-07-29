@@ -101,6 +101,19 @@
   var options = { academies: [], classes: {}, counts: {} };
   var period = 'week';
 
+  // ── 대상 프리셋 (?acad=&cls=) ──────────────────────────────────
+  //   반 헤더의 인라인 버튼에서 넘어올 때 그 반을 바로 펼쳐 보여준다.
+  //   이 화면은 반 단위 랭킹이라 sid(학생)는 쓰지 않는다 — 넘어와도 무시.
+  //   프리셋이 있으면 localStorage에 저장된 '마지막으로 보던 반'보다 우선한다
+  //   (관우T가 방금 지목한 반이 저장값보다 항상 더 최신 의도이기 때문).
+  //   단, 프리셋 반이 실제 목록에 없으면(폐반·개명) 무시하고 기존 로직으로 되돌아간다.
+  var preset = (function(){
+    try{
+      var q = new URLSearchParams(location.search);
+      return { acad: q.get('acad'), cls: q.get('cls') };
+    }catch(_){ return { acad:null, cls:null }; }
+  })();
+
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
@@ -146,7 +159,11 @@
       return;
     }
     var savedAcad = lsGet('kwstudy_academy');
-    var acad = options.academies.indexOf(savedAcad)>=0 ? savedAcad : options.academies[0];
+    var acad = options.academies.indexOf(preset.acad)>=0 ? preset.acad
+             : options.academies.indexOf(savedAcad)>=0 ? savedAcad
+             : options.academies[0];
+    var acadMiss = preset.acad && options.academies.indexOf(preset.acad)<0 ? preset.acad : '';
+    preset.acad = null;   // 한 번만 적용 (이후 학원을 직접 바꾸면 그 선택이 우선)
     var acadOpts = options.academies.map(function(a){ return '<option value="'+esc(a)+'"'+(a===acad?' selected':'')+'>'+esc(a)+'</option>'; }).join('');
     $('content').innerHTML =
       '<div class="controls">'+
@@ -159,9 +176,21 @@
         '</div>'+
       '</div>'+
       '<div class="note">📌 학생 화면에서는 순위가 <b>익명(친구 1, 친구 2 …)</b>으로 보여요. 이 페이지는 관리자만 실명을 볼 수 있습니다.</div>'+
+      '<div id="presetWarn" style="display:none;"></div>'+
       '<div id="result"><div class="msg">반을 선택하면 순위가 나와요.</div></div>';
     syncPeriodSeg();
+    if (acadMiss) presetWarn('⚠️ 「'+esc(acadMiss)+'」 학원을 찾지 못했습니다 — 직접 골라주세요.');
     fillClasses(acad);
+  }
+
+  // 프리셋으로 넘어온 학원·반이 실제 목록에 없을 때(폐반·개명·오타) 조용히 넘어가지 않고 알린다.
+  //   #result는 loadRanking()이 덮어쓰므로 별도 칸에 띄운다.
+  function presetWarn(html){
+    var el = $('presetWarn'); if(!el) return;
+    if(!html){ el.style.display='none'; el.innerHTML=''; return; }
+    el.style.cssText = 'display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:0.86rem;font-weight:700;line-height:1.5;'
+      + 'background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;';
+    el.innerHTML = html;
   }
 
   function syncPeriodSeg(){
@@ -177,7 +206,11 @@
     var list = options.classes[acad] || [];
     if(!list.length){ sel.innerHTML='<option value="">(반 없음)</option>'; $('result').innerHTML='<div class="msg">이 학원에 등록된 반이 없습니다.</div>'; return; }
     var savedCls = lsGet('kwstudy_class');
-    var cls = list.indexOf(savedCls)>=0 ? savedCls : list[0];
+    var cls = list.indexOf(preset.cls)>=0 ? preset.cls
+            : list.indexOf(savedCls)>=0 ? savedCls
+            : list[0];
+    if (preset.cls && list.indexOf(preset.cls)<0) presetWarn('⚠️ 「'+esc(preset.cls)+'」 반을 이 학원에서 찾지 못했습니다 — 직접 골라주세요.');
+    preset.cls = null;   // 한 번만 적용 (이후 반을 직접 바꾸면 그 선택이 우선)
     sel.innerHTML = list.map(function(c){
       var n = options.counts[acad+'/'+c];
       var lab = c + (n? ' ('+n+'명)' : '');
@@ -185,8 +218,8 @@
     }).join('');
     loadRanking();
   }
-  function onAcademy(){ var a=$('academySel').value; lsSet('kwstudy_academy',a); fillClasses(a); }
-  function onClass(){ lsSet('kwstudy_class',$('classSel').value); loadRanking(); }
+  function onAcademy(){ presetWarn(''); var a=$('academySel').value; lsSet('kwstudy_academy',a); fillClasses(a); }
+  function onClass(){ presetWarn(''); lsSet('kwstudy_class',$('classSel').value); loadRanking(); }
 
   async function loadRanking(){
     var acad=$('academySel') && $('academySel').value;

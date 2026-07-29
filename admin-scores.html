@@ -123,6 +123,7 @@
       if(!Array.isArray(data)){ $('content').innerHTML='<div class="msg">학생 목록 응답 오류</div>'; return; }
       students = data.filter(function(s){ return s && s.name; }).sort(function(a,b){ return a.name.localeCompare(b.name,'ko'); });
       renderShell();
+      applyPreset();                 // ?acad=&cls=&sid= 로 넘어왔으면 대상을 미리 골라 둔다
       if(curName) loadScores(curName);
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
   }
@@ -163,7 +164,49 @@
   }
   function onAcad(){ buildCls(); resetPick(); }
   function onCls(){ buildStu(); resetPick(); }
-  function resetPick(){ curName=''; editingId=null; $('panel').innerHTML=''; }
+  function resetPick(){
+    curName=''; editingId=null; $('panel').innerHTML='';
+    var b=document.getElementById('presetBanner'); if(b) b.remove();   // 직접 다시 고르면 프리셋 안내는 낡은 정보
+  }
+
+  // ── 대상 프리셋 (?acad=&cls=&sid=) ─────────────────────────────
+  //   학생 목록의 인라인 버튼에서 넘어올 때 대상을 미리 골라 둔다. 식별은 student_id(sid).
+  //   ⚠️ 이 화면의 성적 API는 아직 이름 계약(/api/scores?name=)이다. sid로 학생을 특정해도
+  //      조회는 이름으로 나가므로, 같은 이름이 둘 이상이면 성적이 섞여 보일 수 있다.
+  //      → 그 경우 조용히 넘어가지 않고 반드시 빨간 경고를 띄운다. (근본 해결은 scores API의 id 전환)
+  function presetHasOption(sel, v){
+    if(!sel) return false;
+    for(var i=0;i<sel.options.length;i++) if(sel.options[i].value===v) return true;
+    return false;
+  }
+  function presetBanner(html, warn){
+    var host=$('content'); if(!host) return;
+    var el=document.getElementById('presetBanner');
+    if(!el){ el=document.createElement('div'); el.id='presetBanner'; host.insertBefore(el, host.firstChild); }
+    el.style.cssText='margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:0.86rem;font-weight:700;line-height:1.5;'
+      +(warn?'background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;':'background:#E8F1FB;color:#1B4F86;border:1px solid #A9C9EB;');
+    el.innerHTML=html;
+  }
+  function applyPreset(){
+    var q; try{ q=new URLSearchParams(location.search); }catch(_){ return; }
+    var acad=q.get('acad'), cls=q.get('cls'), sid=q.get('sid');
+    if(!acad && !cls && !sid) return;
+    var stu=null;
+    if(sid){
+      stu=students.filter(function(s){ return String(s.id)===String(sid); })[0];
+      if(!stu){ presetBanner('⚠️ 지정된 학생을 찾지 못했습니다. 퇴원했거나 반이 바뀌었을 수 있어요 — 직접 골라주세요.', true); return; }
+      acad=acadOf(stu); cls=clsOf(stu);      // 대상은 학생 데이터가 정본
+    }
+    if(acad!=null && presetHasOption($('acadSel'),acad)){ $('acadSel').value=acad; buildCls(); }
+    if(cls!=null  && presetHasOption($('clsSel'),cls)){   $('clsSel').value=cls;   buildStu(); }
+    if(!stu){ presetBanner('📈 <b>'+esc(acad||'')+(cls?' · '+esc(cls):'')+'</b> — 학생을 골라주세요.'); return; }
+    var nm=stu.name||'';
+    if(!presetHasOption($('stuSel'),nm)){ presetBanner('⚠️ '+esc(nm)+' 학생이 이 반 목록에 없습니다 — 직접 골라주세요.', true); return; }
+    $('stuSel').value=nm; curName=nm; editingId=null;
+    var dup=students.filter(function(s){ return (s.name||'')===nm; }).length;
+    if(dup>1) presetBanner('⚠️ <b>'+esc(nm)+'</b> 이름의 학생이 <b>'+dup+'명</b> 있습니다. 이 화면의 성적은 아직 <b>이름</b>으로 조회되므로 <b>여러 학생의 성적이 섞여 보일 수 있습니다.</b> 확인 후 입력해 주세요.', true);
+    else      presetBanner('📈 <b>'+esc(nm)+'</b> 학생 성적입니다.');
+  }
   function onPick(){ curName=$('stuSel').value; editingId=null; if(curName) loadScores(curName); else $('panel').innerHTML=''; }
 
   async function loadScores(name){
