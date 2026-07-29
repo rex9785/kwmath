@@ -89,7 +89,7 @@ td.oxO{color:var(--ok); font-weight:800;} td.oxX{color:var(--bad); font-weight:8
 
 @media print{
   body{background:#fff;}
-  #panel,#panelM,#modebar,#printbar{display:none !important;}
+  #panel,#panelM,#modebar,#printbar,#homebar{display:none !important;}
   #report{display:block !important;}
   .page{box-shadow:none; margin:0; page-break-after:always; width:auto; min-height:auto;}
   .page:last-child{page-break-after:auto;}
@@ -98,6 +98,11 @@ td.oxO{color:var(--ok); font-weight:800;} td.oxX{color:var(--bad); font-weight:8
 </style>
 </head>
 <body>
+
+<!-- 이 페이지는 관리자 홈 카드에 없는 숨은 페이지라(주소를 직접 쳐서 들어옴) 나갈 길이 없었다 → 돌아가는 문 하나. 인쇄물에는 안 찍힌다(@media print). -->
+<div id="homebar" style="max-width:880px;margin:18px auto -6px;">
+  <a href="/admin" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:#fff;color:var(--wine);border:1.5px solid var(--wine);border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;">🏠 관리자 홈</a>
+</div>
 
 <div id="modebar">
   <button class="mtab on" id="tabSingle">개별 보고서</button>
