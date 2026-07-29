@@ -3,24 +3,26 @@
 // D1 table: exam_scores (없으면 자동 생성). 학생 식별 = student_id.
 // 인증: admin(Bearer ADMIN_PASSWORD) = 모든 학생 / 학생·학부모(토큰) = 본인·자녀만
 //
-//  GET    ?name=홍길동                  → 그 학생 성적 목록(시간순)
-//  POST   { name?, id?, examType, gradeLevel?, label, sortKey?, rawScore?, grade?, examDate?, memo? }
+//  GET    ?sid=12 (또는 ?name=홍길동)   → 그 학생 성적 목록(시간순). sid 우선 = 동명이인 안전.
+//  GET    ?scope=class&acad=&cls=       → 반(또는 학원) 전체 명단 + 성적. 관리자·조교 전용(반 평균 화면).
+//  POST   { sid?, name?, id?, examType, gradeLevel?, label, sortKey?, rawScore?, grade?, examDate?, memo? }
 //                                        → 추가 (id 있으면 수정). 학생은 본인만(?name 쿼리로 자녀 선택).
-//  DELETE { id }  (+ ?name=)            → 삭제. 학생은 본인 것만.
+//  DELETE { id }  (+ ?sid= 또는 ?name=) → 삭제. 학생은 본인 것만.
 //
-//  examType: '내신' | '모의'   rawScore: 0~100(정수)   grade: 1~9(정수)
+//  examType: 수동 입력 = '내신' | '모의'  ·  퀴즈 자동반영 = '일일테스트'|'주간테스트'|'월말테스트'
+//            (자동반영분은 _scores.js가 넣는다. raw_score만 있고 grade는 항상 NULL, source_key='quiz:<id>')
+//  rawScore: 0~100(정수)   grade: 1~9(정수, 1이 제일 좋음)
 //  sortKey : 시간순 정렬용 문자열(프론트가 생성, 예 '2026-1-1' = 고1·1학기·중간). 없으면 id순.
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
-import { getStudentByName, listStudents } from './_db.js';
+import { getStudentByName, getStudentById, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { ensureExamScoresTable } from './_scores.js';   // 스키마 단일 출처(테스트 자동성적과 공유)
 
-// 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음).
-//   미배정 조교는 빈 Set → 아무 학생 성적도 못 봄/못 씀. (출결과 동일 패턴)
-async function staffNameScope(env, request) {
-  const academy = await staffScopeAcademy(env, request);
-  if (academy === null) return null;                               // 원장 → 전체
+// 조교(X-Staff-Phone)가 맡은 학원의 학생 이름 Set. 미배정 조교는 빈 Set → 아무 학생도 못 봄/못 씀.
+//   ⚠️ 이름 Set은 레거시 ?name= 경로 전용이다. sid·반 조회는 academy를 직접 비교해 판정한다
+//      (다른 학원에 동명이인이 있으면 이름 Set만으로는 스코프를 우회당할 수 있으므로).
+async function rosterNames(env, academy) {
   const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
   return new Set(roster.map(s => s.name));
 }
@@ -63,12 +65,62 @@ export async function onRequest({ request, env }) {
   try { await ensureExamScoresTable(env); }
   catch (e) { return Response.json({ error: '성적 DB 초기화에 실패했습니다.' }, { status: 500 }); }
 
-  // 조교 학원 스코프 (원장이면 null). isAdmin 경로에서만 의미 있음(학생은 토큰으로 본인만).
-  const allowedNames = isAdmin ? await staffNameScope(env, request) : null;
+  // 조교 학원 스코프 (원장이면 null = 제한 없음, ''이면 미배정). isAdmin 경로에서만 의미 있음.
+  const scopeAcad    = isAdmin ? await staffScopeAcademy(env, request) : null;
+  const allowedNames = (isAdmin && scopeAcad !== null) ? await rosterNames(env, scopeAcad) : null;
 
-  // 요청자 → student_id 매핑 (admin: ?name/body.name으로 지정 / 학생: 토큰으로 본인·자녀)
-  async function resolveStudent(bodyName) {
+  // ── GET ?scope=class : 반(또는 학원) 전체 명단 + 성적 — 반 평균 화면 전용 ──
+  //   학생 식별을 처음부터 student_id로 하므로 동명이인이 섞이지 않는다(이름 계약 안 씀).
+  //   성적이 하나도 없는 학생도 students에는 넣는다 → 화면에서 '미입력'으로 보여 "몇 명 빠졌는지"를 숨기지 않는다.
+  if (request.method === 'GET' && url.searchParams.get('scope') === 'class') {
+    if (!isAdmin) return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
+    // 필터 적용 여부는 파라미터가 '왔는지'로 판단한다 — 빈 문자열도 "학원(반) 미지정 학생"이라는 명시적 조건이라
+    // 값이 비었다고 필터를 빼면 엉뚱한 학생까지 딸려온다.
+    const hasAcad = url.searchParams.has('acad'), hasCls = url.searchParams.has('cls');
+    let acad = (url.searchParams.get('acad') || '').trim();
+    const cls = (url.searchParams.get('cls') || '').trim();
+    let filterAcad = hasAcad;
+    if (scopeAcad !== null) {                                  // 조교 — 담당 학원 밖은 차단
+      if (!scopeAcad) return Response.json({ academy: acad, className: cls, students: [], scores: [] });
+      if (hasAcad && acad !== scopeAcad) return Response.json({ error: '담당 학원 학생만 볼 수 있어요.' }, { status: 403 });
+      acad = scopeAcad; filterAcad = true;
+    }
+    if (!filterAcad && !hasCls) return Response.json({ error: '학원 또는 반을 지정해주세요.' }, { status: 400 });
+    try {
+      const roster = (await listStudents(env)).filter(s =>
+        (!filterAcad || (s.academy || '') === acad) && (!hasCls || (s.className || '') === cls));
+      const students = roster.map(s => ({
+        id: String(s.id), name: s.name || '', grade: s.grade || '',
+        academy: s.academy || '', className: s.className || '',
+      }));
+      if (!students.length) return Response.json({ academy: acad, className: cls, students, scores: [] });
+      // D1 바인딩 개수 한계를 넘지 않게 100명씩 끊어 조회(학원 전체를 고를 수도 있으므로).
+      const scores = [];
+      for (let i = 0; i < roster.length; i += 100) {
+        const chunk = roster.slice(i, i + 100).map(s => s.id);
+        const { results } = await env.DB.prepare(
+          'SELECT * FROM exam_scores WHERE student_id IN (' + chunk.map(() => '?').join(',') + ')'
+        ).bind(...chunk).all();
+        (results || []).forEach(r => { const o = rowOut(r); o.studentId = String(r.student_id); scores.push(o); });
+      }
+      return Response.json({ academy: acad, className: cls, students, scores });
+    } catch (e) {
+      return Response.json({ error: '반 성적을 불러오지 못했습니다.' }, { status: 500 });
+    }
+  }
+
+  // 요청자 → student_id 매핑 (admin: ?sid/?name으로 지정 / 학생: 토큰으로 본인·자녀)
+  async function resolveStudent(bodyName, bodySid) {
     if (isAdmin) {
+      // sid 우선 — 동명이인이 있어도 정확히 그 학생 한 명.
+      const sid = String(bodySid || url.searchParams.get('sid') || '').trim();
+      if (sid) {
+        const st = await getStudentById(env, sid);
+        if (!st) return { error: '학생을 D1에서 찾을 수 없습니다.', status: 404 };
+        if (scopeAcad !== null && (st.academy || '') !== scopeAcad)
+          return { error: '담당 학원 학생만 성적을 입력·조회할 수 있어요.', status: 403 };
+        return { id: st.id, name: st.name };
+      }
       const name = (bodyName || url.searchParams.get('name') || '').trim();
       if (!name) return { error: 'name 필수', status: 400 };
       // 조교는 자기 학원 학생만 (원장은 allowedNames=null → 통과). 조회·입력·삭제 모두 이 경로를 거침.
@@ -84,7 +136,7 @@ export async function onRequest({ request, env }) {
 
   // ── GET: 목록 ──
   if (request.method === 'GET') {
-    const r = await resolveStudent(null);
+    const r = await resolveStudent(null, null);
     if (r.response) return r.response;
     if (r.error) return Response.json({ error: r.error }, { status: r.status });
     try {
@@ -100,7 +152,7 @@ export async function onRequest({ request, env }) {
     let body = {};
     try { body = await request.json(); } catch (_) {}
 
-    const r = await resolveStudent(body.name);
+    const r = await resolveStudent(body.name, body.sid);
     if (r.response) return r.response;
     if (r.error) return Response.json({ error: r.error }, { status: r.status });
 
@@ -158,7 +210,7 @@ export async function onRequest({ request, env }) {
     const id = body.id || url.searchParams.get('id');
     if (!id) return Response.json({ error: 'id 필수' }, { status: 400 });
 
-    const r = await resolveStudent(body.name);
+    const r = await resolveStudent(body.name, body.sid);
     if (r.response) return r.response;
     if (r.error) return Response.json({ error: r.error }, { status: r.status });
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>성적 관리 · 이관우 수학연구소</title>
 <style>
-  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --mock:#1f6f78; --mock-light:#E3F1F2; }
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --mock:#1f6f78; --mock-light:#E3F1F2; --test:#2F6F4F; }
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
   .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
@@ -22,11 +22,24 @@
   button{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 16px; font-weight:700; cursor:pointer; font-size:0.9rem; font-family:inherit; }
   button.ghost{ background:#fff; color:var(--primary); border:1px solid var(--primary); }
   button.mini{ padding:5px 9px; font-size:0.76rem; border-radius:7px; }
-  .tabs{ display:flex; gap:8px; margin-bottom:12px; }
-  .tabs button{ flex:1; background:#fff; color:var(--muted); border:1.5px solid var(--border); border-radius:11px; padding:11px; font-size:0.95rem; }
+  .tabs{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .tabs button{ flex:1 1 96px; background:#fff; color:var(--muted); border:1.5px solid var(--border); border-radius:11px; padding:11px 8px; font-size:0.92rem; white-space:nowrap; }
   .tabs button.on{ color:#fff; }
   .tabs button.on.naesin{ background:var(--primary); border-color:var(--primary); }
   .tabs button.on.mock{ background:var(--mock); border-color:var(--mock); }
+  .tabs button.on.test{ background:var(--test); border-color:var(--test); }
+  /* 반 평균 표 — 회차가 많으면 가로 스크롤, 학생 이름 열은 왼쪽에 고정 */
+  .ctable-wrap{ overflow-x:auto; margin-top:8px; }
+  .ctable{ font-size:0.84rem; min-width:100%; }
+  .ctable th, .ctable td{ white-space:nowrap; }
+  .ctable th.stu, .ctable td.stu{ position:sticky; left:0; z-index:1; text-align:left; }
+  .ctable th.stu{ background:var(--primary-light); }
+  .ctable td.stu{ background:#fff; font-weight:700; }
+  .ctable td.num{ text-align:center; }
+  .ctable td.none{ text-align:center; color:#c8c0c1; }
+  .ctable td.low{ background:#FDECEF; color:#B02347; }
+  .ctable tr.avg td{ background:#F4F6FA; font-weight:800; border-top:2px solid #D9E0EA; }
+  .stu-link{ color:var(--primary); text-decoration:none; border-bottom:1px dashed rgba(134,38,51,0.4); cursor:pointer; }
   .seg{ display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
   .seg button{ background:#fff; color:var(--muted); border:none; border-radius:0; padding:6px 13px; font-size:0.8rem; }
   .seg button.on{ background:var(--primary); color:#fff; }
@@ -80,7 +93,14 @@
 </div>
 <script>
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
-  var students = [], curName = '', curScores = [], tab = '내신', metric = 'raw', editingId = null;
+  // tab 초기값이 ''인 이유 — 첫 화면에서 '실제로 성적이 쌓인' 유형이 자동으로 잡히게 하려고.
+  //   (내신으로 고정해두면 매 수업 보는 테스트를 두고 빈 내신 탭이 먼저 떠서 한 번 더 눌러야 한다.)
+  var students = [], curName = '', curSid = '', curScores = [], tab = '', metric = 'raw', editingId = null;
+  // ── 반 평균 모드 ── 학생을 안 고르면(드롭다운 첫 항목) 반 전체 평균 패널을 띄운다.
+  var mode = 'student', classRoster = [], classScores = [], classTab = '', classMetric = 'raw', classErr = '';
+  // 탭 노출 순서 — 매 수업 보는 테스트가 앞, 수동 입력(내신·모의)이 뒤. 목록에 없는 유형은 뒤에 그대로 붙는다.
+  //   테스트 성적은 퀴즈 채점 때 자동으로 쌓인다(_scores.js) — 원점수(100점 환산)만 있고 등급은 없다.
+  var TYPE_ORDER = ['일일테스트','주간테스트','월말테스트','내신','모의'];
 
   var LABELS = { '내신':['1학기 중간','1학기 기말','2학기 중간','2학기 기말'],
                  '모의':['3월','4월','5월','6월','7월','9월','10월','11월(수능)'] };
@@ -124,11 +144,12 @@
       students = data.filter(function(s){ return s && s.name; }).sort(function(a,b){ return a.name.localeCompare(b.name,'ko'); });
       renderShell();
       applyPreset();                 // ?acad=&cls=&sid= 로 넘어왔으면 대상을 미리 골라 둔다
-      if(curName) loadScores(curName);
+      if(curSid) loadScores(curSid);
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; }
   }
   // 학원 → 반 → 학생 3단 분류(다른 관리 화면과 동일). 전체 학생을 한 번에 안 뿌리고 좁혀서 고른다.
-  //   빈 학원/반은 '(미지정)'·'(반 없음)' 버킷으로 묶어 누락 방지. 학생 option value는 기존대로 name 유지(백엔드 /api/scores?name= 계약).
+  //   빈 학원/반은 '(미지정)'·'(반 없음)' 버킷으로 묶어 누락 방지.
+  //   학생 option value = student_id(이름 아님) — 동명이인이어도 정확히 그 학생만 조회·저장된다.
   function renderShell(){
     $('content').innerHTML =
       '<div class="card">'+
@@ -159,21 +180,21 @@
     var acad=$('acadSel').value, cls=$('clsSel').value;
     var list=(acad&&cls)?students.filter(function(s){ return acadOf(s)===acad && clsOf(s)===cls; }):[];
     list.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ko'); });
-    $('stuSel').innerHTML='<option value="">'+(acad&&cls?'학생 선택…':'학원·반을 먼저 고르세요')+'</option>'+
-      list.map(function(s){ var t=(s.grade?(' · '+esc(s.grade)):''); return '<option value="'+esc(s.name)+'">'+esc(s.name)+t+'</option>'; }).join('');
+    $('stuSel').innerHTML='<option value="">'+(acad&&cls?'📊 반 평균 (반 전체)':'학원·반을 먼저 고르세요')+'</option>'+
+      list.map(function(s){ var t=(s.grade?(' · '+esc(s.grade)):''); return '<option value="'+esc(String(s.id))+'">'+esc(s.name)+t+'</option>'; }).join('');
   }
   function onAcad(){ buildCls(); resetPick(); }
-  function onCls(){ buildStu(); resetPick(); }
+  // 반을 고르면 학생을 안 골라도 바로 반 평균이 뜬다(한 번 더 누르게 하지 않는다).
+  function onCls(){ buildStu(); resetPick(); if($('acadSel').value && $('clsSel').value) loadClass(); }
   function resetPick(){
-    curName=''; editingId=null; $('panel').innerHTML='';
+    curName=''; curSid=''; editingId=null; mode='student'; $('panel').innerHTML='';
     var b=document.getElementById('presetBanner'); if(b) b.remove();   // 직접 다시 고르면 프리셋 안내는 낡은 정보
   }
 
   // ── 대상 프리셋 (?acad=&cls=&sid=) ─────────────────────────────
   //   학생 목록의 인라인 버튼에서 넘어올 때 대상을 미리 골라 둔다. 식별은 student_id(sid).
-  //   ⚠️ 이 화면의 성적 API는 아직 이름 계약(/api/scores?name=)이다. sid로 학생을 특정해도
-  //      조회는 이름으로 나가므로, 같은 이름이 둘 이상이면 성적이 섞여 보일 수 있다.
-  //      → 그 경우 조용히 넘어가지 않고 반드시 빨간 경고를 띄운다. (근본 해결은 scores API의 id 전환)
+  //   sid 없이 acad·cls만 오면(반 헤더의 📊 버튼) 그 반 평균을 바로 띄운다.
+  //   조회·저장 모두 sid로 나가므로 동명이인이 섞이지 않는다(2026-07-29 이름→id 전환 완료).
   function presetHasOption(sel, v){
     if(!sel) return false;
     for(var i=0;i<sel.options.length;i++) if(sel.options[i].value===v) return true;
@@ -191,6 +212,9 @@
     var q; try{ q=new URLSearchParams(location.search); }catch(_){ return; }
     var acad=q.get('acad'), cls=q.get('cls'), sid=q.get('sid');
     if(!acad && !cls && !sid) return;
+    // 학원·반이 비어 있는 학생들은 이 화면에서 '(미지정)'·'(반 없음)' 버킷으로 묶여 있다 → 값을 그 이름으로 맞춰야 매칭된다.
+    if(acad==='') acad=ACAD_NONE;
+    if(cls==='')  cls=CLS_NONE;
     var stu=null;
     if(sid){
       stu=students.filter(function(s){ return String(s.id)===String(sid); })[0];
@@ -199,54 +223,117 @@
     }
     if(acad!=null && presetHasOption($('acadSel'),acad)){ $('acadSel').value=acad; buildCls(); }
     if(cls!=null  && presetHasOption($('clsSel'),cls)){   $('clsSel').value=cls;   buildStu(); }
-    if(!stu){ presetBanner('📈 <b>'+esc(acad||'')+(cls?' · '+esc(cls):'')+'</b> — 학생을 골라주세요.'); return; }
-    var nm=stu.name||'';
-    if(!presetHasOption($('stuSel'),nm)){ presetBanner('⚠️ '+esc(nm)+' 학생이 이 반 목록에 없습니다 — 직접 골라주세요.', true); return; }
-    $('stuSel').value=nm; curName=nm; editingId=null;
-    var dup=students.filter(function(s){ return (s.name||'')===nm; }).length;
-    if(dup>1) presetBanner('⚠️ <b>'+esc(nm)+'</b> 이름의 학생이 <b>'+dup+'명</b> 있습니다. 이 화면의 성적은 아직 <b>이름</b>으로 조회되므로 <b>여러 학생의 성적이 섞여 보일 수 있습니다.</b> 확인 후 입력해 주세요.', true);
-    else      presetBanner('📈 <b>'+esc(nm)+'</b> 학생 성적입니다.');
+    if(!stu){
+      // sid 없이 반만 넘어왔으면 그 반 평균을 바로 보여준다(한 번 더 고르게 하지 않는다).
+      if($('acadSel').value && $('clsSel').value){
+        presetBanner('📊 <b>'+esc(acad||'')+' · '+esc(cls||'')+'</b> 반 평균입니다. 개인 성적은 위에서 학생을 고르세요.');
+        loadClass();
+      } else presetBanner('📈 <b>'+esc(acad||'')+(cls?' · '+esc(cls):'')+'</b> — 반을 골라주세요.');
+      return;
+    }
+    var sidStr=String(stu.id), nm=stu.name||'';
+    if(!presetHasOption($('stuSel'),sidStr)){ presetBanner('⚠️ '+esc(nm)+' 학생이 이 반 목록에 없습니다 — 직접 골라주세요.', true); return; }
+    $('stuSel').value=sidStr; curSid=sidStr; curName=nm; mode='student'; editingId=null;
+    presetBanner('📈 <b>'+esc(nm)+'</b> 학생 성적입니다.');
   }
-  function onPick(){ curName=$('stuSel').value; editingId=null; if(curName) loadScores(curName); else $('panel').innerHTML=''; }
+  function onPick(){
+    var v=$('stuSel').value; editingId=null;
+    // 대상을 직접 바꾼 순간 프리셋 배너는 낡은 정보가 된다(반 평균 안내가 개인 화면에 남거나, 이전 학생 이름이 남음).
+    var b=document.getElementById('presetBanner'); if(b) b.remove();
+    if(!v){ curSid=''; curName=''; loadClass(); return; }        // 첫 항목 = 반 평균
+    curSid=v;
+    var s=students.filter(function(x){ return String(x.id)===v; })[0];
+    curName=s?(s.name||''):'';
+    loadScores(v);
+  }
 
-  async function loadScores(name){
+  async function loadScores(sid){
+    mode='student';
     $('panel').innerHTML = '<div class="msg">성적 불러오는 중…</div>';
     try{
-      var r = await api('/api/scores?name='+encodeURIComponent(name)+'&t='+Date.now());
+      var r = await api('/api/scores?sid='+encodeURIComponent(sid)+'&t='+Date.now());
       var data = await r.json();
       curScores = (data && data.scores) || [];
       renderPanel();
     }catch(e){ if(String(e.message)!=='401') $('panel').innerHTML='<div class="msg">성적을 불러오지 못했습니다.</div>'; }
   }
 
-  function switchTab(t){ tab=t; editingId=null; renderPanel(); }
+  function switchTab(t){ tab=t; editingId=null; if(isTestType(t)) metric='raw'; renderPanel(); }
   function setMetric(m){ metric=m; renderPanel(); }
 
+  // ── 시험 유형 헬퍼 ──────────────────────────────────────────
+  //   '…테스트'(일일·주간·월말)는 퀴즈 채점 시 자동으로 쌓이는 점수다 → 등급이 없고, 여기서 직접 입력하지 않는다.
+  function isTestType(t){ return String(t||'').indexOf('테스트') >= 0; }
+  function orderTypes(list){
+    return list.slice().sort(function(a,b){
+      var ia=TYPE_ORDER.indexOf(a), ib=TYPE_ORDER.indexOf(b);
+      if(ia<0) ia=90; if(ib<0) ib=90;
+      return (ia-ib) || a.localeCompare(b,'ko');
+    });
+  }
+  function typesIn(rows){
+    var seen={}, out=[];
+    rows.forEach(function(s){ var t=s.examType||''; if(t && !seen[t]){ seen[t]=1; out.push(t); } });
+    return orderTypes(out);
+  }
+  function tabColor(t){ return t==='모의' ? '#1f6f78' : (isTestType(t) ? '#2F6F4F' : '#862633'); }
+  function tabCls(t){ return t==='모의' ? 'mock' : (isTestType(t) ? 'test' : 'naesin'); }
+  function tabsHTML(types, cur, fn){
+    return '<div class="tabs">'+types.map(function(t){
+      return '<button class="'+(t===cur?('on '+tabCls(t)):'')+'" onclick="'+fn+'(\''+t.replace(/'/g,"\\x27")+'\')">'+esc(t==='모의'?'모의고사':t)+'</button>';
+    }).join('')+'</div>';
+  }
+  function fmtNum(v){
+    if(v==null) return '—';
+    var r=Math.round(v*10)/10;
+    return (Math.abs(r-Math.round(r))<0.05) ? String(Math.round(r)) : r.toFixed(1);
+  }
+
   function renderPanel(){
-    var tabRow = '<div class="tabs">'+
-      '<button class="'+(tab==='내신'?'on naesin':'')+'" onclick="switchTab(\'내신\')">내신</button>'+
-      '<button class="'+(tab==='모의'?'on mock':'')+'" onclick="switchTab(\'모의\')">모의고사</button></div>';
+    mode='student';
+    // 탭 = 입력용 내신·모의(항상) + 실제로 쌓인 테스트 유형
+    var types = typesIn(curScores);
+    ['내신','모의'].forEach(function(t){ if(types.indexOf(t)<0) types.push(t); });
+    types = orderTypes(types);
+    if(types.indexOf(tab)<0) tab = types[0];
+    var isTest = isTestType(tab);
+    if(isTest) metric='raw';                       // 테스트엔 등급이 없다
+    var tabRow = tabsHTML(types, tab, 'switchTab');
+
+    // 지금 누구 성적을 보고 있는지 + 반 평균으로 되돌아가는 길(반 표에서 넘어온 뒤 길을 잃지 않게).
+    var canBack = !!($('acadSel') && $('acadSel').value && $('clsSel') && $('clsSel').value);
+    var who = '<div class="card" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">'+
+      '<b style="font-size:0.95rem;">👤 '+esc(curName||'학생')+'</b>'+
+      (canBack? '<button class="mini ghost" onclick="backToClass()">📊 반 평균 보기</button>' : '')+'</div>';
 
     var data = curScores.filter(function(s){ return s.examType===tab; });
-    var chart = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
-      '<b style="font-size:0.92rem;">📊 '+tab+' 추이</b>'+
-      '<span class="seg"><button class="'+(metric==='raw'?'on':'')+'" onclick="setMetric(\'raw\')">원점수</button>'+
-      '<button class="'+(metric==='grade'?'on':'')+'" onclick="setMetric(\'grade\')">등급</button></span></div>'+
-      '<div style="overflow-x:auto;">'+chartSVG(data, metric)+'</div></div>';
+    var hasGrade = data.some(function(s){ return s.grade!=null; });
+    var seg = hasGrade ? ('<span class="seg"><button class="'+(metric==='raw'?'on':'')+'" onclick="setMetric(\'raw\')">원점수</button>'+
+      '<button class="'+(metric==='grade'?'on':'')+'" onclick="setMetric(\'grade\')">등급</button></span>') : '';
+    var chart = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">'+
+      '<b style="font-size:0.92rem;">📊 '+esc(tab)+' 추이</b>'+seg+'</div>'+
+      '<div style="overflow-x:auto;">'+chartSVG(data, metric, tabColor(tab))+'</div></div>';
 
     var rows = data.map(function(s){
       var when=(s.gradeLevel?esc(s.gradeLevel)+' ':'')+esc(s.label);
+      var btns = isTest
+        ? '<button class="mini" style="background:#b23b3b;" onclick="delRow('+s.id+')">삭제</button>'
+        : '<button class="mini ghost" onclick="editRow('+s.id+')">수정</button> <button class="mini" style="background:#b23b3b;" onclick="delRow('+s.id+')">삭제</button>';
       return '<tr><td>'+when+'</td><td class="score-big">'+esc(fmtScore(s))+'</td>'+
-        '<td style="white-space:nowrap;text-align:right;"><button class="mini ghost" onclick="editRow('+s.id+')">수정</button> '+
-        '<button class="mini" style="background:#b23b3b;" onclick="delRow('+s.id+')">삭제</button></td></tr>';
+        '<td style="white-space:nowrap;text-align:right;">'+btns+'</td></tr>';
     }).join('');
-    var table = '<div class="card"><b style="font-size:0.92rem;">📋 '+tab+' 목록</b>'+
-      (data.length? '<table style="margin-top:8px;"><tr><th>시기</th><th>점수(등급)</th><th></th></tr>'+rows+'</table>'+
-        '<div class="muted" style="margin-top:8px;font-size:0.76rem;">표기: 원점수(등급) — 예) 80(2)</div>'
-        : '<div class="muted" style="margin-top:8px;">아직 입력된 '+tab+' 성적이 없어요.</div>')+'</div>';
+    var table = '<div class="card"><b style="font-size:0.92rem;">📋 '+esc(tab)+' 목록</b>'+
+      (data.length? '<table style="margin-top:8px;"><tr><th>시기</th><th>'+(isTest?'점수':'점수(등급)')+'</th><th></th></tr>'+rows+'</table>'+
+        '<div class="muted" style="margin-top:8px;font-size:0.76rem;">'+(isTest?'100점 만점 환산 점수입니다.':'표기: 원점수(등급) — 예) 80(2)')+'</div>'
+        : '<div class="muted" style="margin-top:8px;">아직 입력된 '+esc(tab)+' 성적이 없어요.</div>')+'</div>';
 
-    $('panel').innerHTML = tabRow + chart + table + formCard();
-    syncLabels();
+    // 테스트는 채점 결과가 자동으로 들어오므로 입력 폼을 띄우지 않는다(수동 입력하면 중복이 된다).
+    var last = isTest
+      ? '<div class="card"><div class="muted" style="font-size:0.82rem;line-height:1.6;">🧪 <b>'+esc(tab)+'</b> 점수는 <b>테스트를 채점할 때 자동으로</b> 쌓입니다(100점 만점 환산). 여기서 직접 추가·수정하지 않아요. 잘못 들어간 항목은 삭제만 가능합니다.</div></div>'
+      : formCard();
+
+    $('panel').innerHTML = who + tabRow + chart + table + last;
+    if(!isTest) syncLabels();
   }
 
   function formCard(){
@@ -305,29 +392,155 @@
     if(!gradeLevel){ $('fMsg').className='formline err'; $('fMsg').textContent='학년을 먼저 선택해주세요.'; return; }
     if(!label){ $('fMsg').className='formline err'; $('fMsg').textContent='이 학년의 시기를 선택해주세요.'; return; }
     if(raw==='' && gr===''){ $('fMsg').className='formline err'; $('fMsg').textContent='원점수나 등급 중 하나는 입력해주세요.'; return; }
-    var payload={ name:curName, examType:tab, gradeLevel:gradeLevel, label:label, sortKey:sortKey(year,label),
+    var payload={ sid:curSid, examType:tab, gradeLevel:gradeLevel, label:label, sortKey:sortKey(year,label),
       rawScore:(raw===''?null:Number(raw)), grade:(gr===''?null:Number(gr)) };
     if(editingId) payload.id=editingId;
     $('fMsg').className='formline'; $('fMsg').textContent='저장 중…';
     try{
-      var r=await api('/api/scores?name='+encodeURIComponent(curName), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      var r=await api('/api/scores?sid='+encodeURIComponent(curSid), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
       var d=await r.json();
       if(!r.ok || d.error){ $('fMsg').className='formline err'; $('fMsg').textContent=d.error||'저장 실패'; return; }
-      resetForm(); loadScores(curName);
+      resetForm(); loadScores(curSid);
     }catch(e){ if(String(e.message)!=='401'){ $('fMsg').className='formline err'; $('fMsg').textContent='네트워크 오류'; } }
   }
   async function delRow(id){
     if(!confirm('이 성적을 삭제할까요?')) return;
     try{
-      var r=await api('/api/scores?name='+encodeURIComponent(curName), { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:id, name:curName }) });
-      await r.json(); loadScores(curName);
+      var r=await api('/api/scores?sid='+encodeURIComponent(curSid), { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:id, sid:curSid }) });
+      await r.json(); loadScores(curSid);
     }catch(e){}
   }
 
-  function chartSVG(scores, m){
+  // ── 반 평균 ─────────────────────────────────────────────────
+  //   학생 드롭다운의 첫 항목(📊 반 평균)이거나 ?acad=&cls= 로 넘어오면 이 패널.
+  //   서버가 student_id 기준으로 명단 + 성적을 한 번에 준다(요청 1번, 동명이인 안전).
+  async function loadClass(){
+    var acad=$('acadSel').value, cls=$('clsSel').value;
+    if(!acad || !cls){ $('panel').innerHTML=''; return; }
+    mode='class'; editingId=null;
+    $('panel').innerHTML='<div class="msg">반 성적 불러오는 중…</div>';
+    // '(미지정)'·'(반 없음)'은 화면용 버킷 이름 → 서버엔 빈 값으로. 파라미터 자체는 항상 보낸다(= 명시적 필터).
+    var qAcad=(acad===ACAD_NONE)?'':acad, qCls=(cls===CLS_NONE)?'':cls;
+    try{
+      var r=await api('/api/scores?scope=class&acad='+encodeURIComponent(qAcad)+'&cls='+encodeURIComponent(qCls)+'&t='+Date.now());
+      var d=await r.json();
+      if(!r.ok || (d && d.error)){ $('panel').innerHTML='<div class="msg">'+esc((d&&d.error)||'반 성적을 불러오지 못했습니다.')+'</div>'; return; }
+      classRoster=(d&&d.students)||[]; classScores=(d&&d.scores)||[];
+      renderClassPanel();
+    }catch(e){ if(String(e.message)!=='401') $('panel').innerHTML='<div class="msg">반 성적을 불러오지 못했습니다.</div>'; }
+  }
+  function switchClassTab(t){ classTab=t; if(isTestType(t)) classMetric='raw'; renderClassPanel(); }
+  function setClassMetric(m){ classMetric=m; renderClassPanel(); }
+  function pickStudent(sid){                      // 반 표에서 이름을 누르면 그 학생 개인 화면으로
+    var sel=$('stuSel');
+    // 눌렀는데 아무 일도 안 일어나면 고장으로 보인다 → 왜 못 여는지 알려주고 멈춘다.
+    if(!sel || !presetHasOption(sel,String(sid))){ presetBanner('⚠️ 이 학생은 위 학생 목록에 없어 개인 화면을 열 수 없습니다 — 반 편성이 바뀌었을 수 있어요.', true); return; }
+    sel.value=String(sid); onPick();
+    window.scrollTo({ top:0, behavior:'smooth' });
+  }
+  // 개인 화면 → 반 평균으로 되돌아가기(드롭다운 첫 항목을 다시 고르는 것과 같다).
+  function backToClass(){ var sel=$('stuSel'); if(sel) sel.value=''; onPick(); }
+
+  function renderClassPanel(){
+    var acad=$('acadSel').value, cls=$('clsSel').value;
+    var head='<div class="card" style="padding:13px 16px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">'+
+      '<b style="font-size:0.95rem;">📊 '+esc(cls)+' 반 평균</b>'+
+      '<span class="muted" style="font-size:0.8rem;">'+esc(acad)+' · 명단 '+classRoster.length+'명</span></div>';
+    if(!classRoster.length){ $('panel').innerHTML=head+'<div class="msg">이 반에 등록된 학생이 없습니다.</div>'; return; }
+
+    var types=typesIn(classScores);
+    if(!types.length){
+      $('panel').innerHTML=head+'<div class="card"><div class="muted" style="line-height:1.7;">아직 이 반에 입력된 성적이 없어요.<br>테스트는 <b>채점하면 점수가 자동으로</b> 쌓이고, 내신·모의는 위에서 학생을 골라 직접 입력하시면 됩니다.</div></div>';
+      return;
+    }
+    if(types.indexOf(classTab)<0) classTab=types[0];
+    var rows=classScores.filter(function(s){ return s.examType===classTab; });
+    var hasGrade=rows.some(function(s){ return s.grade!=null; });
+    if(!hasGrade) classMetric='raw';
+    var m=classMetric;
+
+    // 회차 = 학년 + 시기. 테스트는 학년이 비어 있어 시기(테스트 이름)만으로 갈린다.
+    var seen={}, cols=[];
+    rows.forEach(function(s){
+      var k=(s.gradeLevel||'')+'|'+(s.label||'');
+      if(!seen[k]){ seen[k]=1; cols.push({ key:k, gradeLevel:s.gradeLevel||'', label:s.label||'', sortKey:s.sortKey||'' }); }
+    });
+    cols.sort(function(a,b){ return String(a.sortKey||'~').localeCompare(String(b.sortKey||'~')) || a.label.localeCompare(b.label,'ko'); });
+
+    var byStu={};
+    rows.forEach(function(s){
+      var sid=String(s.studentId||'');
+      if(!byStu[sid]) byStu[sid]={};
+      byStu[sid][(s.gradeLevel||'')+'|'+(s.label||'')]=s;
+    });
+    function val(s){ return !s ? null : (m==='raw' ? s.rawScore : s.grade); }
+    function mean(a){ if(!a.length) return null; var t=0; a.forEach(function(v){ t+=v; }); return t/a.length; }
+
+    var roster=classRoster.slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ko'); });
+    // 회차별 평균 — 점수가 있는 학생만으로 계산하고, 몇 명이 들어갔는지(n)를 같이 보여준다.
+    var colStat=cols.map(function(c){
+      var vs=[]; roster.forEach(function(st){ var v=val((byStu[String(st.id)]||{})[c.key]); if(v!=null) vs.push(v); });
+      return { n:vs.length, avg:mean(vs) };
+    });
+    var allVals=[]; var noScore=0;
+    roster.forEach(function(st){
+      var mine=byStu[String(st.id)]||{}, any=false;
+      cols.forEach(function(c){ var v=val(mine[c.key]); if(v!=null){ allVals.push(v); any=true; } });
+      if(!any) noScore++;
+    });
+
+    var seg=hasGrade ? ('<span class="seg"><button class="'+(m==='raw'?'on':'')+'" onclick="setClassMetric(\'raw\')">원점수</button>'+
+      '<button class="'+(m==='grade'?'on':'')+'" onclick="setClassMetric(\'grade\')">등급</button></span>') : '';
+    var pts=cols.map(function(c,i){
+      var a=(colStat[i].avg==null)?null:Math.round(colStat[i].avg*10)/10;
+      return { label:c.label, gradeLevel:c.gradeLevel, rawScore:(m==='raw'?a:null), grade:(m==='grade'?a:null) };
+    });
+    var chart='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">'+
+      '<b style="font-size:0.92rem;">📈 '+esc(classTab)+' 반 평균 추이</b>'+seg+'</div>'+
+      '<div style="overflow-x:auto;">'+chartSVG(pts, m, tabColor(classTab))+'</div>'+
+      (m==='grade'?'<div class="muted" style="margin-top:6px;font-size:0.76rem;">등급은 <b>1이 가장 좋습니다</b> — 선이 아래로 갈수록 좋아진 거예요.</div>':'')+'</div>';
+
+    var thead='<tr><th class="stu">학생</th>'+cols.map(function(c){
+      return '<th style="text-align:center;">'+esc(c.label)+(c.gradeLevel?'<div style="font-weight:400;font-size:0.72rem;opacity:.8;">'+esc(c.gradeLevel)+'</div>':'')+'</th>';
+    }).join('')+'<th style="text-align:center;">평균</th></tr>';
+
+    var body=roster.map(function(st){
+      var mine=byStu[String(st.id)]||{}, vs=[];
+      var tds=cols.map(function(c,i){
+        var v=val(mine[c.key]);
+        if(v==null) return '<td class="none">—</td>';
+        vs.push(v);
+        var a=colStat[i].avg;
+        // 눈에 띄게 처진 칸만 표시(절반이 빨개지면 못 알아본다) — 원점수 10점 이상 아래, 등급 1등급 이상 아래.
+        var low=(a!=null) && (m==='raw' ? (v<=a-10) : (v>=a+1));
+        return '<td class="num'+(low?' low':'')+'">'+fmtNum(v)+'</td>';
+      }).join('');
+      return '<tr><td class="stu"><a class="stu-link" onclick="pickStudent(\''+esc(String(st.id))+'\')">'+esc(st.name)+'</a>'+
+        (vs.length?'':' <span class="muted" style="font-weight:400;font-size:0.74rem;">미입력</span>')+'</td>'+
+        tds+'<td class="num" style="font-weight:800;">'+fmtNum(mean(vs))+'</td></tr>';
+    }).join('');
+
+    var avgRow='<tr class="avg"><td class="stu">반 평균</td>'+colStat.map(function(s){
+      return '<td class="num">'+fmtNum(s.avg)+'<div style="font-weight:400;font-size:0.7rem;color:#7a8697;">'+s.n+'/'+roster.length+'명</div></td>';
+    }).join('')+'<td class="num">'+fmtNum(mean(allVals))+'</td></tr>';
+
+    var missing=colStat.some(function(s){ return s.n<roster.length; }) || noScore>0;
+    var note='<div class="muted" style="margin-top:8px;font-size:0.76rem;line-height:1.7;">'+
+      '평균은 <b>점수가 있는 학생만</b>으로 냅니다. 회차 아래 <b>n/전체</b>가 실제 반영 인원이에요'+
+      (noScore?' — 이 반에 <b>'+noScore+'명</b>은 이 유형 성적이 아직 하나도 없습니다':'')+'.'+
+      (missing?' 빠진 사람이 많은 회차는 평균을 그대로 믿지 마세요.':'')+
+      ' 학생 이름을 누르면 그 학생 개인 추이로 넘어갑니다.</div>';
+
+    var table='<div class="card"><b style="font-size:0.92rem;">📋 '+esc(classTab)+' 학생별</b>'+
+      '<div class="ctable-wrap"><table class="ctable">'+thead+body+avgRow+'</table></div>'+note+'</div>';
+
+    $('panel').innerHTML = head + tabsHTML(types, classTab, 'switchClassTab') + chart + table;
+  }
+
+  function chartSVG(scores, m, color){
     var pts=scores.filter(function(s){ return m==='raw'? s.rawScore!=null : s.grade!=null; });
-    if(!pts.length) return '<div class="muted" style="text-align:center;padding:22px;">표시할 데이터가 없어요. 아래에서 추가하세요.</div>';
-    var color = tab==='모의' ? '#1f6f78' : '#862633';
+    if(!pts.length) return '<div class="muted" style="text-align:center;padding:22px;">표시할 데이터가 없어요.</div>';
+    color = color || (tab==='모의' ? '#1f6f78' : '#862633');
     var W=Math.max(540, pts.length*74+60), H=250, pad={l:34,r:16,t:18,b:54};
     var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b, n=pts.length;
     function xF(i){ return pad.l+(n===1? iw/2 : iw*i/(n-1)); }

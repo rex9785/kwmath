@@ -3141,6 +3141,7 @@
           </div>
           <div class="go-row">
             <button class="go-btn" title="이 반 전체에 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')">🔔<span class="go-txt"> 반 알림</span></button>
+            <button class="go-btn" title="이 반 테스트·시험 평균과 학생별 점수" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')">📊<span class="go-txt"> 반 성적</span></button>
             <button class="go-btn" title="이 반 리포트 보기·수정" onclick="event.stopPropagation();openReportsForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')">📋<span class="go-txt"> 반 리포트</span></button>
             <button class="go-btn" title="이 반 수업자료 올리기" onclick="event.stopPropagation();openFilesForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')">📁<span class="go-txt"> 수업자료</span></button>
             <button class="go-btn" style="border-style:dashed;" onclick="event.stopPropagation();toggleClassMore('more-${gi}', this)">⋯ 더보기</button>
