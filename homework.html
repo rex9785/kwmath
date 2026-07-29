@@ -51,6 +51,12 @@
   .d-title{font-size:1.15rem;font-weight:900;margin-bottom:5px;}
   .d-detail{font-size:0.86rem;color:var(--text-light);line-height:1.6;margin-bottom:4px;white-space:pre-wrap;}
   .d-due{font-size:0.78rem;color:var(--primary);font-weight:700;margin-bottom:16px;}
+  /* 선생님이 봤다는 표시 — 사진만 올리고 아무 반응이 없던 자리를 메운다 */
+  .d-stamp{display:none;background:var(--ok-light);border:1px solid rgba(30,126,69,.22);border-radius:12px;padding:12px 14px;margin-bottom:16px;}
+  .d-stamp .st1{font-size:0.88rem;font-weight:900;color:var(--ok);display:flex;align-items:center;gap:6px;}
+  .d-stamp .st2{font-size:0.75rem;color:var(--ok);opacity:.85;margin-top:3px;}
+  .d-stamp .st3{font-size:0.84rem;color:var(--text);line-height:1.55;margin-top:8px;background:#fff;border-radius:9px;padding:9px 11px;white-space:pre-wrap;}
+  .d-wait{display:none;background:var(--bg2);border:1px dashed var(--border);border-radius:12px;padding:11px 14px;margin-bottom:16px;font-size:0.8rem;color:var(--text-light);font-weight:600;}
 
   .up-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(70,20,35,.05);margin-bottom:22px;}
   .pick-btn{width:100%;border:2px dashed var(--gold-line,#DEC98F);background:var(--primary-light);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;transition:background .12s;}
@@ -123,6 +129,14 @@
       <div class="d-detail" id="dDetail"></div>
       <div class="d-due" id="dDue"></div>
 
+      <!-- 선생님 확인 상태: 확인됨(초록) / 확인 대기(회색). 제출이 없으면 둘 다 숨김. -->
+      <div class="d-stamp" id="dStamp">
+        <div class="st1">✅ <span id="stWho">선생님이 확인했어요</span></div>
+        <div class="st2" id="stWhen"></div>
+        <div class="st3" id="stFb" style="display:none;"></div>
+      </div>
+      <div class="d-wait" id="dWait">⏳ 제출 완료 · 선생님 확인을 기다리는 중이에요.</div>
+
       <div class="up-card">
         <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
         <div class="pick-btn" id="pickBtn">
@@ -193,13 +207,17 @@
       .catch(function(){ $('assignList').innerHTML = '<div class="state-box"><p>네트워크 오류로 불러오지 못했어요.</p></div>'; });
   }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function fmtDate(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return String(iso); return (d.getMonth()+1)+'월 '+d.getDate()+'일 '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
   function renderList(){
     $('listCnt').textContent = assignments.length ? ('· ' + assignments.length + '개') : '';
     if (!assignments.length){ $('assignList').innerHTML = '<div class="state-box"><div class="si">📭</div><p>등록된 과제가 없어요.<br>선생님이 과제를 올리면 여기에 표시됩니다.</p></div>'; return; }
     $('assignList').innerHTML = assignments.map(function(a){
       var done = a.submitted;
+      // 제출만 한 상태와 선생님이 확인한 상태를 목록에서부터 구분해 준다.
       var badge = done
-        ? '<span class="badge b-done">✓ 제출 '+ a.myPhotoCount +'장</span>'
+        ? (a.checked
+            ? '<span class="badge b-done">✅ 선생님 확인 완료</span>'
+            : '<span class="badge b-done">✓ 제출 '+ a.myPhotoCount +'장</span>')
         : '<span class="badge b-todo">미제출</span>';
       var due = a.dueDate ? ('<span class="a-due">📅 '+ esc(a.dueDate) +'까지</span>') : '';
       return '<div class="a-card" data-id="'+ a.id +'">' +
@@ -228,6 +246,8 @@
     $('dDue').style.display = a.dueDate ? 'block' : 'none';
     $('noteInput').value = '';
     $('prevGrid').innerHTML = '';
+    $('dStamp').style.display = 'none';   // loadPhotos()가 실제 상태로 다시 켠다
+    $('dWait').style.display = 'none';
     renderUpBtn();
     $('listView').style.display = 'none';
     $('detailView').style.display = 'block';
@@ -235,6 +255,20 @@
     loadPhotos();
   }
   $('backBtn').addEventListener('click', function(){ $('detailView').style.display='none'; $('listView').style.display='block'; loadList(); });
+
+  // 확인 도장 / 확인 대기 표시.
+  //   사진을 한 장도 안 냈으면 둘 다 숨긴다(낼 것이 없는데 "기다리는 중"은 거짓말이다).
+  //   사진을 더 올리면 서버가 checked_at을 지우므로 여기도 자동으로 '대기'로 돌아간다.
+  function renderStamp(j, cnt){
+    var on = !!(j && j.checked);
+    $('dStamp').style.display = (cnt > 0 && on) ? 'block' : 'none';
+    $('dWait').style.display  = (cnt > 0 && !on) ? 'block' : 'none';
+    if (!(cnt > 0 && on)) return;
+    $('stWhen').textContent = j.checkedAt ? (fmtDate(j.checkedAt) + ' 확인') : '';
+    var fb = (j.feedback || '').trim();
+    $('stFb').textContent = fb ? ('💬 ' + fb) : '';
+    $('stFb').style.display = fb ? 'block' : 'none';
+  }
 
   function loadPhotos(){
     $('photoGrid').innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
@@ -244,6 +278,7 @@
         if (!j.ok){ $('photoGrid').innerHTML = '<div class="state-box"><p>'+ (j.error||'오류') +'</p></div>'; return; }
         var keys = j.photoKeys || [];
         $('subCnt').textContent = keys.length ? ('· ' + keys.length + '장') : '';
+        renderStamp(j, keys.length);
         if (!keys.length){ $('photoGrid').innerHTML = '<div class="state-box"><p>아직 제출한 사진이 없어요.</p></div>'; return; }
         $('photoGrid').innerHTML = keys.map(function(k){
           return '<div class="thumb" data-key="'+ esc(k) +'"><img alt="제출 사진"><button class="rm" title="삭제">×</button></div>';

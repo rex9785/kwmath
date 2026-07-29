@@ -72,6 +72,16 @@ function staffAllowed(url, method) {
   if (pathname === '/api/surveys') {
     return method === 'GET' || method === 'POST' || method === 'PATCH' || method === 'DELETE';
   }
+  // 과제방: 조교는 열람(GET) + 「확인 ✓」 도장(POST ?admin=1&action=check)만.
+  //   과제 생성·마감토글(POST admin=1)과 과제 삭제(DELETE)는 원장 전용 — action을 콕 집어 여는 이유가 이것.
+  //   도장은 되돌릴 수 있고 아무것도 지우지 않는 최소 권한이라 조교에게 열어도 안전하다.
+  //   담당 학원 강제는 homework.js가 staffScopeAcademy + student_id로 서버측에서 재차 확인한다.
+  if (pathname === '/api/homework') {
+    if (method === 'GET') return true;
+    return method === 'POST'
+      && url.searchParams.get('admin') === '1'
+      && url.searchParams.get('action') === 'check';
+  }
   if (method === 'GET') return !STAFF_GET_BLOCK.has(pathname);  // 열람 전반 허용
   return STAFF_WRITE_ALLOW.has(pathname);                      // 쓰기는 화이트리스트만
 }

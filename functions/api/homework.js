@@ -31,6 +31,8 @@
 //   DELETE?admin=1&id=..                 원장: 과제 삭제(+제출행+R2 사진 정리)
 
 import { requireStudentAccess } from './_auth.js';
+import { staffScopeAcademy } from './_staff.js';
+import { getStudentById } from './_db.js';
 
 // ── 상한(관우T 결정: 한 번에 안전상한 50장) ──
 const MAX_PER_UPLOAD = 50;      // 한 번 업로드에 올릴 수 있는 최대 장수
@@ -81,10 +83,16 @@ async function ensureTable(env) {
     'assignment_id INTEGER NOT NULL, student_id INTEGER NOT NULL, ' +
     'student_name TEXT, author_phone TEXT, ' +
     'photo_keys TEXT, photo_count INTEGER DEFAULT 0, ' +
-    'note TEXT, status TEXT, created_at TEXT, updated_at TEXT)'
+    'note TEXT, status TEXT, created_at TEXT, updated_at TEXT, ' +
+    'checked_at TEXT, checked_by TEXT, feedback TEXT)'
   ).run();
   try { await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_hw_sub_uniq ON homework_submissions(assignment_id, student_id)').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_hw_sub_aid ON homework_submissions(assignment_id)').run(); } catch (_) {}
+  // 「확인 ✓」 도장용 3컬럼 — 이미 만들어져 돌아가고 있는 테이블에는 위 CREATE가 아무 일도 안 하므로
+  //   ALTER로 따로 붙여야 한다. 이미 있으면 SQLite가 에러를 내는데 그건 정상이라 삼킨다(매 요청 1회, 비용 미미).
+  for (const col of ['checked_at TEXT', 'checked_by TEXT', 'feedback TEXT']) {
+    try { await env.DB.prepare('ALTER TABLE homework_submissions ADD COLUMN ' + col).run(); } catch (_) {}
+  }
 }
 
 // 과제가 이 학생에게 보이는지(스코프). target 비었으면 전체 공개.
@@ -157,6 +165,10 @@ export async function onRequest(context) {
             id: r.id, studentId: r.student_id, studentName: r.student_name || '',
             photoCount: r.photo_count || 0, photoKeys: parseKeys(r),
             note: r.note || '', updatedAt: r.updated_at || r.created_at || '',
+            // 「확인 ✓」 — checked_at이 비어 있으면 아직 안 본 제출.
+            //   학생이 확인 후 사진을 더 올리면 서버가 checked_at을 다시 비운다(아래 POST 참고).
+            checked: !!r.checked_at, checkedAt: r.checked_at || '',
+            checkedBy: r.checked_by || '', feedback: r.feedback || '',
           }));
           const a = await env.DB.prepare('SELECT * FROM homework_assignments WHERE id=?').bind(aid).first();
           return jsonOk({ ok: true, assignment: a || null, submissions: subs });
@@ -164,6 +176,7 @@ export async function onRequest(context) {
         const { results } = await env.DB.prepare(
           'SELECT a.*, ' +
           '(SELECT COUNT(*) FROM homework_submissions s WHERE s.assignment_id=a.id AND s.photo_count>0) AS submit_count, ' +
+          '(SELECT COUNT(*) FROM homework_submissions s WHERE s.assignment_id=a.id AND s.photo_count>0 AND s.checked_at IS NULL) AS unchecked_count, ' +
           '(SELECT COALESCE(SUM(s.photo_count),0) FROM homework_submissions s WHERE s.assignment_id=a.id) AS photo_total ' +
           'FROM homework_assignments a ORDER BY a.active DESC, a.created_at DESC, a.id DESC'
         ).all();
@@ -172,6 +185,8 @@ export async function onRequest(context) {
           targetAcademy: r.target_academy || '', targetClass: r.target_class || '',
           active: r.active === 1, createdAt: r.created_at || '',
           submitCount: r.submit_count || 0, photoTotal: r.photo_total || 0,
+          // 아직 확인 안 한 제출 수 — 관리자 홈 배지("확인 안 한 과제 제출 N건")가 이 값을 쓴다.
+          uncheckedCount: r.unchecked_count || 0,
         }));
         return jsonOk({ ok: true, assignments: list });
       }
@@ -194,6 +209,9 @@ export async function onRequest(context) {
           photoCount: keys.length,
           photoKeys: keys,
           note: (row && row.note) || '',
+          // 선생님이 봤는지 — 이게 없어서 학생은 사진만 올리고 아무 반응을 못 받았다.
+          checked: !!(row && row.checked_at), checkedAt: (row && row.checked_at) || '',
+          feedback: (row && row.feedback) || '',
           maxTotal: MAX_TOTAL_PER_STUDENT,
           maxPerUpload: MAX_PER_UPLOAD,
         });
@@ -201,7 +219,8 @@ export async function onRequest(context) {
 
       // 활성 과제 목록 + 내 제출상태
       const { results } = await env.DB.prepare(
-        'SELECT a.*, s.photo_count AS my_count, s.updated_at AS my_updated ' +
+        'SELECT a.*, s.photo_count AS my_count, s.updated_at AS my_updated, ' +
+        's.checked_at AS my_checked, s.feedback AS my_feedback ' +
         'FROM homework_assignments a ' +
         'LEFT JOIN homework_submissions s ON s.assignment_id=a.id AND s.student_id=? ' +
         'WHERE a.active=1 ORDER BY a.created_at DESC, a.id DESC'
@@ -213,6 +232,8 @@ export async function onRequest(context) {
           myPhotoCount: a.my_count || 0,
           submitted: (a.my_count || 0) > 0,
           myUpdatedAt: a.my_updated || '',
+          checked: !!a.my_checked, checkedAt: a.my_checked || '',
+          feedback: a.my_feedback || '',
         }));
       return jsonOk({
         ok: true, assignments: list,
@@ -227,6 +248,47 @@ export async function onRequest(context) {
       if (url.searchParams.get('admin') === '1') {
         if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
         const action = url.searchParams.get('action');
+
+        // ── 「확인 ✓」 도장 ───────────────────────────────────────
+        // 왜 만들었나: 학생이 사진을 올려도 화면이 그대로였다. 선생님이 봤는지, 통과인지,
+        //   다시 해야 하는지 알 길이 없었고 — 반응 없는 제출은 두세 번 하고 그만둔다.
+        //   무겁게 채점을 붙이지 않고 "봤다"는 표시 하나로 루프를 닫는다.
+        // 되돌릴 수 있다: 같은 요청에 checked:false를 보내면 도장을 뗀다(실수로 눌러도 안전).
+        // 조교도 찍을 수 있다(미들웨어 특례) — 단 담당 학원 학생만. 아래에서 서버가 강제한다.
+        if (action === 'check') {
+          const sid = url.searchParams.get('id');           // homework_submissions.id
+          if (!sid) return jsonErr('id가 필요합니다.', 400);
+          const row = await env.DB.prepare('SELECT * FROM homework_submissions WHERE id=?').bind(sid).first();
+          if (!row) return jsonErr('제출 내역을 찾을 수 없어요.', 404);
+
+          // 조교 학원 스코프 — null이면 원장(제한 없음), ''이면 미배정 조교(아무것도 못 함).
+          //   ⚠️ 학생 식별은 이름이 아니라 student_id로 한다(동명이인 안전).
+          const scopeAcad = await staffScopeAcademy(env, request);
+          if (scopeAcad !== null) {
+            if (!scopeAcad) return jsonErr('담당 학원이 아직 배정되지 않았어요.', 403);
+            const st = await getStudentById(env, row.student_id);
+            if (!st || (st.academy || '') !== scopeAcad) {
+              return jsonErr('담당 학원 학생만 확인할 수 있어요.', 403);
+            }
+          }
+
+          const b = await request.json().catch(() => ({}));
+          const on = b.checked !== false;                    // 기본 true(찍기). false면 해제.
+          const fb = (b.feedback === undefined || b.feedback === null)
+            ? (row.feedback || '') : String(b.feedback).slice(0, 300);
+          const who = scopeAcad === null ? '원장' : '조교';
+          const ts = nowIso();
+          await env.DB.prepare(
+            'UPDATE homework_submissions SET checked_at=?, checked_by=?, feedback=?, status=?, updated_at=? WHERE id=?'
+          ).bind(
+            on ? ts : null, on ? who : null, fb,
+            on ? 'checked' : 'submitted', row.updated_at || ts, sid
+          ).run();
+          // ⚠️ updated_at은 일부러 그대로 둔다 — 이건 '학생이 마지막으로 낸 시각'이고,
+          //   확인 시각으로 덮으면 원장 목록의 정렬(최근 제출순)이 뒤집힌다.
+          return jsonOk({ ok: true, id: Number(sid), checked: on, checkedAt: on ? ts : '', checkedBy: on ? who : '', feedback: fb });
+        }
+
         if (action === 'toggle') {
           const id = url.searchParams.get('id');
           if (!id) return jsonErr('id가 필요합니다.', 400);
@@ -307,8 +369,11 @@ export async function onRequest(context) {
       const note = (form.get('note') || '').toString().slice(0, 500);
       const ts = nowIso();
       if (existing) {
+        // ⚠️ 사진을 더 올리면 「확인 ✓」를 뗀다.
+        //   안 그러면 선생님이 본 적 없는 사진 위에 도장이 그대로 남아, 학생은 "확인됐다"고 믿고
+        //   선생님은 새 사진이 온 줄 모른다. 새로 낸 것은 다시 확인받아야 한다.
         await env.DB.prepare(
-          'UPDATE homework_submissions SET photo_keys=?, photo_count=?, note=?, status=?, updated_at=? WHERE id=?'
+          'UPDATE homework_submissions SET photo_keys=?, photo_count=?, note=?, status=?, updated_at=?, checked_at=NULL, checked_by=NULL WHERE id=?'
         ).bind(JSON.stringify(allKeys), allKeys.length, note || existing.note || '', 'submitted', ts, existing.id).run();
       } else {
         await env.DB.prepare(

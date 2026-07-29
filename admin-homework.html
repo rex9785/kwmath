@@ -41,6 +41,7 @@
   .b-active{background:var(--ok-light);color:var(--ok);}
   .b-closed{background:#F0E9D8;color:#8A6D1B;}
   .b-cnt{background:var(--primary-light);color:var(--primary);}
+  .b-new{background:#FDECEF;color:#C0392B;}   /* 아직 확인 안 한 제출이 있을 때 */
   .a-actions{margin-top:11px;display:flex;gap:6px;flex-wrap:wrap;}
   .btn-mini{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:6px 12px;border-radius:8px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .btn-mini:hover{border-color:var(--primary);color:var(--primary);}
@@ -55,6 +56,16 @@
   .s-name{font-size:0.94rem;font-weight:800;}
   .s-cnt{font-size:0.75rem;color:var(--text-light);margin-left:auto;}
   .s-note{font-size:0.78rem;color:var(--text-light);margin-top:6px;background:var(--bg2);padding:7px 10px;border-radius:8px;line-height:1.5;}
+  /* 「확인 ✓」 도장 줄 — s-top(사진 펼치기 클릭영역) 바깥이라 눌러도 사진이 접히지 않는다 */
+  .s-chk{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+  .s-when{font-size:0.73rem;font-weight:700;color:var(--ok);white-space:nowrap;}
+  .fb-in{flex:1;min-width:120px;padding:7px 10px;border:1.5px solid var(--border);border-radius:9px;font-size:0.8rem;font-family:inherit;background:#fff;outline:none;color:var(--text);}
+  .fb-in:focus{border-color:var(--primary);}
+  .btn-chk{background:var(--ok);border:none;color:#fff;padding:7px 14px;border-radius:9px;font-size:0.78rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .btn-chk.sub{background:#fff;border:1.5px solid var(--ok);color:var(--ok);}
+  .btn-chk:disabled{opacity:.55;cursor:not-allowed;}
+  .btn-undo{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:6px 11px;border-radius:8px;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .btn-undo:hover{border-color:#C0392B;color:#C0392B;}
   .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:11px;}
   .thumb{position:relative;aspect-ratio:1;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);}
   .thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;}
@@ -224,11 +235,13 @@
     $('assignList').innerHTML = assignments.map(function(a){
       var stBadge = a.active ? '<span class="badge b-active">진행중</span>' : '<span class="badge b-closed">마감</span>';
       var cntBadge = '<span class="badge b-cnt">제출 '+ a.submitCount +'명 · '+ a.photoTotal +'장</span>';
+      // 아직 「확인 ✓」를 안 찍은 제출이 몇 건인지 — 목록에서 바로 보이게. 0이면 배지 자체를 숨긴다.
+      var newBadge = (a.uncheckedCount > 0) ? ' <span class="badge b-new">미확인 '+ a.uncheckedCount +'</span>' : '';
       var due = a.dueDate ? ('· 기한 '+ esc(a.dueDate)) : '';
       return '<div class="a-card '+ (a.active?'':'closed') +'" data-id="'+ a.id +'">' +
         '<div class="a-top"><div class="a-title">'+ esc(a.title) +'</div>'+ stBadge +'</div>' +
         (a.detail ? '<div class="a-detail">'+ esc(a.detail) +'</div>' : '') +
-        '<div class="a-meta">'+ cntBadge +' '+ due +'</div>' +
+        '<div class="a-meta">'+ cntBadge + newBadge +' '+ due +'</div>' +
         '<div class="a-actions">' +
           '<button class="btn-mini go" data-act="view">제출 보기</button>' +
           '<button class="btn-mini" data-act="toggle">'+ (a.active?'마감하기':'다시 열기') +'</button>' +
@@ -289,8 +302,71 @@
   }
 
   // ══════════════ 제출 현황 ══════════════
+  var subsDirty = false;   // 이 화면에서 도장을 하나라도 건드렸으면 목록으로 돌아갈 때 다시 불러온다
+
+  // 이름 옆 상태 배지. 사진이 0장이면(메모만 낸 경우) 미확인이라 몰아붙이지 않는다.
+  function stampBadge(s){
+    if (s.checked) return '<span class="badge b-active">✓ 확인</span>';
+    if (s.photoCount > 0) return '<span class="badge b-new">미확인</span>';
+    return '';
+  }
+  // 도장 줄. 확인 상태에서도 입력칸을 남겨 「한마디」만 고쳐 저장할 수 있게 한다.
+  function chkRow(s){
+    var inp = '<input class="fb-in" type="text" maxlength="300" placeholder="한마디 (선택)" value="'+ esc(s.feedback||'') +'">';
+    if (s.checked){
+      return '<span class="s-when">✓ '+ esc(s.checkedBy||'') +' · '+ fmtDate(s.checkedAt) +'</span>' +
+        inp +
+        '<button class="btn-chk sub" data-act="chk">한마디 저장</button>' +
+        '<button class="btn-undo" data-act="undo">확인 취소</button>';
+    }
+    return inp + '<button class="btn-chk" data-act="chk">✓ 확인</button>';
+  }
+  // 도장 줄 이벤트. 서버 응답으로 s를 갱신하고 줄을 다시 그린 뒤 자기 자신을 재바인딩한다.
+  function bindChk(el, s){
+    var row = el.querySelector('.s-chk');
+    if (!row) return;
+    row.querySelectorAll('[data-act]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var on = btn.getAttribute('data-act') !== 'undo';
+        var inp = row.querySelector('.fb-in');
+        var body = { checked: on, feedback: inp ? String(inp.value||'').slice(0,300) : '' };
+        var label = btn.textContent;
+        row.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
+        btn.innerHTML = '<span class="spin"></span>';
+        api('/api/homework?admin=1&action=check&id=' + s.id, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        })
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            if (!j.ok){
+              row.querySelectorAll('button').forEach(function(b){ b.disabled = false; });
+              btn.textContent = label; showToast(j.error||'실패'); return;
+            }
+            var was = !!s.checked;
+            s.checked = !!j.checked; s.checkedAt = j.checkedAt||''; s.checkedBy = j.checkedBy||''; s.feedback = j.feedback||'';
+            if (was !== s.checked) subsDirty = true;
+            var top = el.querySelector('.s-top');
+            var oldBadge = top.querySelector('.badge');
+            if (oldBadge) oldBadge.parentNode.removeChild(oldBadge);
+            var bh = stampBadge(s);
+            if (bh) top.querySelector('.s-cnt').insertAdjacentHTML('beforebegin', bh);
+            row.innerHTML = chkRow(s);
+            bindChk(el, s);
+            showToast(!s.checked ? '확인을 취소했어요.' : (was ? '한마디를 저장했어요.' : '확인했어요.'));
+          })
+          .catch(function(e){
+            if(String(e.message)!=='401'){
+              row.querySelectorAll('button').forEach(function(b){ b.disabled = false; });
+              btn.textContent = label; showToast('네트워크 오류');
+            }
+          });
+      });
+    });
+  }
+
   function openSubs(id){
     var a = assignments.filter(function(x){return x.id===id;})[0];
+    subsDirty = false;
     show('listView', false); show('subView', true);
     $('subTitle').textContent = (a? a.title : '제출') + ' · 제출 현황';
     $('subList').innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
@@ -304,15 +380,18 @@
         $('subList').innerHTML = subs.map(function(s, i){
           return '<div class="s-card" data-i="'+ i +'">' +
             '<div class="s-top"><div class="s-name">'+ esc(s.studentName || ('학생#'+s.studentId)) +'</div>' +
+              stampBadge(s) +
               '<div class="s-cnt">'+ s.photoCount +'장 · '+ fmtDate(s.updatedAt) +' ▾</div></div>' +
             (s.note ? '<div class="s-note">💬 '+ esc(s.note) +'</div>' : '') +
             '<div class="photo-grid" style="display:none;"></div>' +
+            '<div class="s-chk">'+ chkRow(s) +'</div>' +
           '</div>';
         }).join('');
         Array.prototype.forEach.call($('subList').querySelectorAll('.s-card'), function(el){
           var i = Number(el.getAttribute('data-i'));
           var grid = el.querySelector('.photo-grid');
           var loaded = false;
+          bindChk(el, subs[i]);
           el.querySelector('.s-top').addEventListener('click', function(){
             var open = grid.style.display !== 'none';
             grid.style.display = open ? 'none' : 'grid';
@@ -332,7 +411,11 @@
       })
       .catch(function(e){ if(String(e.message)!=='401') $('subList').innerHTML = '<div class="state-box"><p>네트워크 오류.</p></div>'; });
   }
-  $('backBtn').addEventListener('click', function(){ show('subView', false); show('listView', true); });
+  // 도장을 건드렸으면 목록의 「미확인 N」 배지가 낡았으므로 다시 불러온다.
+  $('backBtn').addEventListener('click', function(){
+    if (subsDirty){ subsDirty = false; load(); return; }
+    show('subView', false); show('listView', true);
+  });
 
   // 시작
   if (!token) showLogin(''); else load();

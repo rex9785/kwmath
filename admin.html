@@ -316,7 +316,7 @@
                여기 = 오늘 숙제를 몇 % 해왔나(이행률) / 과제 제출함 = 학생이 올린 사진 / 리포트의 "다음 숙제" = 다음 시간까지 해올 것. -->
           <button type="button" class="admin-card" onclick="openSection('attendance')">📅<b>출결·숙제 이행률</b><span>출석 체크 · 숙제 몇 % 했나</span></button>
           <button type="button" class="admin-card" onclick="location.href='/clinic-roster'">🩺<b>클리닉<i class="go-out">↗</i></b><span>필수 명단 · 총평 검토</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-homework'">📸<b>과제 제출함<i class="go-out">↗</i></b><span>학생이 올린 숙제 사진</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-homework'">📸<b>과제 제출함<i class="cbadge" id="bdgHomework"></i><i class="go-out">↗</i></b><span>학생이 올린 숙제 사진</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-makeup'">🔓<b>인강 신청·해제<i class="go-out">↗</i></b><span>결석일 영상·자료 잠금 해제</span></button>
           <button type="button" class="admin-card" onclick="openSection('reports')">📋<b>리포트 조회</b><span>학생 리포트</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-surveys'">🗳️<b>설문·조사<i class="go-out">↗</i></b><span>테스트·설문 만들기·채점</span></button>
@@ -883,14 +883,22 @@
       ? stf.staff.filter(s => s && s.approved !== true).length : null;
     // ④ 마감이 오늘이거나 이미 지난 '진행 중' 과제 — 닫는 걸 잊기 쉬운 항목.
     let nHw = null;
+    // ⑤ 아직 「확인 ✓」를 안 찍은 제출 — 저쪽에서 학생이 반응을 기다리고 있다는 뜻이라 ④보다 급하다.
+    let nHwNew = null;
     if (hw && Array.isArray(hw.assignments)) {
       const today = kstToday();
       nHw = hw.assignments.filter(a => a && a.active && a.dueDate && a.dueDate <= today).length;
+      //   ⚠️ '진행 중' 과제만 센다. 안 그러면 이 기능을 켠 첫날, 예전에 마감된 과제의
+      //      옛 제출까지 전부 '미확인'으로 잡혀 홈에 큰 숫자가 박히고 — 줄지 않는 숫자는
+      //      며칠이면 눈이 무시한다(ⓕ에서 세운 원칙 그대로).
+      nHwNew = hw.assignments.filter(a => a && a.active)
+        .reduce((s, a) => s + (Number(a.uncheckedCount) || 0), 0);
     }
 
     setBadge('bdgInquiry', nInq);
     setBadge('bdgQna', nQna);
     setBadge('bdgStaff', nStf);
+    setBadge('bdgHomework', nHwNew);
 
     const rows = [];
     const row = (n, icon, text, href) => {
@@ -901,6 +909,7 @@
     row(nInq, '📩', '새 상담 문의', '/admin-inquiries');
     row(nQna, '💬', '답변 안 한 질문', '/admin-qna');
     row(nStf, '🧑‍🏫', '조교 승인 대기', '/admin-staff');
+    row(nHwNew, '📸', '확인 안 한 과제 제출', '/admin-homework');
     row(nHw, '📸', '마감된 채로 열려 있는 과제', '/admin-homework');
 
     const title = '<div class="today-t">오늘 확인할 것<em>' + kstTodayLabel() + '</em></div>';
