@@ -119,6 +119,138 @@ export async function runAttendanceReminder(env) {
   return { ok: true, fired: missing.length > 0, missing, sent, checked: pending.length };
 }
 
+// ═══════════ 📝 리포트 미작성 리마인드 ═══════════
+// (2026-07-29 · 4관점 점검 1-2 "리포트를 안 쓴 날이 조용히 지나간다")
+//
+// 왜 "어제" 수업을 보나 — 리포트는 MathOS에서 수업이 다 끝난 뒤 한참 있다가 올라온다.
+//   출결처럼 "수업 시작 +30분"에 확인하면 아직 안 올렸을 뿐인 반까지 알림이 가고,
+//   그런 알림은 두세 번만 헛나가도 그냥 안 보게 된다. 그래서 하루를 통째로 기다렸다가
+//   다음 날 아침에 딱 한 번만 알린다. 빨리 알리는 게 목적이 아니라 "그냥 지나가지 않게" 하는 게 목적이다.
+//   (덤: 밤 10시에 끝나는 반은 종료+30분이 심야 차단 구간이라 당일 확인 자체가 불가능하다.)
+//
+// 출결 게이트 — 어제 그 반 출결이 0건이면 리포트는 아예 묻지 않는다.
+//   수업이 없었거나 출결 자체를 빠뜨린 건데, 후자는 위 출결 리마인드가 어제 이미 알렸다. 두 번 울리지 않는다.
+//   다만 출결을 다음 날 늦게 채워 넣는 경우가 있어 낮 12시까지는 판정을 미루고 다음 틱에 다시 본다.
+//
+// 멱등 — R2 reminders/reports-state.json { alerted: { "학원/반|YYYY-MM-DD": ... } }.
+//   출결 쪽(하루 단위로 통째 리셋)과 달리 키에 날짜를 박는다. "어제"를 보므로 날짜가 바뀌어도 기억해야 하기 때문.
+//   4일 지난 기록은 저장할 때 버려서 파일이 무한히 커지지 않게 한다.
+const REPORT_STATE_KEY = 'reminders/reports-state.json';
+
+// KST 기준 n일 전(음수)/후 날짜와 요일. offsetDays=0 이면 오늘.
+function kstDay(offsetDays) {
+  const k = new Date(Date.now() + 9 * 3600 * 1000 + (offsetDays || 0) * 86400 * 1000);
+  return {
+    dateStr: k.getUTCFullYear() + '-' + String(k.getUTCMonth() + 1).padStart(2, '0') + '-' + String(k.getUTCDate()).padStart(2, '0'),
+    dow: k.getUTCDay(),
+  };
+}
+
+// D1은 한 쿼리의 바인딩 개수에 한계가 있어 90개씩 끊어 COUNT를 합산한다.
+//   (한 반이 90명을 넘을 일은 없지만, 학원 전체를 한 반처럼 쓰는 설정이 생겨도 안 터지게 방어)
+async function countChunked(env, sqlHead, list, dateStr) {
+  let total = 0;
+  for (let i = 0; i < list.length; i += 90) {
+    const chunk = list.slice(i, i + 90);
+    if (!chunk.length) continue;
+    const r = await env.DB.prepare(sqlHead + chunk.map(() => '?').join(',') + ')')
+      .bind(dateStr, ...chunk).first();
+    total += (r && Number(r.c)) || 0;
+  }
+  return total;
+}
+
+export async function runReportReminder(env) {
+  const now = kstNow();
+  if (now.hour < 8 || now.hour >= 22) return { ok: true, fired: false, reason: 'not daytime window' };
+
+  const y = kstDay(-1);   // 어제(KST)
+
+  let schedules = {};
+  try { schedules = await loadClassSchedules(env); } catch (_) { return { ok: false, reason: 'schedules load failed' }; }
+  const due = Object.keys(schedules).filter((key) => {
+    const sch = schedules[key];
+    return !!(sch && Array.isArray(sch.days) && sch.days.includes(y.dow));
+  });
+  if (!due.length) return { ok: true, fired: false, reason: 'no class yesterday' };
+
+  let alerted = {};
+  try {
+    const obj = await env.BUCKET.get(REPORT_STATE_KEY);
+    if (obj) {
+      const j = JSON.parse(await obj.text());
+      if (j && j.alerted && typeof j.alerted === 'object') alerted = j.alerted;
+    }
+  } catch (_) {}
+
+  const pending = due.filter((k) => !alerted[k + '|' + y.dateStr]);
+  if (!pending.length) return { ok: true, fired: false, reason: 'all checked' };
+
+  let students = [];
+  try { students = await listStudents(env); } catch (_) { return { ok: false, reason: 'students load failed' }; }
+
+  const missing = [];
+  let changed = false;
+  for (const key of pending) {
+    const slash = key.indexOf('/');
+    const academy = slash >= 0 ? key.slice(0, slash) : key;
+    const className = slash >= 0 ? key.slice(slash + 1) : '';
+    const roster = students.filter((s) => (s.academy || '') === academy && (s.className || '') === className);
+    const mark = (v) => { alerted[key + '|' + y.dateStr] = v; changed = true; };
+    if (!roster.length) { mark('no-students'); continue; }
+
+    // ① 어제 그 반 수업이 실제로 있었나 (출결 존재 여부)
+    const ids = roster.map((s) => s.id).filter((v) => v !== undefined && v !== null);
+    let att = 0;
+    try {
+      att = await countChunked(env, 'SELECT COUNT(*) AS c FROM attendance WHERE date=? AND student_id IN (', ids, y.dateStr);
+    } catch (_) { continue; }             // 조회 실패 — 다음 틱에 재시도
+    if (!att) { if (now.hour >= 12) mark('no-attendance'); continue; }
+
+    // ② 리포트가 한 건이라도 있나
+    //    ⚠️ reports 테이블은 아직 이름 키다(MathOS가 이름+날짜로 올림 — _db.js:277 주석).
+    //    동명이인이 다른 반에서 리포트를 받으면 "있다"로 세어 알림을 한 번 덜 보낼 수는 있지만,
+    //    없는데 있다고 착각해 잘못된 알림을 보내는 방향은 아니다(조용한 누락 < 잘못된 알림).
+    const names = [...new Set(roster.map((s) => s.name).filter(Boolean))];
+    if (!names.length) { mark('no-names'); continue; }
+    let rep = 0;
+    try {
+      rep = await countChunked(env, 'SELECT COUNT(*) AS c FROM reports WHERE class_date=? AND student_name IN (', names, y.dateStr);
+    } catch (_) { continue; }
+    if (rep === 0) { missing.push(key); mark('alerted'); }
+    else mark('written');
+  }
+
+  let sent = 0;
+  if (missing.length) {
+    const md = y.dateStr.slice(5).replace('-', '/');
+    const body = missing.map((k) => '· ' + k.replace('/', ' — ')).join('\n')
+      + '\n어제(' + md + ') 수업 리포트가 아직 없어요.';
+    try {
+      const res = await sendPushToUsers(env, ADMIN_PUSH_USERS, {
+        title: '📝 리포트 미작성 (' + missing.length + '개 반)',
+        body, url: '/admin-report', tag: 'kwmath-report-reminder',
+      });
+      sent = (res && res.sent) || 0;
+    } catch (_) {}
+  }
+
+  if (changed) {
+    const cutoff = kstDay(-4).dateStr;
+    for (const k of Object.keys(alerted)) {
+      const d = k.slice(k.lastIndexOf('|') + 1);
+      if (d < cutoff) delete alerted[k];
+    }
+    try {
+      await env.BUCKET.put(REPORT_STATE_KEY, JSON.stringify({ alerted }), {
+        httpMetadata: { contentType: 'application/json' },
+      });
+    } catch (_) {}
+  }
+
+  return { ok: true, fired: missing.length > 0, date: y.dateStr, missing, sent, checked: pending.length };
+}
+
 export async function onRequest({ request, env }) {
   if (request.method !== 'GET') return Response.json({ ok: false, error: 'GET only' }, { status: 405 });
   const url = new URL(request.url);
@@ -127,6 +259,11 @@ export async function onRequest({ request, env }) {
   const authed = (env.CRON_KEY && key && key === env.CRON_KEY) ||
                  (env.ADMIN_PASSWORD && auth === env.ADMIN_PASSWORD);
   if (!authed) return Response.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401 });
-  const r = await runAttendanceReminder(env);
-  return Response.json(r);
+  // 수동 점검용 — 출결·리포트 둘 다 돌려 본다. (평소 발동은 notices-flush 5분 크론이 담당)
+  //   ?only=attendance / ?only=reports 로 하나만 돌릴 수 있다. 게이트는 각 함수 내부가 전담하므로
+  //   여기서 눌러도 조건이 안 맞으면 fired:false 와 그 이유(reason)가 그대로 나온다.
+  const only = (url.searchParams.get('only') || '').trim();
+  const attendance = only === 'reports' ? { skipped: true } : await runAttendanceReminder(env);
+  const reports    = only === 'attendance' ? { skipped: true } : await runReportReminder(env);
+  return Response.json({ ok: true, attendance, reports });
 }

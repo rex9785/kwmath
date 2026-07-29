@@ -8,7 +8,7 @@ import { safeError } from './_errors.js';
 
 import { dispatchNoticePush } from './notices-write.js';
 import { runPayrollReminder } from './payroll-reminder.js';
-import { runAttendanceReminder } from './admin-reminders.js';
+import { runAttendanceReminder, runReportReminder } from './admin-reminders.js';
 import { flushNightPushQueue } from './_push.js';
 import { runDailyBackup } from './_backup.js';
 import { writeHeartbeat } from './_heartbeat.js';
@@ -55,6 +55,13 @@ export async function onRequest({ request, env, waitUntil }) {
   try {
     const arP = Promise.resolve(runAttendanceReminder(env)).catch(() => {});
     if (typeof waitUntil === 'function') waitUntil(arP); else await arP;
+  } catch (_) {}
+
+  // 리포트 미작성 감지도 같은 틱에 얹는다(어제 수업 기준·반별 1회 게이트는 함수 내부가 전담).
+  //   새 크론 잡을 만들지 않는 이유는 위 두 개와 같다 — 이 5분 틱 하나만 살아 있으면 전부 돈다.
+  try {
+    const rrP = Promise.resolve(runReportReminder(env)).catch(() => {});
+    if (typeof waitUntil === 'function') waitUntil(rrP); else await rrP;
   } catch (_) {}
 
   // 밤에 쌓인 학부모 푸시(자료·리포트 업로드)를 아침에 모아 발송.

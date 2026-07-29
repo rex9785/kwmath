@@ -21,6 +21,20 @@
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
 import { sendPushToUsers } from './_push.js';
+import { listStudents } from './_db.js';
+import { staffScopeAcademy } from './_staff.js';
+
+// 🔒 2026-07-29 — 조교 학원 스코프.
+//   미들웨어(functions/_middleware.js 74줄)는 "GET은 차단목록에 없으면 전부 허용" 구조라,
+//   학원 제한은 API가 직접 걸어야 합니다. 그 전까지 조교가 **다른 학원** 학생 질문까지 다 봤습니다.
+//   반환: null = 원장(전체) / Set(학생id) = 그 조교가 맡은 학원 학생만 (미배정 조교는 빈 Set)
+//   같은 패턴이 clinic-review.js·surveys.js·attendance.js에 이미 있습니다.
+async function staffStudentIds(env, request) {
+  const academy = await staffScopeAcademy(env, request);
+  if (academy === null) return null;                                // 원장 → 제한 없음
+  const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
+  return new Set(roster.map(s => String(s.id)));
+}
 
 // 새 질문(선생님 답변 대기) 알림을 받을 관리자 푸시 userId 목록.
 // 학생 userId는 휴대폰번호라 '__admin__'과 충돌하지 않음. admin-qna.html이 이 값으로 구독.
@@ -435,6 +449,23 @@ export async function onRequest(context) {
         });
       }
 
+      // 배지용 초경량 카운트 — 관리자/조교 홈의 "답변 대기 N" 숫자만.
+      //   ⚠️ 왜 따로 두나: 아래 admin 목록은 질문 사진을 base64로 통째로 실어 보낸다(수 MB 가능).
+      //   홈 화면이 배지 숫자 하나 때문에 그걸 다 받으면 폰에서 눈에 띄게 느려진다.
+      //   여기선 id·student_id만 읽어 개수만 돌려준다(사진 0바이트).
+      if (url.searchParams.get('count') === '1') {
+        if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
+        const { results } = await env.DB.prepare(
+          "SELECT id, student_id FROM qna WHERE status='pending'"
+        ).all();
+        // 조교면 자기 학원 학생 질문만 셈(목록과 같은 규칙 — 배지와 실제 목록 수가 어긋나면 안 됨).
+        const scopeIds = await staffStudentIds(env, request);
+        const rows = scopeIds
+          ? (results || []).filter(r => r.student_id != null && scopeIds.has(String(r.student_id)))
+          : (results || []);
+        return jsonOk({ ok: true, pendingCount: rows.length });
+      }
+
       // admin 전체
       if (url.searchParams.get('admin') === '1') {
         if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
@@ -443,8 +474,13 @@ export async function onRequest(context) {
           ? "SELECT * FROM qna WHERE status='pending' ORDER BY created_at DESC, id DESC"
           : 'SELECT * FROM qna ORDER BY created_at DESC, id DESC';
         const { results } = await env.DB.prepare(sql).all();
-        const list = (results || []).map(r => rowOut(r, { isAdmin: true }));
-        const pending = (results || []).filter(r => r.status === 'pending').length;
+        // 🔒 조교면 자기 학원 학생 질문만. 학생 연결이 없는 옛 글(student_id NULL)은 원장만 봅니다.
+        const scopeIds = await staffStudentIds(env, request);
+        const rows = scopeIds
+          ? (results || []).filter(r => r.student_id != null && scopeIds.has(String(r.student_id)))
+          : (results || []);
+        const list = rows.map(r => rowOut(r, { isAdmin: true }));
+        const pending = rows.filter(r => r.status === 'pending').length;
         return jsonOk({ ok: true, questions: list, pendingCount: pending });
       }
 
@@ -604,8 +640,13 @@ export async function onRequest(context) {
       if (answer.length > MAX_A_LEN) return jsonErr(`답변은 ${MAX_A_LEN}자 이하로 작성해주세요.`);
       const answeredBy = (body.answeredBy === '조교') ? '조교' : '선생님';
 
-      const ex = await env.DB.prepare('SELECT id, author_phone, kind, title, question FROM qna WHERE id=?').bind(id).first();
+      const ex = await env.DB.prepare('SELECT id, student_id, author_phone, kind, title, question FROM qna WHERE id=?').bind(id).first();
       if (!ex) return jsonErr('질문을 찾을 수 없습니다.', 404);
+
+      // 🔒 조교는 자기 학원 학생 질문에만 답변할 수 있습니다 (원장은 scope=null → 통과).
+      const scopeIds = await staffStudentIds(env, request);
+      if (scopeIds && !(ex.student_id != null && scopeIds.has(String(ex.student_id))))
+        return jsonErr('담당 학원 학생의 질문만 답변할 수 있어요.', 403);
 
       await env.DB.prepare(
         "UPDATE qna SET answer=?, answered_by=?, status='answered', answered_at=? WHERE id=?"

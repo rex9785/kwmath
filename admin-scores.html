@@ -65,6 +65,8 @@
   .kwnav-pop a.kwnav-logout{ color:var(--muted); border-top:1px solid var(--border); margin-top:4px; }
   .kwnav-pop a.kwnav-logout:hover{ background:#FBE6E6; color:#b3261e; }
 </style>
+<!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
+<script src="/session-keep.js?v=1"></script>
 </head>
 <body>
 <div class="wrap">
@@ -79,7 +81,7 @@
           <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
           <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
           <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
-          <a role="menuitem" href="/staff-scores" data-p="/staff-scores">📈 성적</a>
+          <a role="menuitem" href="/admin-scores" data-p="/admin-scores">📈 성적</a>
           <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
           <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
           <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
@@ -110,6 +112,9 @@
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function sortKey(y,l){ return (y||'')+'-'+(MONTH[l]||'99'); }
+  // 조교(ast_) 세션인지 — 안내 문구만 갈라 쓴다. 실제 권한은 전부 서버(X-Staff-Phone)가 정한다.
+  //   여기서 뭘 숨기든 보안이 되지 않으므로, 화면을 잠그는 용도로는 쓰지 않는다.
+  function staffMode(){ return /^ast_/.test(token || ''); }
   function fmtScore(s){
     if(s.rawScore!=null && s.grade!=null) return s.rawScore+'('+s.grade+')';
     if(s.rawScore!=null) return ''+s.rawScore;
@@ -122,7 +127,15 @@
     if (token) opts.headers['Authorization'] = 'Bearer ' + token;
     opts.credentials = 'same-origin';
     var r = await fetch(path, opts);
-    if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); var had=token; token=null; showLogin(had?'비밀번호가 틀렸습니다':''); throw new Error('401'); }
+    if (r.status === 401){
+      // 조교(ast_) 세션이 끊긴 경우 「관리자 비밀번호」 입력창은 막다른 길이다 — 조교는 그 비번을 모른다.
+      //   포털로 보내 전화번호로 다시 들어오게 한다. (2026-07-29 조교 성적 화면 통합)
+      var wasStaff = /^ast_/.test(token || '');
+      sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw');
+      var had=token; token=null;
+      if (wasStaff){ try{ localStorage.removeItem('kwmath_admin_token'); }catch(_){} location.replace('/portal'); throw new Error('401'); }
+      showLogin(had?'비밀번호가 틀렸습니다':''); throw new Error('401');
+    }
     return r;
   }
   function showLogin(err){
@@ -142,6 +155,14 @@
       var data = await r.json();
       if(!Array.isArray(data)){ $('content').innerHTML='<div class="msg">학생 목록 응답 오류</div>'; return; }
       students = data.filter(function(s){ return s && s.name; }).sort(function(a,b){ return a.name.localeCompare(b.name,'ko'); });
+      // 빈 드롭다운만 띄우면 "고장인가?" 싶다 — 왜 비었는지 한 줄로 말해준다.
+      //   조교는 학원 배정을 안 받으면 서버가 0명을 준다(권한 문제이지 데이터 문제가 아님).
+      if(!students.length){
+        $('content').innerHTML = staffMode()
+          ? '<div class="msg">담당 학원에 등록된 학생이 없어요.<br><span style="font-size:0.78rem;">(원장님이 아직 학원 배정을 안 했거나, 그 학원에 학생이 없는 경우입니다)</span></div>'
+          : '<div class="msg">등록된 학생이 없습니다.</div>';
+        return;
+      }
       renderShell();
       applyPreset();                 // ?acad=&cls=&sid= 로 넘어왔으면 대상을 미리 골라 둔다
       if(curSid) loadScores(curSid);

@@ -7,6 +7,13 @@ export const ACCOUNTS_DB = '893a626479514059ae309a269b3661b5';
 export const STUDENTS_DB = '559465b73e2f4b76b7df441fd0058bfb';
 export const TOKEN_TTL_DAYS = 30;
 
+// 🔄 2026-07-29 — 로그인 유지(슬라이딩 갱신).
+//   예전: 로그인하고 30일이 지나면 매일 쓰고 있어도 예고 없이 로그아웃됐습니다.
+//   지금: 접속할 때마다 만료를 다시 30일 뒤로 밉니다 → 계속 쓰는 분은 영원히 로그인 유지.
+//         30일 내내 한 번도 안 들어오면 그때 만료(방치된 토큰은 계속 정리됨).
+//   R2 쓰기를 아끼려고 "마지막 갱신 후 하루 지났을 때"만 다시 씁니다.
+const TOKEN_RENEW_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 // ── 휴대폰 번호 정규화 (010-1234-5678) ──
 export function normalizePhone(input) {
   const digits = (input || '').replace(/[^0-9]/g, '');
@@ -82,12 +89,24 @@ export async function verifyToken(env, token) {
   try {
     const payload = await obj.json();
     if (!payload || !payload.phone) return null;
-    if (typeof payload.expires === 'number' && payload.expires < Date.now()) {
+    const now = Date.now();
+    if (typeof payload.expires === 'number' && payload.expires < now) {
       // 만료 → 정리
       try { await env.BUCKET.delete('auth/tokens/' + token + '.json'); } catch(_) {}
       return null;
     }
-    return payload; // { phone, expires, createdAt }
+    // 🔄 슬라이딩 갱신 — 지금 접속했으니 만료를 다시 30일 뒤로. 하루에 한 번만 R2에 씁니다.
+    const fullMs = TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+    if (typeof payload.expires !== 'number' || (payload.expires - now) < (fullMs - TOKEN_RENEW_INTERVAL_MS)) {
+      const renewed = { ...payload, expires: now + fullMs, renewedAt: now };
+      try {
+        await env.BUCKET.put('auth/tokens/' + token + '.json', JSON.stringify(renewed), {
+          httpMetadata: { contentType: 'application/json' },
+        });
+        return renewed;
+      } catch (_) { /* 갱신 실패해도 이번 요청은 통과 — 다음 접속 때 다시 시도합니다. */ }
+    }
+    return payload; // { phone, expires, createdAt, renewedAt? }
   } catch (e) {
     return null;
   }

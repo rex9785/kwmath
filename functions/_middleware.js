@@ -10,6 +10,7 @@
 import {
   verifyAdminSession, isAdminSessionToken, readCookie,
   verifyStaffSession, isStaffSessionToken,
+  renewAdminSessionIfDue, renewStaffSessionIfDue,
 } from './api/_admin.js';
 import { getStaffRecord } from './api/_staff.js';
 import { normalizePhone, verifyToken } from './api/_auth.js';
@@ -79,6 +80,7 @@ export async function onRequest(context) {
   const acao = allowOrigin(context.request);
   let logIdentity = {};   // 접근로깅용 신원 — 원장/조교는 아래 토큰검증에서 채움
   let clientBearer = '';  // 원본 Bearer — 학생/학부모 포털토큰 백그라운드 해석용
+  let renewedToken = '';  // 🔄 원장·조교 로그인 유지 — 갱신할 때가 됐으면 새 토큰(응답헤더로 내려감)
 
   if (context.request.method === 'OPTIONS') {
     return new Response(null, {
@@ -119,7 +121,10 @@ export async function onRequest(context) {
 
       if (isAdminSessionToken(bearer)) {
         // 원장(adm_) 풀권한 세션 — 기존 동작 그대로 (X-Staff-Phone 없음 → 전체 열람)
-        if (await verifyAdminSession(env, bearer)) { translate(); logIdentity = { role: 'owner' }; }
+        if (await verifyAdminSession(env, bearer)) {
+          translate(); logIdentity = { role: 'owner' };
+          renewedToken = (await renewAdminSessionIfDue(env, bearer)) || '';   // 🔄 계속 로그인
+        }
       } else if (isStaffSessionToken(bearer)) {
         // 조교(ast_) 제한 세션 — 허용 경로만 번역, 그 외 403. 토큰에 박힌 전화번호를 X-Staff-Phone로 전달.
         const sv = await verifyStaffSession(env, bearer);
@@ -137,6 +142,7 @@ export async function onRequest(context) {
           if (staffAllowed(url, method)) {
             translate(sv.phone);   // ← 검증된 조교 신원(숫자만)
             logIdentity = { role: 'staff', phone: normalizePhone(sv.phone) || null };
+            renewedToken = (await renewStaffSessionIfDue(env, bearer, sv.phone)) || '';   // 🔄 계속 로그인
           } else {
             return new Response(
               JSON.stringify({ error: '조교 권한으로는 이 작업을 할 수 없어요. (열람·질문답변만 가능)' }),
@@ -154,6 +160,14 @@ export async function onRequest(context) {
   const response = forwardRequest ? await context.next(forwardRequest) : await context.next();
   const newResponse = new Response(response.body, response);
   newResponse.headers.set('Access-Control-Allow-Origin', acao);
+
+  // 🔄 원장·조교 로그인 유지 — 갱신된 토큰을 응답헤더로 내려보낸다.
+  //   받는 쪽 = /session-keep.js (localStorage 'kwmath_admin_token'에 덮어씀).
+  //   Expose-Headers가 없으면 스크립트가 이 헤더를 못 읽는다(same-origin이라 대개 되지만 명시).
+  if (renewedToken) {
+    newResponse.headers.set('X-Kw-Session', renewedToken);
+    newResponse.headers.set('Access-Control-Expose-Headers', 'X-Kw-Session');
+  }
 
   // ── 접근 로깅(조용히 기록만) — page·api만, 정적자원 제외. 백그라운드라 응답을 안 막음.
   try {

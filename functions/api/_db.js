@@ -143,6 +143,21 @@ export async function getStudentByName(env, name) {
   return rowToStudent(r);
 }
 
+// 🆔 id(권장) 우선 → 없으면 name(구버전 호환)으로 학생 1명 해석.
+//   ⚠️ 동명이인이 있으면 name 경로는 먼저 등록된 1명만 잡힌다(위 ORDER BY id LIMIT 1).
+//      그래서 저장·삭제 같은 쓰기 경로는 반드시 id를 보낼 것.
+//      (2026-07-29 도입: staff-students.html 출결·클리닉 쓰기가 이름 기반이라 남의 기록에 저장될 위험이 있었음)
+export async function resolveStudent(env, rawId, rawName) {
+  const id = (rawId === undefined || rawId === null) ? '' : String(rawId).trim();
+  if (id) {
+    const n = Number(id);
+    return await getStudentById(env, (Number.isInteger(n) && String(n) === id) ? n : id);
+  }
+  const name = (rawName || '').trim();
+  if (!name) return null;
+  return await getStudentByName(env, name);
+}
+
 // ── 운영진(원장) 학생 명단 제외 ──
 // 원장(관우T)은 admin 계정으로 로그인하므로 학생 목록·반 편성·리포트 명단에 노출하지 않는다.
 // (login.js·staff-register.js·me.js의 ADMIN_PHONES와 동일하게 유지)
@@ -351,10 +366,11 @@ export async function listAllAttendance(env) {
     'SELECT a.student_id, s.name, a.date, a.status, a.homework, a.homework_note, a.note, a.method ' +
     'FROM attendance a LEFT JOIN students s ON s.id = a.student_id'
   ).all();
+  // 🆔 그룹핑 키는 student_id — 이름으로 묶으면 동명이인 두 명의 출결이 한 덩어리로 합쳐진다.
   const byStudent = {};
   for (const r of (results || [])) {
-    const key = r.name || ('id:' + r.student_id);
-    if (!byStudent[key]) byStudent[key] = { name: r.name || '', records: {}, updatedAt: null };
+    const key = String(r.student_id);
+    if (!byStudent[key]) byStudent[key] = { id: r.student_id, name: r.name || '', records: {}, updatedAt: null };
     byStudent[key].records[r.date] = attRecord(r);
   }
   return Object.values(byStudent);
@@ -433,10 +449,11 @@ export async function listAllClinic(env) {
     'SELECT c.student_id, s.name, c.date, c.status, c.achieve, c.minutes, c.note ' +
     'FROM clinic c LEFT JOIN students s ON s.id = c.student_id'
   ).all();
+  // 🆔 그룹핑 키는 student_id — 이름으로 묶으면 동명이인 두 명의 클리닉이 한 덩어리로 합쳐진다.
   const byStudent = {};
   for (const r of (results || [])) {
-    const key = r.name || ('id:' + r.student_id);
-    if (!byStudent[key]) byStudent[key] = { name: r.name || '', records: {}, updatedAt: null };
+    const key = String(r.student_id);
+    if (!byStudent[key]) byStudent[key] = { id: r.student_id, name: r.name || '', records: {}, updatedAt: null };
     byStudent[key].records[r.date] = clinicRecord(r);
   }
   return Object.values(byStudent);

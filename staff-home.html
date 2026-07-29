@@ -24,7 +24,26 @@
   .mcard .d{ font-size:0.75rem; color:var(--muted); margin-top:4px; line-height:1.35; }
   .mcard.cli:hover{ border-color:var(--ai); box-shadow:0 6px 16px rgba(31,111,120,0.12); }
   .mcard.cli .t{ color:var(--ai); }
+
+  /* ── 오늘 할 일 (2026-07-29 신설) ──
+     예전 조교 홈은 링크 9개뿐이라, 오늘 뭘 해야 하는지는 카드를 눌러 들어가 봐야 알았다.
+     이제 밀린 것만 위에 뜨고, 줄을 누르면 바로 그 화면으로 간다. 없으면 "다 하셨어요" 한 줄. */
+  #todo{ border:1.5px solid var(--border); border-radius:16px; padding:14px 16px; margin-bottom:22px; background:#fff; box-shadow:0 2px 10px rgba(134,38,51,0.05); }
+  #todo.has{ border-color:var(--primary); background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%); }
+  .todo-t{ font-size:0.78rem; font-weight:800; color:var(--primary); margin-bottom:9px; }
+  .todo-t em{ font-style:normal; font-weight:600; color:var(--muted); font-size:0.73rem; margin-left:6px; }
+  .todo-list{ display:flex; flex-direction:column; gap:7px; }
+  .todo-row{ display:flex; align-items:center; gap:9px; width:100%; background:#fff; border:1.5px solid var(--border); border-radius:11px; padding:10px 12px; font-family:inherit; font-size:0.88rem; font-weight:700; color:var(--ink); text-align:left; cursor:pointer; }
+  .todo-row .n{ margin-left:auto; background:var(--primary); color:#fff; border-radius:999px; min-width:22px; padding:1px 7px; text-align:center; font-size:0.78rem; font-weight:800; }
+  .todo-row .go{ color:var(--muted); font-weight:700; font-size:0.82rem; }
+  .todo-none{ font-size:0.86rem; font-weight:600; color:var(--muted); }
+  /* 카드 배지 — 0이거나 못 셌으면 아예 안 보인다(:empty). */
+  .bdg{ display:inline-block; background:var(--primary); color:#fff; border-radius:999px; min-width:20px; padding:0 7px; margin-left:5px; font-size:0.72rem; font-weight:800; line-height:20px; text-align:center; vertical-align:middle; }
+  .bdg:empty{ display:none; }
+  .mcard.cli .bdg{ background:var(--ai); }
 </style>
+<!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
+<script src="/session-keep.js?v=1"></script>
 </head>
 <body>
 <div class="wrap">
@@ -33,10 +52,13 @@
     <button class="back" onclick="logout()">로그아웃</button>
   </div>
 
+  <!-- 오늘 할 일 — 내용은 loadTodo()가 채운다. 다 했으면 축하 한 줄만 남는다. -->
+  <div id="todo" style="display:none;"></div>
+
   <div class="sec">수업 · 학생</div>
   <div class="menu">
     <a class="mcard" href="/staff-students"><div class="ic">🎓</div><div class="t">학생</div><div class="d">담당 학원 학생 정보</div></a>
-    <a class="mcard" href="/staff-scores"><div class="ic">📈</div><div class="t">성적</div><div class="d">시험 성적 입력·조회</div></a>
+    <a class="mcard" href="/admin-scores"><div class="ic">📈</div><div class="t">성적</div><div class="d">반 평균 · 개인 추이 · 입력</div></a>
     <a class="mcard" href="/staff-reports"><div class="ic">📋</div><div class="t">리포트</div><div class="d">수업 리포트 작성</div></a>
     <a class="mcard" href="/staff-materials"><div class="ic">📚</div><div class="t">수업자료</div><div class="d">반별 수업자료</div></a>
   </div>
@@ -44,12 +66,12 @@
   <div class="sec">클리닉</div>
   <div class="menu">
     <a class="mcard cli" href="/clinic-roster"><div class="ic">🩺</div><div class="t">클리닉 명단</div><div class="d">오늘 클리닉 대상</div></a>
-    <a class="mcard cli" href="/clinic-review"><div class="ic">📝</div><div class="t">클리닉 총평</div><div class="d">총평 작성·저장</div></a>
+    <a class="mcard cli" href="/clinic-review"><div class="ic">📝</div><div class="t">클리닉 총평<i class="bdg" id="bdgReview"></i></div><div class="d">총평 작성·저장</div></a>
   </div>
 
   <div class="sec">소통 · 기록</div>
   <div class="menu">
-    <a class="mcard" href="/admin-qna"><div class="ic">💬</div><div class="t">질문 답변</div><div class="d">학생·학부모 질문</div></a>
+    <a class="mcard" href="/admin-qna"><div class="ic">💬</div><div class="t">질문 답변<i class="bdg" id="bdgQna"></i></div><div class="d">학생·학부모 질문</div></a>
     <a class="mcard" href="/admin-surveys"><div class="ic">🧪</div><div class="t">테스트</div><div class="d">테스트·퀴즈 관리</div></a>
     <a class="mcard" href="/staff-worklog"><div class="ic">🗓️</div><div class="t">근무기록</div><div class="d">근무·급여 기록</div></a>
   </div>
@@ -58,6 +80,72 @@
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   if(!token){ location.replace('/portal'); }
   function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+
+  // ── 오늘 할 일 + 카드 배지 (2026-07-29 신설) ──
+  //   왜: 조교 홈이 링크 9개뿐이라 "오늘 뭐가 남았나"를 알려면 하나씩 들어가 봐야 했다.
+  //   원칙: ① 새 API 없이 기존 조회 2개만 ② 하나 실패해도 나머지는 뜸 ③ 0건은 줄을 안 그림.
+  //   두 조회 모두 서버가 조교의 학원으로 자동 스코프하므로, 여기 숫자는 '내 학원 것'만이다.
+  function todoBadge(id, n){
+    var el = document.getElementById(id);
+    if (el) el.textContent = (n && n > 0) ? String(n > 99 ? '99+' : n) : '';
+  }
+  function kstTodayLabel(){
+    var s = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+    var dow = ['일','월','화','수','목','금','토'][new Date(s + 'T00:00:00Z').getUTCDay()];
+    return Number(s.slice(5,7)) + '월 ' + Number(s.slice(8,10)) + '일 (' + dow + ')';
+  }
+  function loadTodo(){
+    var box = document.getElementById('todo');
+    if (!box || !token) return;
+    var H = { 'Authorization': 'Bearer ' + token };
+    var grab = function(u){ return fetch(u, { headers:H }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }); };
+
+    Promise.all([
+      // 답변 대기 질문 — ?count=1은 개수만(사진 base64를 안 받음). 서버가 내 학원 학생 것만 셈.
+      grab('/api/qna?count=1'),
+      // 오늘 클리닉 총평 — date 없이 부르면 서버가 오늘(KST)로 처리한다.
+      grab('/api/clinic-review'),
+    ]).then(function(res){
+      var qna = res[0], cr = res[1];
+
+      var nQna = (qna && Number.isFinite(Number(qna.pendingCount))) ? Number(qna.pendingCount) : null;
+
+      // 총평이 필요한 사람 = 오늘 클리닉에 '나온' 학생(결석·병결·공결 제외) 중 아직 총평이 없는 사람.
+      //   결석한 학생에게 총평을 쓰라고 재촉하면 매일 사라지지 않는 숫자가 되어 배지가 무의미해진다.
+      var nRev = null;
+      if (cr && Array.isArray(cr.clinicStudents)) {
+        var skip = { '결석':1, '병결':1, '공결':1 };
+        var done = {};
+        (cr.reviews || []).forEach(function(rv){ if (rv && rv.studentId != null) done[String(rv.studentId)] = 1; });
+        nRev = cr.clinicStudents.filter(function(s){
+          return s && s.studentId != null && !skip[s.status] && !done[String(s.studentId)];
+        }).length;
+      }
+
+      todoBadge('bdgQna', nQna);
+      todoBadge('bdgReview', nRev);
+
+      var rows = [];
+      var row = function(n, icon, text, href){
+        if (!n) return;   // null(못 셈)·0 → 줄 자체를 안 만든다
+        rows.push('<button type="button" class="todo-row" onclick="location.href=\'' + href + '\'">'
+          + icon + ' <span>' + text + '</span><span class="n">' + n + '</span><span class="go">›</span></button>');
+      };
+      row(nQna, '💬', '답변 안 한 질문', '/admin-qna');
+      row(nRev, '📝', '오늘 클리닉 총평 안 쓴 학생', '/clinic-review');
+
+      var title = '<div class="todo-t">오늘 할 일<em>' + kstTodayLabel() + '</em></div>';
+      if (rows.length) {
+        box.className = 'has';
+        box.innerHTML = title + '<div class="todo-list">' + rows.join('') + '</div>';
+      } else {
+        box.className = '';
+        box.innerHTML = title + '<div class="todo-none">지금 밀린 게 없습니다. 👍</div>';
+      }
+      box.style.display = 'block';
+    }).catch(function(){ /* 요약 실패는 메뉴를 막지 않는다 */ });
+  }
+  loadTodo();
 </script>
 </body>
 </html>

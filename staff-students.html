@@ -107,6 +107,8 @@
   .kwnav--light .kwnav-home{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
   .kwnav--light .kwnav-toggle{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
 </style>
+<!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
+<script src="/session-keep.js?v=1"></script>
 </head>
 <body>
 <div class="wrap">
@@ -121,7 +123,7 @@
           <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
           <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
           <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
-          <a role="menuitem" href="/staff-scores" data-p="/staff-scores">📈 성적</a>
+          <a role="menuitem" href="/admin-scores" data-p="/admin-scores">📈 성적</a>
           <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
           <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
           <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
@@ -200,12 +202,13 @@
         score('영어 모의', s.engMockGrade)+
         score('내신 수학', s.schoolMathGrade)+
       '</div>'+
+      // 🆔 출결·클리닉은 student_id로 지목 — 이름으로 보내면 동명이인 시 남의 기록에 저장된다(2026-07-29 전환)
       '<div class="arow">'+
-        '<button class="mini" onclick="toggleAtt(this,\''+esc(s.name).replace(/'/g,"\\'")+'\')">📅 수업 출결</button>'+
-        '<button class="mini" onclick="toggleClinic(this,\''+esc(s.name).replace(/'/g,"\\'")+'\')">📋 클리닉</button>'+
+        '<button class="mini" onclick="toggleAtt(this,\''+esc(String(s.id))+'\')">📅 수업 출결</button>'+
+        '<button class="mini" onclick="toggleClinic(this,\''+esc(String(s.id))+'\')">📋 클리닉</button>'+
       '</div>'+
-      '<div class="attwrap" data-name="'+esc(s.name)+'"></div>'+
-      '<div class="cliwrap" data-name="'+esc(s.name)+'"></div>'+
+      '<div class="attwrap" data-id="'+esc(String(s.id))+'"></div>'+
+      '<div class="cliwrap" data-id="'+esc(String(s.id))+'"></div>'+
     '</div>';
   }
 
@@ -222,7 +225,7 @@
     $('content').innerHTML = list.map(cardHtml).join('');
   }
 
-  async function toggleAtt(btn, name){
+  async function toggleAtt(btn, sid){
     var box = btn.closest('.card').querySelector('.attwrap');
     if(box.classList.contains('show')){ box.classList.remove('show'); return; }
     box.classList.add('show');
@@ -245,16 +248,16 @@
       '<div class="attsummary">불러오는 중…</div>';
     var btns = box.querySelectorAll('.aibtn');
     btns.forEach(function(b){ b.addEventListener('click', function(){ btns.forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); }); });
-    box.querySelector('.aisave').addEventListener('click', function(){ saveAtt(box, name, this); });
-    await loadAttSummary(box, name);
+    box.querySelector('.aisave').addEventListener('click', function(){ saveAtt(box, sid, this); });
+    await loadAttSummary(box, sid);
   }
 
-  async function loadAttSummary(box, name){
+  async function loadAttSummary(box, sid){
     var sumEl = box.querySelector('.attsummary');
     sumEl.innerHTML = '불러오는 중…';
     try{
       var m = curMonth();
-      var r = await api('/api/attendance?name='+encodeURIComponent(name)+'&month='+m);
+      var r = await api('/api/attendance?id='+encodeURIComponent(sid)+'&month='+m);
       var j = await r.json();
       var rec = (j&&j.records)||{};
       var dates = Object.keys(rec).sort();
@@ -272,13 +275,13 @@
     }catch(e){ sumEl.innerHTML = '<span style="color:#c0392b;">출결을 불러오지 못했어요.</span>'; }
   }
 
-  async function saveAtt(box, name, btnEl){
+  async function saveAtt(box, sid, btnEl){
     var date = (box.querySelector('.aidate').value||'').trim();
     if(!date){ showToast('날짜를 선택해주세요.'); return; }
     var stBtn = box.querySelector('.aibtn.on');
     var status = stBtn ? stBtn.dataset.st : '';
     var hwRaw = (box.querySelector('.aihw').value||'').trim();
-    var body = { name: name, date: date };
+    var body = { id: sid, date: date };
     body.notifyParent = false;   // 조교 출결 저장은 학부모 자동알림 억제 — 결석·지각·병결 푸시는 원장이 admin에서 확인 후 발송(2026-07-16 확정 방침)
     if(status) body.status = status;
     if(hwRaw!==''){
@@ -295,14 +298,14 @@
       showToast(date.slice(5)+' 저장됐어요.');
       box.querySelectorAll('.aibtn').forEach(function(x){x.classList.remove('on');});
       box.querySelector('.aihw').value='';
-      await loadAttSummary(box, name);
+      await loadAttSummary(box, sid);
     }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); }
     finally{ btnEl.disabled=false; btnEl.textContent=old; }
   }
 
   function fmtMin(min){ var h=Math.floor(min/60), m=min%60; var s=(h?h+'시간':'')+(m?(h?' ':'')+m+'분':''); return s||'0분'; }
 
-  async function toggleClinic(btn, name){
+  async function toggleClinic(btn, sid){
     var box = btn.closest('.card').querySelector('.cliwrap');
     if(box.classList.contains('show')){ box.classList.remove('show'); return; }
     box.classList.add('show');
@@ -335,16 +338,16 @@
     stBtns.forEach(function(b){ b.addEventListener('click', function(){ stBtns.forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); }); });
     var achBtns = box.querySelectorAll('.aibtn[data-ach]');
     achBtns.forEach(function(b){ b.addEventListener('click', function(){ achBtns.forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); }); });
-    box.querySelector('.aisave').addEventListener('click', function(){ saveClinic(box, name, this); });
-    await loadClinicSummary(box, name);
+    box.querySelector('.aisave').addEventListener('click', function(){ saveClinic(box, sid, this); });
+    await loadClinicSummary(box, sid);
   }
 
-  async function loadClinicSummary(box, name){
+  async function loadClinicSummary(box, sid){
     var sumEl = box.querySelector('.clisummary');
     sumEl.innerHTML = '불러오는 중…';
     try{
       var m = curMonth();
-      var r = await api('/api/clinic?name='+encodeURIComponent(name)+'&month='+m);
+      var r = await api('/api/clinic?id='+encodeURIComponent(sid)+'&month='+m);
       var j = await r.json();
       var rec = (j&&j.records)||{};
       var dates = Object.keys(rec).sort();
@@ -362,14 +365,14 @@
     }catch(e){ sumEl.innerHTML = '<span style="color:#c0392b;">클리닉을 불러오지 못했어요.</span>'; }
   }
 
-  async function saveClinic(box, name, btnEl){
+  async function saveClinic(box, sid, btnEl){
     var date = (box.querySelector('.aidate').value||'').trim();
     if(!date){ showToast('날짜를 선택해주세요.'); return; }
     var stBtn = box.querySelector('.aibtn[data-st].on');
     var achBtn = box.querySelector('.aibtn[data-ach].on');
     var hRaw = (box.querySelector('.aih').value||'').trim();
     var mRaw = (box.querySelector('.aim').value||'').trim();
-    var body = { name: name, date: date };
+    var body = { id: sid, date: date };
     if(stBtn) body.status = stBtn.dataset.st;
     if(achBtn) body.achieve = Number(achBtn.dataset.ach);
     if(hRaw!=='' || mRaw!==''){
@@ -387,7 +390,7 @@
       showToast(date.slice(5)+' 클리닉 저장됐어요.');
       box.querySelectorAll('.aibtn').forEach(function(x){x.classList.remove('on');});
       box.querySelector('.aih').value=''; box.querySelector('.aim').value='';
-      await loadClinicSummary(box, name);
+      await loadClinicSummary(box, sid);
     }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); }
     finally{ btnEl.disabled=false; btnEl.textContent=old; }
   }
@@ -419,7 +422,8 @@
     if(!list.length){ $('bpList').innerHTML='<div class="bp-empty">이 반에 학생이 없어요.</div>'; return; }
     $('bpList').innerHTML=list.map(function(s){
       var nm=esc(s.name||'');
-      return '<div class="bp-row" data-name="'+nm+'"><span class="bp-nm">'+nm+'</span><div class="bp-st">'+
+      // 🆔 data-id로 지목 — 이름은 화면 표시용. 동명이인이 같은 반이면 이름만으론 구분 불가(2026-07-29 전환)
+      return '<div class="bp-row" data-id="'+esc(String(s.id))+'"><span class="bp-nm">'+nm+'</span><div class="bp-st">'+
         STATS.map(function(st){ return '<button type="button" class="bp-b" data-st="'+st+'" onclick="bpPick(this)">'+st+'</button>'; }).join('')+
         '</div></div>';
     }).join('');
@@ -448,7 +452,7 @@
     if(!date){ showToast('날짜를 선택해주세요.'); return; }
     var rows=Array.prototype.slice.call(document.querySelectorAll('#bpList .bp-row'));
     var jobs=[];
-    rows.forEach(function(row){ var on=row.querySelector('.bp-b.on'); if(!on) return; jobs.push({ name: row.getAttribute('data-name'), status: on.dataset.st }); });
+    rows.forEach(function(row){ var on=row.querySelector('.bp-b.on'); if(!on) return; jobs.push({ id: row.getAttribute('data-id'), status: on.dataset.st }); });
     if(!jobs.length){ showToast('상태를 고른 학생이 없어요.'); return; }
     var path = bpMode==='cli' ? '/api/clinic' : '/api/attendance';
     var kind = bpMode==='cli' ? '클리닉' : '출결';
@@ -456,7 +460,7 @@
     var ok=0, fail=0;
     for(var i=0;i<jobs.length;i++){
       try{
-        var body={name:jobs[i].name,date:date,status:jobs[i].status};
+        var body={id:jobs[i].id,date:date,status:jobs[i].status};
         // 조교 일괄은 학부모 자동알림 억제 — 결석·지각·병결 푸시는 원장이 admin에서 확인 후 발송(2026-07-16 확정 방침 보존)
         if(bpMode!=='cli') body.notifyParent=false;
         var r=await api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

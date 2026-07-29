@@ -10,6 +10,7 @@
 
 import { getStudentById, getAttendance } from './_db.js';
 import { isBlockStatus, listGrantsForStudent, PRESENT_STATUS } from './_makeup.js';
+import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 
 const norm = (s) => (s || '').toString().replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
@@ -32,6 +33,15 @@ export async function onRequest({ request, env }) {
   try {
     const st = await getStudentById(env, studentId);
     if (!st) return Response.json({ error: '학생을 찾을 수 없습니다.' }, { status: 404 });
+
+    // 🔒 2026-07-29 — 조교 학원 스코프.
+    //   미들웨어는 GET을 차단목록에 없으면 다 열어주므로, 학원 제한은 이 API가 직접 겁니다.
+    //   그 전까지는 조교가 studentId만 알면 다른 학원 학생의 영상 목록까지 조회할 수 있었습니다.
+    //   원장(adm_)은 X-Staff-Phone이 없어 null → 전체 접근. 미배정 조교('')는 아무도 못 봅니다.
+    const scopeAcademy = await staffScopeAcademy(env, request);
+    if (scopeAcademy !== null && (!scopeAcademy || (st.academy || '') !== scopeAcademy))
+      return Response.json({ error: '담당 학원 학생만 조회할 수 있어요.' }, { status: 403 });
+
     const academy   = st.academy || '';
     const className  = st.className || '';
     if (!academy) {

@@ -225,6 +225,8 @@
     @page { size: A4 landscape; margin: 10mm; }
   }
 </style>
+<!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
+<script src="/session-keep.js?v=1"></script>
 </head>
 <body>
 
@@ -271,8 +273,29 @@
       /* 넓은 화면 3열 (관우T 요청 2026-07-01) · 좁은 폰(폴드6 접힘 등)에서는 2열 유지 — 넘침 방지 (관우T 요청 2026-06-29) */
       @media (max-width:640px){ .admin-grid{grid-template-columns:repeat(2,1fr);} }
       @media (max-width:480px){ .admin-grid{gap:9px;} .menu-sec{margin-bottom:16px;} .admin-card{padding:14px 11px;} .admin-card b{font-size:0.86rem;} .admin-card span{font-size:0.68rem;} }
+
+      /* ── 오늘 확인할 것 (2026-07-29 신설) ──
+         예전엔 홈이 '문 19개짜리 복도'라, 뭐가 밀렸는지 알려면 카드를 하나씩 눌러 들어가 봐야 했다.
+         이제 밀린 일이 있을 때만 이 박스가 뜨고, 없으면 "다 처리하셨어요"만 뜬다.
+         새 API를 만들지 않고 기존 4개 조회를 병렬로 부른다(실패해도 그 줄만 빠짐). */
+      #todayBox{border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:18px;background:#fff;box-shadow:0 2px 10px rgba(139,26,53,.05);}
+      #todayBox.has-todo{border-color:var(--primary);background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);}
+      .today-t{font-size:0.82rem;font-weight:800;color:var(--primary);margin-bottom:8px;}
+      .today-t em{font-style:normal;font-weight:600;color:var(--text-light);font-size:0.74rem;margin-left:6px;}
+      .today-list{display:flex;flex-direction:column;gap:7px;}
+      /* 각 줄이 통째로 버튼 — 읽고 나서 다시 카드를 찾아 누르게 하지 않는다(바로 그 화면으로 간다). */
+      .today-row{display:flex;align-items:center;gap:9px;width:100%;background:#fff;border:1.5px solid var(--border);border-radius:11px;padding:10px 12px;font-family:inherit;font-size:0.86rem;font-weight:700;color:var(--text);text-align:left;cursor:pointer;}
+      .today-row:active{transform:scale(.99);}
+      .today-row .n{margin-left:auto;background:var(--primary);color:#fff;border-radius:999px;min-width:22px;padding:1px 7px;text-align:center;font-size:0.78rem;font-weight:800;}
+      .today-row .go{color:var(--text-light);font-weight:700;font-size:0.8rem;}
+      .today-none{font-size:0.85rem;font-weight:600;color:var(--text-light);}
+      /* 카드 배지 — 숫자가 0이거나 아직 못 셌으면 렌더 자체를 안 한다(빈 동그라미 방지). */
+      .cbadge{display:inline-block;background:var(--primary);color:#fff;border-radius:999px;min-width:19px;padding:0 6px;margin-left:5px;font-style:normal;font-size:0.7rem;font-weight:800;line-height:19px;text-align:center;vertical-align:middle;}
+      .cbadge:empty{display:none;}   /* 못 셌거나 0이면 아예 안 보임 — 빈 동그라미가 남지 않게 */
     </style>
     <div id="adminMenu">
+      <!-- 오늘 확인할 것 — 내용은 loadHomeSummary()가 채운다. 다 처리했으면 축하 한 줄만 남는다. -->
+      <div id="todayBox" style="display:none;"></div>
       <!-- 카드 19개 = 관우T 업무 흐름 5구획 (2026-07-09 순서 확정 → 2026-07-28 구획선·제목 추가 → 2026-07-29 카드 2개 신설).
            기존 17개는 하나도 빼지 않았고 순서도 그대로다. 묶어서 제목만 붙였고, 아래 2개를 새로 얹었다.
              · 🩺 클리닉 — 그동안 출결 탭 안쪽 배너에만 있어서 홈에서는 존재를 알 수 없었다(관우T 지적 2026-07-29).
@@ -281,8 +304,8 @@
       <div class="menu-sec">
         <div class="menu-sec-t">① 응대 <i>문의·질문·알림</i></div>
         <div class="admin-grid">
-          <button type="button" class="admin-card" onclick="location.href='/admin-inquiries'">📩<b>상담 문의함<i class="go-out">↗</i></b><span>홈페이지 수업 문의</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-qna'">💬<b>질문 관리<i class="go-out">↗</i></b><span>학생 질문·문의 답변</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-inquiries'">📩<b>상담 문의함<i class="cbadge" id="bdgInquiry"></i><i class="go-out">↗</i></b><span>홈페이지 수업 문의</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-qna'">💬<b>질문 관리<i class="cbadge" id="bdgQna"></i><i class="go-out">↗</i></b><span>학생 질문·문의 답변</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-notify'">🔔<b>알림 보내기<i class="go-out">↗</i></b><span>학원·반·학생에 알림 발송</span></button>
         </div>
       </div>
@@ -320,7 +343,7 @@
         <div class="admin-grid">
           <button type="button" class="admin-card" onclick="location.href='/admin-study'">🏆<b>공부 랭킹<i class="go-out">↗</i></b><span>반별 공부시간 순위(실명)</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-stats'">📊<b>방문 통계<i class="go-out">↗</i></b><span>사이트 방문자 수</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-staff'">🧑‍🏫<b>운영진 관리<i class="go-out">↗</i></b><span>조교 가입 승인·거부</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-staff'">🧑‍🏫<b>운영진 관리<i class="cbadge" id="bdgStaff"></i><i class="go-out">↗</i></b><span>조교 가입 승인·거부</span></button>
           <button type="button" class="admin-card" onclick="openSection('appversion')">📲<b>앱 강제업데이트</b><span>구버전 차단 최소버전</span></button>
         </div>
       </div>
@@ -824,6 +847,90 @@
     checkCronHealth();
     // 새 회원가입 푸시 알림에서 넘어오면(/admin.html#pending) 승인 대기 패널이 있는 학생 목록으로 바로 이동
     if (location.hash === '#pending') { try { openSection('students'); } catch (_) {} }
+    // 홈 "오늘 확인할 것" + 카드 배지 (silent — 실패해도 대시보드는 그대로)
+    loadHomeSummary().catch(() => {});   // 요약이 실패해도 대시보드는 절대 안 막는다
+  }
+
+  // ── 홈 「오늘 확인할 것」 + 카드 배지 (2026-07-29 신설) ──
+  //   왜: 예전 홈은 카드 19개뿐이라 "밀린 게 있나"를 알려면 하나씩 눌러 들어가 봐야 했다.
+  //       이제 밀린 것만 위에 모아 보여주고, 줄을 누르면 바로 그 화면으로 간다.
+  //   설계 원칙 3가지
+  //     ① 새 API를 만들지 않는다 — 이미 있는 조회 4개를 병렬로 부른다.
+  //     ② 하나가 실패해도 나머지는 뜬다(allSettled). 요약이 대시보드를 망가뜨리면 안 된다.
+  //     ③ 0건은 아예 안 그린다. 늘 떠 있는 "0"은 며칠이면 눈이 무시한다.
+  //   ⚠️ 질문 수는 반드시 `?count=1`로 — `?admin=1`은 질문 사진(base64)까지 통째로 실어 보낸다.
+  async function loadHomeSummary() {
+    const box = document.getElementById('todayBox');
+    if (!box) return;
+    const H = { 'Authorization': 'Bearer ' + adminToken };
+    const grab = (u) => fetch(u, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null);
+
+    const [inq, qna, stf, hw] = await Promise.allSettled([
+      grab('/api/inquiry?admin=1'),
+      grab('/api/qna?count=1'),
+      grab('/api/staff-approve'),
+      grab('/api/homework?admin=1'),
+    ]).then(rs => rs.map(r => (r.status === 'fulfilled' ? r.value : null)));
+
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+
+    // ① 새 상담 문의 — 매출 직결이라 맨 위.
+    const nInq = inq ? num(inq.newCount) : null;
+    // ② 답변 대기 질문
+    const nQna = qna ? num(qna.pendingCount) : null;
+    // ③ 조교 승인 대기 — 이걸 놓치면 조교가 아예 로그인을 못 한다.
+    const nStf = (stf && Array.isArray(stf.staff))
+      ? stf.staff.filter(s => s && s.approved !== true).length : null;
+    // ④ 마감이 오늘이거나 이미 지난 '진행 중' 과제 — 닫는 걸 잊기 쉬운 항목.
+    let nHw = null;
+    if (hw && Array.isArray(hw.assignments)) {
+      const today = kstToday();
+      nHw = hw.assignments.filter(a => a && a.active && a.dueDate && a.dueDate <= today).length;
+    }
+
+    setBadge('bdgInquiry', nInq);
+    setBadge('bdgQna', nQna);
+    setBadge('bdgStaff', nStf);
+
+    const rows = [];
+    const row = (n, icon, text, href) => {
+      if (!n) return;   // null(못 셈)·0 → 줄 자체를 안 만든다
+      rows.push('<button type="button" class="today-row" onclick="location.href=\'' + href + '\'">'
+        + icon + ' <span>' + text + '</span><span class="n">' + n + '</span><span class="go">›</span></button>');
+    };
+    row(nInq, '📩', '새 상담 문의', '/admin-inquiries');
+    row(nQna, '💬', '답변 안 한 질문', '/admin-qna');
+    row(nStf, '🧑‍🏫', '조교 승인 대기', '/admin-staff');
+    row(nHw, '📸', '마감된 채로 열려 있는 과제', '/admin-homework');
+
+    const title = '<div class="today-t">오늘 확인할 것<em>' + kstTodayLabel() + '</em></div>';
+    if (rows.length) {
+      box.className = 'has-todo';
+      box.innerHTML = title + '<div class="today-list">' + rows.join('') + '</div>';
+    } else {
+      box.className = '';
+      box.innerHTML = title + '<div class="today-none">밀린 게 없습니다. 👍</div>';
+    }
+    box.style.display = 'block';
+  }
+
+  // 배지 채우기 — null(못 셈)이나 0이면 비워둔다(.cbadge:empty가 숨김).
+  function setBadge(id, n) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = (n && n > 0) ? String(n > 99 ? '99+' : n) : '';
+  }
+
+  // 서버 날짜(dueDate)는 KST 기준 YYYY-MM-DD 문자열이라 KST로 맞춰 비교해야 한다.
+  //   브라우저 로컬시간으로 자르면 해외/시차 기기에서 하루 어긋난다.
+  function kstToday() {
+    const d = new Date(Date.now() + 9 * 3600 * 1000);
+    return d.toISOString().slice(0, 10);
+  }
+  function kstTodayLabel() {
+    const s = kstToday();
+    const dow = ['일','월','화','수','목','금','토'][new Date(s + 'T00:00:00Z').getUTCDay()];
+    return Number(s.slice(5, 7)) + '월 ' + Number(s.slice(8, 10)) + '일 (' + dow + ')';
   }
 
   // ── 크론(자동 스케줄러) 생존 점검 ──

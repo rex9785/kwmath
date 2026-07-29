@@ -99,3 +99,41 @@ export async function verifyStaffSession(env, token) {
 export function isStaffSessionToken(token) {
   return typeof token === 'string' && token.startsWith(STAFF_PREFIX);
 }
+
+// ───────────────────────────────────────────────────────────
+// 🔄 2026-07-29 — 원장·조교도 "계속 로그인" (슬라이딩 갱신). 관우T 지시.
+//   예전: 로그인 후 30일이 지나면 매일 쓰고 있어도 예고 없이 튕겨서 비밀번호를 다시 넣어야 했다.
+//   지금: 접속할 때마다 만료를 다시 30일 뒤로 민 **새 토큰**을 발급한다.
+//         adm_/ast_는 무상태 HMAC 서명(만료가 토큰 안에 박힘)이라 서버가 임의로 늘릴 수 없다.
+//         → _middleware.js가 새 토큰을 응답헤더 `X-Kw-Session`으로 내려주고,
+//           /session-keep.js가 localStorage('kwmath_admin_token')에 덮어쓴다.
+//   30일 내내 한 번도 안 들어오면 그때 만료 = 방치된 토큰은 예전처럼 죽는다(보안 동일).
+//   매 응답마다 새로 만들면 낭비라 "발급된 지 하루 지났을 때"만 만든다.
+//   ※ 학생·학부모 토큰(R2 저장형)의 같은 기능은 `_auth.js` verifyToken에 있다.
+// ───────────────────────────────────────────────────────────
+const RENEW_AFTER_MS = 24 * 60 * 60 * 1000;
+
+// 토큰 문자열에서 만료(ms)만 꺼낸다. adm_<exp>_… · ast_<exp>_<phone>_… 둘 다 첫 조각이 exp.
+function expOfToken(token, prefix) {
+  if (typeof token !== 'string' || !token.startsWith(prefix)) return NaN;
+  const rest = token.slice(prefix.length);
+  const sep = rest.indexOf('_');
+  if (sep < 0) return NaN;
+  const n = Number(rest.slice(0, sep));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+// 갱신할 때가 됐으면 새 토큰 문자열, 아니면 null. (호출 전에 서명검증이 끝나 있어야 함)
+export async function renewAdminSessionIfDue(env, token) {
+  const exp = expOfToken(token, PREFIX);
+  if (!Number.isFinite(exp)) return null;
+  if (exp - Date.now() > DEFAULT_TTL_MS - RENEW_AFTER_MS) return null;   // 발급된 지 아직 하루 안 됨
+  return await issueAdminSession(env);
+}
+
+export async function renewStaffSessionIfDue(env, token, phoneDigits) {
+  const exp = expOfToken(token, STAFF_PREFIX);
+  if (!Number.isFinite(exp)) return null;
+  if (exp - Date.now() > STAFF_TTL_MS - RENEW_AFTER_MS) return null;
+  return await issueStaffSession(env, phoneDigits);
+}

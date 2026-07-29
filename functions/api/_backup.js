@@ -1,4 +1,5 @@
-// _backup.js — 하루 1회 D1(학생·출결·성적·리포트·계정·질문)을 R2로 자동 백업.
+// _backup.js — 하루 1회 D1 주요 테이블 전체(학생·출결·성적·리포트·계정·질문·상담문의·
+//   클리닉·인강·과제·설문·알림·퇴원생보관 등 22개)를 R2로 자동 백업.
 //   목적: 실수 삭제·DB 사고 시 되돌릴 수단(현재 백업이 전혀 없음).
 //   저장: backups/{YYYY-MM-DD}.json  (하루 1개, 같은 날 재실행은 덮어씀)
 //   보관: 최근 30일. 그보다 오래된 backups/*.json은 자동 삭제.
@@ -22,6 +23,23 @@ const TABLES = [
   { name: 'reports' },
   { name: 'accounts' },
   { name: 'qna', strip: ['image', 'images'] },   // 첨부 이미지(base64)는 너무 커서 제외 — 질문/답변 텍스트는 보존
+  // ── 2026-07-29 확대 ── 위 7개만 담고 있어서, 아래 것들은 날아가면 되돌릴 방법이 없었습니다.
+  { name: 'inquiries' },              // 홈페이지 상담 문의 = 신규 리드. 잃으면 복구 불가·매출 직결(최우선)
+  { name: 'clinic' },                 // 클리닉 출석·성취도·시간
+  { name: 'clinic_roster' },          // 클리닉 필수명단
+  { name: 'clinic_reviews' },         // 클리닉 총평(초안·발송본)
+  { name: 'clinic_day_memo' },        // 클리닉 하루 메모
+  { name: 'makeup_grants' },          // 인강(보충영상) 신청·승인 이력
+  { name: 'homework_assignments' },   // 과제
+  { name: 'homework_submissions' },   // 과제 제출(사진 자체는 R2, 여기엔 photo_keys만이라 가벼움)
+  { name: 'surveys' },                // 설문·퀴즈 문항
+  { name: 'survey_responses' },       // 설문·퀴즈 응답/채점
+  { name: 'notifications' },          // 알림함
+  { name: 'student_archive' },        // 퇴원생 보관 기록(성적·출결 스냅샷 포함)
+  { name: 'study_prefs' },            // 학생 학습 목표·D-day
+  { name: 'app_config' },             // 앱 설정(강제업데이트 최소버전 등)
+  { name: 'qna_settings' },           // 질문방 AI 한도 설정
+  // 일부러 뺀 것: access_events(접근로그 — 대용량이고 복구 가치 낮음) · login_lockouts(일시적 잠금 상태)
 ];
 
 function kstDayStr(offsetDays = 0) {
