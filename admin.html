@@ -1365,20 +1365,24 @@
     // 그룹 자체는 학원→반 정렬
     const groupKeys = Object.keys(groups).sort();
 
-    list.innerHTML = groupKeys.map(key => {
+    list.innerHTML = groupKeys.map((key, gi) => {
       const g = groups[key];
       const isOpen = openReportGroups.has(key);
       const itemsHtml = isOpen ? g.reports.map(r => renderReportRow(r)).join('') : '';
       return `<div class="card" style="padding:0;overflow:hidden;">
-        <div onclick="toggleReportGroup('${escapeAttr(key)}')" style="cursor:pointer;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;background:${isOpen?'var(--primary-light)':'#fff'};transition:background .15s;">
+        <div onclick="toggleReportGroup('${escapeAttr(key)}')" style="cursor:pointer;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:${isOpen?'var(--primary-light)':'#fff'};transition:background .15s;">
           <div style="font-weight:800;font-size:0.95rem;">
             <span style="color:var(--primary);">${escapeHtml(g.school)}</span>
             <span style="color:var(--text-light);margin:0 6px;">/</span>
             <span>${escapeHtml(g.class_name)}</span>
             <span style="font-size:0.78rem;color:var(--text-light);font-weight:600;margin-left:8px;">${g.reports.length}건</span>
           </div>
-          <span style="font-size:0.85rem;color:var(--text-light);transition:transform .25s;display:inline-block;${isOpen?'transform:rotate(180deg);':''}">▾</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <button class="edit-btn" title="이 반 학생 전원의 같은 날짜 리포트를 한 화면에서 한꺼번에 고칩니다. 학생 수만큼 ✏️를 반복할 필요가 없습니다." onclick="event.stopPropagation();openBulkReport(${gi},'${jsArg(g.school)}','${jsArg(g.class_name)}')">📝 반 전체 일괄 수정</button>
+            <span style="font-size:0.85rem;color:var(--text-light);transition:transform .25s;display:inline-block;${isOpen?'transform:rotate(180deg);':''}">▾</span>
+          </div>
         </div>
+        <div id="bulkReportPanel-${gi}"></div>
         ${isOpen ? `<div style="border-top:1px solid var(--border);padding:14px 22px 18px;display:flex;flex-direction:column;gap:10px;">${itemsHtml}</div>` : ''}
       </div>`;
     }).join('');
@@ -1595,6 +1599,237 @@
       } catch(e) { fail++; }
     }
     showToast(`📤 ${done}명에게 복사 완료${fail?` · 실패 ${fail}명`:''} (알림 없음)`);
+    await loadAllReports();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  📝 반 전체 리포트 일괄 수정 (2026-07-29 신설)
+  // ══════════════════════════════════════════════════════════════════════
+  //  [문제] 관리자 앱엔 리포트를 "학생 1명 단위"로 고치는 ✏️밖에 없었다.
+  //         한 반 리포트에 오타가 있으면 15명이면 ✏️를 15번 눌러야 했음.
+  //         (진단 근거: 인수인계/관리자앱_재편안_20260728.md v4-2 "빈 구멍")
+  //  [해결] 반 그룹 헤더에서 [수업 날짜 1개 + 내용 1벌]을 정하고 → 그 반 학생 전원에게 한 번에 저장.
+  //  [원리] /api/reports-write POST는 같은 학생+같은 날짜면 새로 쌓지 않고 그 행을 갱신한다
+  //         (reports-write.js 33~41 dedup 가드). → "이미 있는 학생 = 수정 / 없는 학생 = 생성"이 한 번에 처리됨.
+  //         그래서 새 API가 필요 없다. 이 화면은 순수 admin.html 추가분.
+  //  [알림] 기본 noPush. 이미 리포트를 받은 학부모에게 같은 수업 알림이 또 가면 안 되기 때문.
+  //         "새로 생기는 리포트에만 알림"은 체크박스로 선택(기본 꺼짐).
+  //  [주의] 학생 식별이 이름 기반인 것은 /api/reports-write의 기존 계약이라 그대로 따른다.
+  //         대신 같은 반에 동명이인이 있으면 화면에서 경고를 띄운다(둘 다 같은 내용으로 덮어써지므로).
+  let bulkRep = null;   // { gi, school, className, academy, reports, roster, dates, date, draft, mixed }
+
+  async function openBulkReport(gi, school, className) {
+    const host = document.getElementById('bulkReportPanel-' + gi);
+    if (!host) return;
+    // 같은 반 버튼을 다시 누르면 닫기. 단 host가 이미 비어 있으면(그 사이 그룹 헤더를 눌러
+    // renderReportGroups가 다시 그리면서 패널이 통째로 날아간 경우) 닫지 말고 새로 연다.
+    // 안 그러면 "한 번 눌렀는데 아무 일도 안 일어나고 두 번 눌러야 열리는" 증상이 난다.
+    if (bulkRep && bulkRep.gi === gi && host.innerHTML.trim()) { closeBulkReport(); return; }
+    closeBulkReport();                                                // 다른 반이 열려 있으면 먼저 닫기
+    host.innerHTML = '<div style="border-top:1px solid var(--border);padding:14px 22px;font-size:0.85rem;color:var(--text-light);">불러오는 중...</div>';
+    if (!(allStudents && allStudents.length)) { try { await loadStudents(); } catch(_){} }
+
+    const reports = allReportsAdmin.filter(r =>
+      (r.school || '(학원 미지정)') === school && (r.class_name || '(반 미지정)') === className);
+
+    // 이 그룹의 '진짜 학원'을 학생 명단에서 역추적한다.
+    //   그룹 key의 school은 리포트에 저장된 값이라 학생 명단의 academy와 철자가 다를 수 있고,
+    //   반 이름("썸머 공통수학2반")은 두 학원에 동시에 존재하므로 반 이름만으로 명단을 뽑으면
+    //   다른 학원 학생까지 딸려온다. → 이 그룹 리포트 주인들의 실제 academy 최빈값을 쓴다.
+    const tally = {};
+    reports.forEach(r => {
+      const s = (allStudents || []).find(x => x.name === r.studentName);
+      if (s && s.academy) tally[s.academy] = (tally[s.academy] || 0) + 1;
+    });
+    const academy = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0] || school;
+
+    const roster = (allStudents || [])
+      .filter(s => s.academy === academy && s.className === className)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    const dates = [...new Set(reports.map(r => r.date).filter(Boolean))].sort().reverse();
+
+    bulkRep = { gi, school, className, academy, reports, roster, dates,
+                date: dates[0] || new Date().toISOString().slice(0, 10),
+                draft: { content:'', homework:'', notes:'' }, mixed: false };
+    bulkRepLoadDate();
+  }
+
+  function closeBulkReport() {
+    if (bulkRep) {
+      const h = document.getElementById('bulkReportPanel-' + bulkRep.gi);
+      if (h) h.innerHTML = '';
+    }
+    bulkRep = null;
+  }
+
+  // 화면에 뿌릴 줄 = (반 명단 전원) ∪ (그 날짜에 리포트가 있는 사람)
+  //   명단에 없는데 리포트가 있는 학생(반 이동·전출)도 반드시 보여준다.
+  //   안 보이면 "저 학생만 왜 안 고쳐졌지?"가 되기 때문. 단 기본 체크는 해제.
+  function bulkRepRows() {
+    const b = bulkRep;
+    const byName = {};
+    b.reports.filter(r => r.date === b.date).forEach(r => { byName[r.studentName] = r; });
+    const rows = b.roster.map(s => ({ name: s.name, rep: byName[s.name] || null, inRoster: true }));
+    Object.keys(byName).forEach(nm => {
+      if (!rows.some(x => x.name === nm)) rows.push({ name: nm, rep: byName[nm], inRoster: false });
+    });
+    return rows;
+  }
+
+  function bulkRepPickDate(v) {
+    if (!bulkRep || !v) return;
+    bulkRep.date = v;
+    bulkRepLoadDate();
+  }
+
+  // 날짜가 정해질 때마다 그 날짜 리포트에서 내용을 프리필하고 패널을 다시 그린다.
+  function bulkRepLoadDate() {
+    const b = bulkRep; if (!b) return;
+    const src = bulkRepRows().map(r => r.rep).filter(Boolean);
+    b.draft = src.length
+      ? { content: src[0].content || '', homework: src[0].homework || '', notes: src[0].notes || '' }
+      : { content: '', homework: '', notes: '' };
+    // 같은 날짜인데 학생마다 내용이 다르면 = 통일하면 일부 내용이 사라진다 → 반드시 경고
+    b.mixed = src.length > 1 && src.some(r =>
+      (r.content || '')  !== b.draft.content ||
+      (r.homework || '') !== b.draft.homework ||
+      (r.notes || '')    !== b.draft.notes);
+    renderBulkReportPanel();
+  }
+
+  function renderBulkReportPanel() {
+    const b = bulkRep; if (!b) return;
+    const host = document.getElementById('bulkReportPanel-' + b.gi); if (!host) return;
+    const rows  = bulkRepRows();
+    const nHave = rows.filter(r => r.rep).length;
+    const nNew  = rows.length - nHave;
+    const cnt = {}; rows.forEach(r => { cnt[r.name] = (cnt[r.name] || 0) + 1; });
+    const dupNames = Object.keys(cnt).filter(n => cnt[n] > 1);
+
+    // ⚠️ 입력칸 CSS(.notice-edit input/select/textarea, 92~93행)가 .notice-edit 안에서만 먹으므로
+    //    폼 전체를 .notice-edit로 감싼다. 대신 그 규칙이 input에 width:100%를 걸어서 체크박스가
+    //    한 줄 전체로 늘어나므로, 체크박스에는 인라인으로 width:auto를 덮어씌운다.
+    const CB = 'style="width:auto;margin:0;padding:0;flex-shrink:0;"';
+    host.innerHTML = `<div style="border-top:1px solid var(--border);background:var(--bg2);padding:14px 22px 18px;">
+      <div class="notice-edit">
+      <div style="font-weight:800;font-size:0.9rem;">📝 반 전체 리포트 일괄 수정</div>
+      <div style="font-size:0.8rem;color:var(--text-light);margin:3px 0 10px;line-height:1.55;">
+        <b>${escapeHtml(b.academy)} · ${escapeHtml(b.className)}</b> — 아래 내용 <b>한 벌</b>을 선택한 학생 전원에게 저장합니다.
+        같은 날짜 리포트가 <b>이미 있으면 덮어쓰고</b>(새로 쌓이지 않음), 없으면 새로 만듭니다.
+      </div>
+
+      ${dupNames.length ? `<div style="font-size:0.78rem;color:#B02347;background:#FBE5E9;border:1px solid #F2A8B5;border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5;">
+        ⚠️ <b>동명이인</b>(${escapeHtml(dupNames.join(', '))})이 있습니다. 리포트는 <b>이름</b>으로 저장되므로 같은 이름 학생 모두가 같은 내용으로 저장됩니다.</div>` : ''}
+
+      ${b.mixed ? `<div style="font-size:0.78rem;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5;">
+        ⚠️ 이 날짜 리포트가 <b>학생마다 내용이 다릅니다</b>. 저장하면 선택한 학생 전부가 아래 내용으로 <b>통일</b>됩니다(개인별 코멘트는 사라짐).</div>` : ''}
+
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">수업 날짜</label>
+      <div class="notice-edit-row">
+        <select onchange="bulkRepPickDate(this.value)">
+          ${b.dates.map(d => `<option value="${escapeAttr(d)}" ${d === b.date ? 'selected' : ''}>${escapeHtml(d.replace(/-/g,'.'))} — 리포트 ${b.reports.filter(r => r.date === d).length}건</option>`).join('')}
+          ${b.dates.includes(b.date) ? '' : `<option value="${escapeAttr(b.date)}" selected>${escapeHtml(b.date.replace(/-/g,'.'))} — 새 날짜</option>`}
+        </select>
+        <input type="date" value="${escapeAttr(b.date)}" onchange="bulkRepPickDate(this.value)" title="목록에 없는 날짜로 새로 만들려면 여기서 고르세요">
+      </div>
+
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">수업 내용</label>
+      <textarea id="bulkRepContent" placeholder="수업 내용">${escapeHtml(b.draft.content)}</textarea>
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">숙제</label>
+      <textarea id="bulkRepHomework" placeholder="숙제" style="min-height:50px;">${escapeHtml(b.draft.homework)}</textarea>
+      <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">특이사항</label>
+      <textarea id="bulkRepNotes" placeholder="특이사항" style="min-height:50px;">${escapeHtml(b.draft.notes)}</textarea>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 5px;flex-wrap:wrap;">
+        <span style="font-size:0.78rem;color:var(--text-light);font-weight:700;">저장할 학생 ${rows.length}명 — 덮어쓰기 ${nHave} · 새로 만들기 ${nNew}</span>
+        <span style="display:flex;gap:6px;">
+          <button type="button" class="edit-btn" onclick="bulkRepToggleAll(true)">전체 선택</button>
+          <button type="button" class="edit-btn" onclick="bulkRepToggleAll(false)">전체 해제</button>
+        </span>
+      </div>
+      <div style="max-height:230px;overflow:auto;border:1px solid var(--border);border-radius:8px;background:#fff;padding:8px 10px;">
+        ${rows.length ? rows.map(r => `<label style="display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:0.85rem;cursor:pointer;">
+          <input type="checkbox" class="bulk-rep-cb" ${CB} value="${escapeAttr(r.name)}" data-has="${r.rep ? '1' : '0'}" ${r.inRoster ? 'checked' : ''}>
+          <span style="font-weight:600;min-width:72px;">${escapeHtml(r.name)}</span>
+          <span style="font-size:0.74rem;color:${r.rep ? 'var(--text-light)' : '#1F8A5F'};">${r.rep ? '기존 리포트 있음 → 덮어씀' : '리포트 없음 → 새로 만듦'}</span>
+          ${r.inRoster ? '' : '<span style="font-size:0.74rem;color:#B02347;font-weight:700;">명단 밖(반 이동·전출) — 기본 해제</span>'}
+        </label>`).join('') : '<div style="font-size:0.85rem;color:var(--text-light);padding:6px 2px;">이 반 학생 명단이 비어 있습니다. 학생 목록 탭에서 학원·반이 맞게 지정돼 있는지 확인해주세요.</div>'}
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:0.82rem;cursor:pointer;">
+        <input type="checkbox" id="bulkRepPushNew" ${CB}>
+        <span><b>새로 만들어지는</b> 리포트에만 학부모 알림 보내기 <span style="color:var(--text-light);">(덮어쓰기는 어차피 알림 안 감 — 학부모는 처음에 이미 받았으므로)</span></span>
+      </label>
+
+      <div id="bulkRepMsg" style="font-size:0.8rem;color:var(--text-light);margin-top:8px;min-height:1em;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+        <button class="cancel-btn" onclick="closeBulkReport()">닫기</button>
+        <button class="save-btn" id="bulkRepSaveBtn" onclick="bulkRepSave()">💾 선택한 학생 전원 저장</button>
+      </div>
+      </div>
+    </div>`;
+  }
+
+  function bulkRepToggleAll(on) {
+    if (!bulkRep) return;
+    document.querySelectorAll('#bulkReportPanel-' + bulkRep.gi + ' .bulk-rep-cb')
+            .forEach(cb => { cb.checked = !!on; });
+  }
+
+  async function bulkRepSave() {
+    const b = bulkRep; if (!b) return;
+    const msg = document.getElementById('bulkRepMsg');
+    const boxes = Array.from(document.querySelectorAll('#bulkReportPanel-' + b.gi + ' .bulk-rep-cb'))
+                       .filter(cb => cb.checked);
+    if (!boxes.length) { msg.textContent = '⚠️ 저장할 학생을 한 명 이상 선택하세요.'; return; }
+
+    const date = b.date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { msg.textContent = '⚠️ 수업 날짜를 정확히 골라주세요 (YYYY-MM-DD).'; return; }
+
+    const content  = document.getElementById('bulkRepContent').value;
+    const homework = document.getElementById('bulkRepHomework').value;
+    const notes    = document.getElementById('bulkRepNotes').value;
+
+    const nOver = boxes.filter(cb => cb.getAttribute('data-has') === '1').length;
+    const nNew  = boxes.length - nOver;
+    // 리포트에 저장할 학원 표기 — 그룹 key가 '(학원 미지정)'이면 학생 명단에서 찾은 학원을 쓴다.
+    const schoolVal = (b.school && b.school.charAt(0) !== '(') ? b.school : b.academy;
+
+    if (!confirm(`📝 ${b.academy} · ${b.className}\n수업 날짜: ${date}\n\n• 덮어쓸 기존 리포트: ${nOver}건\n• 새로 만들 리포트: ${nNew}건\n\n선택한 ${boxes.length}명의 리포트가 위 날짜로 아래 내용에 맞춰 통일됩니다. 진행할까요?`)) return;
+    // 빈 내용으로 덮어쓰는 건 되돌릴 수 없는 사고 → 한 번 더 확인
+    if (!content.trim() && !homework.trim() && !notes.trim() && nOver > 0) {
+      if (!confirm(`⚠️ 내용·숙제·특이사항이 모두 비어 있습니다.\n이대로 저장하면 기존 리포트 ${nOver}건의 내용이 지워집니다.\n정말 진행할까요?`)) return;
+    }
+
+    const pushNew = !!(document.getElementById('bulkRepPushNew') || {}).checked;
+    const btn = document.getElementById('bulkRepSaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
+
+    let done = 0; const failed = [];
+    for (let i = 0; i < boxes.length; i++) {
+      const nm = boxes[i].value;
+      const isNew = boxes[i].getAttribute('data-has') !== '1';
+      msg.textContent = `저장 중... ${i + 1}/${boxes.length} — ${nm}`;
+      try {
+        const res = await fetch('/api/reports-write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+          body: JSON.stringify({ studentName: nm, date, school: schoolVal,
+                                 content, homework, notes,
+                                 noPush: !(isNew && pushNew) })
+        });
+        const data = await res.json();
+        if (data && data.ok) done++; else failed.push(nm);
+      } catch (e) { failed.push(nm); }
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '💾 선택한 학생 전원 저장'; }
+
+    showToast(`✅ ${done}명 저장 완료${failed.length ? ` · 실패 ${failed.length}명` : ''}`);
+    if (failed.length) alert(`⚠️ 아래 학생은 저장되지 않았습니다. 다시 시도해주세요.\n\n${failed.join(', ')}`);
+
+    openReportGroups.add(b.school + ' / ' + b.className);   // 저장 결과를 바로 볼 수 있게 그 반을 펼쳐둔다
+    closeBulkReport();
     await loadAllReports();
   }
 
