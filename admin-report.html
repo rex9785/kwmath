@@ -6,7 +6,7 @@
 <title>진단평가 보고서 생성기 · 이관우 수학연구소</title>
 <style>
 :root{
-  --wine:#6B2A33; --wine-deep:#511F26; --wine-lite:#7E3540;
+  --wine:#862633; --wine-deep:#511F26; --wine-lite:#7E3540;
   --cream:#F3EDE4; --cream2:#E7DDD1; --ink:#211914; --gray:#71675E; --gray2:#9C9086;
   --ok:#2E7D52; --bad:#B0413E; --card:#FFFFFF;
 }
@@ -403,7 +403,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
       return '<text x="'+l[0]+'" y="'+l[1]+'" text-anchor="'+l[2]+'" font-size="10.5" fill="#71675E">'+d+'</text>'; }).join("");
     return '<svg width="190" height="190" viewBox="0 0 190 190">'+grid
       +'<polygon points="'+pts(exam.domainAvg)+'" fill="rgba(156,144,134,.25)" stroke="#9C9086" stroke-width="1.5"/>'
-      +'<polygon points="'+pts(domains)+'" fill="rgba(126,53,64,.28)" stroke="#6B2A33" stroke-width="2"/>'
+      +'<polygon points="'+pts(domains)+'" fill="rgba(126,53,64,.28)" stroke="#862633" stroke-width="2"/>'
       +lab+'</svg>';
   }
   function stepCell(v){
@@ -615,7 +615,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
       return '<text x="'+l[0]+'" y="'+l[1]+'" text-anchor="'+l[2]+'" font-size="10.5" fill="#71675E">'+d+'</text>'; }).join("");
     return '<svg width="190" height="190" viewBox="0 0 190 190">'+grid
       +'<polygon points="'+pts(avgVals)+'" fill="rgba(156,144,134,.25)" stroke="#9C9086" stroke-width="1.5"/>'
-      +'<polygon points="'+pts(meVals)+'" fill="rgba(126,53,64,.28)" stroke="#6B2A33" stroke-width="2"/>'
+      +'<polygon points="'+pts(meVals)+'" fill="rgba(126,53,64,.28)" stroke="#862633" stroke-width="2"/>'
       +lab+'</svg>';
   }
   function trendSVG(items){   // items: [{date,score}]
@@ -630,7 +630,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
     var pts=items.map(function(d,i){ return px(i).toFixed(1)+","+py(d.score).toFixed(1); }).join(" ");
     var dots=items.map(function(d,i){
       var x=px(i).toFixed(1), y=py(d.score).toFixed(1);
-      return '<circle cx="'+x+'" cy="'+y+'" r="3.5" fill="#6B2A33"/>'
+      return '<circle cx="'+x+'" cy="'+y+'" r="3.5" fill="#862633"/>'
         +'<text x="'+x+'" y="'+(+y-8)+'" text-anchor="middle" font-size="10" font-weight="700" fill="#511F26">'+d.score+'</text>'
         +'<text x="'+x+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="#71675E">'+d.date.slice(5).replace("-",".")+'</text>';
     }).join("");

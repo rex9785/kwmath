@@ -7,7 +7,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;--ok:#1F8A4C;--warn:#B8860B;--danger:#C0392B;}
+  :root{--primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;--ok:#1F8A4C;--warn:#B8860B;--danger:#C0392B;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
   .top{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 5% 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
   .top .title{font-size:1rem;font-weight:900;}
@@ -17,7 +17,7 @@
   .summary{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
   .pill{background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:0.82rem;font-weight:700;}
   .pill b{color:var(--primary);}
-  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:12px;box-shadow:0 4px 14px rgba(139,26,53,0.05);}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:12px;box-shadow:0 4px 14px rgba(134,38,51,0.05);}
   .card .row1{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
   .card .name{font-size:1rem;font-weight:900;}
   .card .phone{font-size:0.85rem;color:var(--text-light);font-variant-numeric:tabular-nums;}
@@ -387,7 +387,7 @@
     var wage = j.hourlyWage||0;
     var locked = !!j.locked;
     var lockBtn = locked
-      ? '<button class="xbtn" style="background:#8B1A35;color:#fff;" onclick="toggleLock(\''+d+'\',false)">🔓 잠금 해제</button>'
+      ? '<button class="xbtn" style="background:var(--primary);color:#fff;" onclick="toggleLock(\''+d+'\',false)">🔓 잠금 해제</button>'
       : '<button class="xbtn" onclick="toggleLock(\''+d+'\',true)">🔒 이 달 정산확정</button>';
     var btns =
       '<div class="wlbtns">'+
@@ -395,7 +395,7 @@
         '<button class="xbtn" onclick="printStaff(\''+d+'\')">🖨️ 인쇄(PDF)</button>'+
         lockBtn +
       '</div>'+
-      (locked ? '<div class="empty" style="color:#8B1A35;">🔒 정산확정(잠금) — 조교는 이 달 기록을 수정·삭제할 수 없어요.</div>' : '');
+      (locked ? '<div class="empty" style="color:var(--primary);">🔒 정산확정(잠금) — 조교는 이 달 기록을 수정·삭제할 수 없어요.</div>' : '');
     if(!rows.length){
       box.innerHTML = btns + '<div class="empty">'+month.slice(5)+'월 입력된 근무기록이 없어요.</div>';
       return;
@@ -496,7 +496,8 @@
       'h1{font-size:1.15rem;margin:0 0 4px;} .sub{color:#666;font-size:0.85rem;margin-bottom:14px;}'+
       'table{width:100%;border-collapse:collapse;font-size:0.85rem;}'+
       'th,td{border:1px solid #ccc;padding:7px 9px;text-align:center;}'+
-      'th{background:#F9EEF1;color:#8B1A35;} tfoot td{font-weight:bold;background:#f4f4f4;}'+
+      // ⚠️ 여기는 var(--primary)를 쓸 수 없다 — window.open 으로 만드는 별개 문서라 :root 변수가 없다.
+      'th{background:#F9ECED;color:#862633;} tfoot td{font-weight:bold;background:#f4f4f4;}'+
       'td.memo{text-align:left;color:#444;}'+
       '@media print{body{padding:0;}}'+
       '</style></head><body>'+
@@ -572,5 +573,7 @@
   }catch(_){}
 })();
 </script>
+<!-- ☰ 메뉴에 원장 전용 화면 채우기 (2026-07-29) — 위 인라인 네비 스크립트 뒤에 실려야 한다(#kwnavPop이 만들어진 뒤여야 하므로) -->
+<script src="/kwnav.js?v=1"></script>
 </body>
 </html>

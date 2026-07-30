@@ -7,9 +7,9 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;}
+  :root{--primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;--text:#1E1E1E;--text-light:#666;--bg2:#FAF7F8;--border:#EDE0E3;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;padding:max(24px,env(safe-area-inset-top,24px)) 16px 24px;word-break:keep-all;}
-  .container{max-width:760px;margin:0 auto;background:#fff;border-radius:20px;padding:32px 28px;box-shadow:0 8px 30px rgba(139,26,53,0.10);border:1px solid var(--border);}
+  .container{max-width:760px;margin:0 auto;background:#fff;border-radius:20px;padding:32px 28px;box-shadow:0 8px 30px rgba(134,38,51,0.10);border:1px solid var(--border);}
   h1{font-size:1.4rem;color:var(--primary);margin-bottom:6px;}
   .sub{color:var(--text-light);font-size:0.88rem;margin-bottom:28px;line-height:1.6;}
   label{display:block;font-weight:700;font-size:0.85rem;margin:14px 0 6px;}
@@ -123,7 +123,8 @@
     const logoScale = parseFloat(document.getElementById('qrLogoScale').value);
     new QRious({
       element: canvas, value: url, size: size, level: level,
-      background: '#ffffff', foreground: '#8B1A35',
+      // ⚠️ canvas에 그리는 색이라 var(--primary)가 통하지 않는다(QRious는 CSS를 모른다) → 색상값 그대로.
+      background: '#ffffff', foreground: '#862633',
       padding: Math.round(size * 0.06)
     });
     if (logoMode === 'none') return;
@@ -154,7 +155,7 @@
   }
 
   function findQrBounds(ctx, size) {
-    // 크림슨 전경(#8B1A35) 픽셀의 bounding box를 찾아 시각 중심 계산
+    // 크림슨 전경(#862633) 픽셀의 bounding box를 찾아 시각 중심 계산
     const data = ctx.getImageData(0, 0, size, size).data;
     let minX = size, minY = size, maxX = 0, maxY = 0;
     for (let y = 0; y < size; y++) {
@@ -175,7 +176,7 @@
   }
 
   function drawKBox(ctx, x, y, logoSize, cx, cy) {
-    ctx.fillStyle = '#8B1A35';
+    ctx.fillStyle = '#862633';
     roundRect(ctx, x, y, logoSize, logoSize, Math.round(logoSize * 0.22));
     ctx.fill();
     ctx.fillStyle = '#ffffff';

@@ -7,7 +7,7 @@
 
 <!-- PWA (install 페이지에서도 등록되면 그 자체가 설치 신호) -->
 <link rel="manifest" href="/manifest.json?v=3">
-<meta name="theme-color" content="#8B1A35">
+<meta name="theme-color" content="#862633">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
+  :root{--primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;--text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;line-break:strict;}
 
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px 20px;display:flex;align-items:center;justify-content:center;gap:8px;position:sticky;top:0;z-index:50;}
@@ -24,7 +24,7 @@
 
   .page{max-width:480px;margin:0 auto;padding:28px 20px 80px;}
   .hero{text-align:center;margin-bottom:28px;}
-  .hero-logo{display:inline-flex;align-items:center;justify-content:center;width:96px;height:96px;background:var(--primary);border-radius:24px;margin-bottom:14px;box-shadow:0 8px 24px rgba(139,26,53,0.25);overflow:hidden;}
+  .hero-logo{display:inline-flex;align-items:center;justify-content:center;width:96px;height:96px;background:var(--primary);border-radius:24px;margin-bottom:14px;box-shadow:0 8px 24px rgba(134,38,51,0.25);overflow:hidden;}
   .hero-logo img{width:78%;height:auto;display:block;}
   .hero h1{font-size:1.4rem;font-weight:900;margin-bottom:6px;}
   .hero .pitch{color:var(--text-light);font-size:0.92rem;line-height:1.6;margin-top:4px;}
@@ -35,7 +35,7 @@
   .os-tab.on{background:var(--primary);color:#fff;}
 
   /* 카드 */
-  .card{background:#fff;border-radius:16px;padding:22px 20px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(139,26,53,0.05);margin-bottom:14px;}
+  .card{background:#fff;border-radius:16px;padding:22px 20px;border:1px solid var(--border);box-shadow:0 4px 16px rgba(134,38,51,0.05);margin-bottom:14px;}
   .card h2{font-size:1rem;font-weight:900;color:var(--primary);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
 
   /* 스텝 */
@@ -47,7 +47,7 @@
   .step-text .icon-inline{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--bg2);border-radius:5px;border:1px solid var(--border);margin:0 3px;vertical-align:middle;font-size:1rem;}
 
   /* Android 한 클릭 설치 버튼 */
-  .install-cta{display:none;background:var(--primary);color:#fff;border:none;width:100%;padding:18px;border-radius:14px;font-size:1.05rem;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:14px;box-shadow:0 6px 20px rgba(139,26,53,0.28);}
+  .install-cta{display:none;background:var(--primary);color:#fff;border:none;width:100%;padding:18px;border-radius:14px;font-size:1.05rem;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:14px;box-shadow:0 6px 20px rgba(134,38,51,0.28);}
   .install-cta:hover{background:var(--primary-mid);}
   .install-cta.show{display:block;}
 

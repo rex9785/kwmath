@@ -40,14 +40,14 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
-    --primary:#8B1A35;--primary-light:#F9EEF1;--primary-mid:#B02347;
+    --primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;
     --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
   }
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
 
   /* ── 로그인 화면 ── */
   #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
-  .login-card{background:#fff;border-radius:24px;padding:48px 40px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(139,26,53,0.12);border:1px solid var(--border);text-align:center;}
+  .login-card{background:#fff;border-radius:24px;padding:48px 40px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(134,38,51,0.12);border:1px solid var(--border);text-align:center;}
   .login-logo{font-size:2rem;margin-bottom:8px;}
   .login-title{font-size:1.3rem;font-weight:900;color:var(--primary);margin-bottom:6px;}
   .login-sub{font-size:0.83rem;color:var(--text-light);margin-bottom:32px;}
@@ -266,7 +266,7 @@
       .admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
       /* ↗ = 이 카드는 별도 페이지로 나갑니다(돌아올 땐 기기 뒤로가기). 표시 없는 카드는 이 화면 안에서 열립니다. */
       .go-out{font-style:normal;font-size:0.68rem;color:var(--text-light);font-weight:600;margin-left:3px;vertical-align:top;}
-      .admin-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0;background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;font-family:inherit;cursor:pointer;text-align:left;font-size:1.5rem;box-shadow:0 2px 10px rgba(139,26,53,.05);transition:transform .1s;}
+      .admin-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0;background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;font-family:inherit;cursor:pointer;text-align:left;font-size:1.5rem;box-shadow:0 2px 10px rgba(134,38,51,.05);transition:transform .1s;}
       .admin-card b{display:block;width:100%;font-size:0.92rem;font-weight:800;color:var(--text);margin-top:6px;word-break:break-all;line-height:1.3;}
       .admin-card span{display:block;width:100%;font-size:0.72rem;color:var(--text-light);font-weight:500;word-break:break-all;line-height:1.35;}
       .admin-card:active{transform:scale(.98);}
@@ -278,7 +278,7 @@
          예전엔 홈이 '문 19개짜리 복도'라, 뭐가 밀렸는지 알려면 카드를 하나씩 눌러 들어가 봐야 했다.
          이제 밀린 일이 있을 때만 이 박스가 뜨고, 없으면 "다 처리하셨어요"만 뜬다.
          새 API를 만들지 않고 기존 4개 조회를 병렬로 부른다(실패해도 그 줄만 빠짐). */
-      #todayBox{border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:18px;background:#fff;box-shadow:0 2px 10px rgba(139,26,53,.05);}
+      #todayBox{border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:18px;background:#fff;box-shadow:0 2px 10px rgba(134,38,51,.05);}
       #todayBox.has-todo{border-color:var(--primary);background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);}
       .today-t{font-size:0.82rem;font-weight:800;color:var(--primary);margin-bottom:8px;}
       .today-t em{font-style:normal;font-weight:600;color:var(--text-light);font-size:0.74rem;margin-left:6px;}
@@ -502,6 +502,8 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="renderStudentsView()"
             style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
+          <!-- ⚠️ 살펴볼 학생만 — 해당자가 0명이면 JS가 숨긴다(syncRiskFilterBtn). 늘 떠 있는 0은 눈이 무시한다. -->
+          <button type="button" id="riskFilterBtn" class="edit-btn" onclick="toggleRiskOnly()" style="white-space:nowrap;display:none;"></button>
           <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;">📋 반별로 보기</button>
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
@@ -865,11 +867,13 @@
     const H = { 'Authorization': 'Bearer ' + adminToken };
     const grab = (u) => fetch(u, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    const [inq, qna, stf, hw] = await Promise.allSettled([
+    const [inq, qna, stf, hw, att, stu] = await Promise.allSettled([
       grab('/api/inquiry?admin=1'),
       grab('/api/qna?count=1'),
       grab('/api/staff-approve'),
       grab('/api/homework?admin=1'),
+      grab('/api/attendance?all=1'),   // ⚠️ 살펴볼 학생 판정용 — 새 API를 안 만든다(원칙 ①)
+      grab('/api/students'),           // 같은 판정을 재원생으로만 한정하려고 (숫자 ↔ 목록 일치)
     ]).then(rs => rs.map(r => (r.status === 'fulfilled' ? r.value : null)));
 
     const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
@@ -894,6 +898,20 @@
       nHwNew = hw.assignments.filter(a => a && a.active)
         .reduce((s, a) => s + (Number(a.uncheckedCount) || 0), 0);
     }
+    // ⑥ ⚠️ 살펴볼 학생 — 다른 줄은 "밀린 일"이지만 이 줄은 "사람"이다. 그래서 맨 아래가 아니라
+    //    과제 다음에 둔다(급한 순서: 돈 → 학생 질문 → 조교 → 과제 → 이탈 신호).
+    //    실패(att=null)하면 studentRisk는 null로 남아 배지·필터·줄이 전부 안 그려진다 — 조용히 없는 셈.
+    let nRisk = null;
+    if (att) {
+      //   명단(stu)을 못 받았으면 이미 로드된 allStudents로, 그것도 없으면 한정 없이 센다.
+      studentRisk = computeStudentRisk(att, enrolledIdSet(Array.isArray(stu) ? stu : allStudents));
+      nRisk = studentRisk ? Object.keys(studentRisk).length : null;
+      // 학생 목록이 이미 그려진 뒤에 위험 판정이 도착했으면 배지를 붙이러 다시 그린다.
+      if (typeof renderStudentsView === 'function' && Array.isArray(allStudents) && allStudents.length) {
+        try { renderStudentsView(); } catch (_) {}
+      }
+      try { syncRiskFilterBtn(); } catch (_) {}
+    }
 
     setBadge('bdgInquiry', nInq);
     setBadge('bdgQna', nQna);
@@ -901,9 +919,11 @@
     setBadge('bdgHomework', nHwNew);
 
     const rows = [];
-    const row = (n, icon, text, href) => {
+    //   href = 다른 페이지로 이동 / js = 이 페이지 안에서 처리(탭 전환 등). 둘 중 하나만 쓴다.
+    const row = (n, icon, text, href, js) => {
       if (!n) return;   // null(못 셈)·0 → 줄 자체를 안 만든다
-      rows.push('<button type="button" class="today-row" onclick="location.href=\'' + href + '\'">'
+      const onclick = js ? js : ('location.href=\'' + href + '\'');
+      rows.push('<button type="button" class="today-row" onclick="' + onclick + '">'
         + icon + ' <span>' + text + '</span><span class="n">' + n + '</span><span class="go">›</span></button>');
     };
     row(nInq, '📩', '새 상담 문의', '/admin-inquiries');
@@ -911,6 +931,7 @@
     row(nStf, '🧑‍🏫', '조교 승인 대기', '/admin-staff');
     row(nHwNew, '📸', '확인 안 한 과제 제출', '/admin-homework');
     row(nHw, '📸', '마감된 채로 열려 있는 과제', '/admin-homework');
+    row(nRisk, '⚠️', '살펴볼 학생 (출결·숙제 꺾임)', '', 'openRiskStudents()');
 
     const title = '<div class="today-t">오늘 확인할 것<em>' + kstTodayLabel() + '</em></div>';
     if (rows.length) {
@@ -942,6 +963,157 @@
     return Number(s.slice(5, 7)) + '월 ' + Number(s.slice(8, 10)) + '일 (' + dow + ')';
   }
 
+  // ══ ⚠️ 살펴볼 학생 (퇴원 위험 조기경보) — 2026-07-30 신설 ════════════════
+  //   왜: 학생이 그만두기 전에는 거의 항상 신호가 먼저 온다. 연달아 결석하고, 숙제를 안 해오고,
+  //       출석률이 슬금슬금 내려간다. 그런데 그 신호는 학생을 한 명씩 열어봐야 보이니까
+  //       실제로는 "그만두겠습니다" 전화를 받은 뒤에 알게 된다. 그때는 이미 늦다.
+  //       이건 그 신호를 원장이 찾아 들어가지 않아도 먼저 눈에 띄게 만드는 장치다.
+  //
+  //   🔧 기준값 — 관우T가 아래 숫자만 바꾸면 기준이 바뀝니다 (다른 코드는 안 건드려도 됨)
+  //      streakAbsent : 연속 결석 몇 회부터 잡을지          (기본 2회)
+  //      minRate      : 최근 출석률(%)이 이 아래면 잡는다    (기본 70%)
+  //      minHomework  : 최근 숙제 평균(%)이 이 아래면 잡는다 (기본 40%)
+  //      windowDays   : "최근"을 며칠로 볼지                (기본 28일 = 4주)
+  //      minRecords   : 기록이 이보다 적으면 판정을 아예 안 한다 (신규생·전입생 오탐 방지)
+  const RISK_RULES = { streakAbsent: 2, minRate: 70, minHomework: 40, windowDays: 28, minRecords: 3 };
+
+  //   병결·공결은 위험 신호로 세지 않는다 — 사유가 있는 결석이다.
+  //   (clinic-roster.js:5 와 같은 규약: "병결·공결은 정당한 사유 → 제외")
+  const RISK_PRESENT = ['출석', '지각'];      // 왔다고 치는 상태
+  const RISK_EXCUSED = ['병결', '공결'];      // 분모에서 아예 뺀다
+
+  //   null = 아직 못 셈 → 배지도 줄도 그리지 않는다. {} = 셌고 해당자 0명.
+  //   🆔 키는 반드시 student_id — 이름으로 붙이면 동명이인 중 엉뚱한 학생에게 ⚠️가 달린다.
+  let studentRisk = null;
+  let riskOnly = false;       // 학생 목록 "⚠️ 살펴볼 학생만" 필터 ON/OFF
+
+  // 재원생 id Set — 위험 판정을 재원생으로만 한정한다.
+  //   왜 필요한가: 출결 테이블에는 옛 기록이 남아 있을 수 있는데(전입·재등록·마이그레이션 잔여),
+  //   그걸 그대로 세면 홈에 뜬 "살펴볼 학생 5명"을 눌렀을 때 목록엔 3명만 나온다.
+  //   숫자와 목록이 어긋나면 그 숫자를 다시는 안 믿는다. 그래서 세는 기준을 한 곳으로 묶는다.
+  function enrolledIdSet(students) {
+    if (!Array.isArray(students)) return null;
+    return new Set(students
+      .filter(s => s && s.approvalStatus !== '대기중' && s.approvalStatus !== '거부')
+      .map(s => String(s.id)));
+  }
+
+  // /api/attendance?all=1 응답 → { student_id: ['연속 2회 결석', '최근 출석률 62%'] }
+  //   rosterIds = 재원생 id Set (null이면 한정하지 않는다 — 명단을 못 받았을 때)
+  function computeStudentRisk(list, rosterIds) {
+    if (!Array.isArray(list)) return null;
+    const today = kstToday();
+    const from = new Date(Date.now() + 9 * 3600 * 1000 - (RISK_RULES.windowDays - 1) * 86400 * 1000)
+      .toISOString().slice(0, 10);
+    const out = {};
+    for (const rec of list) {
+      if (!rec || rec.id === undefined || rec.id === null) continue;
+      if (rosterIds && !rosterIds.has(String(rec.id))) continue;
+      const days = Object.keys(rec.records || {}).filter(d => d >= from && d <= today).sort();
+      if (!days.length) continue;
+
+      const statusOf = (d) => {
+        const r = rec.records[d];
+        return (typeof r === 'string') ? r : ((r && r.status) || '');
+      };
+
+      let counted = 0, present = 0, hwSum = 0, hwN = 0;
+      for (const d of days) {
+        const st = statusOf(d);
+        if (RISK_EXCUSED.indexOf(st) >= 0) continue;          // 병결·공결 → 분모에서 제외
+        if (st) { counted++; if (RISK_PRESENT.indexOf(st) >= 0) present++; }
+        const r = rec.records[d];
+        // 결석한 날 숙제는 0으로 들어온다(admin-seed-test.js:19 규약). 그 0을 숙제 평균에 넣으면
+        //   같은 결석 하나를 출석률·숙제 양쪽에서 두 번 세게 되므로 결석일은 뺀다.
+        if (st !== '결석' && r && typeof r.homework === 'number') { hwSum += r.homework; hwN++; }
+      }
+
+      // 연속 결석 — 최근 날짜부터 거꾸로 센다.
+      //   병결·공결은 연속을 "끊는다"(건너뛰지 않는다). 사유 있는 결석까지 이어 세면 오탐이 늘고,
+      //   오탐이 몇 번 나면 ⚠️ 자체를 안 보게 된다. 놓치는 쪽보다 잘못 울리는 쪽이 더 나쁘다.
+      let streak = 0;
+      for (let i = days.length - 1; i >= 0; i--) {
+        if (statusOf(days[i]) === '결석') streak++; else break;
+      }
+
+      const reasons = [];
+      if (streak >= RISK_RULES.streakAbsent) reasons.push('연속 ' + streak + '회 결석');
+      if (counted >= RISK_RULES.minRecords) {
+        const rate = Math.round(present / counted * 100);
+        if (rate < RISK_RULES.minRate) reasons.push('최근 출석률 ' + rate + '%');
+      }
+      if (hwN >= RISK_RULES.minRecords) {
+        const avg = Math.round(hwSum / hwN);
+        if (avg < RISK_RULES.minHomework) reasons.push('숙제 평균 ' + avg + '%');
+      }
+      if (reasons.length) out[String(rec.id)] = reasons;
+    }
+    return out;
+  }
+
+  const RISK_CRITERIA_TEXT = () => '기준: 연속 ' + RISK_RULES.streakAbsent + '회 결석 · 최근 '
+    + RISK_RULES.windowDays + '일 출석률 ' + RISK_RULES.minRate + '% 미만 · 숙제 평균 '
+    + RISK_RULES.minHomework + '% 미만 (병결·공결 제외)';
+
+  // 학생 이름 옆 인라인 배지 — 이유를 접어두지 않고 첫 줄에 그대로 쓴다.
+  //   "⚠️" 만 띄우면 왜 위험한지 알려고 또 눌러 들어가야 한다. 그럼 안 누른다.
+  function riskBadge(s) {
+    if (!studentRisk || !s || s.id === undefined || s.id === null) return '';
+    const r = studentRisk[String(s.id)];
+    if (!r || !r.length) return '';
+    const tip = '살펴볼 학생 — ' + r.join(' · ') + ' / ' + RISK_CRITERIA_TEXT();
+    return '<span title="' + escapeAttr(tip) + '" style="background:#FBE9E7;color:#B3261E;'
+      + 'border:1px solid #F2C4BE;padding:2px 8px;border-radius:20px;font-size:0.68rem;'
+      + 'font-weight:700;margin-left:6px;white-space:nowrap;">⚠️ ' + escapeHtml(r[0])
+      + (r.length > 1 ? ' +' + (r.length - 1) : '') + '</span>';
+  }
+
+  // 학생 목록 상단 필터 칩 — 해당자가 있을 때만 나타난다(0명이면 아예 안 보임).
+  function syncRiskFilterBtn() {
+    const btn = document.getElementById('riskFilterBtn');
+    if (!btn) return;
+    const n = studentRisk ? Object.keys(studentRisk).length : 0;
+    if (!n) { btn.style.display = 'none'; riskOnly = false; return; }
+    btn.style.display = '';
+    btn.title = RISK_CRITERIA_TEXT();
+    btn.textContent = (riskOnly ? '✅ 전체 보기' : '⚠️ 살펴볼 학생만 ' + n);
+    btn.style.borderColor = riskOnly ? '#B3261E' : 'var(--border)';
+    btn.style.color = riskOnly ? '#B3261E' : '';
+  }
+
+  function toggleRiskOnly() {
+    riskOnly = !riskOnly;
+    if (typeof renderStudentsView === 'function') renderStudentsView();
+  }
+
+  // 홈 「오늘 확인할 것」의 ⚠️ 줄 → 학생 목록 탭 + 필터 ON
+  function openRiskStudents() {
+    riskOnly = true;
+    switchTab('students', findTabBtn('students'));
+    if (typeof switchStudentTab === 'function') switchStudentTab('active');   // 퇴원생 탭에 있었을 수도 있다
+    // switchTab이 loadStudents()를 부르므로 렌더는 그쪽에서 끝난다. 목록이 이미 있으면 즉시 다시 그린다.
+    if (Array.isArray(allStudents) && allStudents.length && typeof renderStudentsView === 'function') renderStudentsView();
+    const el = document.getElementById('studentList');
+    if (el) setTimeout(() => { try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {} }, 120);
+  }
+
+  // 홈 요약(loadHomeSummary)이 이미 계산해 두는 게 정상 경로다. 다만 홈 요약이 실패했거나
+  //   아직 안 끝난 상태로 학생 목록을 열면 ⚠️가 안 보이므로, 그때만 한 번 더 부른다(중복 호출 방지).
+  let _riskLoading = false;
+  async function ensureStudentRisk() {
+    if (studentRisk !== null || _riskLoading) return;
+    _riskLoading = true;
+    try {
+      const res = await fetch('/api/attendance?all=1', { headers: { 'Authorization': 'Bearer ' + adminToken } });
+      if (res.ok) {
+        studentRisk = computeStudentRisk(await res.json(), enrolledIdSet(allStudents));
+        if (Array.isArray(allStudents) && allStudents.length) renderStudentsView();
+        else syncRiskFilterBtn();
+      }
+    } catch (_) { /* 조용히 포기 — ⚠️는 부가정보다. 이것 때문에 학생 목록이 막히면 안 된다. */ }
+    finally { _riskLoading = false; }
+  }
+
   // ── 크론(자동 스케줄러) 생존 점검 ──
   //   공지 예약발송·월급 리마인더·출결 미입력 알림·야간 푸시·D1 백업이 전부 외부 크론(5분) 하나에 의존한다.
   //   크론이 조용히 멈추면 이 모든 게 멈추므로, 로그인 때 하트비트를 확인해 20분+ 신호가 없으면 상단에 경보.
@@ -958,7 +1130,7 @@
         if (!el) {
           el = document.createElement('div');
           el.id = 'cronBanner';
-          el.style.cssText = 'background:#8B1A35;color:#fff;padding:12px 16px;border-radius:8px;margin:0 0 12px;font-weight:600;line-height:1.5;';
+          el.style.cssText = 'background:var(--primary);color:#fff;padding:12px 16px;border-radius:8px;margin:0 0 12px;font-weight:600;line-height:1.5;';
           const dash = document.getElementById('dashboard');
           if (dash) dash.insertBefore(el, dash.firstChild);
         }
@@ -2739,6 +2911,7 @@
       countEl.textContent = `총 ${allStudents.length}명`;
       // renderStudentsView()로 변경 — 그 안에서 renderPendingApproval() + group/flat 모드 자동 분기
       renderStudentsView();
+      ensureStudentRisk();   // ⚠️ 살펴볼 학생 — 아직 못 셌으면 지금 센다(이미 셌으면 즉시 return)
     } catch(e) {
       list.innerHTML = '<div class="empty">학생 목록을 불러올 수 없습니다.</div>';
     }
@@ -2782,12 +2955,21 @@
     // 동명이인 점검 — 같은 이름 재원생이 둘 이상이면 상단에 경보(리포트/alias가 이름으로 매칭돼 오귀속 위험)
     renderDuplicateNames(approved);
     const q = (document.getElementById('studentSearch')?.value || '').toLowerCase();
-    const filtered = !q ? approved : approved.filter(s =>
+    let filtered = !q ? approved : approved.filter(s =>
       (s.name||'').toLowerCase().includes(q)
       || (s.school||'').toLowerCase().includes(q)
       || (s.academy||'').toLowerCase().includes(q)
       || (s.className||'').toLowerCase().includes(q)
     );
+    // ⚠️ 살펴볼 학생만 — studentRisk가 아직 null(못 셈)이면 필터를 걸지 않는다(빈 목록 방지).
+    try { syncRiskFilterBtn(); } catch(_) {}
+    if (riskOnly && studentRisk && Object.keys(studentRisk).length) {
+      filtered = filtered.filter(s => !!studentRisk[String(s.id)]);
+      // 반별 보기에서 필터만 걸면 학생들이 접힌 반 안에 숨어 화면이 비어 보인다 → 해당 반을 펼쳐 둔다.
+      if (studentViewMode === 'group') {
+        filtered.forEach(s => openStudentGroups.add((s.academy || '(학원 미지정)') + ' / ' + (s.className || '(반 미지정)')));
+      }
+    }
     // 저장된 보기 모드로 복원됐을 수 있으므로 토글 버튼 라벨을 항상 현재 모드에 맞춘다.
     const vBtn = document.getElementById('studentViewToggle');
     if (vBtn) vBtn.textContent = studentViewMode === 'group' ? '📃 단순 목록 보기' : '📋 반별로 보기';
@@ -3205,12 +3387,10 @@
           <input type="checkbox" class="student-bulk-cb" data-id="${s.id}" ${isChecked ? 'checked' : ''} onchange="onStudentCheckbox('${s.id}', this.checked)" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
           <div>
           <strong>${escapeHtml(s.name || '—')}</strong>
+          ${riskBadge(s)}
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
           <span class="student-card-chevron">▼</span>
           </div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
         </div>
       </div>
       <div class="student-card-details" style="font-size:0.85rem;color:var(--text-light);line-height:1.85;">
@@ -3232,6 +3412,15 @@
           <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">📈<span class="go-txt"> 성적</span></button>
           <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔓<span class="go-txt"> 인강</span></button>
           <button class="go-btn" title="이 학생이 속한 반의 리포트 (리포트는 반 단위로 올라옵니다)" onclick="event.stopPropagation();openReportsForClass('${jsArg(s.academy)}','${jsArg(s.className)}')">📋<span class="go-txt"> 리포트</span></button>
+        </div>
+        <!-- 관리 액션은 카드 헤더에서 여기로 내렸다(2026-07-30).
+             자주 안 쓰는데 늘 보이면 자주 쓰는 버튼까지 안 보이게 되고, 🗑 퇴원처리가 오조작 한 클릭 거리에 있었다.
+             기능은 그대로 — 카드를 펼치면 전부 여기 있다. -->
+        <div class="go-row" style="margin-top:8px;">
+          <span class="go-row-label">관리:</span>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">📝 학원/반</button>
+          <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">➕ 다른 반</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')">🗑 퇴원처리</button>
         </div>
         </div>
     </div>`;
@@ -3272,19 +3461,23 @@
     list.innerHTML = keys.map((key, gi) => {
       const g = groups[key];
       const isOpen = openStudentGroups.has(key);
-      const items = isOpen ? g.students.map(s => `
-        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:200px;">
+      // 학생 한 명당 노출 버튼은 3개 + ⋯더보기. 나머지(학원/반·다른 반·비번·퇴원)는 접어 둔다.
+      //   ⚠️ 기능은 하나도 없어지지 않는다 — 자리만 옮긴다. 한 줄에 8개를 늘어놓으면
+      //   자주 쓰는 3개도 같이 안 보이게 되고, 🗑 퇴원처리가 오조작 한 클릭 거리에 놓인다.
+      const items = isOpen ? g.students.map((s, si) => `
+        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
+          <div>
             <div>
               <strong style="font-size:0.92rem;">${escapeHtml(s.name||'—')}</strong>
+              ${riskBadge(s)}
               ${isMultiClass(s) ? '<span title="같은 학생이 다른 반에도 등록돼 있습니다. 반을 옮기거나 퇴원 처리할 때 다른 반 등록도 확인하세요." style="background:#FAEEDA;color:#854F0B;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;margin-left:6px;">🔀 겸반</span>' : ''}
               <span style="font-size:0.8rem;color:var(--text-light);margin-left:8px;">
                 ${s.school?escapeHtml(s.school):''}${s.grade?' · '+escapeHtml(s.grade):''}
               </span>
             </div>
             <div style="font-size:0.78rem;color:var(--text-light);margin-top:3px;line-height:1.6;">
-              ${s.parentPhone ? '👪 ' + escapeHtml(s.parentRelation||'') + ' ' + escapeHtml(s.parentPhone) + ' <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 초기화</button>' : (s.parentPhone4 ? '학부모끝 '+escapeHtml(s.parentPhone4) : '')}
-              ${s.studentPhone ? '&nbsp;·&nbsp;📱 ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 초기화</button>' : ''}
+              ${s.parentPhone ? '👪 ' + escapeHtml(s.parentRelation||'') + ' ' + escapeHtml(s.parentPhone) : (s.parentPhone4 ? '학부모끝 '+escapeHtml(s.parentPhone4) : '')}
+              ${s.studentPhone ? '&nbsp;·&nbsp;📱 ' + escapeHtml(s.studentPhone) : ''}
               ${s.mathMockGrade ? '&nbsp;·&nbsp;<span style="color:var(--primary);font-weight:600;">모의수학 ' + escapeHtml(s.mathMockGrade) + (s.mathMockScore!=null?' ('+s.mathMockScore+'점)':'') + '</span>' : ''}
               ${s.advanceProgress ? '&nbsp;·&nbsp;선행 ' + escapeHtml(s.advanceProgress) : ''}
             </div>
@@ -3292,9 +3485,16 @@
               <button class="go-btn" title="이 학생에게 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔔<span class="go-txt"> 알림</span></button>
               <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">📈<span class="go-txt"> 성적</span></button>
               <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔓<span class="go-txt"> 인강</span></button>
+              <button class="go-btn" style="border-style:dashed;" title="학원/반 변경 · 다른 반 추가 · 비밀번호 초기화 · 퇴원처리" onclick="event.stopPropagation();toggleClassMore('smore-${gi}-${si}', this)">⋯ 더보기</button>
+            </div>
+            <div class="go-row" id="smore-${gi}-${si}" style="display:none;margin-top:6px;">
+              <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">📝 학원/반</button>
+              <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">➕ 다른 반</button>
+              ${s.parentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학부모 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 학부모 비번</button>' : ''}
+              ${s.studentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학생 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.studentPhone) + '\x27, \x27학생\x27)">🔑 학생 비번</button>' : ''}
+              <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')">🗑 퇴원처리</button>
             </div>
           </div>
-          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${s.id}','${(s.name||'').replace(/'/g,'\\x27')}','${(s.academy||'').replace(/'/g,'\\x27')}','${(s.className||'').replace(/'/g,'\\x27')}')">📝 학원/반</button> <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}')">➕ 다른 반</button> <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${s.id}','${(s.name||'').replace(/'/g,'\x27')}','${(s.className||'').replace(/'/g,'\x27')}','${(s.academy||'').replace(/'/g,'\x27')}')">🗑 퇴원처리</button>
         </div>
       `).join('') : '';
       return `<div class="card" style="padding:0;overflow:hidden;">

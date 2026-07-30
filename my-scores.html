@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>시험 성적 | 이관우 수학연구소</title>
 <link rel="manifest" href="/manifest.json?v=2">
-<meta name="theme-color" content="#8B1A35">
+<meta name="theme-color" content="#862633">
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-mid:#B02347;--primary-light:#F9EEF1;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--primary-dark:#661327;--border2:#E9E1D9;--gold-soft:#FBF3DF;--serif:'Noto Serif KR',serif;--mock:#1f6f78;--mock-light:#E3F1F2;}
+  :root{--primary:#862633;--primary-mid:#A83040;--primary-light:#F9ECED;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--hairline:#F1EAE2;--gold:#A8863D;--gold-line:#DEC98F;--gold-bright:#E3B655;--primary-dark:#661327;--border2:#E9E1D9;--gold-soft:#FBF3DF;--serif:'Noto Serif KR',serif;--mock:#1f6f78;--mock-light:#E3F1F2;}
   body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;}
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .topbar-title{font-size:0.95rem;font-weight:900;display:flex;align-items:center;gap:8px;}
@@ -247,7 +247,8 @@
   function chartSVG(data,m){
     var pts=data.filter(function(s){ return m==='raw'? s.rawScore!=null : s.grade!=null; });
     if(!pts.length) return '<div class="muted" style="text-align:center;padding:20px;">표시할 데이터가 없어요.</div>';
-    var color = tab==='테스트' ? '#2e7d32' : (tab==='모의' ? '#1f6f78' : '#8B1A35');
+    // ⚠️ SVG 표현속성(stroke·fill)로 들어가는 값이라 var(--primary)가 통하지 않는다 → 색상값 그대로.
+    var color = tab==='테스트' ? '#2e7d32' : (tab==='모의' ? '#1f6f78' : '#862633');
     var W=Math.max(300, pts.length*62+46), H=215, pad={l:30,r:12,t:16,b:50};
     var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b, n=pts.length;
     function xF(i){ return pad.l+(n===1? iw/2 : iw*i/(n-1)); }

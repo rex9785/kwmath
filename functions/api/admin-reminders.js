@@ -229,7 +229,9 @@ export async function runReportReminder(env) {
     try {
       const res = await sendPushToUsers(env, ADMIN_PUSH_USERS, {
         title: '📝 리포트 미작성 (' + missing.length + '개 반)',
-        body, url: '/admin-report', tag: 'kwmath-report-reminder',
+        // ⚠️ 목적지 주의: /admin-report 는 「진단평가 보고서 생성기」(다른 기능)다.
+        //    이 알림은 "어제 수업 리포트가 안 올라왔다"는 뜻이므로 리포트 확인 화면으로 보낸다.
+        body, url: '/staff-reports', tag: 'kwmath-report-reminder',
       });
       sent = (res && res.sent) || 0;
     } catch (_) {}

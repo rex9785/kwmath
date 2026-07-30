@@ -297,6 +297,7 @@
     rows.forEach(function(s){ var t=s.examType||''; if(t && !seen[t]){ seen[t]=1; out.push(t); } });
     return orderTypes(out);
   }
+  // ⚠️ 이 색은 SVG 표현속성(stroke·fill)에도 들어간다 → var(--primary)가 통하지 않으므로 색상값 그대로.
   function tabColor(t){ return t==='모의' ? '#1f6f78' : (isTestType(t) ? '#2F6F4F' : '#862633'); }
   function tabCls(t){ return t==='모의' ? 'mock' : (isTestType(t) ? 'test' : 'naesin'); }
   function tabsHTML(types, cur, fn){
@@ -622,5 +623,7 @@
   }catch(_){}
 })();
 </script>
+<!-- ☰ 메뉴에 원장 전용 화면 채우기 (2026-07-29) — 위 인라인 네비 스크립트 뒤에 실려야 한다(#kwnavPop이 만들어진 뒤여야 하므로) -->
+<script src="/kwnav.js?v=1"></script>
 </body>
 </html>

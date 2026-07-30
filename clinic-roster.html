@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>클리닉 필수 명단 · 이관우 수학연구소</title>
 <link rel="manifest" href="/manifest.json?v=3">
-<meta name="theme-color" content="#8B1A35">
+<meta name="theme-color" content="#862633">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--primary:#8B1A35;--primary-light:#F9EEF1;--ink:#1E1E1E;--muted:#777;--border:#EDE0E3;--bg:#FAF7F8;
+  :root{--primary:#862633;--primary-light:#F9ECED;--ink:#1E1E1E;--muted:#777;--border:#EDE0E3;--bg:#FAF7F8;
     --clinic:#1f6f78;--clinic-light:#E3F1F2;--att:#1F7A33;--late:#B07A00;--abs:#B02347;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;word-break:keep-all;}
   .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 18px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
@@ -381,5 +381,7 @@
   }catch(_){}
 })();
 </script>
+<!-- ☰ 메뉴에 원장 전용 화면 채우기 (2026-07-29) — 위 인라인 네비 스크립트 뒤에 실려야 한다(#kwnavPop이 만들어진 뒤여야 하므로) -->
+<script src="/kwnav.js?v=1"></script>
 </body>
 </html>

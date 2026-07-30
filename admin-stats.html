@@ -25,6 +25,17 @@
   .bar-track{ flex:1; background:var(--primary-light); border-radius:6px; height:18px; overflow:hidden; }
   .bar-fill{ display:block; background:var(--primary); height:100%; border-radius:6px; min-width:2px; }
   .bar-val{ width:44px; text-align:right; flex-shrink:0; font-weight:600; }
+  /* 💡 유입경로 — 채널 이름이 날짜보다 길어서 .bar-date(54px)를 그대로 쓸 수 없다 */
+  .rf-row{ display:flex; align-items:center; gap:10px; margin:6px 0; font-size:0.8rem; width:100%;
+           background:none; border:none; padding:0; color:inherit; font-family:inherit; text-align:left; cursor:pointer; }
+  .rf-name{ width:152px; flex-shrink:0; line-height:1.3; font-weight:600; }
+  .rf-val{ width:80px; text-align:right; flex-shrink:0; font-weight:700; color:var(--primary); }
+  .rf-names{ font-size:0.76rem; color:var(--muted); line-height:1.65; padding:0 0 8px 8px; margin:-2px 0 6px; border-left:2px solid var(--primary-light); }
+  .rf-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .rf-chip{ background:#fff; border:1px solid var(--border); color:var(--muted); border-radius:999px; padding:5px 12px; font-size:0.78rem; font-weight:700; }
+  .rf-chip.on{ background:var(--primary); border-color:var(--primary); color:#fff; }
+  .rf-foot{ font-size:0.77rem; color:var(--muted); margin-top:12px; padding-top:10px; border-top:1px solid var(--border); line-height:1.7; }
+  @media (max-width:480px){ .rf-name{ width:98px; font-size:0.75rem; } .rf-val{ width:68px; font-size:0.75rem; } }
   .msg{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:28px 20px; text-align:center; color:var(--muted); line-height:1.6; }
   .login{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; max-width:340px; margin:48px auto; text-align:center; }
   .login input{ width:100%; padding:11px; border:1px solid var(--border); border-radius:10px; margin:12px 0; font-size:1rem; }
@@ -74,6 +85,9 @@
     <button id="reloadBtn" onclick="load()" style="display:none;">새로고침</button>
   </div>
   <div id="content"><div class="msg">불러오는 중…</div></div>
+  <!-- 💡 유입경로 — #content 밖에 둔다. render()가 #content를 통째로 갈아끼우므로
+       안에 두면 방문 통계를 다시 그릴 때마다 사라진다. Cloudflare 토큰이 없어도 이 블록은 살아 있다. -->
+  <div id="refBox"></div>
   <div class="note" id="note"></div>
 </div>
 <script>
@@ -86,6 +100,8 @@
   function showLogin(err){
     $('reloadBtn').style.display = 'none';
     $('note').innerHTML = '';
+    refStudents = null;                                  // 로그인 화면에서는 유입경로도 지운다
+    if ($('refBox')) $('refBox').innerHTML = '';
     $('content').innerHTML =
       '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>' +
       '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">' +
@@ -104,6 +120,7 @@
     $('content').innerHTML = '<div class="msg">불러오는 중…</div>';
     var headers = {};
     if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (token) loadReferral(headers);      // 💡 유입경로 — 병렬로 부른다(방문 통계를 기다리게 하지 않는다)
     var r;
     try { r = await fetch('/api/admin-analytics', { headers: headers, credentials: 'same-origin' }); }
     catch (e) { $('content').innerHTML = '<div class="msg">네트워크 오류. 다시 시도해 주세요.</div>'; return; }
@@ -154,6 +171,108 @@
       (d.updatedAt ? '<br>업데이트: ' + esc(d.updatedAt.replace('T', ' ').slice(0, 16)) : '');
   }
 
+  // ══ 💡 유입경로 — 등록 신청자가 스스로 적은 "저를 어떻게 알게 되셨나요" 집계 ══════
+  //  왜 이 화면에 붙였나
+  //    방문 수는 "몇 명이 왔나"만 말하고 "어디서 왔나"는 말해주지 않는다.
+  //    register.html 의 필수 항목 💡「저를 어떻게 알게 되셨나요」는 이미 쌓이고 있는데,
+  //    지금까지는 admin.html 학생 카드를 한 명씩 열어야만 볼 수 있었다(admin.html:3123).
+  //  원칙
+  //    ① 새 API를 만들지 않는다 — 이미 있는 /api/students 를 그대로 쓴다.
+  //    ② 실패하면 이 블록만 조용히 사라진다. 위쪽 방문 통계는 그대로 살아 있다.
+  //    ③ 없는 숫자를 만들지 않는다. 미기재·기간 밖 인원은 각주에 그대로 밝힌다.
+  //       (등록일 created_at 은 DB 기본값에 의존해 비어 있을 수 있다 → 값이 있는 학생이
+  //        하나도 없으면 기간 칩을 아예 띄우지 않는다. 못 믿을 필터는 안 보이는 게 낫다.)
+  var refStudents = null;      // null = 아직 못 불러옴 → 블록을 그리지 않는다
+  var refDays = 0;             // 0 = 전체 기간
+  var refOpen = {};            // 펼친 채널 (학생 이름 목록) — 정렬 순서 기준 index
+
+  function refHasDate(s){ return /^\d{4}-\d{2}-\d{2}/.test(String((s && s.createdAt) || '')); }
+
+  function refAgg(days){
+    // 거부한 신청은 유입 성과가 아니므로 뺀다. 대기중은 센다 —
+    // "이 경로로 문을 두드렸다"는 사실이고, 승인이 늦을 때 최근 경로가 통째로 사라지는 게 더 위험하다.
+    var list = (refStudents || []).filter(function(s){ return s && s.approvalStatus !== '거부'; });
+    var dropped = 0;
+    if (days) {
+      var from = new Date(Date.now() + 9*3600000 - (days-1)*86400000).toISOString().slice(0,10);
+      var before = list.length;
+      list = list.filter(function(s){ return refHasDate(s) && String(s.createdAt).slice(0,10) >= from; });
+      dropped = before - list.length;         // 기간 밖 + 등록일이 빈 학생
+    }
+    var counts = {}, names = {}, who = {}, etc = [], blank = 0;
+    list.forEach(function(s){
+      var ch = String(s.referral || '').trim();
+      if (!ch) { blank++; return; }
+      counts[ch] = (counts[ch] || 0) + 1;
+      (names[ch] = names[ch] || []).push(String(s.name || '(이름없음)'));
+      var d = String(s.referralDetail || '').trim();
+      if (!d) return;
+      if (ch === '친구·지인 추천') who[d] = (who[d] || 0) + 1;   // 상세칸이 사람 이름인 경우
+      else if (ch === '기타') etc.push(d);                       // 상세칸이 자유서술 → 놓친 채널 후보
+    });
+    var rows = Object.keys(counts).map(function(k){ return { ch:k, n:counts[k], names:names[k] }; });
+    rows.sort(function(a, b){ return b.n - a.n || a.ch.localeCompare(b.ch, 'ko'); });
+    var whoRows = Object.keys(who).map(function(k){ return { name:k, n:who[k] }; });
+    whoRows.sort(function(a, b){ return b.n - a.n || a.name.localeCompare(b.name, 'ko'); });
+    return { rows:rows, whoRows:whoRows, etc:etc, blank:blank,
+             answered:(list.length - blank), total:list.length, dropped:dropped };
+  }
+
+  function setRefDays(d){ refDays = d; refOpen = {}; renderReferral(); }   // 기간이 바뀌면 순서도 바뀐다 → 펼침 초기화
+  function refToggle(i){ if (refOpen[i]) delete refOpen[i]; else refOpen[i] = 1; renderReferral(); }
+
+  function renderReferral(){
+    var host = $('refBox');
+    if (!host) return;
+    if (!token || !refStudents || !refStudents.length) { host.innerHTML = ''; return; }
+    var a = refAgg(refDays);
+    var anyDate = refStudents.some(refHasDate);
+    var chip = function(d, lbl){
+      return '<button type="button" class="rf-chip' + (refDays === d ? ' on' : '') +
+             '" onclick="setRefDays(' + d + ')">' + lbl + '</button>';
+    };
+    var html = '<div class="section-title">💡 어떻게 알고 오셨나 (등록 신청 기준)</div>' +
+      '<div class="rf-chips">' + chip(0, '전체') + (anyDate ? chip(365, '최근 1년') + chip(90, '최근 3개월') : '') + '</div>' +
+      '<div class="bars">';
+    if (!a.rows.length) {
+      html += '<div style="color:var(--muted);font-size:0.84rem;text-align:center;padding:6px 0;">이 기간에 적힌 유입경로가 없습니다.</div>';
+    } else {
+      var max = a.rows[0].n;
+      a.rows.forEach(function(r, i){
+        var w = Math.round(r.n / max * 100);
+        var pct = a.answered ? Math.round(r.n / a.answered * 100) : 0;
+        html += '<button type="button" class="rf-row" onclick="refToggle(' + i + ')" title="눌러서 학생 이름 보기">' +
+          '<span class="rf-name">' + (refOpen[i] ? '▾ ' : '▸ ') + esc(r.ch) + '</span>' +
+          '<span class="bar-track"><span class="bar-fill" style="width:' + w + '%"></span></span>' +
+          '<span class="rf-val">' + fmt(r.n) + '명 · ' + pct + '%</span></button>';
+        if (refOpen[i]) html += '<div class="rf-names">' + r.names.map(esc).join(' · ') + '</div>';
+      });
+    }
+    html += '</div>';
+    var foot = ['응답 ' + fmt(a.answered) + '명 기준' +
+      (a.blank ? ' · 미기재 ' + fmt(a.blank) + '명 (유입경로 항목이 생기기 전에 등록한 학생)' : '')];
+    if (refDays && a.dropped) foot.push('기간 밖이거나 등록일이 비어 있는 ' + fmt(a.dropped) + '명은 빠졌습니다.');
+    if (a.whoRows.length) {
+      foot.push('🙌 소개해 주신 분: ' + a.whoRows.slice(0, 8).map(function(x){
+        return esc(x.name) + (x.n > 1 ? ' (' + x.n + '명)' : '');
+      }).join(' · ') + (a.whoRows.length > 8 ? ' 외 ' + (a.whoRows.length - 8) + '명' : ''));
+    }
+    if (a.etc.length) foot.push('✍️ 「기타」에 적힌 내용: ' + a.etc.slice(0, 6).map(esc).join(' · ') +
+      (a.etc.length > 6 ? ' 외 ' + (a.etc.length - 6) + '건' : '') + ' — 같은 말이 반복되면 선택지로 올릴 때입니다.');
+    host.innerHTML = html + '<div class="rf-foot">' + foot.join('<br>') + '</div>';
+  }
+
+  async function loadReferral(headers){
+    try {
+      var r = await fetch('/api/students', { headers: headers, credentials: 'same-origin' });
+      if (!r.ok) return;                                  // 401 등 → 위쪽 방문 통계가 이미 로그인 화면을 띄운다
+      var list = await r.json().catch(function(){ return null; });
+      if (!Array.isArray(list)) return;
+      refStudents = list;
+      renderReferral();
+    } catch (_) { /* 부가 정보 — 실패해도 방문 통계는 그대로 */ }
+  }
+
   load();
 </script>
 <!-- 조교/원장 공통 상단 네비: 홈(역할별) + 메뉴 드롭다운 -->
@@ -193,5 +312,7 @@
   }catch(_){}
 })();
 </script>
+<!-- ☰ 메뉴에 원장 전용 화면 채우기 (2026-07-29) — 위 인라인 네비 스크립트 뒤에 실려야 한다(#kwnavPop이 만들어진 뒤여야 하므로) -->
+<script src="/kwnav.js?v=1"></script>
 </body>
 </html>
