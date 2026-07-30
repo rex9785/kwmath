@@ -668,34 +668,54 @@ export async function listSentReviewsForStudentIds(env, studentIds) {
   return (results || []).map(r => ({ ...clinicReviewRow(r), name: r.name || '' }));
 }
 
-// ════════════ 클리닉 하루 전체 메모(clinic_day_memo) — 원장님만 봄 ════════════
+// ════════════ 클리닉 하루 전체 메모(clinic_day_memo2) — 원장님만 봄 ════════════
 // 조교가 그날 세션 전체 요약(귀가시각·전반 난이도 등)을 남기는 곳. 학부모 발송 대상 아님.
-// date 하나당 한 줄. 마이그레이션 러너 없으니 첫 사용 시 보장(아이솔레이트당 1회).
+// 🔧 2026-07-30 (2차 점검 2-1): 키를 (date, academy)로 — A학원 조교 메모를 B학원 조교가 덮어쓰던 문제.
+//   academy '' = 원장 본인 메모 + 구형(date 단독 키) 이관분. SQLite는 PK 변경 불가라 v2 테이블로
+//   갈아타고, 구형 clinic_day_memo는 지우지 않고 남긴다(보존 없는 삭제 금지). 이관은 INSERT OR
+//   IGNORE라 아이솔레이트마다 재실행돼도 v2에서 수정한 내용을 덮지 않는다(멱등).
+// 마이그레이션 러너 없으니 첫 사용 시 보장(아이솔레이트당 1회).
 let _clinicDayMemoReady = false;
 async function ensureClinicDayMemo(env) {
   if (_clinicDayMemoReady) return;
   await env.DB.prepare(
-    'CREATE TABLE IF NOT EXISTS clinic_day_memo (' +
-    'date TEXT PRIMARY KEY, memo TEXT, updated_at TEXT)'
+    'CREATE TABLE IF NOT EXISTS clinic_day_memo2 (' +
+    "date TEXT NOT NULL, academy TEXT NOT NULL DEFAULT '', memo TEXT, updated_at TEXT, " +
+    'PRIMARY KEY (date, academy))'
   ).run();
+  try {
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO clinic_day_memo2 (date, academy, memo, updated_at) SELECT date, '', memo, updated_at FROM clinic_day_memo"
+    ).run();
+  } catch (_) { /* 구형 테이블이 없는 신규 DB — 정상 */ }
   _clinicDayMemoReady = true;
 }
 
-export async function getClinicDayMemo(env, date) {
+export async function getClinicDayMemo(env, date, academy) {
   await ensureClinicDayMemo(env);
-  const r = await env.DB.prepare('SELECT memo, updated_at FROM clinic_day_memo WHERE date=?').bind(date).first();
+  const r = await env.DB.prepare('SELECT memo, updated_at FROM clinic_day_memo2 WHERE date=? AND academy=?').bind(date, academy || '').first();
   return { memo: (r && r.memo) || '', updatedAt: (r && r.updated_at) || null };
 }
 
-export async function setClinicDayMemo(env, date, memo) {
+// 원장 검토용: 그날 조교 학원별 메모 전부 (academy '' = 원장 본인/구형 행은 제외 — 그건 getClinicDayMemo로)
+export async function listClinicDayMemos(env, date) {
+  await ensureClinicDayMemo(env);
+  const { results } = await env.DB.prepare(
+    "SELECT academy, memo, updated_at FROM clinic_day_memo2 WHERE date=? AND academy<>'' ORDER BY academy"
+  ).bind(date).all();
+  return (results || []).map(r => ({ academy: r.academy, memo: r.memo || '', updatedAt: r.updated_at || null }));
+}
+
+export async function setClinicDayMemo(env, date, memo, academy) {
   await ensureClinicDayMemo(env);
   try {
     const now = new Date().toISOString();
-    const existing = await env.DB.prepare('SELECT date FROM clinic_day_memo WHERE date=?').bind(date).first();
+    const acad = academy || '';
+    const existing = await env.DB.prepare('SELECT date FROM clinic_day_memo2 WHERE date=? AND academy=?').bind(date, acad).first();
     if (existing) {
-      await env.DB.prepare('UPDATE clinic_day_memo SET memo=?, updated_at=? WHERE date=?').bind(memo || '', now, date).run();
+      await env.DB.prepare('UPDATE clinic_day_memo2 SET memo=?, updated_at=? WHERE date=? AND academy=?').bind(memo || '', now, date, acad).run();
     } else {
-      await env.DB.prepare('INSERT INTO clinic_day_memo (date, memo, updated_at) VALUES (?,?,?)').bind(date, memo || '', now).run();
+      await env.DB.prepare('INSERT INTO clinic_day_memo2 (date, academy, memo, updated_at) VALUES (?,?,?,?)').bind(date, acad, memo || '', now).run();
     }
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }

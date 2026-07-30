@@ -152,8 +152,9 @@
   </div>
 
   <div class="memobox">
-    <div class="h">📝 오늘 클리닉 전체 메모 <span class="sub">· 원장님만 봄(학부모 X) · 아래 '전체 저장'에 함께 저장</span></div>
+    <div class="h">📝 오늘 클리닉 전체 메모 <span class="sub">· 학원별 저장(조교는 자기 학원) · 원장님만 봄(학부모 X) · 아래 '전체 저장'에 함께 저장</span></div>
     <textarea id="dayMemo" placeholder="예) 20문제 중 3~4개 실수, 3시 반 전원 귀가. 소인수·최소공배수·식 이항 기초 보강 필요."></textarea>
+    <div id="staffMemoList" style="display:none;margin-top:8px"></div>
   </div>
 
   <div id="content"><div class="empty">불러오는 중…</div></div>
@@ -193,6 +194,7 @@
 
   var reviews=[], clinicStudents=[], allStudents=[], added=[], stById={}, isOwner=false;
   var memoLoaded='';   // 서버에서 불러온 하루메모 원본 — 비워서 지우는 경우도 '변경됨'으로 잡아 저장(빈 메모=삭제)되게.
+  var staffMemosLoaded=[];   // (원장 전용) 그날 학원별 조교 메모 [{academy,memo,updatedAt}] — 읽기 전용 표시.
   function $(id){ return document.getElementById(id); }
   function val(id){ var e=$(id); return e ? (e.value||'') : ''; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -520,6 +522,19 @@
   function onAcadChange(){ buildClsSelect(); }
   function onClsChange(){ buildStuSelect(); }
 
+  // (원장 전용) 학원별 조교 메모 — 읽기 전용. 조교 화면에선 staffMemos가 안 와서 자동으로 숨음.
+  function renderStaffMemos(){
+    var box=$('staffMemoList'); if(!box) return;
+    var list=(isOwner&&staffMemosLoaded)?staffMemosLoaded.filter(function(m){return m&&(m.memo||'').trim();}):[];
+    if(!list.length){ box.style.display='none'; box.innerHTML=''; return; }
+    box.style.display='';
+    box.innerHTML=list.map(function(m){
+      return '<div style="margin-top:6px;padding:8px 10px;background:#f7f5f2;border-radius:8px;font-size:13px;line-height:1.5">'+
+        '<b style="color:#862633">'+esc(m.academy)+'</b> <span style="color:#999;font-size:11px">조교 메모</span><br>'+
+        esc(m.memo).replace(/\n/g,'<br>')+'</div>';
+    }).join('');
+  }
+
   async function load(){
     $('content').innerHTML='<div class="empty">불러오는 중…</div>';
     try{
@@ -528,6 +543,8 @@
       reviews=(j&&j.reviews)||[]; clinicStudents=(j&&j.clinicStudents)||[]; isOwner=!!(j&&j.isOwner);
       memoLoaded=(j&&j.memo)||'';
       $('dayMemo').value=memoLoaded;
+      staffMemosLoaded=(j&&j.staffMemos)||[];
+      renderStaffMemos();
       render();
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="empty">총평을 불러오지 못했어요.</div>'; }
   }

@@ -13,6 +13,8 @@
 //  POST { action:'save', id, date, asked?, attitude?, improvement?, wrong_count?, difficulty?, summary? }
 //         (admin·조교) → 학생 1명 draft 저장/수정. 조교는 자기 학원 학생만. 발송 완료건은 잠금.
 //  POST { action:'saveMemo', date, memo }        (admin·조교) → 하루 전체 메모(원장님만 봄) 저장
+//         🔧 2026-07-30 (2-1): 메모 키가 (date, academy) — 조교는 자기 학원 행, 원장은 academy'' 행.
+//         GET(원장)엔 staffMemos:[{academy,memo,updatedAt}]로 그날 학원별 조교 메모가 함께 온다.
 //  POST { action:'send', date, items:[{id, body?, title?}] }  (원장 전용) → 학부모 푸시 발송(비가역)
 //  DELETE { id, date }             (admin·조교) → draft 삭제. 발송 완료건은 원장만.
 //
@@ -23,7 +25,7 @@ import {
   getStudentById, listStudents, listClinicByDate,
   getClinicReview, upsertClinicReview, markClinicReviewSent, deleteClinicReview,
   listClinicReviewsByDate, listSentReviewsForStudentIds,
-  getClinicDayMemo, setClinicDayMemo,
+  getClinicDayMemo, setClinicDayMemo, listClinicDayMemos,
 } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { sendPushToUsers } from './_push.js';
@@ -40,8 +42,8 @@ function todayKST() {
 
 // 조교면 "맡은 학원" 학생 id Set, 원장이면 null(제한 없음). 미배정 조교는 빈 Set.
 //   ⚠️ 이름이 아니라 id로 스코프 — 동명이인 안전(평생 규칙: student_id 식별).
-async function staffIdScope(env, request) {
-  const academy = await staffScopeAcademy(env, request);
+//   academy 값은 staffScopeAcademy 결과를 그대로 받는다(호출측이 이미 갖고 있어 이중 조회 방지).
+async function staffIdScope(env, academy) {
   if (academy === null) return null;                                // 원장 → 전체
   const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
   // ⚠️ id는 반드시 String으로 — D1 PK는 INTEGER(number)지만 클라이언트/POST는 문자열 id를 보냄.
@@ -107,7 +109,8 @@ export async function onRequest(context) {
 
       // 원장·조교: 특정 날짜 검토 화면
       const date = (url.searchParams.get('date') || '').trim() || todayKST();
-      const idScope = await staffIdScope(env, request);   // null=원장
+      const academy = await staffScopeAcademy(env, request);   // null=원장, ''=미배정 조교
+      const idScope = await staffIdScope(env, academy);
 
       let reviews = await listClinicReviewsByDate(env, date);
       if (idScope) reviews = reviews.filter(r => idScope.has(String(r.studentId)));
@@ -120,8 +123,13 @@ export async function onRequest(context) {
       }));
       if (idScope) clinicStudents = clinicStudents.filter(s => idScope.has(String(s.studentId)));
 
-      const memoObj = await getClinicDayMemo(env, date);
-      return Response.json({ date, reviews, clinicStudents, memo: memoObj.memo, isOwner: idScope === null });
+      // 메모 키 = (date, academy). 조교는 자기 학원 행, 원장(null)은 본인('') 행 + 학원별 조교 메모 목록.
+      //   미배정 조교('')는 원장 행을 보여주지 않는다(빈 메모).
+      const memoObj = (academy === null || academy)
+        ? await getClinicDayMemo(env, date, academy || '')
+        : { memo: '', updatedAt: null };
+      const staffMemos = (academy === null) ? await listClinicDayMemos(env, date) : [];
+      return Response.json({ date, reviews, clinicStudents, memo: memoObj.memo, staffMemos, isOwner: academy === null });
     }
 
     // ── POST ──
@@ -130,17 +138,19 @@ export async function onRequest(context) {
       let body = {};
       try { body = await request.json(); } catch (_) {}
       const action = (body.action || '').trim();
-      const academy = await staffScopeAcademy(env, request);   // null=원장
+      const academy = await staffScopeAcademy(env, request);   // null=원장, ''=미배정 조교
       const isOwner = (academy === null);
-      const idScope = isOwner ? null
-        : new Set((academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : []).map(s => String(s.id)));
+      const idScope = await staffIdScope(env, academy);
 
-      // 하루 전체 메모 저장(원장님만 봄) — 조교·원장 모두 작성 가능
+      // 하루 전체 메모 저장(원장님만 봄) — 조교·원장 모두 작성 가능. 키 = (date, academy).
+      //   조교는 자기 학원 행에만 쓴다(다른 학원 메모를 덮어쓰던 2-1 버그 수정).
+      //   미배정 조교('')가 원장('') 행에 쓰는 것을 막는다.
       if (action === 'saveMemo') {
         const date = (body.date || '').trim();
         if (!date) return Response.json({ error: 'date(YYYY-MM-DD) 필수' }, { status: 400 });
+        if (!isOwner && !academy) return Response.json({ error: '학원 배정 후 메모를 쓸 수 있어요. 원장님께 배정을 요청해주세요.' }, { status: 403 });
         const memo = clampText(body.memo);
-        const r = await setClinicDayMemo(env, date, memo);
+        const r = await setClinicDayMemo(env, date, memo, academy || '');
         if (!r.ok) return safeError(r.error || 'setClinicDayMemo failed', env, { message: '메모 저장에 실패했습니다.' });
         return Response.json({ ok: true, date, memo });
       }

@@ -28,7 +28,8 @@ const TABLES = [
   { name: 'clinic' },                 // 클리닉 출석·성취도·시간
   { name: 'clinic_roster' },          // 클리닉 필수명단
   { name: 'clinic_reviews' },         // 클리닉 총평(초안·발송본)
-  { name: 'clinic_day_memo' },        // 클리닉 하루 메모
+  { name: 'clinic_day_memo' },        // 클리닉 하루 메모(구형 — v2 이관 후에도 보존분 백업)
+  { name: 'clinic_day_memo2' },       // 클리닉 하루 메모 v2 (date,academy) — 2026-07-30 학원별 분리
   { name: 'makeup_grants' },          // 인강(보충영상) 신청·승인 이력
   { name: 'homework_assignments' },   // 과제
   { name: 'homework_submissions' },   // 과제 제출(사진 자체는 R2, 여기엔 photo_keys만이라 가벼움)
