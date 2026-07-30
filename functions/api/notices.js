@@ -128,12 +128,17 @@ export async function onRequest(context) {
       const myAcademies = new Set(userStudents.map(s => s.academy).filter(Boolean));
       const myClasses   = new Set(userStudents.map(s => (s.academy||'') + '/' + (s.className||'')).filter(v => v !== '/'));
       const myNames     = new Set(userStudents.map(s => s.name).filter(Boolean));
+      const myIds       = new Set(userStudents.map(s => String(s.id)).filter(Boolean));   // 🆔 2026-07-30
 
       const filtered = allNotices.filter(n => {
         if (n.targetType === '전체' || !n.targetType) return true;
         if (n.targetType === '학원') return myAcademies.has(n.targetValue);
         if (n.targetType === '반') return myClasses.has(n.targetValue);
-        if (n.targetType === '개인') return myNames.has(n.targetValue);
+        if (n.targetType === '개인') {
+          // 🆔 신형 "id|이름" 값이면 id 대조(동명이인 안전), 구형(이름만)은 name 폴백
+          const m = /^(\d+)\|/.exec(n.targetValue || '');
+          return m ? myIds.has(m[1]) : myNames.has(n.targetValue);
+        }
         return false;
       });
       return Response.json(filtered);

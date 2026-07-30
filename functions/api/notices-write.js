@@ -1,5 +1,6 @@
 import { safeError } from './_errors.js';
 import { fetchStudentsByPhone } from './_auth.js';
+import { sendPushToUsers } from './_push.js';   // 🔔 2026-07-30 — 웹푸시+FCM 병행 (push-send 경유 시 FCM 미발송 버그 수정)
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 const STUDENTS_DB = '559465b73e2f4b76b7df441fd0058bfb';
@@ -30,8 +31,15 @@ export async function collectTargetPhones(env, targetType, targetValue) {
     sql = 'SELECT parent_phone, student_phone FROM students WHERE academy = ? AND class_name = ?';
     binds = [parts[0] || '', parts[1] || ''];
   } else if (targetType === '개인') {
-    sql = 'SELECT parent_phone, student_phone FROM students WHERE name = ?';
-    binds = [targetValue];
+    // 🆔 2026-07-30 — 신형 "id|이름" 값이면 id로 조회(동명이인 안전), 구형(이름만) 공지는 name 폴백
+    const m = /^(\d+)\|/.exec(targetValue || '');
+    if (m) {
+      sql = 'SELECT parent_phone, student_phone FROM students WHERE id = ?';
+      binds = [Number(m[1])];
+    } else {
+      sql = 'SELECT parent_phone, student_phone FROM students WHERE name = ?';
+      binds = [targetValue];
+    }
   } else {
     return [];
   }
@@ -47,24 +55,20 @@ export async function collectTargetPhones(env, targetType, targetValue) {
 }
 
 // 푸쉬 발송 + Notion 마킹 — notices-flush에서도 재사용
+//   🔔 2026-07-30 — /api/push-send(웹푸시 전용) 경유를 sendPushToUsers(웹+FCM 병행)로 교체.
+//     앱(WebView) 학부모는 FCM만 등록돼 있어 기존 경로로는 공지 푸시를 못 받았다.
+//     originUrl 파라미터는 호출부 호환을 위해 유지(더 이상 사용 안 함).
 export async function dispatchNoticePush(env, originUrl, { pageId, title, badge, content, targetType, targetValue }) {
   let pushResult;
   try {
     const phones = await collectTargetPhones(env, targetType, targetValue);
     if (phones.length) {
-      const pushRes = await fetch(new URL('/api/push-send', originUrl), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password: env.ADMIN_PASSWORD,
-          userIds: phones,
-          title: '📢 ' + (badge || '공지') + ' — ' + title,
-          body: (content || '').slice(0, 100) || '새 공지사항이 등록됐어요',
-          url: '/portal',
-          tag: 'notice-' + Date.now(),
-        }),
+      pushResult = await sendPushToUsers(env, phones, {
+        title: '📢 ' + (badge || '공지') + ' — ' + title,
+        body: (content || '').slice(0, 100) || '새 공지사항이 등록됐어요',
+        url: '/portal',
+        tag: 'notice-' + Date.now(),
       });
-      pushResult = await pushRes.json().catch(() => ({}));
       pushResult.targetCount = phones.length;
     } else {
       pushResult = { ok: true, sent: 0, note: '대상 phone 없음', targetCount: 0 };

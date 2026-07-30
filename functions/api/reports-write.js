@@ -7,6 +7,7 @@
 
 import { getStudentByName, createReport, updateReport, deleteReport, getReportByStudentAndDate } from './_db.js';
 import { safeError } from './_errors.js';
+import { sendPushToUsers } from './_push.js';   // 🔔 2026-07-30 — 웹푸시+FCM 병행 (push-send 경유 시 FCM 미발송 버그 수정)
 
 // 학생 이름 → 학부모 휴대폰 (푸쉬 발송용, D1)
 async function findParentPhone(env, studentName) {
@@ -48,19 +49,18 @@ export async function onRequest({ request, env }) {
     if (!body.noPush) try {
       const parentPhone = await findParentPhone(env, studentName);
       if (parentPhone) {
-        await fetch(new URL('/api/push-send', request.url), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            password: env.ADMIN_PASSWORD,
-            userId: parentPhone,
-            title: '📋 새 수업 리포트가 올라왔어요',
-            body: studentName + ' 학생 — ' + date + ' 수업 내용을 확인해보세요',
-            url: '/portal?tab=report',
-            tag: 'report-' + studentName + '-' + date,
-            nightSilent: true,     // 학부모 대상 → 밤(KST 23~7)엔 즉시 발송 안 함
-            queueIfNight: true,    // 드롭 대신 야간 큐 → 아침 07시~ 모아서 발송
-          }),
+        // 🔔 2026-07-30 — push-send(웹푸시 전용) 경유 → sendPushToUsers(웹+FCM 병행)로 교체.
+        //   앱(WebView) 학부모는 FCM만 등록돼 있어 기존 경로로는 낮 리포트 푸시를 못 받았다
+        //   (밤 리포트만 야간 큐→sendPushToUsers를 타서 받는 비대칭 버그). 야간 정책은 동일 유지.
+        await sendPushToUsers(env, [parentPhone], {
+          title: '📋 새 수업 리포트가 올라왔어요',
+          body: studentName + ' 학생 — ' + date + ' 수업 내용을 확인해보세요',
+          url: '/portal?tab=report',
+          tag: 'report-' + studentName + '-' + date,
+        }, {
+          nightSilent: true,     // 학부모 대상 → 밤(KST 23~7)엔 즉시 발송 안 함
+          queueIfNight: true,    // 드롭 대신 야간 큐 → 아침 07시~ 모아서 발송
+          queueTag: 'report',
         });
       }
     } catch (e) { /* 무시 */ }

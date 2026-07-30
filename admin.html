@@ -1342,7 +1342,7 @@
     const dateStr = n.date ? n.date.replace(/-/g, '.') : '';
     const preview = n.content ? `<div class="notice-date" style="margin-top:4px;color:var(--text-light);font-size:0.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;">${escapeHtml((n.content||'').slice(0,60))}${(n.content||'').length>60?'…':''}</div>` : '';
     const tt = n.targetType || '전체';
-    const tv = n.targetValue || '';
+    const tv = (n.targetValue || '').replace(/^\d+\|/, '');   // 🆔 개인 "id|이름" 복합값은 이름만 표시
     const targetBadge = `<span class="notice-target-badge nt-target-${tt}">${tt}${tv && tt !== '전체' ? ' · ' + escapeHtml(tv) : ''}</span>`;
     const schedInfo = (n.scheduledAt && !n.pushed)
       ? `<div class="notice-date" style="color:#a83244;font-size:0.78rem;margin-top:2px;">⏰ 예약: ${new Date(n.scheduledAt).toLocaleString('ko-KR')}</div>`
@@ -1451,7 +1451,8 @@
       const cls = clsSel.value;
       if (!acad || !cls) { stdSel.innerHTML = '<option value="">학생 선택</option>'; return; }
       const ss = (allStudents || []).filter(s => s.academy === acad && s.className === cls).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-      stdSel.innerHTML = '<option value="">학생 선택</option>' + ss.map(s => '<option value="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + '</option>').join('');
+      // 🆔 2026-07-30 — 값은 "id|이름" 복합(동명이인 안전). 서버가 id 우선 해석, 구형(이름만) 공지는 그대로 호환.
+      stdSel.innerHTML = '<option value="">학생 선택</option>' + ss.map(s => '<option value="' + s.id + '|' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + '</option>').join('');
     };
   }
 
@@ -3932,8 +3933,9 @@
   // ──── 학생 카드 빠른 출석 체크 (토글) ────
   // 같은 버튼 다시 누르면 → DELETE (기록 해제)
   // 다른 상태 누르면 → POST (덮어쓰기)
-  async function markAttendance(name, status, btn) {
-    if (!name) return;
+  // 🆔 2026-07-30 — 식별은 id(동명이인 안전), name은 토스트 표시·구버전 호환용
+  async function markAttendance(id, name, status, btn) {
+    if (!id && !name) return;
     const date = qaDate();   // 빠른 출석 패널에서 선택한 날짜 (미선택=오늘)
 
     // 이미 선택된 상태인지 확인 (토글 해제 모드 판정)
@@ -3945,7 +3947,7 @@
         const res = await fetch('/api/attendance', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-          body: JSON.stringify({ name: name, date: date })
+          body: JSON.stringify({ id: id, name: name, date: date })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
@@ -3969,7 +3971,7 @@
         const res = await fetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-          body: JSON.stringify({ name: name, date: date, status: status, notifyParent: notifyParent })
+          body: JSON.stringify({ id: id, name: name, date: date, status: status, notifyParent: notifyParent })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
@@ -3997,7 +3999,7 @@
     }
   }
 
-  // ─── 학생 퇴원 처리 (Notion archive + R2 파일 삭제) ──
+  // ─── 학생 퇴원 처리 (D1 삭제 — 삭제 전 관리자 아카이브 스냅샷 보존, R2 PDF는 남김) ──
   async function deleteStudent(studentId, name, className, academy) {
     if (!studentId && !name) return;
     // 같은 이름의 다른 enrollment가 있는지 확인 (per-class records 대응)
@@ -4020,7 +4022,9 @@
       mode = 'enrollment-only';
     } else {
       // 단독 enrollment → 전체 퇴원 (기존 동작)
-      const ok = confirm("⚠️ [" + name + "] 학생을 퇴원 처리할까요?\n\n· Notion 학생 DB에서 archive\n· 해당 학생의 모든 수업 리포트 archive\n· R2 reports/" + name + "/ 폴더의 파일 모두 삭제\n· 계정도 archive\n\n복구 불가. 정말 진행할까요?");
+      // 📝 2026-07-30 — 문구를 실동작대로 정정: 아카이브 스냅샷 보존 · R2 PDF 보존 · 보존 실패 시 삭제 자체가 중단됨.
+      //   (이전 문구는 "복구 불가"+"R2 파일 모두 삭제"로 겁줬지만 실제와 달랐다 — 양방향 오해 소지)
+      const ok = confirm("⚠️ [" + name + "] 학생을 퇴원 처리할까요?\n\n· 삭제 직전 전체 기록(인적사항·성적·출결·학습)을 관리자 아카이브에 보존\n· 학생·출결·공부기록·성적·리포트 행을 DB에서 삭제\n· 리포트 PDF 파일은 삭제하지 않고 보존\n· 계정은 형제가 같은 번호를 쓰면 유지, 아니면 삭제\n\n(보존에 실패하면 아무것도 지우지 않고 중단됩니다)\n정말 진행할까요?");
       if (!ok) return;
     }
     try {
@@ -4040,7 +4044,7 @@
       if (mode === 'enrollment-only') {
         showToast("🗑 " + name + " 이 반에서만 퇴원 (다른 반 유지)");
       } else {
-        showToast("🗑 " + name + " 전체 퇴원 완료 — 학생 " + data.students_archived + " · 리포트 " + data.reports_archived + " · 파일 " + data.files_deleted);
+        showToast("🗑 " + name + " 전체 퇴원 완료 — 학생 " + data.students_archived + " · 리포트 " + data.reports_archived + " · 아카이브 " + (data.outcomes_saved || 0));
       }
       if (typeof loadStudents === "function") loadStudents();
     } catch (e) {
@@ -4115,7 +4119,7 @@
     let counts = { '출석':0, '지각':0, '결석':0, '병결':0, '공결':0, '미체크':0 };
     await Promise.all(targets.map(async (s) => {
       try {
-        const res = await fetch('/api/attendance?name=' + encodeURIComponent(s.name) + '&month=' + date.slice(0,7), {
+        const res = await fetch('/api/attendance?id=' + encodeURIComponent(s.id) + '&month=' + date.slice(0,7), {
           headers: { 'Authorization': 'Bearer ' + adminToken }
         });
         const data = await res.json();
@@ -4127,7 +4131,7 @@
     let hwSum = 0, hwN = 0;
     await Promise.all(targets.map(async (s) => {
       try {
-        const res = await fetch('/api/attendance?name=' + encodeURIComponent(s.name) + '&month=' + date.slice(0,7), {
+        const res = await fetch('/api/attendance?id=' + encodeURIComponent(s.id) + '&month=' + date.slice(0,7), {
           headers: { 'Authorization': 'Bearer ' + adminToken }
         });
         const data = await res.json();
@@ -4170,7 +4174,7 @@
         const res = await fetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-          body: JSON.stringify({ name: s.name, date: date, status: status, notifyParent: notifyParent })
+          body: JSON.stringify({ id: s.id, name: s.name, date: date, status: status, notifyParent: notifyParent })
         });
         const data = await res.json();
         if (res.ok && data.ok) okN++; else failN++;
@@ -4181,14 +4185,15 @@
   }
 
   // ─── 숙제 완료율 (5단 버킷) ─────────────────
-  async function markHomework(name, percent, btn) {
-    if (!name) return;
+  // 🆔 2026-07-30 — 식별은 id(동명이인 안전), name은 토스트 표시·구버전 호환용
+  async function markHomework(id, name, percent, btn) {
+    if (!id && !name) return;
     const today = qaDate();   // 빠른 출석 패널에서 선택한 날짜 (미선택=오늘)
     try {
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-        body: JSON.stringify({ name: name, date: today, homework: percent })
+        body: JSON.stringify({ id: id, name: name, date: today, homework: percent })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '실패')); return; }
@@ -4365,17 +4370,17 @@
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
         <span style="font-size:0.72rem;color:var(--text-light);margin-right:2px;">출결:</span>
-        <button class="att-btn" data-s="출석" onclick="markAttendance('${nameEsc}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
-        <button class="att-btn" data-s="지각" onclick="markAttendance('${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
-        <button class="att-btn" data-s="결석" onclick="markAttendance('${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
-        <button class="att-btn" data-s="병결" onclick="markAttendance('${nameEsc}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
+        <button class="att-btn" data-s="출석" onclick="markAttendance(${s.id},'${nameEsc}','출석',this)" style="background:#E5F5E8;color:#1F7A33;border:1px solid #98D898;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">출</button>
+        <button class="att-btn" data-s="지각" onclick="markAttendance(${s.id},'${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
+        <button class="att-btn" data-s="결석" onclick="markAttendance(${s.id},'${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
+        <button class="att-btn" data-s="병결" onclick="markAttendance(${s.id},'${nameEsc}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
         <span style="font-size:0.72rem;color:var(--text-light);margin-left:10px;margin-right:2px;">숙제:</span>
         <div class="hw-bucket" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
-          <button class="hw-btn" data-p="0"   onclick="markHomework('${nameEsc}',0,this)">0</button>
-          <button class="hw-btn" data-p="25"  onclick="markHomework('${nameEsc}',25,this)">25</button>
-          <button class="hw-btn" data-p="50"  onclick="markHomework('${nameEsc}',50,this)">50</button>
-          <button class="hw-btn" data-p="75"  onclick="markHomework('${nameEsc}',75,this)">75</button>
-          <button class="hw-btn" data-p="100" onclick="markHomework('${nameEsc}',100,this)">100</button>
+          <button class="hw-btn" data-p="0"   onclick="markHomework(${s.id},'${nameEsc}',0,this)">0</button>
+          <button class="hw-btn" data-p="25"  onclick="markHomework(${s.id},'${nameEsc}',25,this)">25</button>
+          <button class="hw-btn" data-p="50"  onclick="markHomework(${s.id},'${nameEsc}',50,this)">50</button>
+          <button class="hw-btn" data-p="75"  onclick="markHomework(${s.id},'${nameEsc}',75,this)">75</button>
+          <button class="hw-btn" data-p="100" onclick="markHomework(${s.id},'${nameEsc}',100,this)">100</button>
         </div>
         <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${nameEsc}')">📋</button>
       </div>

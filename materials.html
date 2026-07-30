@@ -220,7 +220,8 @@ async function loadPublicFiles() {
 }
 
 async function loadFiles() {
-  const token = localStorage.getItem(TOKEN_KEY);
+  // 🔑 2026-07-30 — 기기 신뢰 해제 시 포털이 sessionStorage에만 저장하므로 둘 다 본다 (홈 튕김 수정, 아래 2곳 동일)
+  const token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
   const [pub, cls] = await Promise.all([
     loadPublicFiles(),
     token ? loadClassFiles(token) : Promise.resolve([]),
@@ -238,7 +239,7 @@ async function loadFiles() {
 
 function downloadFile(r2Key) {
   if (!r2Key) return;
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
   const isProtected = r2Key.indexOf('class/') === 0 || r2Key.indexOf('reports/') === 0;
   let url = `/api/download-file?key=${encodeURIComponent(r2Key)}`;
   if (isProtected && myStudentName) url += `&name=${encodeURIComponent(myStudentName)}`;
@@ -262,7 +263,7 @@ function downloadFile(r2Key) {
 // 결석·병결·공결한 날의 자료 → 인강 신청(승인 후 열림)
 async function requestMaterialMakeup(date, btn) {
   if (!date) return;
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
   if (!token) { alert('로그인 후 이용해주세요.'); return; }
   if (btn) btn.disabled = true;
   try {

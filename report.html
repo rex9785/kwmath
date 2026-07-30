@@ -200,7 +200,8 @@
 
   // ─── 초기화: 토큰 확인 → 자녀 결정 → 데이터 로드 ───
   async function init() {
-    currentToken = localStorage.getItem(TOKEN_KEY);
+    // 🔑 2026-07-30 — 기기 신뢰 해제 시 포털이 sessionStorage에만 저장하므로 둘 다 본다 (홈 튕김 수정)
+    currentToken = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
     if (!currentToken) return redirectToPortal();
 
     try {

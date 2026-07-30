@@ -29,8 +29,13 @@ export async function onRequest({ request, env }) {
       const st = await env.DB.prepare('SELECT id, name, school, grade, created_at, parent_phone, student_phone FROM students WHERE id = ?').bind(id).first();
       if (!st) return Response.json({ error: '학생을 찾을 수 없습니다' }, { status: 404 });
       result.name = st.name || '';
-      // 삭제 직전: 전체 기록(실명·전화·성적·출결·학습)을 관리자 아카이브에 보존
-      try { const snap = await snapshotArchive(env, st, 'admin'); if (snap.ok) result.outcomes_saved += 1; } catch (e) {}
+      // 삭제 직전: 전체 기록(실명·전화·성적·출결·학습)을 관리자 아카이브에 보존.
+      // 🛡️ 2026-07-30 — 보존 실패 시 삭제 중단(보존 없는 삭제 금지). 이전엔 실패해도 DELETE가 진행됐다.
+      const snap = await snapshotArchive(env, st, 'admin');
+      if (!snap.ok) {
+        return Response.json({ error: '기록 보존(아카이브)에 실패해 삭제를 중단했습니다. 아무것도 지워지지 않았습니다. 잠시 후 다시 시도해주세요.' + (snap.error ? ' [' + snap.error + ']' : '') }, { status: 500 });
+      }
+      result.outcomes_saved += 1;
       await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(id).run();
       await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(id).run();
       try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(id).run(); result.scores_deleted += (sd.meta && sd.meta.changes) || 0; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
@@ -58,11 +63,14 @@ export async function onRequest({ request, env }) {
     for (const s of (studs || [])) {
       if (s.parent_phone) phones.add(s.parent_phone);
       if (s.student_phone) phones.add(s.student_phone);
-      // 삭제 직전: 전체 기록(실명·전화·성적·출결·학습)을 관리자 아카이브에 보존
-      try {
-        const snap = await snapshotArchive(env, { id: s.id, name, school: s.school, grade: s.grade, created_at: s.created_at, parent_phone: s.parent_phone, student_phone: s.student_phone }, 'admin');
-        if (snap.ok) result.outcomes_saved += 1;
-      } catch (e) {}
+      // 삭제 직전: 전체 기록(실명·전화·성적·출결·학습)을 관리자 아카이브에 보존.
+      // 🛡️ 2026-07-30 — 보존 실패 시 삭제 중단(보존 없는 삭제 금지). 이전엔 실패해도 DELETE가 진행됐다.
+      //   (동명이인 가드로 이 루프는 최대 1명 — 중단 시점엔 아직 아무것도 안 지워진 상태.)
+      const snap = await snapshotArchive(env, { id: s.id, name, school: s.school, grade: s.grade, created_at: s.created_at, parent_phone: s.parent_phone, student_phone: s.student_phone }, 'admin');
+      if (!snap.ok) {
+        return Response.json({ error: '기록 보존(아카이브)에 실패해 삭제를 중단했습니다. 아무것도 지워지지 않았습니다. 잠시 후 다시 시도해주세요.' + (snap.error ? ' [' + snap.error + ']' : '') }, { status: 500 });
+      }
+      result.outcomes_saved += 1;
       await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(s.id).run();
       await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(s.id).run();
       try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(s.id).run(); result.scores_deleted += (sd.meta && sd.meta.changes) || 0; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
@@ -72,6 +80,8 @@ export async function onRequest({ request, env }) {
 
     // 리포트 (이름 기준)
     // 삭제 전에 리포트 행 전체를 R2 아카이브에 보존한다(되돌릴 수단). D1 백업엔 PDF가 안 들어가므로 여기서 텍스트/메타를 남긴다.
+    // 🛡️ 2026-07-30 — 아카이브 실패 시 리포트 행 삭제를 건너뛴다(보존 없는 삭제 금지). 이전엔 실패해도 DELETE가 진행됐다.
+    let repArchOk = true;
     try {
       const { results: repRows } = await env.DB.prepare('SELECT * FROM reports WHERE student_name = ?').bind(name).all();
       if ((repRows || []).length) {
@@ -82,10 +92,12 @@ export async function onRequest({ request, env }) {
           { httpMetadata: { contentType: 'application/json' } }
         );
       }
-    } catch (e) { result.errors.push('report 아카이브 실패'); }
+    } catch (e) { repArchOk = false; result.errors.push('report 아카이브 실패 — 리포트 행은 지우지 않고 남겼습니다. 다시 시도해주세요.'); }
 
-    const rd = await env.DB.prepare('DELETE FROM reports WHERE student_name = ?').bind(name).run();
-    result.reports_archived = (rd.meta && rd.meta.changes) || 0;
+    if (repArchOk) {
+      const rd = await env.DB.prepare('DELETE FROM reports WHERE student_name = ?').bind(name).run();
+      result.reports_archived = (rd.meta && rd.meta.changes) || 0;
+    }
 
     // R2 reports/{이름}/ PDF는 삭제하지 않고 남긴다(되돌릴 수단으로 보존).
     //   D1 백업엔 PDF가 안 들어가므로 여기서 지우면 복구 불가 → 파일은 보존, 리포트 행만 삭제.
