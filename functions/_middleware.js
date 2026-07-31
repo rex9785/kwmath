@@ -121,11 +121,26 @@ export async function onRequest(context) {
       // staffPhone이 주어지면 다운스트림에 X-Staff-Phone(검증된 신원)을 실어 보낸다.
       //   ⚠️ 클라이언트가 직접 넣은 X-Staff-Phone은 항상 지운 뒤(스푸핑 방지) 토큰에서 나온 값만 세팅.
       //   원장(adm_)·쿠키 경로는 staffPhone 없음 → 헤더도 안 붙음(= 전체 접근).
-      const translate = (staffPhone) => {
+      //
+      // 📓 2026-07-31 — 관우T 지시 "어떤 조교가 뭘 만졌고 뭘 바꿨는지도 로그에 남겨야 돼".
+      //   여기서 Bearer를 ADMIN_PASSWORD로 바꿔치기하기 때문에, 다운스트림 API는 원장인지 조교인지,
+      //   조교라면 누구인지 알 방법이 없었다(감사로그에 '__admin__' 한 덩어리로만 찍혔다).
+      //   → 신원을 두 개 더 실어 보낸다. 어차피 조교 레코드(staffRec)는 위에서 이미 읽었으므로 공짜다.
+      //     X-Kw-Actor-Role : 'owner' | 'staff'  ← ADMIN_PASSWORD 원본을 직접 쓰는 호출(MathOS·크론)과 구분됨
+      //     X-Staff-Name    : 조교 이름. **헤더는 ASCII만 실을 수 있어 한글 이름이 들어가면 예외가 난다**
+      //                       → encodeURIComponent로 감싼다. 읽는 쪽(_auditlog.actorOf)이 디코드한다.
+      //   ⚠️ 이 두 개도 X-Staff-Phone과 똑같이 **먼저 지운 뒤** 세팅한다(외부 주입 차단).
+      const translate = (staffPhone, staffName) => {
         const h = new Headers(context.request.headers);
         h.set('Authorization', 'Bearer ' + env.ADMIN_PASSWORD);
         h.delete('X-Staff-Phone');                       // 외부 주입 차단(필수)
+        h.delete('X-Staff-Name');
+        h.delete('X-Kw-Actor-Role');
         if (staffPhone) h.set('X-Staff-Phone', staffPhone);
+        if (staffName) {
+          try { h.set('X-Staff-Name', encodeURIComponent(String(staffName).slice(0, 40))); } catch (_) {}
+        }
+        h.set('X-Kw-Actor-Role', staffPhone ? 'staff' : 'owner');
         forwardRequest = new Request(context.request, { headers: h });
       };
 
@@ -150,7 +165,7 @@ export async function onRequest(context) {
             );
           }
           if (staffAllowed(url, method)) {
-            translate(sv.phone);   // ← 검증된 조교 신원(숫자만)
+            translate(sv.phone, staffRec.name);   // ← 검증된 조교 신원(숫자만) + 이름(감사로그용)
             logIdentity = { role: 'staff', phone: normalizePhone(sv.phone) || null };
             renewedToken = (await renewStaffSessionIfDue(env, bearer, sv.phone)) || '';   // 🔄 계속 로그인
           } else {

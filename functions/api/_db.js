@@ -87,15 +87,43 @@ export async function findAccountByPhone(env, phone) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 📓 2026-07-31 — 관우T 지시 "어떤 조교가 뭘 만졌고 뭘 바꿨는지도 로그에 남겨야 돼.
+//    아주 사소한 거 하나까지도 로그에 다 남겨."
+//
+//  이 파일(_db.js)의 함수들은 **request 를 받지 않는다.** 그래서 여기서 직접 logAudit 을 부르면
+//  누가(actor)·어느 기기(device)·어느 API(path)·어느 IP인지가 전부 NULL로 남는다.
+//  → "누가 만졌나"를 남기라는 지시를 정면으로 못 지킨다.
+//
+//  그래서 역할을 나눈다.
+//    _db.js  = **바뀌기 전 값(before)과 바뀐 뒤 값(after)을 반드시 돌려준다.**
+//    호출부  = request 를 들고 있으므로 그걸로 logAudit(env, request, {...}) 을 부른다.
+//
+//  ⚠️ 되돌리려면 before 가 있어야 한다. 지우기·덮어쓰기 전에 읽는 SELECT 한 번은
+//     성능보다 훨씬 중요하다(D1 읽기는 싸다). 기존 반환 필드는 그대로 두고 **추가만** 했으므로
+//     before 를 안 쓰는 옛 호출부는 그대로 동작한다.
+// ═══════════════════════════════════════════════════════════════════════════
+
 export async function createAccount(env, phone, password, mustChangePassword = true, note = '') {
   const { hash, salt } = await hashPassword(password);
   try {
+    // ⚠️ 이건 UPSERT다 — 이미 있는 번호면 **기존 비밀번호가 통째로 덮인다**.
+    //    "새 계정 생성"과 "남의 계정 비번 갈아치움"은 완전히 다른 사건이므로 로그에서 구분돼야 한다.
+    //    (비밀번호 해시·salt 는 절대 안 돌려준다 — audit_log 는 R2 backups/ 로 흘러가므로.)
+    const prev = await env.DB.prepare('SELECT phone, must_change_pw, note FROM accounts WHERE phone=?')
+      .bind(phone).first();
     await env.DB.prepare(
       'INSERT INTO accounts (phone, password_hash, salt, must_change_pw, note) VALUES (?,?,?,?,?) ' +
       'ON CONFLICT(phone) DO UPDATE SET password_hash=excluded.password_hash, salt=excluded.salt, ' +
       'must_change_pw=excluded.must_change_pw, note=excluded.note'
     ).bind(phone, hash, salt, mustChangePassword ? 1 : 0, note || '').run();
-    return { ok: true, id: phone };
+    return {
+      ok: true,
+      id: phone,
+      existed: !!prev,
+      before: prev ? { phone: prev.phone, mustChangePassword: prev.must_change_pw === 1, note: prev.note || '' } : null,
+      after: { phone, mustChangePassword: !!mustChangePassword, note: note || '' },
+    };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -104,9 +132,10 @@ export async function createAccount(env, phone, password, mustChangePassword = t
 export async function updateAccountPassword(env, phone, newPassword) {
   const { hash, salt } = await hashPassword(newPassword);
   try {
-    await env.DB.prepare('UPDATE accounts SET password_hash=?, salt=?, must_change_pw=0 WHERE phone=?')
+    // changed=0 이면 "그런 번호의 계정이 없어서 아무것도 안 바뀜" — 성공으로 착각하면 안 되므로 남긴다.
+    const res = await env.DB.prepare('UPDATE accounts SET password_hash=?, salt=?, must_change_pw=0 WHERE phone=?')
       .bind(hash, salt, phone).run();
-    return { ok: true };
+    return { ok: true, changed: (res.meta && res.meta.changes) || 0 };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -211,7 +240,8 @@ export async function createStudent(env, data) {
   const sql = 'INSERT INTO students (' + keys.join(',') + ') VALUES (' + keys.map(() => '?').join(',') + ')';
   try {
     const res = await env.DB.prepare(sql).bind(...keys.map(k => cols[k])).run();
-    return { ok: true, id: res.meta && res.meta.last_row_id };
+    // after 를 같이 돌려준다 — 로그에 "누가 어떤 내용으로 학생을 만들었는지"를 통째로 남기기 위함.
+    return { ok: true, id: res.meta && res.meta.last_row_id, after: cols, studentName: cols.name || '' };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -237,25 +267,39 @@ export async function updateStudent(env, id, patch) {
     sets.push('mock_math_raw=?');
     vals.push((patch.mathMockScore === '' || patch.mathMockScore === null) ? null : Number(patch.mathMockScore));
   }
-  if (!sets.length) return { ok: true };
+  if (!sets.length) return { ok: true, before: null, after: null, changedCols: [] };
   vals.push(id);
   try {
+    // 🔎 덮어쓰기 전 값을 먼저 읽는다. 이게 없으면 로그에 "수정했음"만 남아 아무 쓸모가 없다.
+    //    (학생 정보는 전화번호·반·성적까지 들어 있어, 조교가 뭘 바꿨는지 추적 가치가 특히 크다.)
+    const before = await getStudentById(env, id);
     await env.DB.prepare('UPDATE students SET ' + sets.join(', ') + ' WHERE id=?').bind(...vals).run();
-    return { ok: true };
+    const after = await getStudentById(env, id);
+    return { ok: true, before, after, changedCols: sets.map(s => s.replace('=?', '')) };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
 export async function deleteStudent(env, id) {
   try {
-    await env.DB.prepare('DELETE FROM students WHERE id=?').bind(id).run();
-    return { ok: true };
+    // ⚠️ 되돌릴 수 없는 삭제 — 지우기 전 학생 레코드 전체를 돌려준다(로그에 통째로 남기기 위함).
+    const before = await getStudentById(env, id);
+    const res = await env.DB.prepare('DELETE FROM students WHERE id=?').bind(id).run();
+    return { ok: true, before, removed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
 export async function setApprovalStatus(env, id, status) {
   try {
-    await env.DB.prepare('UPDATE students SET approval_status=? WHERE id=?').bind(status, id).run();
-    return { ok: true };
+    // 승인/거부/대기 전환은 학원 운영상 중요한 사건 → 이전 상태와 학생 이름을 같이 돌려준다.
+    const prev = await env.DB.prepare('SELECT approval_status, name FROM students WHERE id=?').bind(id).first();
+    const res = await env.DB.prepare('UPDATE students SET approval_status=? WHERE id=?').bind(status, id).run();
+    return {
+      ok: true,
+      before: prev ? (prev.approval_status || '') : null,
+      after: status,
+      studentName: prev ? (prev.name || '') : '',
+      changed: (res.meta && res.meta.changes) || 0,
+    };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -295,8 +339,16 @@ export async function createReport(env, data) {
       data.studentName || '', data.phone4 || '', title, data.date || '',
       data.content || '', data.homework || '', data.notes || '', 1, data.school || '대치동 정규반'
     ).run();
-    return { ok: true, id: res.meta && res.meta.last_row_id };
+    return { ok: true, id: res.meta && res.meta.last_row_id, title, studentName: data.studentName || '' };
   } catch (e) { return { ok: false, error: e.message }; }
+}
+
+// 리포트 1건 원본 행(로그의 before 용). 없으면 null.
+async function _reportRow(env, id) {
+  try {
+    const r = await env.DB.prepare('SELECT * FROM reports WHERE id=?').bind(id).first();
+    return r ? rowToReport(r) : null;
+  } catch (_) { return null; }
 }
 
 export async function updateReport(env, id, patch) {
@@ -305,18 +357,23 @@ export async function updateReport(env, id, patch) {
   for (const [k, col] of Object.entries(map)) {
     if (patch[k] !== undefined) { sets.push(col + '=?'); vals.push(patch[k]); }
   }
-  if (!sets.length) return { ok: true };
+  if (!sets.length) return { ok: true, before: null, after: null, changedCols: [] };
   vals.push(id);
   try {
+    // 리포트 본문은 학부모가 보는 글이다 — 누가 무슨 문장을 어떻게 고쳤는지가 남아야 한다.
+    const before = await _reportRow(env, id);
     await env.DB.prepare('UPDATE reports SET ' + sets.join(', ') + ' WHERE id=?').bind(...vals).run();
-    return { ok: true };
+    const after = await _reportRow(env, id);
+    return { ok: true, before, after, changedCols: sets.map(s => s.replace('=?', '')) };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
 export async function deleteReport(env, id) {
   try {
-    await env.DB.prepare('DELETE FROM reports WHERE id=?').bind(id).run();
-    return { ok: true };
+    // ⚠️ 되돌릴 수 없음 — 지우기 전 리포트 전체(제목·날짜·본문·숙제)를 돌려준다.
+    const before = await _reportRow(env, id);
+    const res = await env.DB.prepare('DELETE FROM reports WHERE id=?').bind(id).run();
+    return { ok: true, before, removed: (res.meta && res.meta.changes) || 0 };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -335,8 +392,12 @@ export async function upsertAttendance(env, studentId, date, fields) {
   const cols = ['status', 'homework', 'homework_note', 'note', 'method'];
   const present = cols.filter(c => fields[c] !== undefined);
   try {
-    const existing = await env.DB.prepare('SELECT student_id FROM attendance WHERE student_id=? AND date=?')
-      .bind(studentId, date).first();
+    // 🔎 존재확인 SELECT를 어차피 하고 있었다 → **읽는 칸만 넓히면 before가 공짜로 생긴다.**
+    //    (student_id 하나만 읽던 걸 실제 값 전부로. 쿼리 횟수는 그대로 1회.)
+    const existing = await env.DB.prepare(
+      'SELECT student_id, status, homework, homework_note, note, method FROM attendance WHERE student_id=? AND date=?'
+    ).bind(studentId, date).first();
+    const before = existing ? attRecord(existing) : null;
     if (existing) {
       if (present.length) {
         const setSql = present.map(c => c + '=?').join(', ') + ', updated_at=?';
@@ -350,14 +411,18 @@ export async function upsertAttendance(env, studentId, date, fields) {
         .bind(...allVals).run();
     }
     const got = await getAttendance(env, studentId);
-    return { ok: true, record: got.records[date] || {} };
+    return { ok: true, record: got.records[date] || {}, before, created: !existing, changedCols: present };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
 export async function deleteAttendance(env, studentId, date) {
   try {
+    // ⚠️ 출결 삭제는 "결석이 없던 일이 된다" — 지우기 전 상태(결석·숙제·메모)를 반드시 남긴다.
+    const prev = await env.DB.prepare(
+      'SELECT student_id, status, homework, homework_note, note, method FROM attendance WHERE student_id=? AND date=?'
+    ).bind(studentId, date).first();
     const res = await env.DB.prepare('DELETE FROM attendance WHERE student_id=? AND date=?').bind(studentId, date).run();
-    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+    return { ok: true, removed: (res.meta && res.meta.changes) || 0, before: prev ? attRecord(prev) : null };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -416,8 +481,11 @@ export async function upsertClinic(env, studentId, date, fields) {
   const cols = ['status', 'achieve', 'minutes', 'note'];
   const present = cols.filter(c => fields[c] !== undefined);
   try {
-    const existing = await env.DB.prepare('SELECT student_id FROM clinic WHERE student_id=? AND date=?')
-      .bind(studentId, date).first();
+    // 🔎 존재확인 SELECT의 읽는 칸만 넓혀서 before 확보(쿼리 추가 없음).
+    const existing = await env.DB.prepare(
+      'SELECT student_id, status, achieve, minutes, note FROM clinic WHERE student_id=? AND date=?'
+    ).bind(studentId, date).first();
+    const before = existing ? clinicRecord(existing) : null;
     if (existing) {
       if (present.length) {
         const setSql = present.map(c => c + '=?').join(', ') + ', updated_at=?';
@@ -431,15 +499,19 @@ export async function upsertClinic(env, studentId, date, fields) {
         .bind(...allVals).run();
     }
     const got = await getClinic(env, studentId);
-    return { ok: true, record: got.records[date] || {} };
+    return { ok: true, record: got.records[date] || {}, before, created: !existing, changedCols: present };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
 export async function deleteClinic(env, studentId, date) {
   await ensureClinic(env);
   try {
+    // ⚠️ 지우기 전 값(출결·성취도·시간·메모)을 남긴다.
+    const prev = await env.DB.prepare(
+      'SELECT student_id, status, achieve, minutes, note FROM clinic WHERE student_id=? AND date=?'
+    ).bind(studentId, date).first();
     const res = await env.DB.prepare('DELETE FROM clinic WHERE student_id=? AND date=?').bind(studentId, date).run();
-    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+    return { ok: true, removed: (res.meta && res.meta.changes) || 0, before: prev ? clinicRecord(prev) : null };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -512,8 +584,10 @@ export async function setClinicRoster(env, studentId, date, action, reason) {
   await ensureClinicRoster(env);
   try {
     const [a, b] = _sidPair(studentId);   // 신·구("24","24.0") 둘 다 매칭
-    const existing = await env.DB.prepare('SELECT student_id FROM clinic_roster WHERE (student_id=? OR student_id=?) AND date=?')
+    // 🔎 읽는 칸만 넓혀 before 확보 — "누가 그 학생을 클리닉 명단에서 빼버렸나"가 추적돼야 한다.
+    const existing = await env.DB.prepare('SELECT student_id, action, reason FROM clinic_roster WHERE (student_id=? OR student_id=?) AND date=?')
       .bind(a, b, date).first();
+    const before = existing ? { action: existing.action || '', reason: existing.reason || '' } : null;
     if (existing) {
       // student_id도 표준형("24")으로 덮어 과거 "24.0" 행을 수렴시킨다.
       await env.DB.prepare('UPDATE clinic_roster SET student_id=?, action=?, reason=?, updated_at=? WHERE (student_id=? OR student_id=?) AND date=?')
@@ -522,7 +596,7 @@ export async function setClinicRoster(env, studentId, date, action, reason) {
       await env.DB.prepare('INSERT INTO clinic_roster (student_id, date, action, reason, updated_at) VALUES (?,?,?,?,?)')
         .bind(a, date, action, reason || '', new Date().toISOString()).run();
     }
-    return { ok: true };
+    return { ok: true, before, after: { action, reason: reason || '' }, created: !existing };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -530,9 +604,16 @@ export async function deleteClinicRoster(env, studentId, date) {
   await ensureClinicRoster(env);
   try {
     const [a, b] = _sidPair(studentId);   // 신·구("24","24.0") 둘 다 삭제
+    // ⚠️ 지우면 "수동 추가/제외"가 없던 일이 된다 — 무엇을 되돌린 건지 남긴다.
+    const prev = await env.DB.prepare('SELECT action, reason FROM clinic_roster WHERE (student_id=? OR student_id=?) AND date=?')
+      .bind(a, b, date).first();
     const res = await env.DB.prepare('DELETE FROM clinic_roster WHERE (student_id=? OR student_id=?) AND date=?')
       .bind(a, b, date).run();
-    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+    return {
+      ok: true,
+      removed: (res.meta && res.meta.changes) || 0,
+      before: prev ? { action: prev.action || '', reason: prev.reason || '' } : null,
+    };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -595,8 +676,10 @@ export async function upsertClinicReview(env, studentId, date, fields) {
   try {
     const now = new Date().toISOString();
     const [a, b] = _sidPair(studentId);   // 저장은 "24"로, 조회/갱신은 신·구 둘 다 매칭(중복행 방지)
-    const existing = await env.DB.prepare('SELECT student_id FROM clinic_reviews WHERE (student_id=? OR student_id=?) AND date=?')
-      .bind(a, b, date).first();
+    // 🔎 존재확인(SELECT student_id)을 getClinicReview 로 바꿔 before 를 통째로 확보한다(쿼리 1회로 동일).
+    //    총평은 학부모에게 나가는 글이다 — 조교가 어느 문장을 어떻게 고쳤는지가 남아야 한다.
+    const before = await getClinicReview(env, studentId, date);
+    const existing = !!before;
     if (existing) {
       if (present.length) {
         const setSql = present.map(c => c + '=?').join(', ') + ', updated_at=?';
@@ -613,7 +696,7 @@ export async function upsertClinicReview(env, studentId, date, fields) {
         .bind(...insVals).run();
     }
     const got = await getClinicReview(env, studentId, date);
-    return { ok: true, record: got };
+    return { ok: true, record: got, before, after: got, created: !existing, changedCols: present };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -623,10 +706,12 @@ export async function markClinicReviewSent(env, studentId, date, sentBody) {
   try {
     const now = new Date().toISOString();
     const [a, b] = _sidPair(studentId);   // 신·구 둘 다 매칭 — 과거 "24.0" draft도 발송확정됨
+    // 🔎 발송은 되돌릴 수 없는 사건(학부모 폰에 이미 떴다) → 발송 직전 상태를 남긴다.
+    const before = await getClinicReview(env, studentId, date);
     const res = await env.DB.prepare(
       'UPDATE clinic_reviews SET status=?, sent_body=?, sent_at=?, updated_at=? WHERE (student_id=? OR student_id=?) AND date=?'
     ).bind('sent', sentBody || '', now, now, a, b, date).run();
-    return { ok: true, changed: (res.meta && res.meta.changes) || 0 };
+    return { ok: true, changed: (res.meta && res.meta.changes) || 0, before, sentAt: now };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -634,9 +719,11 @@ export async function deleteClinicReview(env, studentId, date) {
   await ensureClinicReviews(env);
   try {
     const [a, b] = _sidPair(studentId);   // 신·구 둘 다 삭제
+    // ⚠️ 조교가 쓴 총평이 통째로 사라진다 — 지우기 전 본문 전체를 남긴다.
+    const before = await getClinicReview(env, studentId, date);
     const res = await env.DB.prepare('DELETE FROM clinic_reviews WHERE (student_id=? OR student_id=?) AND date=?')
       .bind(a, b, date).run();
-    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+    return { ok: true, removed: (res.meta && res.meta.changes) || 0, before };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -713,13 +800,14 @@ export async function setClinicDayMemo(env, date, memo, academy) {
   try {
     const now = new Date().toISOString();
     const acad = academy || '';
-    const existing = await env.DB.prepare('SELECT date FROM clinic_day_memo2 WHERE date=? AND academy=?').bind(date, acad).first();
+    // 🔎 읽는 칸만 넓혀 before 확보 — 메모는 덮어쓰기라, 남의 메모를 지운 건지 자기 걸 고친 건지 구분돼야 한다.
+    const existing = await env.DB.prepare('SELECT date, memo FROM clinic_day_memo2 WHERE date=? AND academy=?').bind(date, acad).first();
     if (existing) {
       await env.DB.prepare('UPDATE clinic_day_memo2 SET memo=?, updated_at=? WHERE date=? AND academy=?').bind(memo || '', now, date, acad).run();
     } else {
       await env.DB.prepare('INSERT INTO clinic_day_memo2 (date, academy, memo, updated_at) VALUES (?,?,?,?)').bind(date, acad, memo || '', now).run();
     }
-    return { ok: true };
+    return { ok: true, before: existing ? (existing.memo || '') : null, after: memo || '', created: !existing };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -744,7 +832,8 @@ export async function getAppConfig(env, key) {
 export async function setAppConfig(env, key, value) {
   await ensureAppConfig(env);
   try {
-    const existing = await env.DB.prepare('SELECT key FROM app_config WHERE key=?').bind(key).first();
+    // 🔎 읽는 칸만 넓혀 before 확보 — 강제업데이트 최소버전 같은 값은 잘못 바꾸면 전 사용자가 앱에 못 들어온다.
+    const existing = await env.DB.prepare('SELECT key, value FROM app_config WHERE key=?').bind(key).first();
     if (existing) {
       await env.DB.prepare('UPDATE app_config SET value=?, updated_at=? WHERE key=?')
         .bind(value, new Date().toISOString(), key).run();
@@ -752,7 +841,7 @@ export async function setAppConfig(env, key, value) {
       await env.DB.prepare('INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, ?)')
         .bind(key, value, new Date().toISOString()).run();
     }
-    return { ok: true };
+    return { ok: true, before: existing ? (existing.value == null ? '' : String(existing.value)) : null, after: value, created: !existing };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 

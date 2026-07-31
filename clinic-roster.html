@@ -180,6 +180,8 @@
   var roster = [], excluded = [], allStudents = [];
   var isOwner = false;   // 원장만 true(서버 clinic-roster GET). 조교앱에서는 학부모 클리닉결석 알림 발송 버튼을 숨김.
   var threshold = 50;    // 숙제 이 % 이하면 ⚠️ 우선 (서버가 내려줌)
+  var clinicClasses = null;      // 🩺 클리닉 시간이 설정된 반 수(서버가 내려줌). null=아직 모름
+  var schedulesFailed = false;   // 반 시간표 로드 실패 — 빈 명단의 원인을 구분해 안내하려고 받는다
   var _groups = [];      // renderList가 만드는 반별 묶음 — '반 전체 제외' 버튼이 인덱스로 참조한다
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -295,7 +297,21 @@
     var missOnly=$('missOnly').checked, hideEx=$('hideEx').checked;
     _groups=buildGroups();
     if(!roster.length && !excluded.length){
-      $('content').innerHTML='<div class="empty">이 날짜엔 클리닉이 있는 반이 없어요.<br><span style="font-size:0.78rem;">(관리자 🏫 학원·반 관리에서 반의 🩺 클리닉 시간을 설정하면 그날 반 전원이 자동으로 뜹니다. 아래에서 학생을 직접 추가할 수도 있어요.)</span></div>';
+      // 빈 명단의 원인이 셋인데 화면에서는 똑같이 "아무도 없음"으로 보인다 → 원인별로 다르게 말해 준다.
+      var msg;
+      if(schedulesFailed){
+        msg='반 시간표를 불러오지 못했어요. 새로고침해 보시고, 계속 그러면 알려주세요.'
+          + '<br><span style="font-size:0.78rem;">(명단이 빈 게 아니라 판정 근거를 못 읽은 상태입니다.)</span>';
+      }else if(clinicClasses===0){
+        msg='아직 🩺 클리닉 시간이 설정된 반이 없어요.'
+          + '<br><span style="font-size:0.78rem;">관리자 → 🏫 학원·반 관리에서 클리닉 하는 반에 🩺 클리닉 시간을 넣어 주세요. 넣으면 그 요일에 반 전원이 자동으로 뜹니다.</span>';
+      }else{
+        msg='이 날짜엔 클리닉이 없어요.'
+          + '<br><span style="font-size:0.78rem;">'
+          + (typeof clinicClasses==='number' ? '클리닉 시간이 설정된 반 '+clinicClasses+'개 중 오늘 해당하는 반이 없습니다. ' : '')
+          + '아래에서 학생을 직접 추가할 수는 있어요.</span>';
+      }
+      $('content').innerHTML='<div class="empty">'+msg+'</div>';
       $('hint').textContent='';
       return;
     }
@@ -333,6 +349,8 @@
       roster=(j&&j.roster)||[]; excluded=(j&&j.excluded)||[];
       isOwner=!!(j&&j.isOwner);
       if(j && typeof j.threshold==='number') threshold=j.threshold;
+      clinicClasses=(j && typeof j.clinicClasses==='number') ? j.clinicClasses : null;
+      schedulesFailed=!!(j&&j.schedulesFailed);
       renderList();
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="empty">명단을 불러오지 못했어요.</div>'; }
   }
