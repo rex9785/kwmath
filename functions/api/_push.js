@@ -4,7 +4,17 @@
 // push-send.js의 검증된 구현을 모듈화 — 다른 엔드포인트(study.js 추월 넛지 등)에서 재사용.
 // env: VAPID_PUBLIC_KEY · VAPID_PRIVATE_KEY · VAPID_SUBJECT 필요.
 // 구독 저장 위치: R2 push-subs/{userId}.json  { subs:[{endpoint,keys:{p256dh,auth}}] }
+//
+// 📓 2026-07-31 — 발송 결과를 audit_log 에 남긴다 (관우T 지시: "로그가 정말 중요해").
+//   그전까지 발송 결과는 호출부 응답에 잠깐 담겼다가 사라졌다. 그래서 "알림이 안 왔어요" 소리가 나와도
+//   ① 애초에 안 보낸 건지 ② 보냈는데 등록된 기기가 0대였는지 ③ 보냈는데 죽은 토큰이라 튕긴 건지
+//   구분할 방법이 전혀 없었다. FCM이 돌려주는 실패 사유(UNREGISTERED=앱 삭제 등)도 그냥 버리고 있었다.
+//     push.send / push.send.partial  발송 결과 (기기별 성공·실패·사유 포함)
+//     push.night.dropped / push.night.queued  밤 23~7시 학부모 무음으로 안 보낸 것 — 이것도 사건이다
+//     push.night.flush  아침에 야간 큐를 푼 결과
 // ───────────────────────────────────────────────────────────
+
+import { logAudit, describeDevice } from './_auditlog.js';
 
 function b64url(buf) {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -172,7 +182,9 @@ async function sendFcmToUsers(env, ids, msg) {
     const accessToken = await getGoogleAccessToken(sa);
     // 계정이 달라도 같은 기기면 1번만 — 학생번호·학부모번호가 한 폰에 물린 가정에서
     // 같은 알림이 2번 오던 것을 막는다(2026-07-31, 실제 사례 있었음).
-    const seen = new Set();
+    //   Set → Map 으로 바꿨다. 보내는 건 여전히 1번이지만, "그 기기가 누구누구 것이었나"를
+    //   버리지 않고 들고 있어야 로그에 남길 수 있다.
+    const seen = new Map();   // token → { uids:[…], ua, savedAt }
     const tokens = [];
     for (const uid of ids) {
       try {
@@ -180,20 +192,71 @@ async function sendFcmToUsers(env, ids, msg) {
         if (!obj) continue;
         const rec = JSON.parse(await obj.text());
         for (const t of (rec.tokens || [])) {
-          if (!t || !t.token || seen.has(t.token)) continue;
-          seen.add(t.token);
+          if (!t || !t.token) continue;
+          if (seen.has(t.token)) { seen.get(t.token).uids.push(uid); continue; }
+          seen.set(t.token, { uids: [uid], ua: t.ua || '', savedAt: t.savedAt || '' });
           tokens.push(t.token);
         }
       } catch {}
     }
-    if (!tokens.length) return { sent: 0, note: 'FCM 토큰 없음' };
-    const results = await Promise.allSettled(tokens.map(t => sendFcmOne(sa.project_id, accessToken, t, msg)));
+    if (!tokens.length) return { sent: 0, total: 0, note: 'FCM 토큰 없음', results: [] };
+    const settled = await Promise.allSettled(tokens.map(t => sendFcmOne(sa.project_id, accessToken, t, msg)));
+
     let sent = 0;
-    for (const r of results) if (r.status === 'fulfilled' && r.value && r.value.ok) sent++;
-    return { sent, total: tokens.length };
+    const results = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const info = seen.get(tokens[i]) || { uids: [], ua: '', savedAt: '' };
+      const row = { 계정: info.uids, 기기: describeDevice(info.ua) || '', 토큰꼬리: tokens[i].slice(-12), 등록시각: info.savedAt };
+      const r = settled[i];
+      if (r.status === 'fulfilled' && r.value && r.value.ok) {
+        sent++; row.결과 = '성공';
+      } else if (r.status === 'fulfilled') {
+        row.결과 = '실패';
+        row.상태코드 = r.value ? r.value.status : 0;
+        // 실패 사유가 핵심이다. UNREGISTERED = 앱 삭제/재설치로 죽은 토큰.
+        // 이게 기록돼야 "이 폰은 이제 안 온다"를 알 수 있고 나중에 정리도 할 수 있다.
+        try {
+          const d = await r.value.json();
+          row.사유 = String((d && d.error && (d.error.status || d.error.message)) || '').slice(0, 120);
+        } catch (_) {}
+      } else {
+        row.결과 = '실패';
+        row.사유 = String((r.reason && r.reason.message) || r.reason || '').slice(0, 120);
+      }
+      results.push(row);
+    }
+    return { sent, total: tokens.length, results };
   } catch (e) {
     return { sent: 0, error: String(e && e.message || e) };
   }
+}
+
+// 발송 1건을 통째로 남긴다 — 누구에게 · 무엇을 · 몇 대에 갔고 · 어느 기기가 왜 실패했는지.
+async function logPushSend(env, x) {
+  try {
+    const fcm = x.fcm || {};
+    const rows = fcm.results || [];
+    const 실패 = rows.filter((r) => r.결과 !== '성공');
+    const 성공기기 = (x.web.sent || 0) + (fcm.sent || 0);
+    const 시도기기 = (x.web.total || 0) + (fcm.total || 0);
+    await logAudit(env, null, {
+      action: 실패.length ? 'push.send.partial' : 'push.send',
+      actor: 'system',
+      actorRole: 'system',
+      target: x.ids.length === 1 ? x.ids[0] : (x.kind || x.msg.tag || ''),
+      summary: `「${x.msg.title}」 ${x.ids.length}명 → 기기 ${성공기기}/${시도기기} 도착` + (실패.length ? ` · 실패 ${실패.length}` : ''),
+      detail: {
+        수신대상: x.ids,
+        제목: x.msg.title,
+        내용: String(x.msg.body || '').slice(0, 120),
+        링크: x.msg.url,
+        분류: x.kind || x.msg.tag || '',
+        웹푸시: x.web,
+        앱푸시: { 성공: fcm.sent || 0, 시도: fcm.total || 0, 비고: fcm.note || fcm.error || '' },
+        기기별: rows,
+      },
+    });
+  } catch (_) { /* 로깅 실패는 발송에 영향 없음 */ }
 }
 
 // 밤 무음 판정: KST(UTC+9) 기준 23:00~06:59면 true. "학부모" 대상 푸시를 이 시간대엔 건너뛰는 데 씀.
@@ -235,6 +298,21 @@ export async function sendPushToUsers(env, userIds, payload, opts = {}) {
       const q = await enqueueNightPush(env, silencedIds, msg, opts.queueTag || opts.kind || msg.tag);
       queued = (q && q.queued) || 0;
     }
+    // 안 보낸 것도 사건이다. 예전엔 밤에 조용히 사라져서 "왜 알림이 안 왔지"의 답이 어디에도 없었다.
+    if (silencedIds.length) {
+      await logAudit(env, null, {
+        action: queued ? 'push.night.queued' : 'push.night.dropped',
+        actor: 'system',
+        actorRole: 'system',
+        target: (opts && (opts.kind || opts.queueTag)) || msg.tag || '',
+        summary: `밤(23~7시) 학부모 무음 — ${silencedIds.length}명 ` + (queued ? '아침 발송으로 예약' : '발송 안 함'),
+        detail: {
+          무음대상: silencedIds, 예약건수: queued,
+          제목: msg.title, 내용: String(msg.body || '').slice(0, 120), 링크: msg.url,
+          즉시발송된대상: silencedAll ? [] : ids,
+        },
+      });
+    }
     if (silencedAll || !ids.length) {
       return { ok: true, sent: 0, skipped: silencedIds.length, queued, note: queued ? 'quiet-hours→queued(parent)' : 'quiet-hours(parent)' };
     }
@@ -269,6 +347,13 @@ export async function sendPushToUsers(env, userIds, payload, opts = {}) {
 
   // ② FCM (안드로이드 앱) — 병행 발송
   const fcm = await sendFcmToUsers(env, ids, msg);
+
+  await logPushSend(env, {
+    ids, msg,
+    kind: (opts && (opts.kind || opts.queueTag)) || '',
+    web: { sent: webSent, total: webTotal },
+    fcm,
+  });
 
   return { ok: true, sent: webSent + (fcm.sent || 0), web: { sent: webSent, total: webTotal }, fcm };
 }
@@ -348,6 +433,15 @@ export async function flushNightPushQueue(env) {
     } while (cursor);
   } catch (e) {
     return { ok: false, flushed, sent, failed, error: String((e && e.message) || e) };
+  }
+  if (flushed || sent || failed) {
+    await logAudit(env, null, {
+      action: 'push.night.flush',
+      actor: 'system',
+      actorRole: 'system',
+      summary: `밤에 쌓인 알림 처리 — ${flushed}건 정리 · 기기 ${sent}대 도착` + (failed ? ` · 실패 ${failed}` : ''),
+      detail: { 정리한큐: flushed, 도착기기: sent, 실패: failed },
+    });
   }
   return { ok: true, flushed, sent, failed };
 }

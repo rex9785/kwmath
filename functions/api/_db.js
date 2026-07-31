@@ -478,8 +478,10 @@ export async function listClinicByDate(env, date) {
 }
 
 // ════════════ 클리닉 필수 명단 — 수동 추가/제외 오버라이드 ════════════
-// 자동조건(그날 결석·지각 OR 숙제 50%↓)은 attendance에서 파생한다. 이 테이블엔
-// "수동으로 넣거나 뺀 것"만 저장. action='add'(강제 포함) / 'exclude'(자동이어도 제외).
+// 2026-07-31~ : 명단은 "그날 클리닉 있는 반 전원 기본 포함"이고(시간표에서 파생),
+// 이 테이블엔 "수동으로 넣거나 뺀 것"만 저장한다.
+// action='add'(그날 대상이 아닌 학생을 강제 포함) / 'exclude'(기본 포함이지만 오늘은 제외).
+// ⚠️ PK가 (student_id, date)라서 제외는 그날 하루만 — 상시 제외가 아니다.
 // 마이그레이션 러너 없으니 첫 사용 시 CREATE TABLE IF NOT EXISTS로 보장(아이솔레이트당 1회).
 let _clinicRosterReady = false;
 async function ensureClinicRoster(env) {

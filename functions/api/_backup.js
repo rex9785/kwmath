@@ -1,5 +1,5 @@
 // _backup.js — 하루 1회 D1 주요 테이블 전체(학생·출결·성적·리포트·계정·질문·상담문의·
-//   클리닉·인강·과제·설문·알림·퇴원생보관 등 22개)를 R2로 자동 백업.
+//   클리닉·인강·과제·설문·알림·퇴원생보관·변경이력 등 23개)를 R2로 자동 백업.
 //   목적: 실수 삭제·DB 사고 시 되돌릴 수단(현재 백업이 전혀 없음).
 //   저장: backups/{YYYY-MM-DD}.json  (하루 1개, 같은 날 재실행은 덮어씀)
 //   보관: 최근 30일. 그보다 오래된 backups/*.json은 자동 삭제.
@@ -40,6 +40,11 @@ const TABLES = [
   { name: 'study_prefs' },            // 학생 학습 목표·D-day
   { name: 'app_config' },             // 앱 설정(강제업데이트 최소버전 등)
   { name: 'qna_settings' },           // 질문방 AI 한도 설정
+  // ── 2026-07-31 추가 ──
+  //   변경이력(감사) 로그. "누가 언제 무엇을 지웠나"가 여기밖에 없으므로 백업에서 빼면 안 된다.
+  //   다만 한 파일에 통째로 담는 구조라 무한정 커지면 백업 자체가 터진다.
+  //   → 최신 10만 건까지만. D1 원본은 자동삭제가 없으므로 그 이전 것도 DB에는 그대로 남아 있다.
+  { name: 'audit_log', limit: 100000 },
   // 일부러 뺀 것: access_events(접근로그 — 대용량이고 복구 가치 낮음) · login_lockouts(일시적 잠금 상태)
 ];
 
@@ -52,8 +57,13 @@ function kstDayStr(offsetDays = 0) {
 
 async function dumpTable(env, spec) {
   try {
-    const { results } = await env.DB.prepare('SELECT * FROM ' + spec.name).all();
+    // limit 이 있으면 최신 것부터 그만큼만(id 내림차순 → 다시 오름차순으로 되돌려 저장).
+    const sql = spec.limit
+      ? 'SELECT * FROM ' + spec.name + ' ORDER BY id DESC LIMIT ' + Number(spec.limit)
+      : 'SELECT * FROM ' + spec.name;
+    const { results } = await env.DB.prepare(sql).all();
     let rows = results || [];
+    if (spec.limit) rows = rows.slice().reverse();
     if (spec.strip && rows.length) {
       rows = rows.map((r) => {
         const c = { ...r };

@@ -590,7 +590,7 @@
         </div>
       </div>
       <a href="/clinic-roster" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;background:linear-gradient(135deg,#fff 0%,#E3F1F2 100%);border:1.5px solid #1f6f78;border-radius:12px;padding:12px 16px;margin-bottom:16px;">
-        <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;">📋 클리닉 필수 명단 — 오늘 꼭 와야 하는 학생</span>
+        <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;">📋 클리닉 명단 — 오늘 대상 전원 · 뺄 사람만 고르기</span>
         <span style="color:#1f6f78;font-weight:700;">보기 →</span>
       </a>
       <a href="/clinic-review" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;background:linear-gradient(135deg,#fff 0%,#E3F1F2 100%);border:1.5px solid #1f6f78;border-radius:12px;padding:12px 16px;margin-bottom:16px;">
@@ -989,7 +989,8 @@
   const RISK_RULES = { streakAbsent: 2, minRate: 70, minHomework: 40, windowDays: 28, minRecords: 3 };
 
   //   병결·공결은 위험 신호로 세지 않는다 — 사유가 있는 결석이다.
-  //   (clinic-roster.js:5 와 같은 규약: "병결·공결은 정당한 사유 → 제외")
+  //   (여기 퇴원위험 판정에만 쓰는 규약. 클리닉 명단은 2026-07-31에 "기본 전원 포함 → 뺄 사람만 고르기"로
+  //    바뀌어서, 병결·공결이어도 명단에서 자동으로 빠지지 않는다 — clinic-roster.js 참고.)
   const RISK_PRESENT = ['출석', '지각'];      // 왔다고 치는 상태
   const RISK_EXCUSED = ['병결', '공결'];      // 분모에서 아예 뺀다
 

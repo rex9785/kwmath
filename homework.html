@@ -92,6 +92,8 @@
   .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
   @keyframes sp{to{transform:rotate(360deg);}}
 </style>
+<!-- 로그인돼 있으면 이 화면으로 곧장 들어와도 알림 등록을 보충한다 (session-keep.js의 KWPush.ensure) -->
+<script src="/session-keep.js?v=1"></script>
 </head>
 <body>
   <div class="topbar">

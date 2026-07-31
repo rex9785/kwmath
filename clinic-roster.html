@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>클리닉 필수 명단 · 이관우 수학연구소</title>
+<title>클리닉 명단 · 이관우 수학연구소</title>
 <link rel="manifest" href="/manifest.json?v=3">
 <meta name="theme-color" content="#862633">
 <style>
@@ -22,17 +22,34 @@
   .datebar input[type=date]{border:1.5px solid var(--border);border-radius:8px;padding:6px 8px;font-family:inherit;font-size:0.9rem;outline:none;}
   .datebar .today{font-size:0.76rem;font-weight:700;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--muted);}
 
-  .summary{display:flex;gap:8px;margin-bottom:12px;}
-  .sbox{flex:1;background:#fff;border:1px solid var(--border);border-radius:12px;padding:11px 8px;text-align:center;}
-  .sbox .n{font-size:1.5rem;font-weight:900;}
-  .sbox .l{font-size:0.72rem;color:var(--muted);margin-top:1px;}
+  /* 📌 2026-07-31 모델 반전 — "그날 클리닉 있는 반 전원 기본 포함, 뺄 사람만 고른다" */
+  .note{background:var(--clinic-light);border:1px solid #CBE3E5;border-radius:11px;padding:9px 12px;margin-bottom:11px;
+        font-size:0.78rem;line-height:1.55;color:#14545B;}
+  .note b{font-weight:800;}
+
+  .summary{display:flex;gap:6px;margin-bottom:12px;}
+  .sbox{flex:1 1 0;min-width:0;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 5px;text-align:center;}
+  .sbox .n{font-size:1.4rem;font-weight:900;}
+  .sbox .l{font-size:0.7rem;color:var(--muted);margin-top:1px;white-space:nowrap;}
   .sbox.req .n{color:var(--primary);} .sbox.ok .n{color:var(--att);} .sbox.miss .n{color:var(--abs);}
+  .sbox.ex .n{color:var(--muted);}
+
+  /* 반별 묶음 — 전원 포함이라 목록이 길어진다. 반 단위로 접고 한 번에 빼기 위한 구조. */
+  .grp{margin-bottom:16px;}
+  .grp-h{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 2px 7px;}
+  .grp-h .gt{font-weight:900;font-size:0.92rem;}
+  .grp-h .gs{font-size:0.72rem;color:var(--muted);font-weight:700;}
+  .grp-h .ga{margin-left:auto;display:flex;gap:5px;}
+  .grp-h .pri-c{font-size:0.7rem;font-weight:800;color:var(--abs);background:#FBE6E6;padding:2px 8px;border-radius:9px;}
 
   .filterbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:0.8rem;color:var(--muted);}
   .filterbar label{display:flex;align-items:center;gap:5px;cursor:pointer;}
 
   .card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .card.attended{opacity:0.62;}
+  .card.pri{border-left:4px solid var(--abs);}                      /* 결석·지각·숙제 미흡 = 꼭 남겨야 할 학생 */
+  .card.excluded{opacity:0.5;background:#FBFAFA;border-style:dashed;}
+  .card.excluded .nm{text-decoration:line-through;color:var(--muted);}
   .card .main{flex:1;min-width:150px;}
   .card .nm{font-weight:800;font-size:1.0rem;}
   .card .cls{font-size:0.72rem;color:var(--primary);font-weight:700;background:var(--primary-light);padding:1px 8px;border-radius:9px;margin-left:6px;}
@@ -47,6 +64,8 @@
   button.mini:hover{border-color:var(--primary);color:var(--primary);}
   button.mini.notify{color:var(--abs);border-color:#F0C9CF;}
   button.mini.notify:hover{border-color:var(--abs);background:#FBE6E6;color:var(--abs);}
+  button.mini.back{color:var(--clinic);border-color:#BFDCDE;}
+  button.mini.back:hover{border-color:var(--clinic);background:var(--clinic-light);color:var(--clinic);}
 
   .addbox{background:#fff;border:1px dashed var(--clinic);border-radius:12px;padding:12px 14px;margin-top:14px;}
   .addbox .h{font-weight:800;font-size:0.84rem;color:var(--clinic);margin-bottom:8px;}
@@ -58,10 +77,7 @@
   .addrow select:disabled{background:#F4F1F2;color:var(--muted);}
   .addrow button{background:var(--clinic);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;}
 
-  .exbox{margin-top:14px;}
-  .exbox .h{font-weight:700;font-size:0.8rem;color:var(--muted);margin-bottom:7px;}
-  .exrow{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:9px;padding:5px 10px;margin:0 6px 6px 0;font-size:0.82rem;}
-  .exrow button{background:none;border:none;color:var(--clinic);font-weight:700;cursor:pointer;font-family:inherit;font-size:0.78rem;}
+  /* (.exbox/.exrow — 제외 학생 별도 상자는 2026-07-31에 없앴다. 이제 각 반 안에 흐리게 남는다.) */
 
   .empty{background:#fff;border:1px dashed var(--border);border-radius:13px;padding:34px 18px;text-align:center;color:var(--muted);font-size:0.9rem;line-height:1.7;}
   .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);color:#fff;padding:11px 18px;border-radius:9px;font-size:0.84rem;font-weight:600;z-index:100;display:none;}
@@ -87,7 +103,7 @@
 <body>
 
 <div class="topbar">
-  <div class="topbar-title"><span>📋 클리닉 필수 명단</span></div>
+  <div class="topbar-title"><span>🩺 클리닉 명단</span></div>
   <div class="kwnav kwnav--light" id="kwnav">
     <a class="kwnav-home" id="kwnavHome" href="/staff-home">🏠 홈</a>
     <div class="kwnav-mw">
@@ -116,17 +132,23 @@
     <button class="today" onclick="goToday()">오늘</button>
   </div>
 
+  <div class="note">
+    <b>그날 클리닉이 있는 반은 전원 기본 포함</b>입니다. 안 와도 되는 학생만 <b>제외</b>해 주세요.<br>
+    빨간 줄이 그어진 학생(결석·지각·숙제 미흡)은 되도록 남겨두세요.
+  </div>
+
   <div class="summary" id="summary"></div>
 
   <div class="filterbar">
-    <label><input type="checkbox" id="missOnly" onchange="renderList()"> 미참석만 보기</label>
+    <label><input type="checkbox" id="missOnly" onchange="renderList()"> 미참석만</label>
+    <label><input type="checkbox" id="hideEx" onchange="renderList()"> 제외한 학생 숨기기</label>
     <span id="hint" style="margin-left:auto;font-size:0.72rem;"></span>
   </div>
 
   <div id="content"><div class="empty">불러오는 중…</div></div>
 
   <div class="addbox">
-    <div class="h">➕ 수동 추가</div>
+    <div class="h">➕ 수동 추가 (그날 클리닉 대상이 아닌 학생 넣기)</div>
     <div class="addrow">
       <select id="addAcad" onchange="onAcadChange()"><option value="">학원 선택…</option></select>
       <select id="addCls" onchange="onClsChange()"><option value="">반 선택…</option></select>
@@ -138,10 +160,7 @@
     </div>
   </div>
 
-  <div class="exbox" id="exbox" style="display:none;">
-    <div class="h">제외한 학생 (되돌리려면 클릭)</div>
-    <div id="exlist"></div>
-  </div>
+  <!-- 제외한 학생은 별도 상자로 빼지 않고 각자 반 안에 흐리게 남긴다(어느 반에서 뺐는지가 바로 보이게). -->
 </div>
 
 <div class="toast" id="toast"></div>
@@ -160,8 +179,18 @@
 
   var roster = [], excluded = [], allStudents = [];
   var isOwner = false;   // 원장만 true(서버 clinic-roster GET). 조교앱에서는 학부모 클리닉결석 알림 발송 버튼을 숨김.
+  var threshold = 50;    // 숙제 이 % 이하면 ⚠️ 우선 (서버가 내려줌)
+  var _groups = [];      // renderList가 만드는 반별 묶음 — '반 전체 제외' 버튼이 인덱스로 참조한다
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  // onclick="doX('...')" 속성 안에 들어가는 JS 문자열 인자.
+  //   이름·반에 ' " \ < 가 있어도 안 깨지게 JS 이스케이프 → HTML 이스케이프 순으로 처리한다.
+  //   (예전엔 작은따옴표만 바꿔서, 큰따옴표가 든 이름이면 onclick 속성 자체가 끊겼다)
+  function jsArg(s){
+    return String(s==null?'':s)
+      .replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
   function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
 
   function pad(n){ return ('0'+n).slice(-2); }
@@ -198,25 +227,34 @@
     }).join('');
   }
 
-  function cardHtml(e){
+  // isEx=true → 제외된 학생. 별도 상자로 빼지 않고 원래 반 자리에 흐리게 남긴다(어느 반에서 뺐는지 바로 보이게).
+  function cardHtml(e, isEx){
+    var sid = jsArg(e.studentId), nm = jsArg(e.name);
+    if(isEx){
+      return ''+
+      '<div class="card excluded">'+
+        '<div class="main">'+
+          '<span class="nm">'+esc(e.name)+'</span>'+nmeta_line(e)+
+          '<div class="reasons"><span class="rb">클리닉 제외</span></div>'+
+        '</div>'+
+        '<div class="acts"><button class="mini back" onclick="doClear(\''+sid+'\',\''+nm+'\')">↩︎ 되돌리기</button></div>'+
+      '</div>';
+    }
     var did = attended(e.clinicStatus);
     var statusHtml = did
       ? '<span class="status ok">✅ 참석'+(e.clinicStatus==='지각'?'(지각)':'')+'</span>'
       : '<span class="status miss">⚠️ 미참석</span>';
-    var nmEsc = esc(e.name).replace(/'/g,"\\'");
-    var sidEsc = String(e.studentId==null?'':e.studentId).replace(/'/g,"\\'");   // 연락은 id로(동명이인 안전)
     return ''+
-    '<div class="card'+(did?' attended':'')+'">'+
+    '<div class="card'+(did?' attended':'')+(e.priority?' pri':'')+'">'+
       '<div class="main">'+
         '<span class="nm">'+esc(e.name)+'</span>'+
-        (e.academy?'<span class="cls">'+esc(e.academy)+'</span>':'')+
         (nmeta_line(e))+
-        '<div class="reasons">'+reasonBadges(e.reasons)+'</div>'+
+        ((e.reasons&&e.reasons.length)?'<div class="reasons">'+reasonBadges(e.reasons)+'</div>':'')+
       '</div>'+
       statusHtml+
       '<div class="acts">'+
-        ((did||!isOwner)?'':'<button class="mini notify" onclick="doNotify(\''+sidEsc+'\',\''+nmEsc+'\')">📞 연락</button>')+
-        '<button class="mini" onclick="doExclude(\''+sidEsc+'\',\''+nmEsc+'\')">제외</button>'+
+        ((did||!isOwner)?'':'<button class="mini notify" onclick="doNotify(\''+sid+'\',\''+nm+'\')">📞 연락</button>')+
+        '<button class="mini" onclick="doExclude(\''+sid+'\',\''+nm+'\')">제외</button>'+
       '</div>'+
     '</div>';
   }
@@ -226,32 +264,65 @@
     var req=roster.length, ok=roster.filter(function(e){return attended(e.clinicStatus);}).length;
     var miss=req-ok;
     $('summary').innerHTML =
-      '<div class="sbox req"><div class="n">'+req+'</div><div class="l">필수 명단</div></div>'+
-      '<div class="sbox ok"><div class="n">'+ok+'</div><div class="l">클리닉 참석</div></div>'+
-      '<div class="sbox miss"><div class="n">'+miss+'</div><div class="l">미참석</div></div>';
+      '<div class="sbox req"><div class="n">'+req+'</div><div class="l">대상</div></div>'+
+      '<div class="sbox ok"><div class="n">'+ok+'</div><div class="l">참석</div></div>'+
+      '<div class="sbox miss"><div class="n">'+miss+'</div><div class="l">미참석</div></div>'+
+      '<div class="sbox ex"><div class="n">'+excluded.length+'</div><div class="l">제외</div></div>';
+  }
+
+  // 전원 기본 포함이라 목록이 길다 → 학원·반으로 묶어야 훑고 뺄 수 있다.
+  function buildGroups(){
+    var map={}, list=[];
+    function push(e,isEx){
+      // 학원+반 합친 키. 반 이름에 '/'나 '|'가 들어갈 수 있어서(예: "반이름에 / 슬래시")
+      // 학원 이름 길이를 앞에 붙여 절대 겹치지 않게 만든다. 제어문자를 파일에 직접 넣지 않는다.
+      var _a=(e.academy||''), _c=(e.className||'');
+      var k=_a.length+':'+_a+_c, g=map[k];
+      if(!g){ g=map[k]={academy:e.academy||'', className:e.className||'', inc:[], exc:[]}; list.push(g); }
+      (isEx?g.exc:g.inc).push(e);
+    }
+    roster.forEach(function(e){ push(e,false); });
+    excluded.forEach(function(e){ push(e,true); });
+    list.sort(function(a,b){
+      return String(a.academy).localeCompare(String(b.academy),'ko')
+          || String(a.className).localeCompare(String(b.className),'ko');
+    });
+    return list;
   }
 
   function renderList(){
     renderSummary();
-    var missOnly=$('missOnly').checked;
-    var list=roster.filter(function(e){ return missOnly ? !attended(e.clinicStatus) : true; });
-    if(!roster.length){
-      $('content').innerHTML='<div class="empty">이 날짜에 클리닉 필수 대상 학생이 없어요.<br><span style="font-size:0.78rem;">(그날 결석·지각·숙제 50% 이하 학생이 자동으로 잡히고, 아래에서 수동으로도 추가할 수 있어요.)</span></div>';
-    } else if(!list.length){
-      $('content').innerHTML='<div class="empty">미참석 학생이 없어요. 모두 클리닉에 왔어요! 🎉</div>';
-    } else {
-      $('content').innerHTML=list.map(cardHtml).join('');
+    var missOnly=$('missOnly').checked, hideEx=$('hideEx').checked;
+    _groups=buildGroups();
+    if(!roster.length && !excluded.length){
+      $('content').innerHTML='<div class="empty">이 날짜엔 클리닉이 있는 반이 없어요.<br><span style="font-size:0.78rem;">(관리자 🏫 학원·반 관리에서 반의 🩺 클리닉 시간을 설정하면 그날 반 전원이 자동으로 뜹니다. 아래에서 학생을 직접 추가할 수도 있어요.)</span></div>';
+      $('hint').textContent='';
+      return;
     }
-    // 제외 목록
-    if(excluded.length){
-      $('exbox').style.display='block';
-      $('exlist').innerHTML=excluded.map(function(e){
-        var nmEsc=esc(e.name).replace(/'/g,"\\'");
-        var sidEsc=String(e.studentId==null?'':e.studentId).replace(/'/g,"\\'");
-        return '<span class="exrow">'+esc(e.name)+' <button onclick="doClear(\''+sidEsc+'\',\''+nmEsc+'\')">되돌리기</button></span>';
-      }).join('');
-    } else { $('exbox').style.display='none'; $('exlist').innerHTML=''; }
-    $('hint').textContent = '숙제 50% 이하·결석·지각 자동 포함';
+    var html='';
+    for(var i=0;i<_groups.length;i++){
+      var g=_groups[i];
+      var inc=g.inc.filter(function(e){ return missOnly ? !attended(e.clinicStatus) : true; });
+      var exc=hideEx?[]:g.exc;
+      if(!inc.length && !exc.length) continue;
+      var pri=g.inc.filter(function(e){ return e.priority; }).length;
+      html += '<div class="grp">'+
+        '<div class="grp-h">'+
+          '<span class="gt">'+esc(g.className||'(반 없음)')+'</span>'+
+          '<span class="gs">'+esc(g.academy||'(미지정)')+' · '+g.inc.length+'명'+(g.exc.length?' · 제외 '+g.exc.length:'')+'</span>'+
+          (pri?'<span class="pri-c">⚠️ 우선 '+pri+'</span>':'')+
+          '<span class="ga">'+
+            (g.inc.length?'<button class="mini" onclick="bulkGroup('+i+',\'exclude\')">반 전체 제외</button>':'')+
+            (g.exc.length?'<button class="mini back" onclick="bulkGroup('+i+',\'clear\')">전체 되돌리기</button>':'')+
+          '</span>'+
+        '</div>'+
+        inc.map(function(e){ return cardHtml(e,false); }).join('')+
+        exc.map(function(e){ return cardHtml(e,true); }).join('')+
+      '</div>';
+    }
+    if(!html) html='<div class="empty">'+(missOnly?'미참석 학생이 없어요. 모두 클리닉에 왔어요! 🎉':'표시할 학생이 없어요.')+'</div>';
+    $('content').innerHTML=html;
+    $('hint').textContent='결석·지각·숙제 '+threshold+'% 이하 = ⚠️ 우선';
   }
 
   async function load(){
@@ -261,6 +332,7 @@
       var j=await r.json();
       roster=(j&&j.roster)||[]; excluded=(j&&j.excluded)||[];
       isOwner=!!(j&&j.isOwner);
+      if(j && typeof j.threshold==='number') threshold=j.threshold;
       renderList();
     }catch(e){ if(String(e.message)!=='401') $('content').innerHTML='<div class="empty">명단을 불러오지 못했어요.</div>'; }
   }
@@ -329,6 +401,31 @@
   }
   async function doExclude(sid, name){ if(await post(sid,'exclude','',name)){ showToast(name+' 제외했어요.'); load(); } }
   async function doClear(sid, name){ if(await post(sid,'clear','',name)){ showToast(name+' 되돌렸어요.'); load(); } }
+
+  // ── 반 단위 일괄 (전원 기본 포함이라 한 명씩 빼면 오히려 더 번거로움) ──
+  //   서버 POST가 studentIds 배열을 받는다. 요청 1번으로 반 전체를 처리.
+  async function postBulk(ids, action){
+    try{
+      var r=await api('/api/clinic-roster',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({date:viewDate, action:action, studentIds:ids})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ showToast(j.error||'저장에 실패했어요.'); return null; }
+      return j;
+    }catch(e){ if(String(e.message)!=='401') showToast('저장 중 오류가 났어요.'); return null; }
+  }
+  async function bulkGroup(i, action){
+    var g=_groups[i]; if(!g) return;
+    var src=(action==='clear')?g.exc:g.inc;
+    var ids=src.map(function(e){ return String(e.studentId==null?'':e.studentId); }).filter(Boolean);
+    if(!ids.length) return;
+    var label=(g.academy?g.academy+' ':'')+(g.className||'(반 없음)');
+    if(action==='exclude' && !confirm(label+' 학생 '+ids.length+'명을 '+viewDate+' 클리닉 명단에서 모두 뺄까요?\n\n(되돌릴 수 있어요 — 이 날짜에만 적용됩니다)')) return;
+    var j=await postBulk(ids, action);
+    if(!j) return;
+    showToast(label+' '+(j.done||0)+'명 '+(action==='exclude'?'제외했어요.':'되돌렸어요.')
+      + ((j.skipped)?(' (건너뜀 '+j.skipped+')'):''));
+    load();
+  }
   async function doAdd(){
     var sid=($('addStu').value||'').trim();
     if(!sid){ showToast('학원·반·학생을 골라주세요.'); return; }

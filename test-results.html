@@ -128,6 +128,8 @@
   .sg-score{font-size:1.05rem;font-weight:900;margin-top:3px;font-family:var(--serif);}
   .sg-score.hi{color:#137333;} .sg-score.mid{color:#B26A00;} .sg-score.lo{color:#C5221F;}
 </style>
+<!-- 로그인돼 있으면 이 화면으로 곧장 들어와도 알림 등록을 보충한다 (session-keep.js의 KWPush.ensure) -->
+<script src="/session-keep.js?v=1"></script>
 </head>
 <body>
 
@@ -296,11 +298,46 @@
       data.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
       list.innerHTML = data.map(f => {
         const date = f.lastModified ? new Date(f.lastModified).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }) : '';
-        const dlUrl = '/api/download-file?key=' + encodeURIComponent(f.key) + '&name=' + encodeURIComponent(selected.name);
-        return '<div class="pdf-item"><div class="pdf-info"><div class="pdf-name">' + esc(f.displayName) + '</div><div class="pdf-meta">' + date + ' · ' + esc(f.sizeLabel) + '</div></div><a class="pdf-dl-btn" href="' + dlUrl + '" target="_blank" rel="noopener noreferrer">보기</a></div>';
+        return '<div class="pdf-item"><div class="pdf-info"><div class="pdf-name">' + esc(f.displayName) + '</div><div class="pdf-meta">' + date + ' · ' + esc(f.sizeLabel) + '</div></div><button type="button" class="pdf-dl-btn" data-key="' + esc(f.key) + '">보기</button></div>';
       }).join('');
+      // 🔒 2026-07-31 — 예전에는 <a href>로 바로 열었다. 그러면 Authorization 헤더를 못 실어서
+      //   서버가 "이게 정말 본인 보고서인지"를 확인할 수가 없었고, 실제로 학생 이름만 알면
+      //   /api/download-file?key=test-results/{이름}/... 이 무인증 200으로 열렸다.
+      //   → 토큰을 실어 fetch로 받아서 연다(수업 리포트 화면과 같은 방식).
+      list.querySelectorAll('.pdf-dl-btn').forEach(function (b) {
+        b.addEventListener('click', function () { openPdf(b); });
+      });
     } catch (e) {
       list.innerHTML = '<div class="empty-state"><span class="icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"/><path d="M12 10.5v4M12 17.2h.01"/></svg></span>' + esc(e.message) + '</div>';
+    }
+  }
+
+  // 보고서 열기 — 토큰을 실어 받은 뒤 새 창으로 연다. 새 창이 막히면(모바일 팝업차단) 저장으로 대체.
+  async function openPdf(btn) {
+    const key = btn.getAttribute('data-key') || '';
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = '여는 중…';
+    try {
+      const res = await fetch('/api/download-file?key=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(selected.name), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) {
+        let msg = '열 수 없습니다 (' + res.status + ')';
+        try { const err = await res.json(); if (err.error) msg = err.error; } catch (_) {}
+        alert(msg); return;
+      }
+      const blobUrl = URL.createObjectURL(await res.blob());
+      const w = window.open(blobUrl, '_blank');
+      if (!w) {                                   // 팝업 차단 → 파일로 저장
+        const a = document.createElement('a');
+        a.href = blobUrl; a.download = key.split('/').pop();
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+      setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 60000);
+    } catch (e) {
+      alert('열 수 없습니다: ' + (e && e.message ? e.message : e));
+    } finally {
+      btn.disabled = false; btn.textContent = label;
     }
   }
 
