@@ -247,13 +247,19 @@ function normText(s) {
 //   지원: 정수·소수, + - * / ^, ( ), \frac, \sqrt(및 \sqrt[n]), \cdot·\times, \pi, 암묵적 곱(2\sqrt2).
 //   숫자로 환원 불가(변수 포함 등)하면 정규화 문자열 비교로 폴백. 대수적 전개((x+1)^2=x^2+2x+1)는 v1 미지원.
 function normTextLatex(s) {
-  return String(s == null ? '' : s)
+  let t = String(s == null ? '' : s)
     .replace(/[−‒–—―]/g, '-')   // 유니코드 마이너스/대시 → ASCII '-' (문자열 폴백 일관성)
     .replace(/\\left|\\right/g, '')
     .replace(/\\dfrac|\\tfrac/g, '\\frac')
     .replace(/\\cdot|\\times/g, '*')
     .replace(/\s+/g, '')
     .toLowerCase();
+  // MathLive(0.110)는 한 글자 인수의 중괄호를 생략해 내보낸다: \frac{1}{2} → \frac12, x^{2} → x^2.
+  // 문자·변수가 섞여 숫자로 못 줄이는 답(문자열 폴백)에서 두 표기가 달라 보이지 않도록,
+  // '한 글자만 감싼 중괄호'만 벗긴다. {12} 같은 두 글자 이상은 건드리지 않는다(오인 방지).
+  let prev;
+  do { prev = t; t = t.replace(/\{([^{}])\}/g, '$1'); } while (t !== prev);
+  return t;
 }
 function latexToNumber(src) {
   if (src == null) return null;
@@ -271,11 +277,15 @@ function latexToNumber(src) {
         case 'frac': case 'dfrac': case 'tfrac': tokens.push({ type: 'frac' }); continue;
         case 'sqrt': tokens.push({ type: 'sqrt' }); continue;
         case 'cdot': case 'times': tokens.push({ type: '*' }); continue;
+        case 'div': tokens.push({ type: '/' }); continue;
+        case 'lparen': tokens.push({ type: '(' }); continue;
+        case 'rparen': tokens.push({ type: ')' }); continue;
         case 'pi': tokens.push({ type: 'num', value: Math.PI }); continue;
         default: return null;
       }
     }
-    if (/[0-9.]/.test(ch)) { let num = ''; while (i < s.length && /[0-9.]/.test(s[i])) { num += s[i]; i++; } const v = parseFloat(num); if (!isFinite(v)) return null; tokens.push({ type: 'num', value: v }); continue; }
+    // raw(원문 자릿수)를 함께 보관 — \frac12처럼 중괄호가 생략된 인수를 한 글자씩 떼어내기 위해 필요.
+    if (/[0-9.]/.test(ch)) { let num = ''; while (i < s.length && /[0-9.]/.test(s[i])) { num += s[i]; i++; } const v = parseFloat(num); if (!isFinite(v)) return null; tokens.push({ type: 'num', value: v, raw: num }); continue; }
     if ('+-*/^(){}[]'.includes(ch)) { tokens.push({ type: ch }); i++; continue; }
     if (/[a-zA-Z]/.test(ch)) return null;
     return null;
@@ -292,11 +302,25 @@ function latexToNumber(src) {
     if (t.type === 'num') { next(); return t.value; }
     if (t.type === '(') { next(); const v = parseExpr(); if (peek() && peek().type === ')') next(); else return fail(); return v; }
     if (t.type === '{') { next(); const v = parseExpr(); if (peek() && peek().type === '}') next(); else return fail(); return v; }
-    if (t.type === 'frac') { next(); const a = parseGroup(); const b = parseGroup(); return a / b; }
+    if (t.type === 'frac') { next(); const a = parseGroup(true); const b = parseGroup(true); return a / b; }
     if (t.type === 'sqrt') { next(); if (peek() && peek().type === '[') { next(); const n = parseExpr(); if (peek() && peek().type === ']') next(); else return fail(); const a = parseGroup(); return Math.pow(a, 1 / n); } const a = parseGroup(); return Math.sqrt(a); }
     return fail();
   }
-  function parseGroup() { const t = peek(); if (t && t.type === '{') { next(); const v = parseExpr(); if (peek() && peek().type === '}') next(); else return fail(); return v; } return parseAtom(); }
+  // single=true면 중괄호 없는 인수를 LaTeX 규칙대로 '한 글자'만 취한다.
+  //   MathLive 0.110은 한 글자 인수의 중괄호를 생략해 내보낸다: \frac{1}{2} → \frac12 (2026-07-31 크롬 실측).
+  //   이 규칙이 없으면 12를 숫자 하나로 읽어 분모가 사라지고 파싱 실패 → -1/2, 3/4 같은 답이 전부 오답 처리됐다.
+  //   \sqrt에는 적용하지 않는다: 학생이 평문으로 'sqrt12'(=√12)라 쓰면 preLatex가 \sqrt12로 바꾸는데,
+  //   MathLive는 두 글자 이상이면 \sqrt{12}처럼 중괄호를 유지하므로 양쪽 다 올바르게 읽힌다.
+  function parseGroup(single) {
+    const t = peek();
+    if (t && t.type === '{') { next(); const v = parseExpr(); if (peek() && peek().type === '}') next(); else return fail(); return v; }
+    if (single && t && t.type === 'num' && /^[0-9]{2,}$/.test(t.raw || '')) {
+      const head = parseFloat(t.raw[0]);
+      t.raw = t.raw.slice(1); t.value = parseFloat(t.raw);
+      return head;
+    }
+    return parseAtom();
+  }
   const result = parseExpr();
   if (failed) return null;
   if (p !== tokens.length) return null;

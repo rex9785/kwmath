@@ -563,22 +563,31 @@
     <div class="tab-panel" id="tab-attendance">
       <div class="card" style="padding:14px 18px;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-          <strong style="color:var(--primary);font-size:0.95rem;">🚀 반별 빠른 출석 — <span id="qaDateLabel"></span></strong>
+          <strong style="color:var(--primary);font-size:0.95rem;">🚀 <span id="qaDateLabel"></span> 수업 반</strong>
           <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="refreshQuickAttendanceSummary()">🔄 현황 새로고침</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <input type="date" id="qaDate" onchange="onQaDateChange()" title="이 날짜로 출·지·결·숙제가 기록됩니다" style="padding:8px 12px;border:1.5px solid var(--primary);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;color:var(--primary);font-weight:700;">
           <button class="del-btn" style="border-color:var(--border);color:var(--text-light);padding:6px 10px;" onclick="qaResetToday()" title="오늘 날짜로">오늘</button>
-          <select id="qaAcademy" onchange="onQaAcademyChange()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
-            <option value="">학원 선택</option>
-          </select>
-          <select id="qaClass" onchange="updateQaSummary()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
-            <option value="">반 선택</option>
-          </select>
-          <button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance('출석')">👥 반 전원 출석</button>
-          <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;" onclick="bulkClassAttendance('결석')">반 전원 결석</button>
+          <button class="del-btn" id="qaPickerToggle" style="border-color:var(--border);color:var(--text-light);padding:6px 10px;" onclick="toggleQaPicker()">🔍 다른 반 찾기</button>
         </div>
-        <div id="qaSummary" style="margin-top:10px;font-size:0.82rem;color:var(--text-light);"></div>
+        <!-- 그날 수업 반 카드 — 요일 스케줄(반 관리에서 설정)로 자동 표시 -->
+        <div id="todayClassCards" style="margin-top:12px;"><div style="font-size:0.82rem;color:var(--text-light);">불러오는 중...</div></div>
+        <!-- 접힌 수동 선택 — 스케줄에 없는 반을 직접 찾을 때만 -->
+        <div id="qaPicker" style="display:none;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select id="qaAcademy" onchange="onQaAcademyChange()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
+              <option value="">학원 선택</option>
+            </select>
+            <select id="qaClass" onchange="updateQaSummary()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
+              <option value="">반 선택</option>
+            </select>
+            <button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance('출석')">👥 반 전원 출석</button>
+            <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;" onclick="bulkClassAttendance('결석')">반 전원 결석</button>
+            <button class="del-btn" style="border-color:var(--border);color:var(--text-light);" onclick="clearQaSelection()">선택 해제</button>
+          </div>
+          <div id="qaSummary" style="margin-top:10px;font-size:0.82rem;color:var(--text-light);"></div>
+        </div>
       </div>
       <a href="/clinic-roster" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;background:linear-gradient(135deg,#fff 0%,#E3F1F2 100%);border:1.5px solid #1f6f78;border-radius:12px;padding:12px 16px;margin-bottom:16px;">
         <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;">📋 클리닉 필수 명단 — 오늘 꼭 와야 하는 학생</span>
@@ -827,6 +836,8 @@
   }
 
   function doLogout() {
+    // 이 폰을 관리자 알림 명단(__admin__)에서 뺀다 — 토큰을 지우기 전에 불러야 인증이 붙는다(session-keep.js KWPush).
+    try { if (window.KWPush) window.KWPush.unregister('__admin__'); } catch (_) {}
     adminToken = '';
     localStorage.removeItem('kwmath_admin_token');
     // 로그아웃 = 관리자 영역에서 나가 학생/원장 공용 포털 로그인 화면으로 이동.
@@ -3961,6 +3972,8 @@
           btn.style.outline = '';
           btn.style.transform = '';
         }
+        // 위 '그날 수업 반' 카드의 집계도 즉시 반영 (전체 재조회 없이 캐시만 갱신)
+        if (_qaAtt.date === date) { delete _qaAtt.byId[String(id)]; if (typeof renderTodayClassCards === 'function') renderTodayClassCards(); }
       } else {
         // ── 새 기록 또는 변경 — POST ──
         // 결석·지각·병결이면 학부모 푸시 여부를 원장에게 물어봄 (확인=보냄 / 취소=안 보냄). 출석·공결은 학부모 푸시 없음.
@@ -3992,6 +4005,11 @@
           btn.classList.add('att-selected');
           btn.style.outline = '2px solid var(--primary)';
           btn.style.transform = 'scale(1.05)';
+        }
+        // 위 '그날 수업 반' 카드의 집계도 즉시 반영 (전체 재조회 없이 캐시만 갱신)
+        if (_qaAtt.date === date) {
+          _qaAtt.byId[String(id)] = Object.assign({}, _qaAtt.byId[String(id)] || {}, { status: status });
+          if (typeof renderTodayClassCards === 'function') renderTodayClassCards();
         }
       }
     } catch (e) {
@@ -4062,17 +4080,52 @@
     const el = document.getElementById('qaDate');
     return (el && el.value) ? el.value : todayStr();
   }
+  // 선택한 날짜의 요일 (0=일 … 6=토). 반 스케줄(schedules.days)과 대조하는 기준.
+  function qaWeekday() {
+    const p = qaDate().split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]).getDay();
+  }
   function updateQaDateLabel() {
     const dl = document.getElementById('qaDateLabel');
     if (!dl) return;
     const d = qaDate();
     const isToday = (d === todayStr());
-    dl.textContent = d + (isToday ? ' (오늘)' : ' ⚠ 오늘 아님');
+    const dow = (typeof SCHED_DAY_NAMES !== 'undefined' ? SCHED_DAY_NAMES[qaWeekday()] : '');
+    dl.textContent = (isToday ? '오늘' : d) + ' ' + dow + '요일' + (isToday ? '' : ' ⚠ 오늘 아님');
     dl.style.color = isToday ? '' : '#B02347';
   }
   function onQaDateChange() {
     updateQaDateLabel();
-    updateQaSummary();   // 요약 갱신 → 내부에서 renderAttendanceList() 호출 → 버튼 하이라이트도 선택 날짜로 재동기화
+    _qaAtt.date = null;   // 날짜가 바뀌면 출결 캐시 무효화
+    updateQaSummary();    // 요약 갱신 → 내부에서 renderAttendanceList()·카드 재렌더
+  }
+  // 수동 선택(다른 반 찾기) 패널 열고 닫기
+  function toggleQaPicker() {
+    const el = document.getElementById('qaPicker');
+    const btn = document.getElementById('qaPickerToggle');
+    if (!el) return;
+    const open = (el.style.display !== 'none');
+    el.style.display = open ? 'none' : 'block';
+    if (btn) btn.textContent = open ? '🔍 다른 반 찾기' : '▲ 접기';
+    if (!open) updateQaSummary();
+  }
+  function clearQaSelection() {
+    const a = document.getElementById('qaAcademy'); if (a) a.value = '';
+    onQaAcademyChange();
+  }
+  // 카드의 [이 반만 보기] — 드롭다운을 그 반으로 맞추고 아래 학생 목록으로 스크롤
+  //   학원을 먼저 세팅해야 반 목록이 채워지는데, 그 사이 onQaAcademyChange가 요약을 한 번 더 그린다.
+  //   반까지 정한 뒤 딱 한 번만 그리도록 _qaSuppressUpdate로 중간 갱신을 막는다(중복 fetch 방지).
+  function focusClass(acad, cls) {
+    const a = document.getElementById('qaAcademy');
+    _qaSuppressUpdate = true;
+    try { if (a) { a.value = acad; onQaAcademyChange(); } } finally { _qaSuppressUpdate = false; }
+    const c = document.getElementById('qaClass');
+    if (c) { c.value = cls; }
+    _attShowAll = false;
+    updateQaSummary();
+    const list = document.getElementById('attendanceList');
+    if (list) list.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function qaResetToday() {
     const el = document.getElementById('qaDate');
@@ -4091,6 +4144,8 @@
     updateQaDateLabel();
     onQaAcademyChange();
   }
+  // focusClass가 학원→반을 두 단계로 세팅하는 동안 중간 갱신을 잠그는 스위치
+  let _qaSuppressUpdate = false;
   function onQaAcademyChange() {
     const acad = document.getElementById('qaAcademy').value;
     const sel = document.getElementById('qaClass');
@@ -4103,44 +4158,160 @@
       const classes = Array.from(new Set((allStudents||[]).filter(s => s.academy === acad).map(s => s.className).filter(Boolean))).sort();
       sel.innerHTML = '<option value="">반 선택</option>' + classes.map(c => '<option value="' + c + '">' + c + '</option>').join('');
     }
+    if (_qaSuppressUpdate) return;
     updateQaSummary();
     if (typeof renderAttendanceList === 'function') renderAttendanceList();
   }
+  // ── 그날 출결 캐시 ──────────────────────────
+  //   예전엔 요약 한 번 그리는 데 학생 수 × 2번 fetch 했다(30명이면 60번). /api/attendance?all=1 한 번이면 끝난다.
+  //   키는 student_id — 이름으로 묶으면 동명이인 기록이 섞인다.
+  let _qaAtt = { date: null, byId: {}, raw: [] };
+  async function qaLoadDayAttendance(force) {
+    const date = qaDate();
+    if (!force && _qaAtt.date === date) return _qaAtt;
+    try {
+      const res = await fetch('/api/attendance?all=1', { headers: { 'Authorization': 'Bearer ' + adminToken } });
+      if (!res.ok) return _qaAtt;
+      const list = await res.json();
+      if (!Array.isArray(list)) return _qaAtt;
+      const byId = {};
+      for (const e of list) {
+        const r = (e.records || {})[date];
+        if (r) byId[String(e.id)] = (typeof r === 'string') ? { status: r } : r;
+      }
+      _qaAtt = { date: date, byId: byId, raw: list };
+    } catch (e) {}
+    return _qaAtt;
+  }
+  // 학생 배열 → 그날 현황 집계
+  function qaTally(students) {
+    const counts = { '출석':0, '지각':0, '결석':0, '병결':0, '공결':0, '미체크':0 };
+    let hwSum = 0, hwN = 0;
+    for (const s of students) {
+      const r = _qaAtt.byId[String(s.id)];
+      const st = r && r.status;
+      if (st && counts[st] != null) counts[st]++; else counts['미체크']++;
+      if (r && typeof r.homework === 'number') { hwSum += r.homework; hwN++; }
+    }
+    return { counts: counts, hwAvg: hwN ? Math.round(hwSum / hwN) : null, hwN: hwN, total: students.length };
+  }
+  function qaPill(label, n, bg, fg) {
+    return '<span style="display:inline-block;background:' + bg + ';color:' + fg + ';padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;margin-right:6px;">' + label + ' ' + n + '</span>';
+  }
+  function qaTallyHtml(t) {
+    return qaPill('출석', t.counts['출석'], '#E5F5E8', '#1F7A33') +
+      qaPill('지각', t.counts['지각'], '#FFF4D6', '#B07A00') +
+      qaPill('결석', t.counts['결석'], '#FBE5E9', '#B02347') +
+      qaPill('병/공결', t.counts['병결'] + t.counts['공결'], '#E8EAF6', '#3949AB') +
+      qaPill('미체크', t.counts['미체크'], '#F0F0F0', '#666') +
+      (t.hwAvg !== null
+        ? '<span style="display:inline-block;background:linear-gradient(135deg,#FBE5E9,#E5F5E8);color:var(--primary);padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:800;border:1.5px solid var(--primary);">📝 숙제 ' + t.hwAvg + '% (' + t.hwN + '/' + t.total + ')</span>'
+        : '<span style="display:inline-block;color:var(--text-light);padding:3px 8px;font-size:0.78rem;">📝 숙제 미체크</span>');
+  }
+
+  // ── 그날 수업 있는 반 목록 ────────────────────
+  //   반 관리 > 반 옆 ⏰ 에서 설정한 schedules.days(0=일~6=토)와 선택 날짜의 요일을 대조한다.
+  //   반환: { today:[...], clinic:[...], unset:[...] }  각 항목 { academy, className, sched, students }
+  function qaTodayClasses() {
+    const dow = qaWeekday();
+    const opts = _classOptionsCache || {};
+    const classes = opts.classes || {};
+    const schedules = opts.schedules || {};
+    const byKey = {};
+    for (const s of (allStudents || [])) {
+      if (!s.academy || !s.className) continue;
+      const k = s.academy + '/' + s.className;
+      (byKey[k] = byKey[k] || []).push(s);
+    }
+    // 스케줄에 등록된 반 + 학생 데이터에만 있는 반, 둘 다 훑는다
+    const keys = new Set(Object.keys(byKey));
+    for (const acad of Object.keys(classes)) {
+      for (const c of (classes[acad] || [])) keys.add(acad + '/' + c);
+    }
+    const today = [], clinicOnly = [], unset = [];
+    for (const k of Array.from(keys).sort()) {
+      const i = k.indexOf('/');
+      const acad = k.slice(0, i), cls = k.slice(i + 1);
+      const sch = schedules[k] || null;
+      const item = { academy: acad, className: cls, sched: sch, students: byKey[k] || [] };
+      const hasDays = !!(sch && Array.isArray(sch.days) && sch.days.length);
+      const isClinicToday = !!(sch && sch.clinic && Array.isArray(sch.clinic.days) && sch.clinic.days.includes(dow));
+      if (hasDays && sch.days.includes(dow)) today.push(item);
+      else if (isClinicToday) clinicOnly.push(item);
+      else if (!hasDays) unset.push(item);
+    }
+    return { today: today, clinic: clinicOnly, unset: unset };
+  }
+
+  let _qaUnsetOpen = false;
+  function toggleQaUnset() { _qaUnsetOpen = !_qaUnsetOpen; renderTodayClassCards(); }
+
+  function qaClassCardHtml(c, dim) {
+    const t = qaTally(c.students);
+    const done = c.students.length - t.counts['미체크'];
+    const allDone = c.students.length > 0 && t.counts['미체크'] === 0;
+    // jsArg — onclick="..." 속성 안에 들어가는 문자열. 반 이름에 따옴표가 있어도 안 깨진다.
+    const a = jsArg(c.academy);
+    const n = jsArg(c.className);
+    return '<div class="report-card" style="padding:12px 14px;margin-bottom:8px;background:#fff;border-left:4px solid ' +
+        (allDone ? '#1F7A33' : 'var(--primary)') + ';' + (dim ? 'opacity:0.85;' : '') + '">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:7px;">' +
+        '<div><strong style="font-size:0.93rem;">' + escapeHtml(c.className) + '</strong>' +
+          '<span style="font-size:0.76rem;color:var(--text-light);margin-left:7px;">' + escapeHtml(c.academy) + ' · ' + c.students.length + '명</span></div>' +
+        '<span style="font-size:0.74rem;color:var(--text-light);">' + escapeHtml(formatClassSchedule(c.sched)) + '</span>' +
+      '</div>' +
+      '<div style="margin-bottom:9px;">' + qaTallyHtml(t) +
+        (allDone ? '<span style="color:#1F7A33;font-weight:800;font-size:0.78rem;margin-left:4px;">✅ 완료</span>'
+                 : '<span style="color:var(--text-light);font-size:0.76rem;margin-left:4px;">(' + done + '/' + c.students.length + ' 체크됨)</span>') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+        '<button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance(\'출석\',\'' + a + '\',\'' + n + '\')">👥 전원 출석</button>' +
+        '<button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;" onclick="bulkClassAttendance(\'결석\',\'' + a + '\',\'' + n + '\')">전원 결석</button>' +
+        '<button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="focusClass(\'' + a + '\',\'' + n + '\')">이 반만 보기 →</button>' +
+      '</div></div>';
+  }
+
+  function renderTodayClassCards() {
+    const box = document.getElementById('todayClassCards');
+    if (!box) return;
+    const g = qaTodayClasses();
+    let html = '';
+    if (g.today.length) {
+      html += g.today.map(function(c){ return qaClassCardHtml(c, false); }).join('');
+    } else {
+      html += '<div style="padding:12px 14px;background:#f9fafc;border-radius:10px;font-size:0.84rem;color:var(--text-light);">'
+        + '이 요일에 수업이 잡힌 반이 없어요. 반 관리 &gt; 반 옆 ⏰ 에서 수업 요일을 설정하면 여기 자동으로 뜹니다.'
+        + '</div>';
+    }
+    if (g.clinic.length) {
+      html += '<div style="margin-top:8px;padding:9px 13px;background:#E3F1F2;border:1px solid #9CCDD2;border-radius:9px;font-size:0.8rem;color:#1f6f78;">'
+        + '🩺 오늘 클리닉: ' + g.clinic.map(function(c){ return escapeHtml(c.className); }).join(', ')
+        + ' — 클리닉 출결은 <a href="/clinic-roster" style="color:#1f6f78;font-weight:800;">클리닉 명단</a>에서 따로 기록해요.'
+        + '</div>';
+    }
+    if (g.unset.length) {
+      html += '<div style="margin-top:8px;">'
+        + '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" onclick="toggleQaUnset()">'
+        + (_qaUnsetOpen ? '▲ 접기' : '⏰ 수업 요일 미설정 반 ' + g.unset.length + '개 보기') + '</button>'
+        + (_qaUnsetOpen ? '<div style="margin-top:8px;">' + g.unset.map(function(c){ return qaClassCardHtml(c, true); }).join('') + '</div>' : '')
+        + '</div>';
+    }
+    box.innerHTML = html;
+  }
+
   async function updateQaSummary() {
-    const acad = document.getElementById('qaAcademy').value;
-    const cls  = document.getElementById('qaClass').value;
-    const sumEl = document.getElementById('qaSummary');
+    await qaLoadDayAttendance(true);
+    renderTodayClassCards();
     if (typeof renderAttendanceList === 'function') renderAttendanceList();
-    if (!sumEl) return;
+    const acadEl = document.getElementById('qaAcademy');
+    const clsEl  = document.getElementById('qaClass');
+    const sumEl  = document.getElementById('qaSummary');
+    if (!sumEl || !acadEl || !clsEl) return;
+    const acad = acadEl.value, cls = clsEl.value;
     const targets = (allStudents||[]).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
     if (!targets.length) { sumEl.innerHTML = '<span style="color:var(--text-light);">대상 학생 없음</span>'; return; }
-    sumEl.innerHTML = '<span style="color:var(--text-light);">현황 조회 중... (' + targets.length + '명)</span>';
-    const date = qaDate();
-    let counts = { '출석':0, '지각':0, '결석':0, '병결':0, '공결':0, '미체크':0 };
-    await Promise.all(targets.map(async (s) => {
-      try {
-        const res = await fetch('/api/attendance?id=' + encodeURIComponent(s.id) + '&month=' + date.slice(0,7), {
-          headers: { 'Authorization': 'Bearer ' + adminToken }
-        });
-        const data = await res.json();
-        const rec = data && data.records ? data.records[date] : null;
-        const status = (typeof rec === 'object' && rec !== null) ? rec.status : rec;
-        if (status && counts[status] != null) counts[status]++; else counts['미체크']++;
-      } catch { counts['미체크']++; }
-    }));
-    let hwSum = 0, hwN = 0;
-    await Promise.all(targets.map(async (s) => {
-      try {
-        const res = await fetch('/api/attendance?id=' + encodeURIComponent(s.id) + '&month=' + date.slice(0,7), {
-          headers: { 'Authorization': 'Bearer ' + adminToken }
-        });
-        const data = await res.json();
-        const rec = data && data.records ? data.records[date] : null;
-        const r = (typeof rec === 'object' && rec !== null) ? rec : (typeof rec === 'string' ? { status: rec } : null);
-        if (r && typeof r.homework === 'number') { hwSum += r.homework; hwN++; }
-      } catch {}
-    }));
-    const hwAvg = hwN ? Math.round(hwSum / hwN) : null;
+    const _t = qaTally(targets);
+    const counts = _t.counts, hwAvg = _t.hwAvg, hwN = _t.hwN;
 
     const pill = (label, n, bg, fg) => '<span style="display:inline-block;background:' + bg + ';color:' + fg + ';padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;margin-right:6px;">' + label + ' ' + n + '</span>';
     sumEl.innerHTML =
@@ -4155,9 +4326,10 @@
         : '<span style="display:inline-block;color:var(--text-light);padding:3px 8px;font-size:0.78rem;margin-left:6px;">📝 숙제 미체크</span>');
   }
   function refreshQuickAttendanceSummary() { updateQaSummary(); }
-  async function bulkClassAttendance(status) {
-    const acad = document.getElementById('qaAcademy').value;
-    const cls  = document.getElementById('qaClass').value;
+  // acad·cls를 넘기면 그 반(카드 버튼), 안 넘기면 드롭다운 선택 반(다른 반 찾기 패널).
+  async function bulkClassAttendance(status, acadArg, clsArg) {
+    const acad = acadArg || (document.getElementById('qaAcademy') || {}).value || '';
+    const cls  = clsArg  || (document.getElementById('qaClass')   || {}).value || '';
     if (!acad || !cls) { showToast('학원과 반을 먼저 선택하세요'); return; }
     const targets = (allStudents||[]).filter(s => s.academy === acad && s.className === cls);
     if (!targets.length) { showToast('해당 반에 학생이 없습니다'); return; }
@@ -4202,7 +4374,11 @@
         btn.parentElement.querySelectorAll('.hw-btn').forEach(function(b){ b.classList.remove('selected'); });
         btn.classList.add('selected');
       }
-      if (typeof updateQaSummary === 'function') { try { updateQaSummary(); } catch(e){} }
+      // 카드 집계만 즉시 갱신 — 숙제 버튼 하나 누를 때마다 목록 전체를 다시 그리지 않는다.
+      if (_qaAtt.date === today) {
+        _qaAtt.byId[String(id)] = Object.assign({}, _qaAtt.byId[String(id)] || {}, { homework: percent });
+        if (typeof renderTodayClassCards === 'function') renderTodayClassCards();
+      }
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }
@@ -4212,20 +4388,11 @@
     if (!Array.isArray(allStudents) || !allStudents.length) return;
     const today = qaDate();   // 선택한 날짜의 기록으로 버튼 하이라이트 (미선택=오늘)
     try {
-      const res = await fetch('/api/attendance?all=1', {
-        headers: { 'Authorization': 'Bearer ' + adminToken }
-      });
-      if (!res.ok) return;
-      const list = await res.json();
-      if (!Array.isArray(list)) return;
-      const byName = {};
-      for (const rec of list) {
-        const r = (rec.records || {})[today];
-        if (r) byName[rec.name] = (typeof r === 'string') ? { status: r } : r;
-      }
-      document.querySelectorAll('.hw-bucket[data-hw-student]').forEach(function(group){
-        const nm = group.getAttribute('data-hw-student');
-        const r = byName[nm];
+      // 🆔 id 기준 — 이름으로 맞추면 동명이인 두 명이 같이 칠해진다. 캐시(빠른 출석과 공용)를 그대로 쓴다.
+      await qaLoadDayAttendance(false);
+      const byId = _qaAtt.byId || {};
+      document.querySelectorAll('.hw-bucket[data-hw-sid]').forEach(function(group){
+        const r = byId[group.getAttribute('data-hw-sid')];
         if (!r) return;
         if (typeof r.homework === 'number') {
           group.querySelectorAll('.hw-btn').forEach(function(b){
@@ -4237,9 +4404,7 @@
       document.querySelectorAll('.att-btn[data-s]').forEach(function(b){
         const card = b.closest('.report-card');
         if (!card) return;
-        const nameEl = card.querySelector('strong');
-        const nm = nameEl ? nameEl.textContent.trim() : '';
-        const r = byName[nm];
+        const r = byId[card.getAttribute('data-sid')];
         if (r && r.status === b.getAttribute('data-s')) {
           b.classList.add('att-selected');
           b.style.outline = '2px solid var(--primary)';
@@ -4315,7 +4480,13 @@
   }
 
   // ─── 출결/숙제 탭 ───
-  function loadAttendanceTab() {
+  async function loadAttendanceTab() {
+    // 안전핀 — 시간표 요청이 끝내 응답을 안 줘도 3초 뒤엔 학생 목록을 보여준다('불러오는 중' 고착 방지).
+    setTimeout(function(){
+      if (_qaSchedTried) return;
+      _qaSchedTried = true;
+      try { renderAttendanceList(); } catch (e) {}
+    }, 3000);
     if (!Array.isArray(allStudents) || !allStudents.length) {
       // 학생 데이터 없으면 먼저 로드
       loadStudents();
@@ -4324,9 +4495,22 @@
     } else {
       renderAttendanceList();
     }
-    // 빠른 출석 select 옵션 갱신
+    // 반 시간표(schedules)가 있어야 '그날 수업 반' 카드를 그릴 수 있다 — 없으면 먼저 받아온다.
+    try {
+      if (!_classOptionsCache || !_classOptionsCache.schedules) await loadClassOptionsFromServer();
+    } catch (e) {}
+    // 성공하든 실패하든 "시도는 했다"고 표시 — 실패했는데도 계속 '불러오는 중'에 갇히지 않게.
+    _qaSchedTried = true;
+    // 빠른 출석 select 옵션 갱신 + 카드 렌더
     setTimeout(function(){ if (typeof populateQaAcademies === 'function') populateQaAcademies(); }, 100);
   }
+
+  // 하단 학생 목록이 '그날 수업 반'만 볼지(false) 전체를 볼지(true). 기본은 그날 수업 반만.
+  let _attShowAll = false;
+  // 반 시간표를 한 번이라도 받아보려 시도했는가. 받기 전엔 전체 목록을 잠깐 보여주지 않는다(깜빡임 방지).
+  let _qaSchedTried = false;
+  function showAllAttendanceStudents() { _attShowAll = true; renderAttendanceList(); }
+  function showTodayAttendanceStudents() { _attShowAll = false; renderAttendanceList(); }
 
   function renderAttendanceList() {
     const list = document.getElementById('attendanceList');
@@ -4336,6 +4520,32 @@
     const cls  = (document.getElementById('qaClass')?.value || '');
     // 학원/반 필터 우선 적용 (선택돼있으면), 그 다음 이름 검색
     let filtered = (allStudents || []).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
+    // 🗓 아무것도 안 고르고 검색도 안 했으면 '그날 수업 있는 반' 학생만 기본 표시.
+    //    (매번 학원·반을 고르게 하지 않기 위함 — 2026-07-31 관우T 요청)
+    let banner = '';
+    if (!acad && !cls && !q && !_attShowAll) {
+      // 시간표가 아직 안 왔으면 전체 학생을 잠깐 뿌렸다 지우는 깜빡임이 생긴다. 도착할 때까지 기다린다.
+      if (!_qaSchedTried) {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);font-size:0.85rem;">🗓 오늘 수업 반 불러오는 중…</div>';
+        return;
+      }
+      const g = (typeof qaTodayClasses === 'function') ? qaTodayClasses() : { today: [] };
+      if (g.today.length) {
+        const keys = new Set(g.today.map(c => c.academy + '/' + c.className));
+        filtered = filtered.filter(s => keys.has((s.academy||'') + '/' + (s.className||'')));
+        banner = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;'
+          + 'background:var(--primary-light);border-radius:9px;padding:8px 12px;margin-bottom:10px;font-size:0.8rem;color:var(--primary);font-weight:700;">'
+          + '<span>🗓 ' + escapeHtml(SCHED_DAY_NAMES[qaWeekday()]) + '요일 수업 반만 보고 있어요 (' + g.today.length + '개 반 · ' + filtered.length + '명)</span>'
+          + '<button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="showAllAttendanceStudents()">전체 학생 보기</button>'
+          + '</div>';
+      }
+    } else if (_attShowAll && !acad && !cls && !q) {
+      banner = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;'
+        + 'background:#f9fafc;border-radius:9px;padding:8px 12px;margin-bottom:10px;font-size:0.8rem;color:var(--text-light);font-weight:700;">'
+        + '<span>전체 학생 ' + filtered.length + '명</span>'
+        + '<button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="showTodayAttendanceStudents()">🗓 오늘 수업 반만 보기</button>'
+        + '</div>';
+    }
     if (q) {
       filtered = filtered.filter(s =>
         (s.name||'').toLowerCase().includes(q)
@@ -4345,13 +4555,13 @@
     if (!filtered.length) {
       const msg = (acad && cls) ? `[${acad} · ${cls}] 반에 학생이 없습니다.`
                 : (acad) ? `[${acad}] 학원에 학생이 없습니다.`
-                : '학원/반을 선택하면 그 반 학생만 표시됩니다.';
-      list.innerHTML = '<div class="empty">' + msg + '</div>';
+                : '표시할 학생이 없습니다.';
+      list.innerHTML = banner + '<div class="empty">' + msg + '</div>';
       return;
     }
     // 학원 + 반 정렬
     filtered.sort((a,b) => ((a.academy||'')+(a.className||'')+(a.name||'')).localeCompare((b.academy||'')+(b.className||'')+(b.name||'')));
-    list.innerHTML = filtered.map(renderAttendanceRow).join('');
+    list.innerHTML = banner + filtered.map(renderAttendanceRow).join('');
     setTimeout(function(){
       if (typeof syncTodayAttendanceMarks === 'function') syncTodayAttendanceMarks();
       if (typeof syncWeekStudy === 'function') syncWeekStudy();
@@ -4359,8 +4569,10 @@
   }
 
   function renderAttendanceRow(s) {
-    const nameEsc = (s.name||'').replace(/'/g,'\\x27');
-    return `<div class="report-card" style="padding:14px 18px;margin-bottom:10px;">
+    // jsArg — onclick="..." 안의 JS 문자열 인자. 이름에 ' " \ < 가 있어도 안 깨진다.
+    const nameEsc = jsArg(s.name);
+    // 🆔 data-sid — 버튼 하이라이트 복원을 id로 맞춘다(이름으로 하면 동명이인 둘 다 칠해짐)
+    return `<div class="report-card" data-sid="${s.id}" style="padding:14px 18px;margin-bottom:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
         <div>
           <strong style="font-size:0.95rem;">${escapeHtml(s.name||'—')}</strong>
@@ -4375,7 +4587,7 @@
         <button class="att-btn" data-s="결석" onclick="markAttendance(${s.id},'${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
         <button class="att-btn" data-s="병결" onclick="markAttendance(${s.id},'${nameEsc}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
         <span style="font-size:0.72rem;color:var(--text-light);margin-left:10px;margin-right:2px;">숙제:</span>
-        <div class="hw-bucket" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
+        <div class="hw-bucket" data-hw-sid="${s.id}" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
           <button class="hw-btn" data-p="0"   onclick="markHomework(${s.id},'${nameEsc}',0,this)">0</button>
           <button class="hw-btn" data-p="25"  onclick="markHomework(${s.id},'${nameEsc}',25,this)">25</button>
           <button class="hw-btn" data-p="50"  onclick="markHomework(${s.id},'${nameEsc}',50,this)">50</button>

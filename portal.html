@@ -781,6 +781,10 @@
   // ════════ 로그아웃 ════════
   function doLogout() {
     if (!confirm('로그아웃하시겠습니까?')) return;
+    // 이 폰을 이 계정의 알림 명단에서 뺀다 — 남의 폰으로 로그인한 흔적이 계속 울리던 문제(2026-07-31).
+    //   ⚠️ 반드시 confirm 통과 뒤. 위에 두면 '취소'를 눌러도 알림이 꺼진다.
+    //   currentPhone을 비우기 전이어야 어느 계정인지 알 수 있다.
+    try { if (window.KWPush) window.KWPush.unregister(currentPhone); } catch (_) {}
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PHONE_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
@@ -1112,6 +1116,8 @@
       _appPushWired = true;
       PN.addListener('registration', t => {
         const token = t && t.value; if (!token || !_appPushUserId) return;
+        // 로그아웃할 때 "이 폰만" 빼려면 어떤 토큰이었는지 기억해야 한다(session-keep.js KWPush 참고).
+        try { if (window.KWPush) window.KWPush.remember(_appPushUserId, token); } catch (_) {}
         fetch('/api/push-register-fcm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: _appPushUserId, token }) })
           .then(() => { _appPushDone = true; updatePushButton(); }).catch(() => {});
       });

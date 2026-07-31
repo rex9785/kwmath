@@ -236,7 +236,8 @@
     if(sub){ sub.textContent='조교 콘솔 · 질문답변 · 학생 · 근무기록'; }
     if(nav){ nav.style.display='flex'; }   // 조교용 학생·근무기록 바로가기 노출
   }
-  function staffLogout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+  // 세션키를 지우기 전에 불러야 한다 — KWPush가 그 키로 관리자 인증을 붙여 DELETE를 보낸다.
+  function staffLogout(){ try{ if(window.KWPush) window.KWPush.unregister('__admin__'); }catch(_){} sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
@@ -318,6 +319,8 @@
       _appPushWired=true;
       PN.addListener('registration', function(t){
         var tok=t&&t.value; if(!tok||!_appPushUserId) return;
+        // 로그아웃 때 "이 폰만" 빼려면 토큰을 기억해야 한다(session-keep.js KWPush).
+        try{ if(window.KWPush) window.KWPush.remember(_appPushUserId, tok); }catch(_){}
         fetch('/api/push-register-fcm',{ method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ userId:_appPushUserId, token:tok }) })
           .then(function(){ _appPushDone=true; refreshPushBtn(); }).catch(function(){});
       });

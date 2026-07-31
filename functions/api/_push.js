@@ -170,13 +170,20 @@ async function sendFcmToUsers(env, ids, msg) {
     const sa = parseServiceAccount(env);
     if (!sa || !sa.private_key || !sa.client_email || !sa.project_id) return { sent: 0, note: 'FCM 미설정' };
     const accessToken = await getGoogleAccessToken(sa);
+    // 계정이 달라도 같은 기기면 1번만 — 학생번호·학부모번호가 한 폰에 물린 가정에서
+    // 같은 알림이 2번 오던 것을 막는다(2026-07-31, 실제 사례 있었음).
+    const seen = new Set();
     const tokens = [];
     for (const uid of ids) {
       try {
         const obj = await env.BUCKET.get(`fcm-tokens/${encodeURIComponent(uid)}.json`);
         if (!obj) continue;
         const rec = JSON.parse(await obj.text());
-        for (const t of (rec.tokens || [])) if (t && t.token) tokens.push(t.token);
+        for (const t of (rec.tokens || [])) {
+          if (!t || !t.token || seen.has(t.token)) continue;
+          seen.add(t.token);
+          tokens.push(t.token);
+        }
       } catch {}
     }
     if (!tokens.length) return { sent: 0, note: 'FCM 토큰 없음' };

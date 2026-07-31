@@ -933,12 +933,18 @@
     // ── math(수식) 동치 판정 — surveys.js(서버)와 동일 로직의 클라 복제본 ──
     //   교사 결과뷰(정답률·개별 O/X)를 서버 채점과 일치시키기 위함. 2/4=1/2, √8=2√2 등.
     function normTextLatex(s){
-      return String(s==null?'':s)
+      var t = String(s==null?'':s)
+        .replace(/[−‒–—―]/g,'-')   // 유니코드 마이너스/대시 → ASCII '-'
         .replace(/\\left|\\right/g,'')
         .replace(/\\dfrac|\\tfrac/g,'\\frac')
         .replace(/\\cdot|\\times/g,'*')
         .replace(/\s+/g,'')
         .toLowerCase();
+      // MathLive(0.110)는 한 글자 인수의 중괄호를 생략해 내보낸다: \frac{1}{2} → \frac12.
+      // '한 글자만 감싼 중괄호'만 벗긴다({12} 같은 두 글자 이상은 건드리지 않음).
+      var prev;
+      do { prev = t; t = t.replace(/\{([^{}])\}/g,'$1'); } while (t !== prev);
+      return t;
     }
     function latexToNumber(src){
       if(src==null) return null;
@@ -956,11 +962,15 @@
             case 'frac': case 'dfrac': case 'tfrac': tokens.push({type:'frac'}); continue;
             case 'sqrt': tokens.push({type:'sqrt'}); continue;
             case 'cdot': case 'times': tokens.push({type:'*'}); continue;
+            case 'div': tokens.push({type:'/'}); continue;
+            case 'lparen': tokens.push({type:'('}); continue;
+            case 'rparen': tokens.push({type:')'}); continue;
             case 'pi': tokens.push({type:'num', value:Math.PI}); continue;
             default: return null;
           }
         }
-        if(/[0-9.]/.test(ch)){ var num=''; while(i<s.length && /[0-9.]/.test(s[i])){ num+=s[i]; i++; } var nv=parseFloat(num); if(!isFinite(nv)) return null; tokens.push({type:'num', value:nv}); continue; }
+        // raw(원문 자릿수) 보관 — \frac12처럼 중괄호가 생략된 인수를 한 글자씩 떼기 위해 필요.
+        if(/[0-9.]/.test(ch)){ var num=''; while(i<s.length && /[0-9.]/.test(s[i])){ num+=s[i]; i++; } var nv=parseFloat(num); if(!isFinite(nv)) return null; tokens.push({type:'num', value:nv, raw:num}); continue; }
         if('+-*/^(){}[]'.indexOf(ch)>=0){ tokens.push({type:ch}); i++; continue; }
         if(/[a-zA-Z]/.test(ch)) return null;
         return null;
@@ -978,11 +988,22 @@
         if(t.type==='num'){ nextT(); return t.value; }
         if(t.type==='('){ nextT(); var v=parseExpr(); if(peek() && peek().type===')') nextT(); else return fail(); return v; }
         if(t.type==='{'){ nextT(); var v2=parseExpr(); if(peek() && peek().type==='}') nextT(); else return fail(); return v2; }
-        if(t.type==='frac'){ nextT(); var fa=parseGroup(); var fb=parseGroup(); return fa/fb; }
+        if(t.type==='frac'){ nextT(); var fa=parseGroup(true); var fb=parseGroup(true); return fa/fb; }
         if(t.type==='sqrt'){ nextT(); if(peek() && peek().type==='['){ nextT(); var n=parseExpr(); if(peek() && peek().type===']') nextT(); else return fail(); var sa=parseGroup(); return Math.pow(sa, 1/n); } var sa2=parseGroup(); return Math.sqrt(sa2); }
         return fail();
       }
-      function parseGroup(){ var t=peek(); if(t && t.type==='{'){ nextT(); var v=parseExpr(); if(peek() && peek().type==='}') nextT(); else return fail(); return v; } return parseAtom(); }
+      // single=true면 중괄호 없는 인수를 LaTeX 규칙대로 '한 글자'만 취한다(\frac12 = 1/2).
+      // \sqrt에는 적용하지 않음 — 평문 'sqrt12'(=√12)를 깨뜨리지 않기 위해.
+      function parseGroup(single){
+        var t=peek();
+        if(t && t.type==='{'){ nextT(); var v=parseExpr(); if(peek() && peek().type==='}') nextT(); else return fail(); return v; }
+        if(single && t && t.type==='num' && /^[0-9]{2,}$/.test(t.raw||'')){
+          var head=parseFloat(t.raw[0]);
+          t.raw=t.raw.slice(1); t.value=parseFloat(t.raw);
+          return head;
+        }
+        return parseAtom();
+      }
       var result=parseExpr();
       if(failed) return null;
       if(p!==tokens.length) return null;
@@ -993,6 +1014,9 @@
     function preLatex(s){
       return String(s==null?'':s)
         .replace(/√/g,'\\sqrt').replace(/π/g,'\\pi')
+        .replace(/[−‒–—―]/g,'-')   // 유니코드 마이너스/대시 → ASCII '-' (MathLive 키패드가 U+2212 삽입)
+        .replace(/⁄/g,'/')          // 분수 슬래시 ⁄(U+2044) → /
+        .replace(/\{([^{}]*)\}\s*\\over\s*\{([^{}]*)\}/g,'\\frac{$1}{$2}')  // {a}\over{b} → \frac{a}{b}
         .replace(/×/g,'*').replace(/÷/g,'/')
         .replace(/(^|[^\\a-zA-Z])sqrt/gi,'$1\\sqrt')
         .replace(/(^|[^\\a-zA-Z])pi($|[^a-zA-Z])/gi,'$1\\pi$2');

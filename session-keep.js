@@ -31,3 +31,88 @@
     });
   };
 })();
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * KWPush — 로그아웃하면 "이 폰"을 그 계정의 알림 명단에서 뺀다 (2026-07-31 신설 · 관우T 지시)
+ *
+ * 문제: 앱 FCM 기기토큰은 서버(R2 `fcm-tokens/{userId}.json`)에 쌓이는데 로그아웃해도 안 지워졌다.
+ *       그래서 학생이 남의 폰으로 한 번만 로그인해도 그 폰이 계속 그 학생 알림을 받았다
+ *       (2026-07-31 실제 발생 — 관우T 폰이 세정학원 학생 알림을 받음).
+ * 해결: 등록할 때 remember()로 {userId → token}을 이 폰에 적어두고,
+ *       로그아웃할 때 unregister()가 `DELETE /api/push-register-fcm`으로 그 기기 1개만 뺀다.
+ *
+ * 주의 5가지
+ *  1) 반드시 **토큰까지 지정해서** 뺀다. userId만 보내면 그 계정의 다른 기기(가족 폰)까지 다 날아간다.
+ *  2) `keepalive:true` — `location.href`로 화면이 바로 넘어가도 요청이 끝까지 간다.
+ *  3) 한 폰에 여러 계정 기록이 남을 수 있어(예: `__admin__` + 데모 포털) **맵으로** 들고 있는다.
+ *     그래서 unregister는 "누가 로그아웃하는지"를 받아야 엉뚱한 계정을 빼지 않는다.
+ *       unregister('__admin__') → 그 id만  ·  unregister() → 예약(`__`) 아닌 id 전부(학생·학부모용)
+ *  4) `__admin__` 같은 예약 id는 서버가 관리자 인증을 요구하므로 Authorization을 같이 보낸다.
+ *     ☰ 로그아웃은 **capture 단계**에서 잡으므로 페이지가 세션키를 지우기 전 = 토큰이 아직 살아 있다.
+ *  5) 확인창(confirm)이 있는 로그아웃(portal·me)은 여기서 자동으로 걸지 않는다.
+ *     capture 단계에서 걸면 사용자가 '취소'를 눌러도 알림이 꺼져 버린다. → 그쪽은 confirm 통과 뒤 직접 호출.
+ * ══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+
+  var REG_KEY = 'kwmath_fcm_reg';   // { "<userId>": "<fcm token>" }
+
+  function load() {
+    try { var o = JSON.parse(localStorage.getItem(REG_KEY) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+    catch (_) { return {}; }
+  }
+  function save(map) {
+    try {
+      if (!map || !Object.keys(map).length) localStorage.removeItem(REG_KEY);
+      else localStorage.setItem(REG_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+  function isReserved(id) { return String(id || '').indexOf('__') === 0; }
+  function adminToken() {
+    try {
+      return sessionStorage.getItem('kwmath_admin_pw')
+          || localStorage.getItem('kwmath_admin_pw')
+          || localStorage.getItem('kwmath_admin_token') || '';
+    } catch (_) { return ''; }
+  }
+
+  // 등록 성공 시 호출 — 나중에 로그아웃할 때 뺄 수 있게 이 폰에 적어둔다.
+  function remember(userId, token) {
+    if (!userId || !token) return;
+    var m = load(); m[userId] = token; save(m);
+  }
+
+  // userId 지정 → 그 계정에서만 이 기기를 뺀다. 생략 → 예약 아닌(학생·학부모) 계정 전부.
+  function unregister(userId) {
+    var m = load();
+    var ids = userId ? [userId] : Object.keys(m).filter(function (k) { return !isReserved(k); });
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i], tok = m[id];
+      if (!tok) continue;
+      var h = { 'Content-Type': 'application/json' };
+      if (isReserved(id)) {
+        var t = adminToken();
+        if (!t) continue;                      // 관리자 인증이 없으면 어차피 403 — 기록은 남겨둔다
+        h['Authorization'] = 'Bearer ' + t;
+      }
+      try {
+        fetch('/api/push-register-fcm', {
+          method: 'DELETE', headers: h, keepalive: true,
+          body: JSON.stringify({ userId: id, token: tok })
+        }).catch(function () {});
+      } catch (_) {}
+      delete m[id];
+    }
+    save(m);
+  }
+
+  window.KWPush = { remember: remember, unregister: unregister };
+
+  // ☰ 메뉴 로그아웃(원장·조교 16개 화면)은 확인창이 없어 여기서 한 번에 걸어둔다 → 그 16개 파일은 손 안 댐.
+  try {
+    document.addEventListener('click', function (ev) {
+      var t = ev && ev.target;
+      if (t && t.closest && t.closest('.kwnav-logout')) unregister('__admin__');
+    }, true);
+  } catch (_) {}
+})();

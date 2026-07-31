@@ -20,7 +20,10 @@ export async function onRequest({ request, env }) {
   //    로그인 토큰·푸쉬구독·영상코드·라이브상태 등 운영 데이터. 프론트는 이 프리픽스를 받지 않음.
   // staff-shared/ = 원장→조교 전용 자료. 조교/원장은 /api/staff-materials로만 받고,
   //   일반(무인증·학생) 다운로드는 여기서 차단(공개 유출 방지). admin 토큰은 아래 isAdmin으로 통과.
-  const INTERNAL_PREFIXES = ['auth/', 'video-codes/', 'push-subs/', 'study-live/', 'staff-shared/'];
+  // fcm-tokens/·fcm-owner/ = 앱 푸시 기기토큰(개인 기기 식별자 + 기종·OS가 담긴 UA).
+  //   push-subs/와 같은 성격인데 2026-07-31까지 빠져 있어서, 전화번호만 알면 무인증으로
+  //   /api/download-file?key=fcm-tokens/010-xxxx-xxxx.json 이 200으로 열렸다(실측 확인). → 차단.
+  const INTERNAL_PREFIXES = ['auth/', 'video-codes/', 'push-subs/', 'study-live/', 'staff-shared/', 'fcm-tokens/', 'fcm-owner/'];
   if (!isAdmin && INTERNAL_PREFIXES.some((p) => key.startsWith(p))) {
     return Response.json({ error: '접근 권한이 없습니다.' }, { status: 403 });
   }

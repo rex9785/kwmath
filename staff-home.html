@@ -79,7 +79,8 @@
 <script>
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   if(!token){ location.replace('/portal'); }
-  function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
+  // 이 폰을 관리자 알림 명단(__admin__)에서 뺀다 — 세션키를 지우기 전에 불러야 인증이 붙는다(session-keep.js KWPush).
+  function logout(){ try{ if(window.KWPush) window.KWPush.unregister('__admin__'); }catch(_){} sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
 
   // ── 오늘 할 일 + 카드 배지 (2026-07-29 신설) ──
   //   왜: 조교 홈이 링크 9개뿐이라 "오늘 뭐가 남았나"를 알려면 하나씩 들어가 봐야 했다.

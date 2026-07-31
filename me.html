@@ -7,6 +7,8 @@
 <link rel="manifest" href="/manifest.json?v=2">
 <meta name="theme-color" content="#862633">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=6">
+<!-- 로그아웃·탈퇴 때 이 폰을 알림 명단에서 빼기 위해 KWPush가 필요 (2026-07-31). 학생 페이지에 실려도 무해 — 파일 상단 주석 3번. -->
+<script src="/session-keep.js?v=1"></script>
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
@@ -684,6 +686,8 @@
   }
 
   function logoutMe(){
+    // 이 폰을 알림 명단에서 뺀다(학생·학부모 계정 전부 — 여기엔 전화번호가 없으므로 인자 생략).
+    try{ if(window.KWPush) window.KWPush.unregister(); }catch(_){ }
     try{ localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(SEL_KEY); }catch(_){ }
     location.href='/portal';
   }
@@ -696,6 +700,7 @@
       var d = await r.json();
       if(!r.ok || !d.ok){ alert((d && d.error) || '탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.'); return; }
       alert('회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.');
+      try{ if(window.KWPush) window.KWPush.unregister(); }catch(_){ }   // 탈퇴한 계정 알림이 이 폰에 남지 않게
       try{ localStorage.removeItem(TOKEN_KEY); sessionStorage.clear(); }catch(_){ }
       location.href='/portal';
     }catch(e){ alert('네트워크 오류로 탈퇴에 실패했습니다.'); }
