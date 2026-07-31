@@ -43,6 +43,21 @@
   .tabs{ display:flex; gap:6px; margin:12px 0; }
   .tabs button{ background:#fff; color:var(--muted); border:1px solid var(--border); padding:7px 14px; font-size:0.82rem; }
   .tabs button.on{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  /* 반별 목록 — 막힌 학생 묶음 / 열린 학생 묶음 */
+  .grp{ font-size:0.84rem; font-weight:800; margin:16px 0 8px; }
+  .grp.lock{ color:#C0392B; }
+  .grp.open{ color:#1E7B41; }
+  .row.hit{ box-shadow:0 0 0 2px var(--primary); }        /* 학생 목록에서 ?sid=로 넘어온 그 학생 */
+  .rt{ margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .stat{ font-size:0.72rem; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .stat.here{ background:#E7F6EC; color:#1E7B41; }
+  .stat.absent{ background:#FDECEC; color:#C0392B; }
+  .stat.none{ background:#F1F1F1; color:#777; }
+  .autoOpen{ font-size:0.78rem; color:var(--muted); font-weight:700; white-space:nowrap; }
+  .vidline{ font-size:0.82rem; line-height:1.6; color:var(--muted); background:#FAFAFA; border:1px solid var(--border); border-radius:10px; padding:9px 11px; margin-bottom:8px; }
+  .dateRow{ display:flex; align-items:center; gap:6px; }
+  .dateRow input{ flex:1 1 auto; min-width:0; }
+  .dateRow button{ flex:0 0 auto; padding:9px 11px; }
   /* 상단 통합 네비 (홈 + 메뉴 드롭다운) */
   .kwnav{ display:flex; align-items:center; gap:8px; }
   .kwnav-home{ display:inline-flex; align-items:center; gap:5px; background:var(--primary); color:#fff; font-weight:800; font-size:0.84rem; text-decoration:none; padding:8px 13px; border-radius:9px; font-family:inherit; white-space:nowrap; line-height:1; }
@@ -105,18 +120,26 @@
       <div id="grantList"><div class="empty">불러오는 중…</div></div>
     </div>
 
-    <!-- 학생·날짜별 영상 잠금 상태 + 직접 열기/잠금 -->
+    <!-- 반·날짜별 영상 잠금 상태 + 학생별 열기/잠금 -->
     <div class="card">
-      <h2>영상 열기·잠금 (학생·날짜별)</h2>
-      <div class="hint">학생과 수업 날짜를 고르면 그 날짜 영상과 <b>지금 열림/잠김 상태</b>가 표시됩니다. 결석으로 잠긴 날은 여기서 바로 열거나 다시 잠글 수 있어요. (학생 인강 신청이 없어도 가능)</div>
+      <div class="cardHead">
+        <h2 style="margin:0;">반별 영상 열기·잠금</h2>
+        <button class="mini ghost" onclick="loadClass()">새로고침</button>
+      </div>
+      <div class="hint">학원·반·수업 날짜를 고르면 <b>그 반 학생이 전부</b> 나옵니다. <b>영상이 막힌 학생이 위</b>, 열린 학생이 아래에 뜨고, 오른쪽 버튼으로 바로 열거나 다시 잠글 수 있어요. (학생 인강 신청이 없어도 가능)</div>
       <div class="frm">
         <div class="fld"><label>학원</label><select id="acadSel" onchange="onAcadChange()"></select></div>
         <div class="fld"><label>반</label><select id="clsSel" onchange="onClsChange()"></select></div>
-        <div class="fld"><label>학생</label><select id="stSel" onchange="loadStudentVideos()"></select></div>
-        <div class="fld" style="flex:0 1 170px;"><label>수업 날짜</label><input type="date" id="dt" onchange="loadStudentVideos()"></div>
+        <div class="fld" style="flex:1 1 220px;"><label>수업 날짜</label>
+          <div class="dateRow">
+            <button class="mini ghost" type="button" onclick="shiftDate(-1)" title="하루 앞으로">◀</button>
+            <input type="date" id="dt" onchange="onDateChange()">
+            <button class="mini ghost" type="button" onclick="shiftDate(1)" title="하루 뒤로">▶</button>
+          </div>
+        </div>
       </div>
-      <div id="svBox" style="margin-top:14px;">
-        <div class="empty">학생과 날짜를 골라주세요.</div>
+      <div id="clsBox" style="margin-top:14px;">
+        <div class="empty">학원 · 반 · 날짜를 골라주세요.</div>
       </div>
       <div id="grantResult" class="result"></div>
     </div>
@@ -128,6 +151,11 @@
   var roster = [];
   var grants = [];
   var tab = 'requested';
+  var CUR = null;        // 마지막으로 불러온 반 응답(/api/makeup-class). 버튼 누른 뒤 재조회 없이 화면만 갱신하려고 들고 있는다.
+  var presetSid = null;  // ?sid= 로 넘어온 학생 — 목록에서 그 줄에 테두리를 준다.
+  // 인강 열기/잠그기(POST /api/makeup)는 미들웨어에서 원장 전용이다(STAFF_WRITE_ALLOW에 없음).
+  //   조교에게 버튼을 보여주면 눌러도 403만 난다 → 아예 감추고 이유를 적는다.
+  var IS_STAFF = false;
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -157,17 +185,42 @@
     if (!Array.isArray(d)){ $('loading').textContent = '학생 목록을 불러오지 못했습니다.'; return; }
     roster = d.filter(function(s){ var st = (s.approvalStatus || ''); return st === '' || st === '승인'; })
              .sort(function(a, b){ return (a.name || '').localeCompare(b.name || '', 'ko'); });
+    IS_STAFF = /^ast_/.test(token || '');
     buildAcademySelect();
     show('loading', false); show('main', true);
+    // 날짜 기본값 — 그냥 들어왔을 땐 오늘(반 화면은 날짜가 축이라 비워두면 아무것도 안 보인다).
+    //   ⚠️ 학생 목록에서 ?sid=로 넘어온 경우엔 비워 둔다 — 그 경로는 보통 '지난 결석일'을 열러 오는 것이라
+    //      오늘 날짜가 미리 채워져 있으면 엉뚱한 날(오늘)을 열어버릴 수 있다.
+    var hasPreset = false;
+    try { var q0 = new URLSearchParams(location.search); hasPreset = !!(q0.get('acad') || q0.get('cls') || q0.get('sid')); } catch (_) {}
+    if (!hasPreset) $('dt').value = todayStr();
     applyPreset();   // ?acad=&cls=&sid= 로 넘어왔으면 대상을 미리 골라 둔다
+    if (!hasPreset) loadClass();
     loadGrants();
   }
+
+  // ── 날짜 도우미 ──
+  var DOW = ['일','월','화','수','목','금','토'];
+  function pad2(n){ return ('0' + n).slice(-2); }
+  function ymd(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function todayStr(){ return ymd(new Date()); }
+  function dowOf(s){ var p = String(s || '').split('-'); if (p.length !== 3) return ''; return DOW[new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; }
+  function shiftDate(n){
+    var v = $('dt').value || todayStr();
+    var p = v.split('-'); if (p.length !== 3) return;
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    d.setDate(d.getDate() + n);
+    $('dt').value = ymd(d);
+    onDateChange();
+  }
+  function onDateChange(){ dropPresetBanner(); loadClass(); }
 
   // ── 대상 프리셋 (?acad=&cls=&sid=) ─────────────────────────────
   //   학생 목록의 인라인 버튼에서 넘어올 때 학원·반·학생을 미리 골라 둔다.
   //   식별은 반드시 student_id(sid) — 이름은 URL에 싣지 않는다.
   //     ① 동명이인 오조작 방지(이름은 유일하지 않음)  ② 주소창·히스토리에 실명 안 남김.
-  //   이 화면은 $('stSel') option value가 원래부터 s.id라 sid를 그대로 넣으면 된다.
+  //   반 단위 화면이라 학생 셀렉트는 없다 — 대신 그 학생의 학원·반을 골라 목록을 띄우고
+  //   해당 줄에 테두리(.hit)를 줘서 바로 찾게 한다(presetSid).
   //   sid가 roster에 없으면(퇴원·반이동) 조용히 넘어가지 않고 경고를 띄우고 멈춘다.
   //   날짜는 자동으로 채우지 않는다 — 인강 해제는 보통 '지난 결석일' 대상이라
   //   오늘 날짜를 미리 넣으면 엉뚱한 날을 열어버릴 수 있다.
@@ -177,7 +230,7 @@
     return false;
   }
   function presetBanner(html, warn){
-    var box = $('svBox'); if (!box) return;
+    var box = $('clsBox'); if (!box) return;
     var host = box.parentNode, anchor = host.querySelector('.frm');
     var el = document.getElementById('presetBanner');
     if (!el){ el = document.createElement('div'); el.id = 'presetBanner'; host.insertBefore(el, anchor || box); }
@@ -198,19 +251,17 @@
         return;
       }
       acad = acadOf(stu); cls = clsOf(stu);   // 대상은 학생 데이터가 정본 (URL의 acad/cls보다 우선)
+      presetSid = String(stu.id);
     }
     if (acad != null && presetHasOption($('acadSel'), acad)){ $('acadSel').value = acad; buildClassSelect(); }
-    if (cls  != null && presetHasOption($('clsSel'),  cls)){  $('clsSel').value  = cls;  buildStudentSelect(); }
+    if (cls  != null && presetHasOption($('clsSel'),  cls)){  $('clsSel').value  = cls; }
     if (!stu){
-      presetBanner('🔓 <b>' + esc(acad || '') + (cls ? ' · ' + esc(cls) : '') + '</b> — 학생과 수업 날짜를 골라주세요.');
-    } else if (presetHasOption($('stSel'), String(stu.id))){
-      $('stSel').value = String(stu.id);
-      presetBanner('🔓 <b>' + esc(stu.name || '') + '</b> 학생입니다. <span style="font-weight:500;">인강을 열/잠글 <b>수업 날짜</b>를 골라주세요.</span>');
-      loadStudentVideos();   // 날짜가 비어 있으면 안내문만 뜬다
+      presetBanner('🔓 <b>' + esc(acad || '') + (cls ? ' · ' + esc(cls) : '') + '</b> — <b>수업 날짜</b>를 골라주세요.');
     } else {
-      presetBanner('⚠️ ' + esc(stu.name || '') + ' 학생이 이 반 목록에 없습니다 — 직접 골라주세요.', true);
+      presetBanner('🔓 <b>' + esc(stu.name || '') + '</b> 학생입니다. <span style="font-weight:500;">인강을 열/잠글 <b>수업 날짜</b>를 고르면 아래 목록에서 이 학생 줄에 테두리가 표시됩니다.</span>');
     }
-    try { $('svBox').parentNode.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){}
+    loadClass();   // 날짜가 비어 있으면 안내문만 뜬다
+    try { $('clsBox').parentNode.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){}
   }
 
   // 학원 → 반 → 학생 캐스케이드 (roster에서 파생). 다른 관리 화면과 동일한 분류 방식.
@@ -237,127 +288,167 @@
     }
     $('clsSel').innerHTML = '<option value="">반 선택…</option>' +
       list.map(function(c){ return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
-    buildStudentSelect();
   }
 
-  function buildStudentSelect(){
-    var acad = $('acadSel').value, cls = $('clsSel').value;
-    var list = (acad && cls)
-      ? roster.filter(function(s){ return acadOf(s) === acad && clsOf(s) === cls; })
-      : [];
-    list.sort(function(a, b){ return (a.name || '').localeCompare(b.name || '', 'ko'); });
-    $('stSel').innerHTML = '<option value="">' + (acad && cls ? '학생 선택…' : '학원·반을 먼저 고르세요') + '</option>' +
-      list.map(function(s){ return '<option value="' + esc(String(s.id == null ? '' : s.id)) + '">' + esc(s.name || '') + '</option>'; }).join('');
-  }
-
-  // 상위 선택이 바뀌면 하위를 다시 만들고, 학생이 리셋되므로 영상 영역도 안내문으로 되돌린다.
-  //   직접 다시 고른 순간 프리셋 안내는 낡은 정보가 되므로 지운다.
-  function dropPresetBanner(){ var b = document.getElementById('presetBanner'); if (b) b.remove(); }
-  function onAcadChange(){ dropPresetBanner(); buildClassSelect(); loadStudentVideos(); }
-  function onClsChange(){ dropPresetBanner(); buildStudentSelect(); loadStudentVideos(); }
+  // 상위 선택이 바뀌면 하위를 다시 만들고 목록을 다시 부른다.
+  //   직접 다시 고른 순간 프리셋 안내·강조는 낡은 정보가 되므로 지운다.
+  function dropPresetBanner(){ var b = document.getElementById('presetBanner'); if (b) b.remove(); presetSid = null; }
+  function onAcadChange(){ dropPresetBanner(); buildClassSelect(); loadClass(); }
+  function onClsChange(){ dropPresetBanner(); loadClass(); }
 
   function grantResult(ok, msg){ var el = $('grantResult'); el.style.display = ''; el.className = 'result ' + (ok ? 'ok' : 'err'); el.textContent = msg; }
 
-  // ── 학생·날짜별 영상 잠금 상태 ──
-  function statusBadge(v){
-    if (v.open) return '<span class="badge" style="background:#E7F6EC;color:#1E7B41;">🔓 열림</span>';
-    var t = '🔒 잠김';
-    if (v.lockReason === 'absent') t = '🔒 잠김 · 미출석';
-    else if (v.lockReason === 'code') t = '🔒 잠김 · 수업코드';
-    else if (v.lockReason === 'absent+code') t = '🔒 잠김 · 미출석+수업코드';
-    return '<span class="badge" style="background:#FDECEC;color:#C0392B;">' + t + '</span>';
+  // ── 반·날짜별 학생 목록 ──
+  //   판정은 서버(makeup-class.js)가 정본: locked = ¬출석/지각 ∧ ¬승인 (정책B 2026-07-21).
+  //   ⚠️ 출석·지각한 학생은 승인을 지워도(revoke) 안 잠긴다 — present가 이기기 때문.
+  //      그래서 그 학생에겐 "다시 잠그기" 버튼을 만들지 않는다(눌러도 아무 일 없는 버튼이 되므로).
+  function statChip(s){
+    if (s.present) return '<span class="stat here">' + esc(s.status || '출석') + '</span>';
+    if (s.blocked) return '<span class="stat absent">' + esc(s.status || '결석') + '</span>';
+    return '<span class="stat none">출결기록 없음</span>';
   }
 
-  function renderStudentVideos(d){
-    var box = $('svBox');
-    var st = d.student || {};
-    var meta = [st.academy || '', st.className || ''].filter(Boolean).join('·');
-    var head = '<div style="font-weight:700;font-size:0.95rem;margin-bottom:2px;">' + esc(st.name || '') +
-      (meta ? ' <span style="color:var(--muted);font-weight:400;font-size:0.82rem;">(' + esc(meta) + ')</span>' : '') + '</div>';
-    head += '<div style="color:var(--muted);font-size:0.82rem;margin-bottom:12px;">수업 날짜 ' + esc(d.date) +
-      ' · 출결: ' + esc(d.status || '기록 없음') +
-      (d.present
-        ? ' <span style="color:#1E7B41;font-weight:700;">(출석 — 자동 열림)</span>'
-        : d.approved
-          ? ' <span style="color:#1E7B41;font-weight:700;">(인강 열림)</span>'
-          : ' <span style="color:#C0392B;font-weight:700;">(' + (d.blocked ? '결석 잠금' : '미출석 잠금') + ')</span>') + '</div>';
+  function rowHtml(s){
+    var sid = esc(String(s.id == null ? '' : s.id));
+    var sub = '';
+    if (s.locked){
+      if (s.grantStatus === 'requested') sub = '<div class="dt" style="color:#B26A00;font-weight:700;">🙋 학생이 인강을 신청했습니다</div>';
+    } else if (s.lockSource === 'attendance'){
+      sub = '<div class="dt">출석해서 자동으로 열려 있습니다</div>';
+    } else {
+      sub = '<div class="dt">인강 해제로 열림' + (s.approvedBy ? ' · ' + esc(s.approvedBy) : '') + '</div>';
+    }
+    var btns;
+    if (IS_STAFF){
+      btns = '';                                   // 조교는 열람만 (POST /api/makeup는 원장 전용)
+    } else if (s.locked){
+      btns = '<button class="mini" onclick="rowAct(\'grant\',\'' + sid + '\',this)">🔓 영상 해제</button>';
+    } else if (s.lockSource === 'attendance'){
+      // 출석해서 열린 학생 — 잠글 방법이 없다(출석을 고쳐야 잠긴다). 남아 있는 승인 기록만 지울 수 있게 둔다.
+      btns = '<span class="autoOpen">자동 열림</span>' + (s.approved
+        ? '<button class="mini ghost" title="이 학생은 출석해서 어차피 열립니다. 남아 있는 인강 승인 기록만 지웁니다." onclick="rowAct(\'revoke\',\'' + sid + '\',this)">승인기록 지우기</button>'
+        : '');
+    } else {
+      btns = '<button class="mini gray" onclick="rowAct(\'revoke\',\'' + sid + '\',this)">🔒 다시 잠그기</button>';
+    }
+    return '<div class="row" id="mkr' + sid + '"><div><div class="who">' + esc(s.name || ('학생#' + sid)) + '</div>' + sub + '</div>' +
+      '<div class="rt">' + statChip(s) + '<div class="sp" style="margin-left:0;">' + btns + '</div></div></div>';
+  }
 
-    // 학원 정보 없음 → 영상 매칭 불가
-    if (d.note){ box.innerHTML = head + '<div class="empty">' + esc(d.note) + '</div>'; return; }
+  function renderClass(d){
+    var box = $('clsBox');
+    var studs = d.students || [];
+    var c = d.counts || {};
+    var head = '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:6px;">' +
+      '<div style="font-weight:800;font-size:1.02rem;">' + esc(d.date) + '(' + dowOf(d.date) + ')</div>' +
+      '<div style="color:var(--muted);font-size:0.84rem;">' + esc(d.academy || '(미지정)') + ' · ' + esc(d.className || '(반 없음)') + '</div></div>';
+    head += '<div style="font-size:0.86rem;margin-bottom:10px;">' +
+      '<b style="color:#C0392B;">🔒 막힘 ' + (c.locked || 0) + '명</b> · ' +
+      '<b style="color:#1E7B41;">🔓 열림 ' + (c.open || 0) + '명</b>' +
+      (c.requested ? ' · <b style="color:#B26A00;">🙋 신청 ' + c.requested + '명</b>' : '') + '</div>';
 
     var vids = d.videos || [];
-    // 영상 없음 → 열고 말고 할 게 없음
     if (!vids.length){
-      box.innerHTML = head + '<div class="empty">📭 이 날짜에 등록된 영상이 없습니다 — 열어줄 게 없어요.</div>';
-      return;
-    }
-
-    var rows = '';
-    vids.forEach(function(v){
-      rows += '<div class="row"><div><div class="who">' + esc(v.title || v.code || '(제목 없음)') + '</div>' +
-        (v.requireCode ? '<div class="dt">수업코드 잠금 영상</div>' : '') +
-        '</div><div class="sp">' + statusBadge(v) + '</div></div>';
-    });
-
-    // 날짜 단위 액션 — 미출석(결석계열 + 기록없는 전입/신규생) 잠금을 여기서 열고/다시 잠근다 (정책B)
-    var action = '';
-    if (d.approved && !d.present){
-      action = '<button class="mini gray" onclick="toggleLock(\'revoke\')">🔒 이 날짜 다시 잠금</button>' +
-        '<div class="dt" style="margin-top:6px;">지금은 인강이 열려 있습니다. 다시 잠그면 ' + (d.blocked ? '결석' : '미출석') + ' 잠금으로 돌아갑니다.</div>';
-    } else if (d.dayLocked){
-      action = '<button class="mini" onclick="toggleLock(\'grant\')">🔓 이 날짜 영상 열기</button>' +
-        '<div class="dt" style="margin-top:6px;">' + (d.blocked ? '결석' : '미출석') + '으로 잠긴 날입니다. 출석 처리하거나 여기서 바로 열 수 있어요.</div>';
-      if (d.grantStatus === 'requested') action += '<div class="dt" style="margin-top:6px;color:#B26A00;">학생이 인강을 신청했습니다.</div>';
+      head += '<div class="vidline">📭 이 날짜에 등록된 <b>영상이 없습니다</b>. 그래도 열어두면 그날 <b>수업자료</b>가 열리고, 나중에 영상이 올라오면 바로 보입니다.</div>';
     } else {
-      action = '<div class="dt">이 날짜는 출석(또는 지각)한 날이라 이미 열려 있습니다.</div>';
+      head += '<div class="vidline">🎬 이 날 영상 ' + vids.length + '개 — ' + vids.map(function(v){
+        return esc(v.title || v.code || '(제목 없음)') + (v.requireCode ? ' <span style="color:#C0392B;">(수업코드 잠금)</span>' : '');
+      }).join(' · ') + '</div>';
+      if (d.codeOnlyCount) head += '<div class="dt" style="color:#C0392B;margin-bottom:8px;">※ 수업코드 잠금 영상은 여기서 열리지 않습니다 — 영상 등록 화면에서 관리하세요.</div>';
     }
+    if (d.videosTruncated) head += '<div class="dt" style="color:#C0392B;margin-bottom:8px;">⚠️ 등록된 영상이 너무 많아 일부만 확인했습니다 — 위 영상 목록이 실제와 다를 수 있습니다.</div>';
+    if (IS_STAFF) head += '<div class="dt" style="margin-bottom:8px;">👀 조교는 <b>보기만</b> 됩니다. 인강을 열고 잠그는 것은 원장만 할 수 있어요.</div>';
 
-    // 수업코드만으로 잠긴 영상은 여기서 못 연다는 안내
-    var codeOnly = false;
-    vids.forEach(function(v){ if (v.requireCode && !v.absenceLocked) codeOnly = true; });
-    var codeNote = codeOnly ? '<div class="dt" style="margin-top:6px;">※ 수업코드 잠금 영상은 여기서 열리지 않습니다 (영상 등록에서 관리).</div>' : '';
+    if (!studs.length){ box.innerHTML = head + '<div class="empty">이 반에 등록된 학생이 없습니다.</div>'; return; }
 
-    box.innerHTML = head + rows +
-      '<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">' + action + codeNote + '</div>';
+    var locked = studs.filter(function(s){ return s.locked; });
+    var open   = studs.filter(function(s){ return !s.locked; });
+    box.innerHTML = head +
+      '<div class="grp lock">🔒 영상 막힘 · ' + locked.length + '명</div>' +
+      (locked.length ? locked.map(rowHtml).join('') : '<div class="empty" style="padding:10px;">막힌 학생이 없습니다.</div>') +
+      '<div class="grp open">🔓 영상 열림 · ' + open.length + '명</div>' +
+      (open.length ? open.map(rowHtml).join('') : '<div class="empty" style="padding:10px;">열린 학생이 없습니다.</div>');
+
+    if (presetSid){
+      var el = document.getElementById('mkr' + presetSid);
+      if (el){ el.className = 'row hit'; try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(_){} }
+    }
   }
 
-  async function loadStudentVideos(){
-    var sid = $('stSel').value;
-    var date = $('dt').value;
-    var box = $('svBox');
-    if (!sid || !date){ box.innerHTML = '<div class="empty">학생과 날짜를 골라주세요.</div>'; return; }
+  // 버튼 한 번에 서버를 다시 부르면 R2(영상 목록)를 매번 통째로 훑는다. 연달아 여러 명 처리할 때 느려지므로
+  //   같은 판정식으로 화면만 즉시 갱신하고, 정확한 상태는 '새로고침'으로 다시 받는다.
+  function recountAndSort(){
+    if (!CUR) return;
+    var studs = CUR.students || [];
+    studs.sort(function(a, b){
+      if (a.locked !== b.locked) return a.locked ? -1 : 1;
+      return (a.name || '').localeCompare(b.name || '', 'ko');
+    });
+    CUR.counts = {
+      total: studs.length,
+      locked: studs.filter(function(s){ return s.locked; }).length,
+      open: studs.filter(function(s){ return !s.locked; }).length,
+      requested: studs.filter(function(s){ return s.grantStatus === 'requested'; }).length,
+    };
+  }
+
+  async function loadClass(){
+    var acad = $('acadSel').value, cls = $('clsSel').value, date = $('dt').value;
+    var box = $('clsBox');
+    if (!acad || !cls || !date){
+      CUR = null;
+      box.innerHTML = '<div class="empty">' + (!date ? '수업 날짜를 골라주세요.' : '학원 · 반 · 날짜를 골라주세요.') + '</div>';
+      return;
+    }
     box.innerHTML = '<div class="empty">불러오는 중…</div>';
+    // '(미지정)'·'(반 없음)'은 화면에서만 쓰는 이름표 — 서버엔 빈 문자열로 보낸다.
+    var q = 'academy=' + encodeURIComponent(acad === ACAD_NONE ? '' : acad) +
+            '&className=' + encodeURIComponent(cls === CLS_NONE ? '' : cls) +
+            '&date=' + encodeURIComponent(date);
     var r, d;
     try {
-      r = await fetch('/api/makeup-videos?studentId=' + encodeURIComponent(sid) + '&date=' + encodeURIComponent(date),
-        { headers: authHeaders(), credentials: 'same-origin' });
+      r = await fetch('/api/makeup-class?' + q, { headers: authHeaders(), credentials: 'same-origin' });
       d = await r.json().catch(function(){ return null; });
     } catch (e) { box.innerHTML = '<div class="empty">네트워크 오류로 불러오지 못했습니다.</div>'; return; }
     if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
-    if (!d || !d.ok){ box.innerHTML = '<div class="empty">' + esc((d && d.error) || '불러오지 못했습니다.') + '</div>'; return; }
-    renderStudentVideos(d);
+    if (!d || !d.ok){ CUR = null; box.innerHTML = '<div class="empty">' + esc((d && d.error) || '불러오지 못했습니다.') + '</div>'; return; }
+    CUR = d;
+    renderClass(d);
   }
 
-  async function toggleLock(action){
-    var sid = $('stSel').value;
-    var date = $('dt').value;
-    if (!sid || !date) return;
-    var nm = (roster.find(function(s){ return String(s.id) === String(sid); }) || {}).name || '';
-    var opening = (action === 'grant');
-    var msg = opening
-      ? (nm + ' 학생의 ' + date + ' 영상을 엽니다.\n\n진행할까요?')
-      : (nm + ' 학생의 ' + date + ' 영상을 다시 잠급니다.\n\n진행할까요?');
-    if (!confirm(msg)) return;
+  // 한 줄(학생 한 명) 열기/잠그기. 되돌릴 수 있는 동작이라 확인창은 두지 않는다 —
+  //   여러 명을 연달아 처리하는 화면이고, 잘못 눌러도 반대 버튼을 바로 누르면 원상복구된다.
+  //   (누가 언제 열고 잠갔는지는 서버가 감사로그 makeup.approve / makeup.revoke 로 남긴다.)
+  async function rowAct(action, sid, btn){
+    if (!CUR) return;
+    var date = CUR.date;
+    var s = (CUR.students || []).filter(function(x){ return String(x.id) === String(sid); })[0];
+    var nm = s ? (s.name || '') : '';
+    if (btn){ btn.disabled = true; btn.textContent = '처리 중…'; }
     var r, d;
     try {
       r = await fetch('/api/makeup', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), credentials: 'same-origin',
         body: JSON.stringify({ action: action, studentId: sid, date: date }) });
       d = await r.json().catch(function(){ return null; });
-    } catch (e) { grantResult(false, '네트워크 오류로 처리하지 못했습니다.'); return; }
+    } catch (e) { grantResult(false, '네트워크 오류로 처리하지 못했습니다.'); loadClass(); return; }
     if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
-    if (!d || !d.ok){ grantResult(false, (d && d.error) || '처리에 실패했습니다.'); return; }
-    grantResult(true, nm + ' · ' + date + (opening ? ' 영상을 열었습니다.' : ' 영상을 다시 잠갔습니다.'));
-    loadStudentVideos();
+    if (!d || !d.ok){ grantResult(false, (d && d.error) || '처리에 실패했습니다.'); loadClass(); return; }
+
+    if (s){
+      // 서버(makeup-class.js)와 같은 판정식으로 화면만 즉시 갱신 — locked = ¬present ∧ ¬approved.
+      s.approved    = (action !== 'revoke');
+      s.grantStatus = s.approved ? 'approved' : null;
+      s.locked      = !s.present && !s.approved;
+      s.lockSource  = s.present ? 'attendance' : (s.approved ? 'grant' : null);
+      s.approvedBy  = '';
+      recountAndSort();
+      renderClass(CUR);
+    } else {
+      loadClass();
+    }
+    grantResult(true, nm + ' · ' + date + (action === 'revoke'
+      ? (s && s.present ? ' 인강 승인 기록을 지웠습니다. (출석한 날이라 영상은 그대로 열려 있습니다)' : ' 영상을 다시 잠갔습니다.')
+      : ' 영상을 열었습니다.'));
     loadGrants();
   }
 
@@ -386,7 +477,8 @@
       var date = esc(g.date || '');
       var nm = esc(g.name || ('학생#' + sid));
       var badge = isReq ? '<span class="badge req">신청 대기</span>' : '<span class="badge appr">해제됨</span>';
-      var btns = isReq
+      var btns = IS_STAFF ? ''                     // 조교는 열람만 (POST /api/makeup는 원장 전용)
+        : isReq
         ? '<button class="mini" onclick="act(\'approve\',\'' + sid + '\',\'' + date + '\',this)">승인(열기)</button>'
           + '<button class="mini gray" onclick="act(\'revoke\',\'' + sid + '\',\'' + date + '\',this)">신청 취소</button>'
         : '<button class="mini gray" onclick="act(\'revoke\',\'' + sid + '\',\'' + date + '\',this)">다시 잠금</button>';
@@ -407,6 +499,7 @@
     if (r.status === 401){ sessionStorage.removeItem('kwmath_admin_pw'); token = null; showLogin('다시 로그인해주세요'); return; }
     if (!d || !d.ok){ if (btn) btn.disabled = false; alert((d && d.error) || '처리에 실패했습니다.'); return; }
     loadGrants();
+    if (CUR && CUR.date === date) loadClass();   // 아래 반 목록이 같은 날짜면 함께 갱신 (두 카드가 어긋나 보이지 않게)
   }
 
   load();

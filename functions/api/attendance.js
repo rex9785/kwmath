@@ -19,6 +19,7 @@ import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 import { createNotification } from './_notifications.js';
 import { sendPushToUsers } from './_push.js';
+import { logAudit, diffFields } from './_auditlog.js';
 
 const VALID_STATUS = ['출석', '지각', '결석', '병결', '공결'];
 
@@ -198,6 +199,26 @@ export async function onRequest(context) {
         return Response.json({ error: '담당 학원 학생만 출결을 입력할 수 있어요.' }, { status: 403 });
       const r = await upsertAttendance(env, st.id, date, updates);
       if (!r.ok) return safeError(r.error || 'upsertAttendance failed', env, { message: '출결 저장에 실패했습니다.' });
+
+      // 📓 2026-07-31 — 출결은 조교 여럿이 같은 학생을 만지는 대표적인 칸이다.
+      //   "결석이었는데 왜 출석으로 바뀌었지"에 답하려면 누가·언제·무엇을 무엇으로 바꿨는지가 필요하다.
+      //   actor_name 은 미들웨어가 실은 조교 실명으로 자동으로 채워진다.
+      const d = diffFields(r.before, r.record, ['status', 'homework', 'homework_note', 'note', 'method']);
+      await logAudit(env, request, {
+        action: r.created ? 'attendance.create' : 'attendance.update',
+        target: String(st.id), targetName: st.name || '',
+        summary: '출결 ' + (r.created ? '입력' : '수정') + ' [' + (st.name || st.id) + ' · ' + date + '] — '
+          + (d.요약 || '값 동일'),
+        detail: {
+          학생id: String(st.id), 이름: st.name || '', 학원: st.academy || '', 날짜: date,
+          새로생성: !!r.created,
+          바뀐칸: d.바뀐칸, 변경: d.변경,
+          이전값: r.before || '(기록 없음)',
+          보낸값: updates,
+          학부모알림: body.notifyParent === false ? '끔(원장이 "아니오" 선택)' : '자동 판정(결석·숙제 25%↓면 발송)',
+          지목방식: body.id !== undefined ? 'id(동명이인 안전)' : 'name 폴백',
+        },
+      });
       // 자동 알림(결석·숙제25%↓) — best-effort, 출결 저장 흐름과 분리(waitUntil).
       //   notifyParent=false(원장이 결석 확인창에서 "아니오")면 결석 학부모 알림 생략 — 기록 저장은 그대로.
       const _np = notifyOnAttendance(env, st, date, updates, { notifyParent: body.notifyParent !== false });
@@ -226,6 +247,20 @@ export async function onRequest(context) {
       if (scope && !scope.ids.has(String(st.id)))
         return Response.json({ error: '담당 학원 학생만 출결을 수정할 수 있어요.' }, { status: 403 });
       const r = await deleteAttendance(env, st.id, date);
+
+      // 🔴 출결 삭제는 "그날 결석이 없던 일"이 되는 일이다. 무엇을 지웠는지 반드시 남긴다.
+      await logAudit(env, request, {
+        action: 'attendance.delete',
+        target: String(st.id), targetName: st.name || '',
+        summary: '출결 삭제 [' + (st.name || st.id) + ' · ' + date + ']'
+          + (r.before ? ' — ' + (r.before.status || '기록') + ' 이 없던 일이 됨' : ' — 원래 기록 없음') + ' (복구 불가)',
+        detail: {
+          학생id: String(st.id), 이름: st.name || '', 학원: st.academy || '', 날짜: date,
+          지워진기록: r.before || '(기록 없음)',
+          삭제건수: r.removed || 0,
+          비고: '이미 나간 결석 알림·푸시는 되돌아가지 않음',
+        },
+      });
       return Response.json({ ok: true, removed: r.removed || 0 });
     } catch (e) {
       return safeError(e, env, { message: '출결 삭제에 실패했습니다.' });

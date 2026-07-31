@@ -1,4 +1,5 @@
 import { listStudents } from './_db.js';
+import { logAudit } from './_auditlog.js';
 // /api/class-options
 //   GET  — 공개 (누구나 호출). R2의 학원/반 옵션 + 실제 학생 데이터에서 사용 중인 옵션 합집합 반환
 //   POST — admin only. body: { action: 'add-class'|'delete-class'|'add-academy'|'delete-academy'|'set-schedule', academy, className?, schedule? }
@@ -212,12 +213,28 @@ export async function onRequest({ request, env }) {
 
     const saved = await loadOptions(env);
     saved.classes = saved.classes || {};
+    // 🔎 2026-07-31 — 아래 분기들은 saved 를 **그 자리에서** 뜯어고친다(in-place).
+    //   손대기 전에 통째로 복사해 두지 않으면 로그의 "전" 값이 "후"와 같아져 아무 의미가 없다.
+    //   (staff-approve.js 에서 똑같은 함정을 겪었다.)
+    const 전체전 = JSON.parse(JSON.stringify(saved));
+    const 반목록 = (o, a) => ((o.classes && o.classes[a]) || []).slice();
 
     if (action === 'add-academy') {
       if (!academy) return Response.json({ error: 'academy 필요' }, { status: 400 });
+      const 이미있음 = saved.academies.includes(academy);
       if (!saved.academies.includes(academy)) saved.academies.push(academy);
       if (!saved.classes[academy]) saved.classes[academy] = [];
       await saveOptions(env, saved);
+      await logAudit(env, request, {
+        action: 'class.academy.add', target: academy, targetName: academy,
+        summary: '학원 추가 [' + academy + ']' + (이미있음 ? ' — 이미 있던 학원(변화 없음)' : '')
+          + ' · 학원 ' + 전체전.academies.length + '개 → ' + saved.academies.length + '개',
+        detail: {
+          학원: academy, 이미있던학원: 이미있음,
+          학원목록: { 전: 전체전.academies, 후: saved.academies },
+          비고: '학원만 만들었을 뿐 반은 없음 — 반을 추가해야 반코드가 발급되고 학생이 가입할 수 있다',
+        },
+      });
       return Response.json({ ok: true, action, academy });
     }
 
@@ -227,11 +244,33 @@ export async function onRequest({ request, env }) {
       if (used.academies.has(academy)) {
         return Response.json({ error: `학원 [${academy}]에 학생이 있어서 삭제할 수 없습니다.` }, { status: 409 });
       }
+      // ⚠️ 학원 하나를 지우면 그 밑의 반·반코드·수업시간표가 **통째로** 딸려 사라진다.
+      //   지워질 것들을 먼저 붙잡아 둔다 — 잘못 지웠을 때 이 로그만 보고 되살릴 수 있어야 한다.
+      const 지워질반 = 반목록(전체전, academy);
+      const 지워질코드 = {};
+      for (const k of Object.keys(전체전.codes || {})) if (k.startsWith(academy + '/')) 지워질코드[k] = 전체전.codes[k];
+      const 지워질시간표 = {};
+      for (const k of Object.keys(전체전.schedules || {})) if (k.startsWith(academy + '/')) 지워질시간표[k] = 전체전.schedules[k];
+
       saved.academies = saved.academies.filter(a => a !== academy);
       delete saved.classes[academy];
       if (saved.codes) for (const k of Object.keys(saved.codes)) { if (k.startsWith(academy + '/')) delete saved.codes[k]; }
       if (saved.schedules) for (const k of Object.keys(saved.schedules)) { if (k.startsWith(academy + '/')) delete saved.schedules[k]; }
       await saveOptions(env, saved);
+      await logAudit(env, request, {
+        action: 'class.academy.delete', target: academy, targetName: academy,
+        summary: '학원 삭제 [' + academy + '] — 반 ' + 지워질반.length + '개 · 반코드 '
+          + Object.keys(지워질코드).length + '개 · 수업시간표 ' + Object.keys(지워질시간표).length + '개 함께 삭제 (복구 불가)',
+        detail: {
+          학원: academy,
+          지워진반: 지워질반,
+          지워진반코드: 지워질코드,
+          지워진수업시간표: 지워질시간표,
+          학원목록: { 전: 전체전.academies, 후: saved.academies },
+          안전장치: '학생이 한 명이라도 있으면 409로 막힘 — 여기까지 왔다는 건 소속 학생 0명',
+          영향: '지워진 반코드로는 더 이상 학생 가입이 안 된다 · 수업시간표 기반 리마인드(출결·리포트 미입력)도 멈춘다',
+        },
+      });
       return Response.json({ ok: true, action, academy });
     }
 
@@ -243,8 +282,23 @@ export async function onRequest({ request, env }) {
       // 🔑 반 생성 시 코드 자동 발급
       saved.codes = saved.codes || {};
       const ckey = academy + '/' + className;
+      const 코드전 = (전체전.codes || {})[ckey] || null;
       if (!saved.codes[ckey]) saved.codes[ckey] = genCode(new Set(Object.values(saved.codes)));
       await saveOptions(env, saved);
+      await logAudit(env, request, {
+        action: 'class.add', target: ckey, targetName: className,
+        summary: '반 추가 [' + academy + ' · ' + className + '] · 반코드 '
+          + (코드전 ? 코드전 + '(기존 유지)' : saved.codes[ckey] + '(새로 발급)')
+          + (전체전.academies.includes(academy) ? '' : ' · 학원 [' + academy + ']도 새로 만들어짐'),
+        detail: {
+          학원: academy, 반: className,
+          이미있던반: 반목록(전체전, academy).includes(className),
+          반코드: { 전: 코드전 || '(없음)', 후: saved.codes[ckey], 새로발급: !코드전 },
+          반목록: { 전: 반목록(전체전, academy), 후: 반목록(saved, academy) },
+          학원도새로생김: !전체전.academies.includes(academy),
+          비고: '이 반코드를 학생에게 알려줘야 가입 시 자동 배정된다(코드 없으면 가입 불가)',
+        },
+      });
       return Response.json({ ok: true, action, academy, className, code: saved.codes[ckey] });
     }
 
@@ -256,10 +310,25 @@ export async function onRequest({ request, env }) {
       if (count > 0) {
         return Response.json({ error: `[${academy} · ${className}]에 학생 ${count}명이 있어서 삭제할 수 없습니다. (먼저 이동하거나 퇴원 처리)` }, { status: 409 });
       }
+      const 코드전 = (전체전.codes || {})[key] || null;
+      const 시간표전 = (전체전.schedules || {})[key] || null;
       saved.classes[academy] = (saved.classes[academy] || []).filter(c => c !== className);
       if (saved.codes) delete saved.codes[academy + '/' + className];
       if (saved.schedules) delete saved.schedules[academy + '/' + className];
       await saveOptions(env, saved);
+      await logAudit(env, request, {
+        action: 'class.delete', target: key, targetName: className,
+        summary: '반 삭제 [' + academy + ' · ' + className + '] — 반코드 ' + (코드전 || '(없었음)') + ' 폐기'
+          + (시간표전 ? ' · 수업시간표도 삭제' : '') + ' (복구 불가)',
+        detail: {
+          학원: academy, 반: className,
+          지워진반코드: 코드전 || '(없었음)',
+          지워진수업시간표: 시간표전 || '(설정 안 돼 있었음)',
+          반목록: { 전: 반목록(전체전, academy), 후: 반목록(saved, academy) },
+          안전장치: '학생이 있으면 409로 막힘 — 여기까지 왔다는 건 소속 학생 0명',
+          영향: '이 반코드로는 더 이상 가입 불가 · 시간표 기반 리마인드도 멈춤. 같은 이름으로 다시 만들면 코드는 새 번호로 발급된다',
+        },
+      });
       return Response.json({ ok: true, action, academy, className });
     }
 
@@ -270,15 +339,45 @@ export async function onRequest({ request, env }) {
       if (!exists) return Response.json({ error: `[${academy} · ${className}] 반이 없습니다. 먼저 반을 추가하세요.` }, { status: 404 });
       saved.schedules = saved.schedules || {};
       const skey = academy + '/' + className;
+      const 시간표전 = (전체전.schedules || {})[skey] || null;
+      // 사람이 읽는 요약: "월수금 09:30~13:30 (+클리닉 월수금 14:00~16:00)"
+      const 요일이름 = ['일', '월', '화', '수', '목', '금', '토'];
+      const 읽기 = (b) => b ? ((b.days || []).map(d => 요일이름[d] || d).join('') + ' ' + b.start + '~' + b.end
+        + (b.clinic ? ' (+클리닉 ' + (b.clinic.days || []).map(d => 요일이름[d] || d).join('') + ' ' + b.clinic.start + '~' + b.clinic.end + ')' : ''))
+        : '(없음)';
+
       if (body.schedule == null) {
         delete saved.schedules[skey];
         await saveOptions(env, saved);
+        await logAudit(env, request, {
+          action: 'class.schedule.clear', target: skey, targetName: className,
+          summary: '수업시간표 해제 [' + academy + ' · ' + className + '] — 전: ' + 읽기(시간표전),
+          detail: {
+            학원: academy, 반: className,
+            지워진시간표: 시간표전 || '(원래 없었음)',
+            지워진시간표읽기: 읽기(시간표전),
+            영향: '이 반은 이제 수업시간 기준 자동 점검(출결·리포트 미입력 리마인드) 대상에서 빠진다',
+          },
+        });
         return Response.json({ ok: true, action, academy, className, schedule: null });
       }
       const sch = validSchedule(body.schedule);
       if (!sch) return Response.json({ error: '스케줄 형식 오류 — days(요일 1개 이상, 0=일~6=토), start/end(HH:MM, 시작<종료) 필요. clinic(선택)도 같은 형식.' }, { status: 400 });
       saved.schedules[skey] = sch;
       await saveOptions(env, saved);
+      await logAudit(env, request, {
+        action: 시간표전 ? 'class.schedule.update' : 'class.schedule.set',
+        target: skey, targetName: className,
+        summary: '수업시간표 ' + (시간표전 ? '변경' : '설정') + ' [' + academy + ' · ' + className + '] — '
+          + (시간표전 ? 읽기(시간표전) + ' → ' : '') + 읽기(sch),
+        detail: {
+          학원: academy, 반: className,
+          전: 시간표전 || '(설정 안 돼 있었음)', 후: sch,
+          전읽기: 읽기(시간표전), 후읽기: 읽기(sch),
+          클리닉블록: sch.clinic ? '있음' : (시간표전 && 시간표전.clinic ? '⚠️ 원래 있었는데 이번에 없어짐' : '없음'),
+          영향: '수업시간 기준 자동 점검(출결·리포트 미입력 리마인드)의 판단 기준이 바뀐다',
+        },
+      });
       return Response.json({ ok: true, action, academy, className, schedule: sch });
     }
 

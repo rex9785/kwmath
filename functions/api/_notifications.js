@@ -177,11 +177,22 @@ export async function listRecentNotificationsAdmin(env, limit) {
 export async function deleteNotifications(env, ids) {
   await ensureNotifications(env);
   const list = (Array.isArray(ids) ? ids : [ids]).map(v => String(v == null ? '' : v).trim()).filter(Boolean);
-  if (!list.length) return { ok: true, deleted: 0 };
+  if (!list.length) return { ok: true, deleted: 0, before: [] };
   try {
+    // 🔎 2026-07-31 — 지우기 전에 원본 행을 읽어 **돌려준다**.
+    //    이 함수는 request 를 안 받으므로 여기서 로그를 남기면 '누가' 했는지가 통째로 빈다.
+    //    → before 만 넘기고, 로그는 request 를 들고 있는 호출부(notifications.js)가 남긴다.
+    //    회수는 되돌릴 수 없다 — 이 before 가 "무엇을 회수했나"의 유일한 근거다.
+    let before = [];
+    try {
+      const { results } = await env.DB.prepare(
+        'SELECT * FROM notifications WHERE id IN (' + list.map(() => '?').join(',') + ')'
+      ).bind(...list).all();
+      before = results || [];
+    } catch (_) {}
     const res = await env.DB.prepare(
       'DELETE FROM notifications WHERE id IN (' + list.map(() => '?').join(',') + ')'
     ).bind(...list).run();
-    return { ok: true, deleted: (res.meta && res.meta.changes) || 0 };
+    return { ok: true, deleted: (res.meta && res.meta.changes) || 0, before };
   } catch (e) { return { ok: false, error: e.message }; }
 }

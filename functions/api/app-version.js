@@ -13,6 +13,7 @@
 //   원장이 admin에서 조정 가능(단, 심사 중 버전을 초과하면 심사위원이 막혀 반려되니 주의).
 
 import { getAppConfig, setAppConfig } from './_db.js';
+import { logAudit } from './_auditlog.js';
 
 const DEFAULT_MIN = { ios: '1.0.2', android: '2.0.1' };
 const STORE_URL = {
@@ -66,12 +67,41 @@ export async function onRequest({ request, env }) {
     }
     if (!updates.length) return Response.json({ error: '변경할 버전(ios/android)을 보내주세요.' }, { status: 400 });
 
+    // 🔴 2026-07-31 — 이 값은 **모든 앱 사용자를 막을 수 있는 스위치**다. 잘못 올리면
+    //   전 학생·학부모가 업데이트 화면에 갇히고, 심사 중이면 애플 심사위원까지 막혀 반려된다.
+    //   그런데 여태 누가 언제 몇 → 몇으로 바꿨는지 기록이 하나도 없었다. 전/후를 남긴다.
+    const 전값 = {};
+    for (const [plat] of updates) 전값[plat] = await readMin(env, plat);
+
     for (const [plat, ver] of updates) {
       const r = await setAppConfig(env, KEY[plat], ver);
       if (!r.ok) return Response.json({ error: 'DB 저장 실패: ' + r.error }, { status: 500 });
     }
 
     const [ios, android] = await Promise.all([readMin(env, 'ios'), readMin(env, 'android')]);
+
+    const 변경 = {};
+    const 조각 = [];
+    for (const [plat, ver] of updates) {
+      const 이름 = plat === 'ios' ? 'iOS' : '안드로이드';
+      변경[이름] = { 전: 전값[plat], 후: ver, 바뀜: 전값[plat] !== ver };
+      조각.push(이름 + ' ' + 전값[plat] + ' → ' + ver + (전값[plat] === ver ? '(동일)' : ''));
+    }
+    await logAudit(env, request, {
+      action: 'app.minversion.update',
+      target: updates.map(u => u[0]).join(','),
+      targetName: '강제업데이트 최소버전',
+      summary: '앱 강제업데이트 최소버전 변경 — ' + 조각.join(' · '),
+      detail: {
+        변경,
+        현재값: { iOS: ios, 안드로이드: android },
+        기본값: { iOS: DEFAULT_MIN.ios, 안드로이드: DEFAULT_MIN.android },
+        보낸값: { ios: body.ios === undefined ? '(안 보냄)' : body.ios,
+                 android: body.android === undefined ? '(안 보냄)' : body.android },
+        효과: '설치 버전이 이 값보다 낮은 앱은 부팅 시 업데이트 화면에 막힌다(portal.html 게이트)',
+        경고: '심사 중인 빌드 버전보다 높게 잡으면 애플/구글 심사위원도 막혀 반려된다',
+      },
+    });
     return Response.json({ ok: true, ios: { min: ios, url: STORE_URL.ios }, android: { min: android, url: STORE_URL.android } });
   }
 

@@ -16,6 +16,7 @@
 //     조교(ast_)는 _middleware.js STAFF_GET_BLOCK에서 이 경로 GET을 차단(리드=원장 전용).
 // ───────────────────────────────────────────────────────────
 import { sendPushToUsers } from './_push.js';
+import { logAudit, diffFields } from './_auditlog.js';
 
 // 새 문의 알림을 받을 관리자 푸시 userId (qna.js와 동일 규약)
 const ADMIN_PUSH_USERS = ['__admin__'];
@@ -129,6 +130,25 @@ export async function onRequest(context) {
 
       notifyAdmin(context, env, { name, phone: phoneRaw, grade });
 
+      // 📓 2026-07-31 — 리드 접수도 로그로 남긴다.
+      //   ① 나중에 이 문의가 삭제돼도 "그날 문의가 실제로 들어왔다"는 독립 증거가 남는다.
+      //   ② 홈페이지 문의폼이 살아있는지(리드 0이 유입 문제인지 폼 고장인지) 판별하는 근거가 된다.
+      //   행위자는 로그인 사용자가 아니라 홈페이지 방문자 → actor 를 직접 명시한다.
+      await logAudit(env, request, {
+        action: 'inquiry.create',
+        actor: '방문자', actorRole: 'public', actorName: name,
+        target: String((res.meta && res.meta.last_row_id) || ''),
+        targetName: name,
+        summary: '홈페이지 수업 문의 접수 — ' + name + ' · ' + phoneRaw + (grade ? ' · ' + grade : ''),
+        detail: {
+          문의id: (res.meta && res.meta.last_row_id) || null,
+          이름: name, 연락처: phoneRaw, 학년: grade || '',
+          내용: message || '(없음)',
+          유입출처: src || '(없음)', 광고파라미터: utm || '(없음)',
+          접수시각: now,
+        },
+      });
+
       return jsonOk({
         ok: true,
         id: res.meta && res.meta.last_row_id,
@@ -154,19 +174,44 @@ export async function onRequest(context) {
       const id = url.searchParams.get('id');
       if (!id) return jsonErr('id가 필요합니다.');
       const body = await request.json().catch(() => ({}));
-      const ex = await env.DB.prepare('SELECT id FROM inquiries WHERE id=?').bind(id).first();
+      // 🔎 예전엔 id 한 칸만 읽어 존재 확인만 했다 → 메모를 통째로 갈아엎어도 옛 메모가 어디에도 안 남았다.
+      //    같은 쿼리 한 번에 전체 행을 읽어 "전" 값을 확보한다(추가 비용 0).
+      const ex = await env.DB.prepare('SELECT * FROM inquiries WHERE id=?').bind(id).first();
       if (!ex) return jsonErr('문의를 찾을 수 없습니다.', 404);
 
       const sets = [], vals = [];
+      const after = { status: ex.status || 'new', memo: ex.memo || '', handled_at: ex.handled_at || null };
       if (body.status !== undefined) {
         const st = (body.status === 'done') ? 'done' : 'new';
         sets.push('status=?'); vals.push(st);
-        sets.push('handled_at=?'); vals.push(st === 'done' ? nowIso() : null);
+        const h = st === 'done' ? nowIso() : null;
+        sets.push('handled_at=?'); vals.push(h);
+        after.status = st; after.handled_at = h;
       }
-      if (body.memo !== undefined) { sets.push('memo=?'); vals.push(clean(body.memo, 500)); }
+      if (body.memo !== undefined) {
+        const m = clean(body.memo, 500);
+        sets.push('memo=?'); vals.push(m);
+        after.memo = m;
+      }
       if (!sets.length) return jsonOk({ ok: true });
       vals.push(id);
       await env.DB.prepare('UPDATE inquiries SET ' + sets.join(', ') + ' WHERE id=?').bind(...vals).run();
+
+      // 📓 메모는 상담 내용이 쌓이는 칸이다. 덮어쓰면 옛 내용이 사라지므로 전/후를 통째로 남긴다.
+      const d = diffFields(
+        { status: ex.status || 'new', memo: ex.memo || '', handled_at: ex.handled_at || null },
+        after, ['status', 'memo', 'handled_at']
+      );
+      await logAudit(env, request, {
+        action: 'inquiry.update',
+        target: String(id), targetName: ex.name || '',
+        summary: '문의 [' + (ex.name || ('#' + id)) + '] 수정 — ' + (d.요약 || '변경 없음'),
+        detail: {
+          문의id: Number(id), 이름: ex.name || '', 연락처: ex.phone || '',
+          바뀐칸: d.바뀐칸, 변경: d.변경,
+          메모길이: { 전: (ex.memo || '').length, 후: after.memo.length },
+        },
+      });
       return jsonOk({ ok: true, id });
     }
 
@@ -175,8 +220,28 @@ export async function onRequest(context) {
       if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
       const id = url.searchParams.get('id');
       if (!id) return jsonErr('id가 필요합니다.');
-      await env.DB.prepare('DELETE FROM inquiries WHERE id=?').bind(id).run();
-      return jsonOk({ ok: true, removed: 1 });
+      // 🔴 2026-07-31 — 예전엔 아무것도 안 읽고 바로 지웠다. 리드(잠재 고객 연락처)가
+      //    이름·전화번호·상담내용째로 흔적 없이 증발했고, 잘못 지웠는지조차 알 수 없었다.
+      //    지우기 전에 행 전체를 읽어 로그에 통째로 박는다 → 로그가 유일한 복원 근거.
+      let row = null;
+      try { row = await env.DB.prepare('SELECT * FROM inquiries WHERE id=?').bind(id).first(); } catch (_) {}
+      const del = await env.DB.prepare('DELETE FROM inquiries WHERE id=?').bind(id).run();
+      const removed = (del.meta && del.meta.changes) || 0;
+
+      await logAudit(env, request, {
+        action: 'inquiry.delete',
+        target: String(id), targetName: (row && row.name) || '',
+        summary: '수업 문의 [' + ((row && row.name) || ('#' + id)) + (row && row.phone ? ' · ' + row.phone : '')
+          + '] 영구 삭제 (복구 불가)',
+        detail: {
+          문의id: Number(id),
+          지워진문의: row || '(행을 못 읽음 — 이미 없었을 수 있음)',
+          삭제건수: removed,
+          처리상태였음: (row && row.status) || '',
+          비고: removed === 0 ? '지울 행이 없었음' : '이 로그의 지워진문의가 유일한 복원 근거',
+        },
+      });
+      return jsonOk({ ok: true, removed });
     }
 
     return jsonErr('지원하지 않는 메소드입니다.', 405);

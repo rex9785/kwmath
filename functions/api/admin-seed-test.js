@@ -12,6 +12,7 @@
 //   fetch('/api/admin-seed-test',{method:'POST',credentials:'same-origin'}).then(r=>r.json()).then(console.log)
 // ───────────────────────────────────────────────────────────
 import { createStudent, setApprovalStatus, createReport, upsertAttendance, addStudySession } from './_db.js';
+import { logAudit } from './_auditlog.js';
 
 const TEST_PHONE = '010-0000-0000';
 const TEST_NAME  = '체험학생';
@@ -37,9 +38,25 @@ const MAY_ATTEND = [
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용' }, { status: 405 });
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
-  if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) return Response.json({ error: '인증 실패' }, { status: 401 });
+  if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) {
+    await logAudit(env, request, {
+      action: 'admin.seed.test.denied',
+      target: TEST_PHONE,
+      summary: '설명회 체험 데이터 채우기 인증 실패 — 거부(401)',
+      detail: {
+        결과: '거부(401). 아무 데이터도 바뀌지 않았다.',
+        사유: env.ADMIN_PASSWORD ? '관리자 비밀번호 불일치' : '서버에 ADMIN_PASSWORD 미설정',
+        효과: '없음.',
+        비고: '입력된 토큰 원문은 기록하지 않는다.',
+      },
+    });
+    return Response.json({ error: '인증 실패' }, { status: 401 });
+  }
 
   const log = {};
+  // 📓 감사로그용 — 이 endpoint 한 번이 수십 행을 지우고 다시 넣는다. 실행 1회 = 로그 1건으로 모은다.
+  const 시작 = Date.now();
+  const 지운기존 = { 리포트: 0, 출결: 0, 학습: 0, 성적: 0 };
   try {
     // exam_scores 테이블 보장
     await env.DB.prepare(
@@ -68,16 +85,33 @@ export async function onRequest({ request, env }) {
         dreamUniv: '', notes: '[설명회 체험용 계정]',
         approvalStatus: '승인',
       });
-      if (!c.ok) return Response.json({ error: '체험 학생 생성 실패: ' + c.error }, { status: 500 });
+      if (!c.ok) {
+        await logAudit(env, request, {
+          action: 'admin.seed.test.fail',
+          target: TEST_PHONE, targetName: TEST_NAME,
+          summary: '설명회 체험 데이터 채우기 중단 — 체험 학생 생성 실패: ' + String(c.error || '').slice(0, 100),
+          detail: {
+            단계: '체험 학생 생성',
+            오류: String(c.error || ''),
+            효과: '체험 학생이 만들어지지 않아 샘플 데이터도 채워지지 않았다. 기존 학생 데이터는 건드리지 않았다.',
+          },
+        });
+        return Response.json({ error: '체험 학생 생성 실패: ' + c.error }, { status: 500 });
+      }
       sid = c.id; name = TEST_NAME;
       log.student = 'created id=' + sid;
     }
 
     // 2) 이 학생의 기존 샘플 정리 (체험 범위만)
-    await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(name).run();
-    await env.DB.prepare('DELETE FROM attendance WHERE student_id=?').bind(sid).run();
-    await env.DB.prepare('DELETE FROM study_sessions WHERE student_id=?').bind(sid).run();
-    await env.DB.prepare('DELETE FROM exam_scores WHERE student_id=?').bind(sid).run();
+    //    🔎 지운 행 수는 run()이 그대로 돌려준다 — 조회를 더 하지 않고 "무엇이 몇 건 사라졌는지"를 확보한다.
+    const d1 = await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(name).run();
+    const d2 = await env.DB.prepare('DELETE FROM attendance WHERE student_id=?').bind(sid).run();
+    const d3 = await env.DB.prepare('DELETE FROM study_sessions WHERE student_id=?').bind(sid).run();
+    const d4 = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id=?').bind(sid).run();
+    지운기존.리포트 = (d1.meta && d1.meta.changes) || 0;
+    지운기존.출결   = (d2.meta && d2.meta.changes) || 0;
+    지운기존.학습   = (d3.meta && d3.meta.changes) || 0;
+    지운기존.성적   = (d4.meta && d4.meta.changes) || 0;
 
     // 3) 출결 — 5월 월·수·금 (숙제 완료율 포함)
     let aCnt = 0;
@@ -143,12 +177,53 @@ export async function onRequest({ request, env }) {
     }
     log.scores = scCnt;
 
+    // 🔴 실행 1회 = 로그 1건. (출결 13 + 학습 ~27 + 리포트 3 + 성적 5 를 건별로 남기지 않는다)
+    const 실제학생덮어씀 = !!existing && (existing.name || '') !== '' && (existing.name || '') !== TEST_NAME;
+    await logAudit(env, request, {
+      action: 'admin.seed.test',
+      target: String(sid), targetName: name,
+      summary: '설명회 체험 데이터 채움 [' + name + '(id ' + sid + ')] — 기존 리포트 ' + 지운기존.리포트
+        + ' · 출결 ' + 지운기존.출결 + ' · 학습 ' + 지운기존.학습 + ' · 성적 ' + 지운기존.성적
+        + '건 삭제 후 출결 ' + log.attendance + ' · 학습 ' + log.study + ' · 리포트 ' + log.reports
+        + ' · 성적 ' + log.scores + '건 삽입'
+        + (실제학생덮어씀 ? ' ⚠️ 체험 이름이 아닌 학생 위에 덮어씀' : ''),
+      detail: {
+        체험전화번호: TEST_PHONE,
+        학생: existing
+          ? { 처리: '기존 학생 재사용', id: sid, 이름: name, 승인상태: '승인으로 변경' }
+          : { 처리: '새로 생성', id: sid, 이름: name },
+        지운기존데이터: 지운기존,
+        새로넣은건수: { 출결: log.attendance, 학습: log.study, 리포트: log.reports, 성적: log.scores },
+        채운기간: '2026년 5월 (출결 월·수·금 13일 · 학습 일요일 제외 매일 · 리포트 3건)',
+        걸린시간초: Math.round((Date.now() - 시작) / 100) / 10,
+        효과: '이 학생(id ' + sid + ')의 리포트·출결·학습시간·시험성적이 통째로 체험용 샘플로 바뀐다. '
+          + '학부모·학생 포털과 반 랭킹에 이 가짜 수치가 그대로 보인다.'
+          + (실제학생덮어씀
+            ? ' ⚠️ 재사용된 학생 이름이 「' + name + '」로 체험용(' + TEST_NAME + ')이 아니다 — 실제 학생일 수 있으니 위 「지운기존데이터」 건수를 반드시 확인할 것.'
+            : ''),
+        비고: '체험 계정 비밀번호는 기록하지 않는다. 리포트 삭제는 학생 id가 아니라 이름 기준이라 동명이인이 있으면 함께 지워진다.',
+      },
+    });
+
     return Response.json({
       ok: true,
       message: '체험 계정 데이터 채움 완료. 010-0000-0000 / 0000 으로 로그인해 확인하세요.',
       studentId: String(sid), detail: log,
     });
   } catch (e) {
+    // 중간에 터졌다 = 지우기만 하고 다시 못 채운 상태일 수 있다.
+    await logAudit(env, request, {
+      action: 'admin.seed.test.fail',
+      target: TEST_PHONE, targetName: TEST_NAME,
+      summary: '설명회 체험 데이터 채우기 중단(오류) — ' + String((e && e.message) || e).slice(0, 120),
+      detail: {
+        오류: String((e && e.message) || e),
+        진행상황: log,
+        지운기존데이터: 지운기존,
+        걸린시간초: Math.round((Date.now() - 시작) / 100) / 10,
+        효과: '⚠️ 기존 샘플만 지우고 새 데이터를 못 채운 상태일 수 있다. 위 「지운기존데이터」 건수만큼은 이미 사라졌다.',
+      },
+    });
     return Response.json({ error: '시드 실패: ' + (e && e.message || e), detail: log }, { status: 500 });
   }
 }

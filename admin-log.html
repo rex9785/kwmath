@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>변경이력 · 이관우 수학연구소</title>
+<!--
+  admin-log.html — 변경이력(감사로그) 열람 화면 · **원장 전용** (2026-07-31 신설)
+  ═══════════════════════════════════════════════════════════════════════════
+  왜 만들었나
+    며칠에 걸쳐 60여 개 API에 logAudit 을 심어 "누가 · 언제 · 무엇을 · 어떻게 바꿨는지"를
+    audit_log 표에 쌓기 시작했다. 그런데 **읽는 방법이 없었다.** 아무도 못 읽는 로그는 로그가 아니다.
+    이 화면이 그 유일한 창구다. API 는 /api/audit-log (GET 전용, 원장 전용).
+
+  🔴 원장 전용인 이유
+    이 표에는 조교가 무엇을 만졌는지, 학생 비밀번호가 언제 초기화됐는지,
+    삭제된 데이터의 원본값(before)이 전부 들어 있다. 조교에게 열면 서로를 감시하게 되고
+    before 안의 학생 개인정보가 통째로 샌다.
+    → _middleware.js 의 STAFF_GET_BLOCK 에 '/api/audit-log' 가 들어 있고(조교 GET 차단),
+      audit-log.js 안에서도 한 번 더 막는다. 이 화면은 그 위에 얹힌 껍데기일 뿐이라
+      화면 코드를 아무리 뜯어봐도 조교는 데이터를 못 본다.
+
+  ▣ 화면 구성
+    ① 기간·행위자·action·자유검색 필터  ② 목록(요약만)  ③ 줄을 누르면 그때 상세를 따로 불러온다
+    상세(detail)에는 항목별 전→후 값이 들어 있는데 한 건이 최대 2만 자라
+    목록에 통째로 실으면 응답이 터진다. 그래서 **펼칠 때만** /api/audit-log?id=N 으로 한 건씩 가져온다.
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  :root{ --primary:#862633; --primary-light:#F9ECED; --primary-mid:#A83040;
+         --text:#2A2320; --text-light:#8a847e; --line:#ece7e3; --bg:#faf8f6; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+        background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%; }
+  header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
+          padding:calc(env(safe-area-inset-top) + 14px) 0 14px; }
+  .headInner{ max-width:860px; margin:0 auto; padding:0 16px; display:flex; align-items:center; gap:10px; }
+  header h1{ font-size:1.05rem; margin:0; flex:1; }
+  header .count{ font-size:0.8rem; color:#fff; background:var(--primary); border-radius:999px; padding:3px 10px; font-weight:700; }
+  header button{ border:1px solid var(--line); background:#fff; color:var(--text); border-radius:9px;
+                 padding:7px 12px; font-size:0.85rem; cursor:pointer; font-family:inherit; }
+  header button:active{ background:var(--primary-light); }
+  .wrap{ max-width:860px; margin:0 auto; padding:14px 14px calc(env(safe-area-inset-bottom) + 40px); }
+  .state{ text-align:center; color:var(--text-light); padding:44px 20px; font-size:0.95rem; line-height:1.6; }
+  .state a{ color:var(--primary); font-weight:600; }
+
+  /* ── 필터 ── */
+  .filters{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 13px; margin-bottom:12px; }
+  .frow{ display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  .frow:last-child{ margin-bottom:0; }
+  .filters label{ font-size:0.74rem; font-weight:800; color:var(--text-light); letter-spacing:.02em; }
+  .filters input[type=date], .filters input[type=text], .filters select{
+      border:1px solid var(--line); border-radius:9px; padding:7px 9px; font-size:0.84rem;
+      font-family:inherit; color:var(--text); background:#fff; max-width:100%; }
+  .filters input[type=text]{ flex:1; min-width:150px; }
+  .filters select{ max-width:100%; }
+  #fAction{ flex:1; min-width:180px; }
+  #fActor{ flex:1; min-width:180px; }
+  .chip{ border:1px solid var(--line); background:#fff; color:var(--text-light); border-radius:999px;
+         padding:5px 11px; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .chip:active{ background:var(--primary-light); }
+  .chip.on{ background:var(--primary); border-color:var(--primary); color:#fff; }
+  .btn-primary{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:8px 15px;
+                font-size:0.85rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn-plain{ background:#fff; color:var(--text-light); border:1px solid var(--line); border-radius:9px;
+              padding:8px 13px; font-size:0.85rem; cursor:pointer; font-family:inherit; }
+  .summaryline{ font-size:0.8rem; color:var(--text-light); margin:0 2px 10px; line-height:1.5; }
+  .summaryline b{ color:var(--primary); }
+
+  /* ── 목록 ── */
+  .card{ background:#fff; border:1px solid var(--line); border-left:4px solid var(--line); border-radius:12px;
+         padding:11px 13px; margin-bottom:8px; box-shadow:0 1px 3px rgba(0,0,0,0.03); cursor:pointer; }
+  .card.bad{ border-left-color:#C5221F; }
+  .card.owner{ border-left-color:var(--primary); }
+  .card.staff{ border-left-color:#1967D2; }
+  .card.sys{ border-left-color:#c9c2bb; }
+  .r1{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:4px; }
+  .who{ font-weight:800; font-size:0.9rem; }
+  .badge{ font-size:0.68rem; font-weight:800; border-radius:999px; padding:2px 8px; white-space:nowrap; }
+  .b-owner{ background:var(--primary-light); color:var(--primary); }
+  .b-staff{ background:#E8F0FE; color:#1967D2; }
+  .b-student{ background:#E6F4EA; color:#137333; }
+  .b-parent{ background:#FEF7E0; color:#8a6d00; }
+  .b-system{ background:#f0ede9; color:#7a736c; }
+  .b-anon{ background:#f0ede9; color:#7a736c; }
+  .b-fail{ background:#FCE8E6; color:#C5221F; }
+  .tm{ font-size:0.74rem; color:var(--text-light); margin-left:auto; white-space:nowrap; }
+  .sm{ font-size:0.92rem; line-height:1.5; word-break:break-word; }
+  .sub{ font-size:0.74rem; color:var(--text-light); margin-top:4px; line-height:1.55; word-break:break-all; }
+  .sub .act{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:#6b635c; }
+  .detail{ margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; cursor:default; }
+  .dl{ font-size:0.83rem; line-height:1.6; }
+  .dl .k{ font-weight:800; color:var(--primary-mid); }
+  .dl .v{ white-space:pre-wrap; word-break:break-word; }
+  .dl .nest{ margin:2px 0 6px 10px; padding-left:9px; border-left:2px solid var(--line); }
+  .chg{ display:inline-block; }
+  .chg .before{ color:#B02A37; text-decoration:line-through; }
+  .chg .after{ color:#137333; font-weight:700; }
+  .empty{ color:var(--text-light); }
+  .more{ display:block; width:100%; margin-top:6px; border:1px solid var(--line); background:#fff; color:var(--primary);
+         border-radius:11px; padding:12px; font-size:0.88rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#2A2320; color:#fff;
+          padding:11px 18px; border-radius:10px; font-size:0.88rem; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50; }
+  .toast.show{ opacity:0.95; }
+  /* 상단 통합 네비 (홈 + 메뉴 드롭다운) */
+  .kwnav{ display:flex; align-items:center; gap:8px; }
+  .kwnav-home{ display:inline-flex; align-items:center; gap:5px; background:var(--primary); color:#fff; font-weight:800; font-size:0.84rem; text-decoration:none; padding:8px 13px; border-radius:9px; font-family:inherit; white-space:nowrap; line-height:1; }
+  .kwnav-mw{ position:relative; }
+  .kwnav-toggle{ display:inline-flex; align-items:center; gap:5px; background:#fff; color:var(--primary); border:1.5px solid var(--primary); font-weight:800; font-size:0.84rem; padding:6px 13px; border-radius:9px; cursor:pointer; font-family:inherit; white-space:nowrap; line-height:1.25; }
+  .kwnav-pop{ position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,0.16); padding:6px; min-width:196px; z-index:200; display:none; }
+  .kwnav-pop.show{ display:block; }
+  .kwnav-pop a{ display:block; text-decoration:none; color:var(--text); font-weight:700; font-size:0.86rem; padding:9px 12px; border-radius:8px; white-space:nowrap; }
+  .kwnav-pop a:hover{ background:var(--primary-light); }
+  .kwnav-pop a.cur{ background:var(--primary-light); color:var(--primary); cursor:default; }
+  .kwnav-pop a.kwnav-logout{ color:var(--text-light); border-top:1px solid var(--line); margin-top:4px; }
+  .kwnav-pop a.kwnav-logout:hover{ background:#FBE6E6; color:#b3261e; }
+</style>
+<!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
+<script src="/session-keep.js?v=1"></script>
+</head>
+<body>
+<header>
+  <div class="headInner">
+    <div class="kwnav" id="kwnav">
+      <a class="kwnav-home" id="kwnavHome" href="/admin">🏠 홈</a>
+      <div class="kwnav-mw">
+        <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
+        <div class="kwnav-pop" id="kwnavPop" role="menu">
+          <a role="menuitem" href="/admin-qna" data-p="/admin-qna">💬 질문 답변</a>
+          <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
+          <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
+          <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
+          <a role="menuitem" href="/admin-scores" data-p="/admin-scores">📈 성적</a>
+          <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
+          <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
+          <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
+          <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog">🗓️ 근무기록</a>
+          <a role="menuitem" href="#" class="kwnav-logout" id="kwnavLogout">🚪 로그아웃</a>
+        </div>
+      </div>
+    </div>
+    <h1>변경이력</h1>
+    <span class="count" id="count" style="display:none;">0</span>
+    <button id="refresh">새로고침</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="filters" id="filters" style="display:none;">
+    <div class="frow">
+      <label>기간</label>
+      <input type="date" id="fFrom"> <span style="color:var(--text-light);">~</span> <input type="date" id="fTo">
+      <button class="chip" data-days="0">오늘</button>
+      <button class="chip" data-days="7">최근 7일</button>
+      <button class="chip" data-days="30">최근 30일</button>
+      <button class="chip" data-days="-1">전체</button>
+    </div>
+    <div class="frow">
+      <label>한 일</label>
+      <select id="fAction"><option value="">전부</option></select>
+      <select id="fRole"><option value="">모든 역할</option></select>
+    </div>
+    <div class="frow">
+      <label>누가</label>
+      <select id="fActor"><option value="">전부</option></select>
+    </div>
+    <div class="frow">
+      <input type="text" id="fQ" placeholder="검색 — 이름 · 요약 · 번호 · 주소">
+      <button class="chip" id="fFails">⚠️ 실패·거절만</button>
+      <button class="btn-primary" id="apply">조회</button>
+      <button class="btn-plain" id="reset">초기화</button>
+    </div>
+  </div>
+
+  <div class="summaryline" id="sumline" style="display:none;"></div>
+  <div id="list"><div class="state">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var token = sessionStorage.getItem('kwmath_admin_pw')
+           || localStorage.getItem('kwmath_admin_pw')
+           || localStorage.getItem('kwmath_admin_token')
+           || null;
+
+  var listEl   = document.getElementById('list');
+  var countEl  = document.getElementById('count');
+  var toastEl  = document.getElementById('toast');
+  var filtEl   = document.getElementById('filters');
+  var sumEl    = document.getElementById('sumline');
+  var toastT   = null;
+
+  var LIMIT   = 50;
+  var offset  = 0;
+  var failsOn = false;
+  var loading = false;
+
+  function toast(m){
+    toastEl.textContent = m; toastEl.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function esc(s){ var d = document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
+
+  // ts 는 UTC ISO8601 로 저장돼 있다 → 반드시 한국시각으로 바꿔 보여준다.
+  function fmt(iso){
+    if(!iso) return '';
+    try{
+      return new Date(iso).toLocaleString('ko-KR',{ timeZone:'Asia/Seoul',
+        month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    }catch(e){ return iso; }
+  }
+  function fmtDay(iso){
+    if(!iso) return '';
+    try{ return new Date(iso).toLocaleDateString('ko-KR',{ timeZone:'Asia/Seoul' }); }catch(e){ return iso; }
+  }
+  // 오늘(한국시각)의 YYYY-MM-DD. 'sv-SE' 로케일이 정확히 이 모양을 준다.
+  function kstToday(){
+    try{ return new Date().toLocaleDateString('sv-SE',{ timeZone:'Asia/Seoul' }); }
+    catch(e){ return new Date().toISOString().slice(0,10); }
+  }
+  function shiftDay(ymd, delta){
+    var t = Date.parse(ymd + 'T00:00:00+09:00') + delta*86400000;
+    return new Date(t).toLocaleDateString('sv-SE',{ timeZone:'Asia/Seoul' });
+  }
+
+  var ROLE = {
+    owner:'원장', staff:'조교', student:'학생', parent:'학부모',
+    system:'자동', anonymous:'비로그인', admin:'관리자'
+  };
+  var ROLECLS = { owner:'b-owner', staff:'b-staff', student:'b-student', parent:'b-parent',
+                  system:'b-system', anonymous:'b-anon' };
+  function roleLabel(r){ return ROLE[r] || (r || '알 수 없음'); }
+
+  // 실패·거절 계열인지 — API 의 fails=1 조건과 같은 규칙(색을 맞추기 위해 화면에서도 한 번 본다).
+  function isBad(action){ return /\.(fail|denied|reject|locked|blocked|miss)/.test(action || ''); }
+
+  // 행위자를 사람이 읽는 한 줄로. 이름이 있으면 이름, 없으면 번호, 둘 다 없으면 역할.
+  //   __owner__ / __adminkey__ 는 사람이 아니라 "어떻게 인증했는지"를 뜻하는 내부 표시다.
+  function whoText(r){
+    if(r.actor_name) return r.actor_name;
+    if(r.actor === '__owner__')    return '원장';
+    if(r.actor === '__adminkey__') return '원장(비밀번호 직접입력)';
+    if(r.actor === '__system__')   return '자동 실행';
+    if(r.actor) return r.actor;
+    return roleLabel(r.actor_role);
+  }
+
+  function api(qs){
+    var opts = { method:'GET', headers:{} };
+    if(token) opts.headers['Authorization'] = 'Bearer ' + token;
+    return fetch('/api/audit-log' + (qs || ''), opts);
+  }
+  function needOwner(msg){
+    filtEl.style.display = 'none'; sumEl.style.display = 'none'; countEl.style.display = 'none';
+    listEl.innerHTML = '<div class="state">' + esc(msg || '원장만 볼 수 있는 화면이에요.') +
+      '<br>먼저 <a href="/admin">관리자 로그인</a> 후 다시 열어주세요.</div>';
+  }
+
+  // ── 현재 필터를 쿼리스트링으로 ──
+  function qs(extra){
+    var p = [];
+    var f = document.getElementById('fFrom').value;
+    var t = document.getElementById('fTo').value;
+    if(f) p.push('from=' + encodeURIComponent(f));
+    if(t) p.push('to=' + encodeURIComponent(t));
+    var a = document.getElementById('fAction').value;
+    if(a) p.push('action=' + encodeURIComponent(a));
+    var ac = document.getElementById('fActor').value;
+    if(ac) p.push('actor=' + encodeURIComponent(ac));
+    var rl = document.getElementById('fRole').value;
+    if(rl) p.push('role=' + encodeURIComponent(rl));
+    var q = document.getElementById('fQ').value.trim();
+    if(q) p.push('q=' + encodeURIComponent(q));
+    if(failsOn) p.push('fails=1');
+    if(extra) p.push(extra);
+    return p.length ? ('?' + p.join('&')) : '';
+  }
+  // 드롭다운은 '기간'만 반영해서 만든다. action 을 하나 고르면 목록이 그 하나로 쪼그라드는 걸 막기 위해서.
+  function facetQs(){
+    var p = ['facets=1'];
+    var f = document.getElementById('fFrom').value;
+    var t = document.getElementById('fTo').value;
+    if(f) p.push('from=' + encodeURIComponent(f));
+    if(t) p.push('to=' + encodeURIComponent(t));
+    return '?' + p.join('&');
+  }
+
+  // ── 필터 드롭다운 채우기 ──
+  function loadFacets(){
+    api(facetQs()).then(function(r){
+      if(r.status === 401 || r.status === 403) return null;
+      return r.json();
+    }).then(function(d){
+      if(!d || !d.ok) return;
+
+      // action — 앞자리(계열)로 묶어서 optgroup. 계열 전체를 고를 수 있게 'xxx.' 항목을 맨 위에 둔다.
+      var sel = document.getElementById('fAction');
+      var keep = sel.value;
+      var groups = {}, order = [];
+      (d.actions || []).forEach(function(a){
+        var pre = String(a.action || '').split('.')[0] || '(기타)';
+        if(!groups[pre]){ groups[pre] = { n:0, rows:[] }; order.push(pre); }
+        groups[pre].n += (a.n || 0);
+        groups[pre].rows.push(a);
+      });
+      order.sort(function(x,y){ return groups[y].n - groups[x].n; });
+      var h = '<option value="">전부</option>';
+      order.forEach(function(pre){
+        var g = groups[pre];
+        h += '<option value="' + esc(pre) + '.">' + esc(pre) + ' 계열 전부 (' + g.n + ')</option>';
+        if(g.rows.length > 1){
+          g.rows.forEach(function(a){
+            h += '<option value="' + esc(a.action) + '">   · ' + esc(a.action) + ' (' + (a.n||0) + ')</option>';
+          });
+        }
+      });
+      sel.innerHTML = h; sel.value = keep;
+
+      // 행위자
+      var sa = document.getElementById('fActor');
+      var keepA = sa.value;
+      var ha = '<option value="">전부</option>';
+      (d.actors || []).forEach(function(a){
+        var label = (a.actor_name ? a.actor_name + ' ' : '') + (a.actor || '(익명)')
+                  + ' · ' + roleLabel(a.actor_role) + ' · ' + (a.n||0) + '건';
+        ha += '<option value="' + esc(a.actor || '') + '">' + esc(label) + '</option>';
+      });
+      sa.innerHTML = ha; sa.value = keepA;
+
+      // 역할
+      var sr = document.getElementById('fRole');
+      var keepR = sr.value;
+      var hr = '<option value="">모든 역할</option>';
+      (d.roles || []).forEach(function(r){
+        if(!r.actor_role) return;
+        hr += '<option value="' + esc(r.actor_role) + '">' + esc(roleLabel(r.actor_role)) + ' (' + (r.n||0) + ')</option>';
+      });
+      sr.innerHTML = hr; sr.value = keepR;
+
+      var 기간 = d['기간'] || {};
+      if(기간.처음){
+        sumEl.style.display = 'block';
+        sumEl.innerHTML = '기록이 남기 시작한 날: <b>' + esc(fmtDay(기간.처음)) + '</b>' +
+                          ' · 가장 최근 기록: <b>' + esc(fmtDay(기간.마지막)) + '</b>' +
+                          '<br>변경이력은 자동으로 지워지지 않고 백업에도 함께 들어갑니다.';
+      }
+    }).catch(function(){});
+  }
+
+  // ── 상세(detail) 그리기 ──
+  //   detail 은 자유 형태의 JSON 이다. { 전:…, 후:… } 모양이면 "전 → 후" 로,
+  //   객체·배열이면 들여쓰기해서 재귀로 그린다. 값은 전부 esc() 를 거친다.
+  function renderVal(v){
+    if(v === null || v === undefined) return '<span class="empty">(없음)</span>';
+    if(typeof v !== 'object') {
+      var s = String(v);
+      if(s === '') return '<span class="empty">(빈 값)</span>';
+      return '<span class="v">' + esc(s) + '</span>';
+    }
+    if(Array.isArray(v)){
+      if(!v.length) return '<span class="empty">(0개)</span>';
+      var h = '<div class="nest">';
+      v.forEach(function(x, i){ h += '<div><span class="k">' + (i+1) + '.</span> ' + renderVal(x) + '</div>'; });
+      return h + '</div>';
+    }
+    var ks = Object.keys(v);
+    // 전/후 쌍 — diffFields() 가 만드는 모양. 눈에 확 띄게 취소선+초록으로.
+    if(ks.length <= 3 && ('전' in v) && ('후' in v)){
+      return '<span class="chg"><span class="before">' + esc(v['전'] === '' || v['전'] == null ? '(빈 값)' : String(v['전'])) +
+             '</span> → <span class="after">' + esc(v['후'] === '' || v['후'] == null ? '(빈 값)' : String(v['후'])) + '</span></span>';
+    }
+    if(!ks.length) return '<span class="empty">(없음)</span>';
+    var out = '<div class="nest">';
+    ks.forEach(function(k){ out += '<div><span class="k">' + esc(k) + '</span> ' + renderVal(v[k]) + '</div>'; });
+    return out + '</div>';
+  }
+
+  function renderDetail(row){
+    var h = '<div class="dl">';
+    h += '<div><span class="k">기록 번호</span> #' + esc(row.id) + '</div>';
+    h += '<div><span class="k">정확한 시각</span> ' + esc(fmt(row.ts)) + ' (한국시각)</div>';
+    h += '<div><span class="k">한 일(action)</span> <span class="act">' + esc(row.action) + '</span></div>';
+    h += '<div><span class="k">행위자</span> ' + esc(whoText(row)) + ' · ' + esc(roleLabel(row.actor_role)) +
+         (row.actor ? ' · ' + esc(row.actor) : '') + '</div>';
+    if(row.target) h += '<div><span class="k">대상</span> ' + esc(row.target_name || '') + (row.target_name ? ' · ' : '') + esc(row.target) + '</div>';
+    if(row.path)    h += '<div><span class="k">주소</span> <span class="act">' + esc(row.path) + '</span></div>';
+    if(row.device)  h += '<div><span class="k">기기</span> ' + esc(row.device) + '</div>';
+    if(row.country) h += '<div><span class="k">접속 국가</span> ' + esc(row.country) + '</div>';
+    if(row.ua)      h += '<div><span class="k">브라우저 원문</span> <span class="v" style="font-size:0.76rem;color:#8a847e;">' + esc(row.ua) + '</span></div>';
+    if(row.detail && typeof row.detail === 'object' && Object.keys(row.detail).length){
+      h += '<div style="margin-top:7px;"><span class="k">자세한 내용</span>' + renderVal(row.detail) + '</div>';
+    } else {
+      h += '<div style="margin-top:7px;" class="empty">자세한 내용은 없습니다.</div>';
+    }
+    return h + '</div>';
+  }
+
+  // ── 목록 한 줄 ──
+  function cardFor(r){
+    var bad  = isBad(r.action);
+    var role = r.actor_role || '';
+    var cls  = 'card ' + (bad ? 'bad' : (role === 'owner' ? 'owner' : role === 'staff' ? 'staff'
+                : (role === 'system' || role === 'anonymous') ? 'sys' : ''));
+    var el = document.createElement('div');
+    el.className = cls;
+
+    var h = '';
+    h += '<div class="r1">';
+    h +=   '<span class="who">' + esc(whoText(r)) + '</span>';
+    h +=   '<span class="badge ' + (ROLECLS[role] || 'b-system') + '">' + esc(roleLabel(role)) + '</span>';
+    if(bad) h += '<span class="badge b-fail">실패·거절</span>';
+    h +=   '<span class="tm">' + esc(fmt(r.ts)) + '</span>';
+    h += '</div>';
+    h += '<div class="sm">' + esc(r.summary || r.action) + '</div>';
+
+    var sub = [];
+    sub.push('<span class="act">' + esc(r.action) + '</span>');
+    if(r.target) sub.push('대상 ' + esc((r.target_name ? r.target_name + '/' : '')) + esc(r.target));
+    if(r.device) sub.push(esc(r.device));
+    if(r.detail_len) sub.push('상세 ' + r.detail_len + '자 — 눌러서 보기');
+    else sub.push('상세 없음');
+    h += '<div class="sub">' + sub.join(' · ') + '</div>';
+    el.innerHTML = h;
+
+    // 펼치기 — 그때 한 건씩 따로 가져온다(목록에는 detail 이 안 실려 있다).
+    var open = false, box = null;
+    el.addEventListener('click', function(ev){
+      if(box && box.contains(ev.target)) return;         // 상세 안쪽 클릭은 접지 않는다
+      if(open){ box.style.display = 'none'; open = false; return; }
+      if(box){ box.style.display = 'block'; open = true; return; }
+      box = document.createElement('div');
+      box.className = 'detail';
+      box.innerHTML = '<div class="empty">불러오는 중…</div>';
+      el.appendChild(box); open = true;
+      api('?id=' + encodeURIComponent(r.id)).then(function(res){
+        if(res.status === 401 || res.status === 403){ needOwner('원장만 볼 수 있어요.'); return null; }
+        return res.json();
+      }).then(function(d){
+        if(!d) return;
+        if(!d.ok || !d.row){ box.innerHTML = '<div class="empty">' + esc(d.error || '불러오지 못했어요.') + '</div>'; return; }
+        box.innerHTML = renderDetail(d.row);
+      }).catch(function(){ box.innerHTML = '<div class="empty">네트워크 오류로 불러오지 못했어요.</div>'; });
+    });
+    return el;
+  }
+
+  // ── 목록 불러오기 ──
+  function load(append){
+    if(!token){ needOwner('원장 전용 페이지예요.'); return; }
+    if(loading) return;
+    loading = true;
+    if(!append){ offset = 0; listEl.innerHTML = '<div class="state">불러오는 중…</div>'; }
+
+    api(qs('limit=' + LIMIT + '&offset=' + offset)).then(function(r){
+      if(r.status === 401 || r.status === 403){ needOwner('원장만 볼 수 있어요.'); return null; }
+      return r.json();
+    }).then(function(d){
+      loading = false;
+      if(!d) return;
+      if(!d.ok){ listEl.innerHTML = '<div class="state">' + esc(d.error || '불러오지 못했어요.') + '</div>'; return; }
+
+      filtEl.style.display = 'block';
+      var total = d['총건수'] || 0;
+      countEl.textContent = total.toLocaleString('ko-KR') + '건';
+      countEl.style.display = 'inline-block';
+
+      var rows = d.rows || [];
+      if(!append) listEl.innerHTML = '';
+      var oldMore = document.getElementById('moreBtn');
+      if(oldMore) oldMore.remove();
+
+      if(!rows.length && !append){
+        listEl.innerHTML = '<div class="state">조건에 맞는 기록이 없어요.<br>기간을 넓히거나 필터를 초기화해 보세요.</div>';
+        return;
+      }
+      rows.forEach(function(r){ listEl.appendChild(cardFor(r)); });
+
+      var shown = offset + rows.length;
+      if(shown < total){
+        var b = document.createElement('button');
+        b.id = 'moreBtn'; b.className = 'more';
+        b.textContent = '더 보기 (' + shown.toLocaleString('ko-KR') + ' / ' + total.toLocaleString('ko-KR') + ')';
+        b.addEventListener('click', function(){ offset = shown; load(true); });
+        listEl.appendChild(b);
+      }
+    }).catch(function(){
+      loading = false;
+      listEl.innerHTML = '<div class="state">네트워크 오류로 불러오지 못했어요. 새로고침을 눌러주세요.</div>';
+    });
+  }
+
+  // ── 이벤트 ──
+  document.getElementById('apply').addEventListener('click', function(){ load(false); });
+  document.getElementById('refresh').addEventListener('click', function(){ loadFacets(); load(false); });
+  document.getElementById('fQ').addEventListener('keydown', function(e){ if(e.key === 'Enter') load(false); });
+  ['fAction','fActor','fRole'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', function(){ load(false); });
+  });
+  ['fFrom','fTo'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', function(){ loadFacets(); load(false); });
+  });
+  document.getElementById('fFails').addEventListener('click', function(){
+    failsOn = !failsOn;
+    this.classList.toggle('on', failsOn);
+    load(false);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip[data-days]'), function(b){
+    b.addEventListener('click', function(){
+      var n = parseInt(b.getAttribute('data-days'), 10);
+      var today = kstToday();
+      if(n < 0){ document.getElementById('fFrom').value = ''; document.getElementById('fTo').value = ''; }
+      else { document.getElementById('fFrom').value = shiftDay(today, -n); document.getElementById('fTo').value = today; }
+      loadFacets(); load(false);
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function(){
+    ['fFrom','fTo','fQ'].forEach(function(id){ document.getElementById(id).value = ''; });
+    ['fAction','fActor','fRole'].forEach(function(id){ document.getElementById(id).value = ''; });
+    failsOn = false; document.getElementById('fFails').classList.remove('on');
+    loadFacets(); load(false);
+    toast('필터를 모두 지웠어요');
+  });
+
+  loadFacets();
+  load(false);
+})();
+</script>
+<!-- 조교/원장 공통 상단 네비: 홈(역할별) + 메뉴 드롭다운 -->
+<script>
+(function(){
+  try{
+    var pw = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || '';
+    var home = /^ast_/.test(pw) ? '/staff-home' : '/admin';
+    var h = document.getElementById('kwnavHome'); if(h){ h.setAttribute('href', home); }
+    var path = (location.pathname || '').replace(/\.html$/,''); if(path.length > 1){ path = path.replace(/\/+$/,''); }
+    var pop = document.getElementById('kwnavPop');
+    if(pop){
+      var links = pop.querySelectorAll('a[data-p]');
+      for(var i=0;i<links.length;i++){
+        if(links[i].getAttribute('data-p') === path){ links[i].className = 'cur'; links[i].removeAttribute('href'); }
+      }
+    }
+    var tog = document.getElementById('kwnavToggle');
+    if(tog && pop){
+      tog.addEventListener('click', function(e){
+        e.stopPropagation();
+        var open = pop.classList.toggle('show');
+        tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function(ev){
+        if(!pop.contains(ev.target) && ev.target !== tog){ pop.classList.remove('show'); tog.setAttribute('aria-expanded','false'); }
+      });
+    }
+    var lo = document.getElementById('kwnavLogout');
+    if(lo){
+      lo.addEventListener('click', function(e){
+        e.preventDefault();
+        try{ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_token'); }catch(_){}
+        location.href = '/portal';
+      });
+    }
+  }catch(_){}
+})();
+</script>
+<!-- ☰ 메뉴에 원장 전용 화면 채우기 (2026-07-29) — 위 인라인 네비 스크립트 뒤에 실려야 한다(#kwnavPop이 만들어진 뒤여야 하므로) -->
+<script src="/kwnav.js?v=1"></script>
+</body>
+</html>

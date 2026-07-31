@@ -10,6 +10,14 @@
 //   ※ accounts에는 로그인 정보가 들어가지만, R2는 이미 모든 민감정보를 담는 같은 신뢰경계라
 //      백업 포함이 노출을 키우지 않음(복구엔 필요). qna는 용량 큰 첨부이미지(image/images)만 빼고 저장.
 
+//   ※ 감사로그(2026-07-31): 이 파일은 request 를 받지 않는 헬퍼지만, "호출측이 로그를 남긴다"는
+//      프로젝트 규칙의 예외다. 유일한 호출측(notices-flush 크론)은 fire-and-forget 으로 결과를 버리고,
+//      무엇보다 이 백업은 그 요청을 보낸 사람의 행위가 아니라 **하루 1회 자동 실행**이다.
+//      사람에게 귀속시키면 오히려 거짓 기록이 된다 → actor='system' 으로 여기서 직접 남긴다.
+//      또한 5분마다 오는 대부분의 틱은 '오늘 이미 함'으로 그냥 돌아가므로, 그건 로그로 남기지 않는다
+//      (남기면 하루 288건이 쌓여 변경이력이 하트비트로 뒤덮인다). 실제로 백업을 뜬 날만 1건.
+import { logAudit } from './_auditlog.js';
+
 const BK_PREFIX = 'backups/';
 const STATE_KEY = 'backups/_last.json';
 const KEEP_DAYS = 30;
@@ -89,10 +97,20 @@ export async function runDailyBackup(env) {
     if (last && last.date === today) return { ok: true, skipped: true, date: today };
 
     // 전체 덤프.
+    const 시작 = Date.now();
     const data = { date: today, createdAt: new Date().toISOString(), tables: {} };
     for (const t of TABLES) data.tables[t.name] = await dumpTable(env, t);
 
-    await env.BUCKET.put(BK_PREFIX + today + '.json', JSON.stringify(data), {
+    // 로그용 요약 — 표별 건수와 "덤프에 실패한 표"를 뽑아 둔다(추가 조회 없음, 위 결과 재사용).
+    const 표별건수 = {};
+    const 실패한표 = {};
+    for (const [k, v] of Object.entries(data.tables)) {
+      표별건수[k] = (v && v.count) || 0;
+      if (v && v.error) 실패한표[k] = v.error;
+    }
+    const 본문 = JSON.stringify(data);
+
+    await env.BUCKET.put(BK_PREFIX + today + '.json', 본문, {
       httpMetadata: { contentType: 'application/json' },
     });
     await env.BUCKET.put(STATE_KEY, JSON.stringify({ date: today, at: new Date().toISOString() }), {
@@ -101,17 +119,63 @@ export async function runDailyBackup(env) {
 
     // 30일 지난 백업 정리(_last.json은 정규식이 날짜 파일만 잡아 보존).
     let deleted = 0;
+    const 지운백업키 = [];   // 되돌릴 수 없는 삭제 — 어떤 날짜가 사라졌는지 남긴다
     try {
       const cutoff = kstDayStr(KEEP_DAYS);
       const listed = await env.BUCKET.list({ prefix: BK_PREFIX });
       for (const o of (listed.objects || [])) {
         const m = o.key.match(/^backups\/(\d{4}-\d{2}-\d{2})\.json$/);
-        if (m && m[1] < cutoff) { try { await env.BUCKET.delete(o.key); deleted++; } catch (_) {} }
+        if (m && m[1] < cutoff) {
+          try {
+            await env.BUCKET.delete(o.key);
+            deleted++;
+            if (지운백업키.length < 60) 지운백업키.push(o.key);
+          } catch (_) {}
+        }
       }
     } catch (_) {}
 
+    // 📓 하루 1건 — 실제로 백업을 뜬 날만. (크론이 조용히 멈춰 백업이 며칠 비면 이 로그의 공백이 증거가 된다)
+    await logAudit(env, null, {
+      action: 'backup.daily',
+      actor: 'system', actorRole: 'system', actorName: '자동 백업(하루 1회)',
+      target: BK_PREFIX + today + '.json',
+      path: 'cron runDailyBackup() ← /api/notices-flush',
+      summary: 'D1 전체 백업 저장 [' + today + '] — 표 ' + Object.keys(표별건수).length + '개 · 총 '
+        + Object.values(표별건수).reduce((a, b) => a + b, 0) + '행 · '
+        + Math.round(본문.length / 1024) + 'KB'
+        + (deleted ? ' · 30일 지난 백업 ' + deleted + '개 삭제' : ''),
+      detail: {
+        저장위치: BK_PREFIX + today + '.json',
+        표별건수: 표별건수,
+        총행수: Object.values(표별건수).reduce((a, b) => a + b, 0),
+        크기KB: Math.round(본문.length / 1024),
+        덤프실패표: Object.keys(실패한표).length ? 실패한표 : '없음',
+        오래된백업삭제: { 건수: deleted, 보관일수: KEEP_DAYS, 지운키: 지운백업키, 키잘림: deleted > 60 },
+        걸린시간초: Math.round((Date.now() - 시작) / 100) / 10,
+        효과: '오늘 시점의 D1 전체(학생·출결·성적·리포트·계정·문의·변경이력 등)를 R2 한 파일에 굳혔다. '
+          + '실수로 지운 데이터는 이 파일에서 되돌릴 수 있다. 같은 날 다시 돌리면 이 파일을 덮어쓴다. '
+          + (deleted ? '동시에 ' + KEEP_DAYS + '일보다 오래된 백업 ' + deleted + '개는 영구 삭제됐다 — 그 날짜로는 더 이상 복구할 수 없다.' : ''),
+        비고: 'accounts 표에는 로그인 비밀번호 해시가 들어가지만 이 로그에는 건수만 남기고 값은 담지 않는다. '
+          + 'qna 첨부이미지·access_events·login_lockouts 는 백업 대상에서 일부러 뺐다.',
+      },
+    });
+
     return { ok: true, date: today, deleted };
   } catch (e) {
+    // 백업이 실패한 날은 반드시 남는다 — "그날 백업이 없다"를 나중에 설명할 수 있는 유일한 근거.
+    await logAudit(env, null, {
+      action: 'backup.daily.fail',
+      actor: 'system', actorRole: 'system', actorName: '자동 백업(하루 1회)',
+      target: BK_PREFIX + kstDayStr(0) + '.json',
+      path: 'cron runDailyBackup() ← /api/notices-flush',
+      summary: 'D1 자동 백업 실패 [' + kstDayStr(0) + '] — ' + String((e && e.message) || e).slice(0, 120),
+      detail: {
+        오류: String((e && e.message) || e),
+        효과: '⚠️ 오늘 날짜 백업 파일이 없거나 불완전하다. 오늘 사고가 나면 되돌릴 지점이 어제 백업까지다. '
+          + '하루 1회 게이트(backups/_last.json)가 갱신되지 않았다면 다음 크론 틱에서 자동 재시도된다.',
+      },
+    });
     return { ok: false, error: String((e && e.message) || e) };
   }
 }

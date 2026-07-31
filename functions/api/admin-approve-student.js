@@ -6,6 +6,7 @@ import { normalizePhone, findAccountByPhone, createAccount } from './_auth.js';
 import { getStudentById, setApprovalStatus, deleteStudent } from './_db.js';
 import { safeError } from './_errors.js';
 import { sendPushToUsers } from './_push.js';
+import { logAudit } from './_auditlog.js';
 
 const INITIAL_PASSWORD = '0000';
 
@@ -59,6 +60,15 @@ export async function onRequest(context) {
     if (action === 'reject') {
       const d = await deleteStudent(env, studentId);
       if (!d.ok) return safeError(d.error || 'deleteStudent failed', env, { message: '거부 처리에 실패했습니다.' });
+      // ⚠️ '거부'는 사실상 **영구 삭제**다(퇴원 아카이브로도 안 감). 신청서 내용이 통째로 사라지므로
+      //    누가 언제 어떤 신청을 지웠는지 + 지워진 내용 전체를 남긴다. 문의가 오면 이게 유일한 근거다.
+      await logAudit(env, request, {
+        action: 'student.reject',
+        target: String(studentId),
+        targetName: name,
+        summary: '[' + name + '] 등록 신청 거부 → 학생 레코드 영구 삭제 (복구 불가)',
+        detail: { studentId, 지워진학생: d.before || null, 삭제행수: d.removed },
+      });
       return Response.json({ ok: true, action: 'reject', name, studentId: String(studentId),
         message: '[' + name + '] 등록 신청이 거부되었습니다.' });
     }
@@ -123,6 +133,24 @@ export async function onRequest(context) {
     // 승인 완료 → 학생/학부모 폰으로 "승인됐어요" 푸시 (best-effort, 이미 알림 켠 기기에 도달)
     //   학부모(normP)만 밤 무음 — 학생(normS)은 밤에도 승인 알림 받음.
     notifyStudentApproved(context, env, name, [normS, normP], [normP]);
+
+    // 승인은 계정 2개 생성(초기비번 0000) + alias 부여 + 푸시까지 한 번에 일어난다 →
+    //   "승인함" 한 줄이 아니라 실제로 무엇이 생겼는지를 전부 남긴다.
+    await logAudit(env, request, {
+      action: 'student.approve',
+      target: String(studentId),
+      targetName: name,
+      summary: '[' + name + '] 등록 승인'
+        + (accountResult.created.length ? ' · 계정생성 ' + accountResult.created.length + '건' : '')
+        + (assignedAlias ? ' · alias ' + assignedAlias : ''),
+      detail: {
+        studentId,
+        승인상태: { 전: ap.before, 후: '승인' },
+        계정생성: accountResult.created, 계정건너뜀: accountResult.skipped, 계정실패: accountResult.failed,
+        동명이인수: duplicateCount, 부여된alias: assignedAlias || null,
+        승인푸시대상: [normS, normP].filter(Boolean),
+      },
+    });
 
     return Response.json({
       ok: true, action: 'approve', name, studentId: String(studentId),

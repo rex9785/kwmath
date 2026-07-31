@@ -20,6 +20,10 @@
 import { sendPushToUsers } from './_push.js';
 import { listStaff } from './_staff.js';
 import { staffMonthSummary } from './staff-worklog.js';
+// 📓 감사로그(2026-07-31) — "월급 알림이 안 왔다"에 답할 근거.
+//   대부분의 호출은 4·5일이 아니라 즉시 끝난다(하루 288틱 + 페이지 핑) → **실제로 쏜 때만** 1건 남긴다.
+//   크론/트래픽 어느 쪽이든 사람의 행위가 아니므로 actor='system'.
+import { logAudit } from './_auditlog.js';
 
 const ADMIN_PUSH_USERS = ['__admin__'];
 const STATE_KEY = 'payroll-reminder/state.json';
@@ -63,6 +67,8 @@ export async function runPayrollReminder(env) {
 
   // 승인된 조교별 전월 정산액 → "이름 / 계좌 / 금액" 줄 목록
   let lines = [];
+  // 로그용 — 계좌번호는 뒤 4자리만 남긴다(금액·시간은 그대로. 누가 얼마 받았는지가 이 로그의 핵심이다).
+  const 로그용조교 = [];
   try {
     const staff = await listStaff(env);
     const rows = [];
@@ -77,8 +83,16 @@ export async function runPayrollReminder(env) {
         name: s.name || '(이름없음)', account: s.account || '',
         pay: sum.totalPay || 0, hours: sum.totalHours || 0, wage: s.hourlyWage || 0,
       });
+      로그용조교.push({
+        이름: s.name || '(이름없음)',
+        계좌뒤4: s.account ? String(s.account).replace(/\D/g, '').slice(-4) : '(미등록)',
+        근무시간: sum.totalHours || 0,
+        시급: s.hourlyWage || 0,
+        정산액: sum.totalPay || 0,
+      });
     }
     rows.sort((a, b) => b.pay - a.pay);   // 금액 큰 순
+    로그용조교.sort((a, b) => b.정산액 - a.정산액);   // 로그도 같은 순서로
     lines = rows.map((r) => {
       const amt = r.wage > 0 ? (won(r.pay) + '원') : (r.hours + '시간(시급미설정)');
       return r.name + ' / ' + (r.account || '계좌미등록') + ' / ' + amt;
@@ -91,9 +105,35 @@ export async function runPayrollReminder(env) {
     : (tgtM + '월 근무기록이 있는 조교가 없어요');
 
   let res = { sent: 0 };
+  let 발송오류 = '';
   try {
     res = await sendPushToUsers(env, ADMIN_PUSH_USERS, { title, body, url: '/admin-staff', tag: 'kwmath-payroll' });
-  } catch (_) {}
+  } catch (e) { 발송오류 = String((e && e.message) || e); }
+
+  // 📓 월 2건(4일·5일)만 남는다. "월급 알림이 안 왔다"·"금액이 이상하다"에 답할 유일한 근거.
+  await logAudit(env, null, {
+    action: 발송오류 ? 'payroll.reminder.fail' : 'payroll.reminder.push',
+    actor: 'system', actorRole: 'system', actorName: '자동 리마인드(조교 월급날)',
+    target: today, targetName: tgtMonth + ' 정산',
+    path: 'cron runPayrollReminder() ← /api/notices-flush 또는 페이지 핑',
+    summary: '조교 월급 리마인드 ' + (발송오류 ? '발송 실패' : '발송') + ' — ' + today + ' · '
+      + tgtMonth + '월분 · 조교 ' + 로그용조교.length + '명 · 총 '
+      + won(로그용조교.reduce((a, b) => a + (b.정산액 || 0), 0)) + '원 · 기기 ' + ((res && res.sent) || 0) + '대',
+    detail: {
+      실행일: today + (p.d === 4 ? ' (내일이 월급날 — 예고)' : ' (오늘이 월급날)'),
+      정산대상월: tgtMonth,
+      조교별정산: 로그용조교,
+      총액: 로그용조교.reduce((a, b) => a + (b.정산액 || 0), 0),
+      받는사람: ADMIN_PUSH_USERS,
+      보낸기기수: (res && res.sent) || 0,
+      발송오류: 발송오류 || '없음',
+      효과: ((res && res.sent) || 0)
+        ? '원장 폰에 조교별 지급 목록이 갔다. 오늘은 다시 보내지 않는다(하루 1발 멱등).'
+        : '보낼 기기가 없거나 발송이 실패해 알림이 도착하지 않았다. 그래도 오늘 보낸 것으로 표시되어 오늘은 재발송되지 않는다.',
+      비고: '계좌번호는 뒤 4자리만 남긴다(푸시 본문에는 전체가 들어가지만 로그에는 담지 않는다). '
+        + '전월 근무기록이 0인 조교는 목록에서 빠진다.',
+    },
+  });
 
   // 오늘 처리됨으로 멱등 마킹(구독 0개여도 같은날 재핑 폭주 방지).
   try {

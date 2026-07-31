@@ -31,6 +31,7 @@ import { staffScopeAcademy } from './_staff.js';
 import { sendPushToUsers } from './_push.js';
 import { safeError } from './_errors.js';
 import { createNotification } from './_notifications.js';
+import { logAudit, actorOf, diffFields } from './_auditlog.js';
 
 const VALID_DIFFICULTY = ['easy', 'normal', 'hard'];
 const MAX_TEXT = 1000;   // 각 텍스트 칸 최대 길이(과다 입력 방지)
@@ -152,6 +153,35 @@ export async function onRequest(context) {
         const memo = clampText(body.memo);
         const r = await setClinicDayMemo(env, date, memo, academy || '');
         if (!r.ok) return safeError(r.error || 'setClinicDayMemo failed', env, { message: '메모 저장에 실패했습니다.' });
+
+        // 📓 2026-07-31 — 하루메모는 **덮어쓰기**다. 같은 (날짜·학원) 칸에 조교가 여럿 쓰면
+        //   먼저 쓴 사람 글이 통째로 사라진다. 그래서 "전 → 후"를 통째로 남긴다.
+        //   (2026-07-30 2-1 버그: 조교가 남의 학원 메모를 덮어쓰던 문제. 고쳤지만 증거는 계속 남긴다.)
+        const 지워진글자 = (r.before || '').length - memo.length;
+        await logAudit(env, request, {
+          action: r.created ? 'clinic.memo.create' : 'clinic.memo.update',
+          target: date + '/' + (academy || (isOwner ? '(원장)' : '(미배정)')),
+          targetName: (academy || (isOwner ? '원장' : '')),
+          summary: '클리닉 하루메모 ' + (r.created ? '작성' : '수정')
+            + ' [' + date + ' · ' + (academy || (isOwner ? '원장' : '미배정')) + '] '
+            + (r.before === null ? '(새로 씀)'
+               : (r.before === memo ? '(내용 동일)'
+                  : ((지워진글자 > 0 ? '기존 ' + (r.before || '').length + '자 → ' + memo.length + '자(줄어듦)'
+                                     : '기존 ' + (r.before || '').length + '자 → ' + memo.length + '자')))),
+          detail: {
+            날짜: date,
+            메모칸: academy || (isOwner ? '(원장 전용 행)' : '(미배정)'),
+            작성자구분: isOwner ? '원장' : '조교',
+            새로작성: !!r.created,
+            전: r.before === null ? '(빈 칸이었음)' : r.before,
+            후: memo,
+            글자수: { 전: (r.before || '').length, 후: memo.length },
+            내용바뀜: (r.before || '') !== memo,
+            비고: (!r.created && (r.before || '') && (r.before || '') !== memo)
+              ? '⚠️ 기존 메모를 덮어썼다 — 위 "전" 값이 사라진 원문의 유일한 기록'
+              : '',
+          },
+        });
         return Response.json({ ok: true, date, memo });
       }
 
@@ -192,15 +222,43 @@ export async function onRequest(context) {
           updates.wrong_count = null;   // 비우기 허용
         }
         // 작성자 흔적(추적용) — 조교 폰(X-Staff-Phone) 또는 원장
+        // 📓 2026-07-31 — 예전엔 author_name 에 '조교' 두 글자만 넣었다. 조교가 여럿이면
+        //   누가 쓴 총평인지 영영 알 수 없었다(homework.js checked_by 와 똑같은 문제).
+        //   미들웨어가 검증해 실어 보낸 **실제 이름**을 쓴다. 이름을 못 얻으면 옛 표기로 폴백.
+        const who = actorOf(request, env);
         const staffPhone = (request.headers.get('X-Staff-Phone') || '').replace(/\D/g, '');
         updates.author_phone = staffPhone || '';
-        updates.author_name = isOwner ? '원장' : '조교';
+        updates.author_name = isOwner
+          ? '원장'
+          : ((who.actorRole === 'staff' && who.actorName) ? who.actorName : '조교');
 
         if (Object.keys(updates).length <= 2)   // author_* 만 있고 실제 내용 없음
           return Response.json({ error: '저장할 내용이 없어요.' }, { status: 400 });
 
         const r = await upsertClinicReview(env, sid, date, updates);
         if (!r.ok) return safeError(r.error || 'upsertClinicReview failed', env, { message: '총평 저장에 실패했습니다.' });
+
+        // 📓 총평은 학부모에게 나가는 글이다. 어느 문장이 어떻게 바뀌었는지 칸별로 남긴다.
+        const stu = await getStudentById(env, sid).catch(() => null);
+        const d = diffFields(r.before, r.after,
+          ['asked', 'attitude', 'improvement', 'wrong_count', 'difficulty', 'summary', 'author_name']);
+        await logAudit(env, request, {
+          action: r.created ? 'clinic.review.create' : 'clinic.review.update',
+          target: String(sid), targetName: (stu && stu.name) || '',
+          summary: '클리닉 총평 ' + (r.created ? '작성' : '수정')
+            + ' [' + ((stu && stu.name) || sid) + ' · ' + date + '] — ' + (d.요약 || '변경 없음'),
+          detail: {
+            학생id: String(sid), 이름: (stu && stu.name) || '', 학원: (stu && stu.academy) || '', 날짜: date,
+            새로작성: !!r.created,
+            작성자표기: updates.author_name,
+            바뀐칸: d.바뀐칸, 변경: d.변경,
+            이전전문: r.before || '(없음)',
+            현재상태: (r.after && r.after.status) || '',
+            비고: (r.before && r.before.status === 'sent')
+              ? '⚠️ 이미 학부모에게 발송된 총평을 고쳤다 — 이미 간 알림 내용은 안 바뀜'
+              : '',
+          },
+        });
         return Response.json({ ok: true, id: sid, date, record: r.record });
       }
 
@@ -218,17 +276,40 @@ export async function onRequest(context) {
         }
         if (!items.length) return Response.json({ error: '보낼 총평이 없어요.' }, { status: 400 });
 
+        // 🔴 2026-07-31 — 여기는 **비가역**이다. 학부모 폰으로 나간 글은 회수할 수 없다.
+        //   예전엔 sent 개수와 misses 코드('no-review' 같은 약어)만 응답으로 돌려주고 끝이었다.
+        //   브라우저를 닫으면 "누구에게 무슨 문장이 갔는지"가 통째로 사라졌다.
+        //   → 학생별 한 줄씩, 실제 나간 제목·본문까지 로그에 남긴다.
         let sent = 0; const misses = [];
         const pushPhones = new Set();
+        const 발송내역 = [];       // 실제로 나간 사람들
+        const 못보낸내역 = [];     // 왜 안 나갔는지(사람이 읽을 수 있는 말로)
         for (const it of items) {
           const sid = (it && it.id == null ? '' : String(it.id)).trim();
-          if (!sid) { misses.push({ id: '', reason: 'no-id' }); continue; }
+          if (!sid) {
+            misses.push({ id: '', reason: 'no-id' });
+            못보낸내역.push({ 학생id: '(없음)', 사유: '화면이 학생 id 없이 보냄 — 목록이 깨졌을 수 있음' });
+            continue;
+          }
           const rev = await getClinicReview(env, sid, date);
-          if (!rev) { misses.push({ id: sid, reason: 'no-review' }); continue; }
-          if (rev.status === 'sent') { misses.push({ id: sid, reason: 'already-sent' }); continue; }
+          if (!rev) {
+            misses.push({ id: sid, reason: 'no-review' });
+            못보낸내역.push({ 학생id: sid, 사유: '그 날짜에 저장된 총평이 없음(작성 안 했거나 방금 삭제됨)' });
+            continue;
+          }
+          if (rev.status === 'sent') {
+            misses.push({ id: sid, reason: 'already-sent' });
+            못보낸내역.push({ 학생id: sid, 사유: '이미 발송 완료된 총평 — 중복 발송 막음', 이전발송시각: rev.sentAt || '' });
+            continue;
+          }
           const st = await getStudentById(env, sid);
-          if (!st) { misses.push({ id: sid, reason: 'no-student' }); continue; }
+          if (!st) {
+            misses.push({ id: sid, reason: 'no-student' });
+            못보낸내역.push({ 학생id: sid, 사유: '학생 레코드를 못 찾음(퇴원·삭제된 학생의 총평이 남아 있음)' });
+            continue;
+          }
 
+          const 원장수정본 = !!(it && it.body);
           const bodyText = (it && it.body ? String(it.body) : composeBody(rev, st.name)).slice(0, 4000);
           const title = (it && it.title ? String(it.title) : ('🩺 ' + st.name + ' 클리닉 총평 (' + mmdd(date) + ')')).slice(0, 200);
 
@@ -236,24 +317,80 @@ export async function onRequest(context) {
             studentId: st.id, type: 'clinic_review', title, body: bodyText,
             url: '/portal', dedupKey: 'clinic_review:' + st.id + ':' + date, audience: 'parent',
           });
-          if (!created.ok) { misses.push({ id: sid, reason: 'notif-failed' }); continue; }
+          if (!created.ok) {
+            misses.push({ id: sid, reason: 'notif-failed' });
+            못보낸내역.push({ 학생id: sid, 이름: st.name || '', 사유: '알림함 기록 실패 — 푸시도 안 나감', 오류: created.error || '' });
+            continue;
+          }
 
-          await markClinicReviewSent(env, sid, date, bodyText);
+          const mk = await markClinicReviewSent(env, sid, date, bodyText);
           sent++;
           // 학부모 폰만(클리닉 총평은 학부모 대상). 하이픈형으로 정규화해야 푸시 구독키와 매칭됨.
           const pd = normalizePhone(st.parentPhone);
           if (pd) pushPhones.add(pd);
+          발송내역.push({
+            학생id: String(sid), 이름: st.name || '', 학원: st.academy || '', 반: st.className || '',
+            학부모폰: pd || '(학부모 번호 없음 — 알림함엔 남지만 푸시는 못 감)',
+            제목: title,
+            본문: bodyText,                                   // 실제로 학부모가 읽은 그 문장
+            본문출처: 원장수정본 ? '원장이 화면에서 고친 문구' : '저장된 총평으로 자동 조립(composeBody)',
+            작성자표기: rev.authorName || '',
+            작성자폰: rev.authorPhone || '',
+            알림id: created.id || '',
+            알림함기록: created.created === false
+              ? '⚠️ 같은 중복키 알림이 이미 있어 새로 안 만듦(학부모 알림함엔 예전 문구가 그대로)'
+              : '새로 기록됨',
+            중복키: 'clinic_review:' + st.id + ':' + date,
+            발송전상태: (mk && mk.before && mk.before.status) || rev.status || 'draft',
+            발송시각: (mk && mk.sentAt) || '',
+          });
         }
 
         // 푸시는 best-effort로 한 번에. 학부모 대상 → 밤(KST 23~7) 무음.
+        const 푸시대상 = [...pushPhones];
         if (pushPhones.size) {
-          const phones = [...pushPhones];
+          const phones = 푸시대상;
           const p = sendPushToUsers(env, phones,
             { title: '🩺 클리닉 총평 도착', body: '오늘 클리닉 학습 총평이 도착했어요. 확인해 주세요.', url: '/portal', tag: 'kwmath-clinic-review' },
             { nightSilent: phones });
           if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
           else if (p && typeof p.catch === 'function') p.catch(() => {});
         }
+
+        // detail 한도(20000자)를 넘기면 통째로 잘려 로그 JSON이 깨진다 → 인원이 많으면 본문만 줄인다.
+        //   (본문 전문은 clinic_reviews.sent_body 에도 저장돼 있으니 완전히 잃지는 않는다.)
+        let 내역 = 발송내역; let 줄임메모 = '';
+        if (JSON.stringify(내역).length > 14000) {
+          내역 = 발송내역.map(x => ({ ...x, 본문: String(x.본문).slice(0, 300) + (String(x.본문).length > 300 ? ' …(줄임)' : '') }));
+          줄임메모 = '인원이 많아 본문을 앞 300자만 보관(전문은 clinic_reviews.sent_body)';
+        }
+        if (JSON.stringify(내역).length > 16000) {
+          내역 = 내역.slice(0, 60);
+          줄임메모 += (줄임메모 ? ' · ' : '') + '앞 60명만 보관';
+        }
+
+        await logAudit(env, request, {
+          action: 'clinic.review.send',
+          target: date, targetName: '클리닉 총평 발송',
+          summary: '클리닉 총평 학부모 발송 [' + date + '] — ' + sent + '명 발송'
+            + (misses.length ? ' · ' + misses.length + '명 못 보냄' : '')
+            + ' · 푸시 대상 ' + 푸시대상.length + '대 (되돌릴 수 없음)',
+          detail: {
+            날짜: date,
+            요청건수: items.length,
+            발송성공: sent,
+            못보냄: misses.length,
+            발송범위: Array.isArray(body.items) ? '화면에서 고른 학생들' : '그 날짜 draft 전체 자동 선택',
+            발송내역: 내역,
+            못보낸내역: 못보낸내역.slice(0, 100),
+            푸시대상폰: 푸시대상,
+            푸시: pushPhones.size
+              ? '학부모 ' + 푸시대상.length + '대에 푸시 시도(best-effort, KST 23~7시는 무음) — 성공 여부는 별도'
+              : '푸시 대상 없음(학부모 번호가 없거나 구독 안 됨) — 알림함에만 남음',
+            잘림: 줄임메모,
+            비고: '⚠️ 비가역 — 학부모 폰에 이미 뜬 알림은 회수할 수 없다. 위 "본문"이 실제로 나간 문장.',
+          },
+        });
         return Response.json({ ok: true, sent, misses });
       }
 
@@ -280,6 +417,33 @@ export async function onRequest(context) {
         return Response.json({ error: '발송 완료된 총평은 원장만 삭제할 수 있어요.' }, { status: 403 });
 
       const r = await deleteClinicReview(env, sid, date);
+
+      // 🔴 2026-07-31 — 조교가 몇 분에 걸쳐 쓴 총평이 통째로 사라지는 자리인데 아무 기록이 없었다.
+      //   "누가 지웠는지"뿐 아니라 **무슨 글이 사라졌는지**까지 남긴다(복구 시 이 로그가 원본).
+      const gone = r.before || null;
+      const stu = await getStudentById(env, sid).catch(() => null);
+      await logAudit(env, request, {
+        action: 'clinic.review.delete',
+        target: String(sid), targetName: (stu && stu.name) || '',
+        summary: '클리닉 총평 삭제 [' + ((stu && stu.name) || sid) + ' · ' + date + ']'
+          + (gone ? ' — 작성자 ' + (gone.authorName || '(표기없음)')
+                  + (gone.status === 'sent' ? ' · ⚠️ 이미 학부모에게 발송된 총평' : ' · 미발송 draft')
+            : ' — 지울 총평이 이미 없었음')
+          + ' · 삭제 ' + (r.removed || 0) + '건 (복구 불가)',
+        detail: {
+          학생id: String(sid), 이름: (stu && stu.name) || '', 학원: (stu && stu.academy) || '',
+          반: (stu && stu.className) || '', 날짜: date,
+          삭제건수: r.removed || 0,
+          지운사람구분: isOwner ? '원장' : '조교',
+          지워진총평: gone || '(삭제 시점에 해당 총평이 없었음 — 이미 지워졌거나 날짜/학생 오지정)',
+          발송된적있나: !!(gone && gone.status === 'sent'),
+          발송시각: (gone && gone.sentAt) || '',
+          학부모에게간본문: (gone && gone.sentBody) ? String(gone.sentBody).slice(0, 3000) : '(발송 전이라 없음)',
+          비고: (gone && gone.status === 'sent')
+            ? '⚠️ 학부모 폰에 이미 뜬 알림과 알림함 기록은 이 삭제로 사라지지 않는다 — 학부모는 계속 볼 수 있고, 원장 화면에서만 사라진다'
+            : '미발송 draft라 학부모에게는 아무 영향 없음',
+        },
+      });
       return Response.json({ ok: true, removed: r.removed || 0 });
     }
 

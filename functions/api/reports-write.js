@@ -8,6 +8,7 @@
 import { getStudentByName, createReport, updateReport, deleteReport, getReportByStudentAndDate } from './_db.js';
 import { safeError } from './_errors.js';
 import { sendPushToUsers } from './_push.js';   // 🔔 2026-07-30 — 웹푸시+FCM 병행 (push-send 경유 시 FCM 미발송 버그 수정)
+import { logAudit, diffFields } from './_auditlog.js';
 
 // 학생 이름 → 학부모 휴대폰 (푸쉬 발송용, D1)
 async function findParentPhone(env, studentName) {
@@ -38,11 +39,38 @@ export async function onRequest({ request, env }) {
     if (dup && dup.id != null) {
       const u = await updateReport(env, dup.id, { date, school, content, homework, notes });
       if (!u.ok) return safeError(u.error || 'updateReport(dedup) failed', env, { message: '리포트 저장에 실패했습니다.' });
+
+      // 📓 2026-07-31 — 이 경로는 겉보기엔 "생성"인데 실제로는 **기존 리포트 덮어쓰기**다.
+      //   MathOS에서 두 번 올리면 학부모가 이미 읽은 내용이 조용히 바뀐다 → 전/후를 반드시 남긴다.
+      const d = diffFields(u.before, u.after, ['date', 'school', 'content', 'homework', 'notes']);
+      await logAudit(env, request, {
+        action: 'report.overwrite',
+        target: String(dup.id), targetName: studentName,
+        summary: '리포트 덮어쓰기 [' + studentName + ' · ' + date + '] (같은 날짜 재업로드) — ' + (d.요약 || '내용 동일'),
+        detail: {
+          리포트id: dup.id, 학생: studentName, 수업일: date,
+          바뀐칸: d.바뀐칸, 변경: d.변경,
+          이전내용: u.before || null,
+          경로: '같은 학생+같은 날짜 중복 가드 — 새로 쌓지 않고 기존 행 갱신',
+          푸시: '재발송 안 함(학부모는 첫 업로드 때 이미 받음)',
+        },
+      });
       return Response.json({ ok: true, id: String(dup.id), deduped: true });
     }
 
     const r = await createReport(env, { studentName, phone4, date, school, content, homework, notes });
     if (!r.ok) return safeError(r.error || 'createReport failed', env, { message: '리포트 저장에 실패했습니다.' });
+
+    await logAudit(env, request, {
+      action: 'report.create',
+      target: String(r.id || ''), targetName: studentName,
+      summary: '리포트 작성 [' + studentName + ' · ' + date + ']' + (body.noPush ? ' (푸시 없음 — 복사 등록)' : ''),
+      detail: {
+        리포트id: r.id, 학생: studentName, 수업일: date, 학원: school || '대치동 정규반',
+        수업내용: content || '', 숙제: homework || '', 특이사항: notes || '',
+        푸시보냄: !body.noPush,
+      },
+    });
 
     // 푸쉬 알림 (비치명적 — 실패해도 생성은 성공)
     //   noPush=true면 조용히 생략 — "이미 올린 레포트를 다른 학생에게 복사"할 때 그 학부모엔 알림 안 보냄(관우T 확정 2026-07-23).
@@ -84,6 +112,23 @@ export async function onRequest({ request, env }) {
 
     const r = await updateReport(env, id, patch);
     if (!r.ok) return safeError(r.error || 'updateReport failed', env, { message: '리포트 수정에 실패했습니다.' });
+
+    // 📓 리포트 본문은 학부모가 읽는 글이다. 어느 칸을 무엇에서 무엇으로 고쳤는지 통째로 남긴다.
+    const d = diffFields(r.before, r.after, ['date', 'school', 'content', 'homework', 'notes']);
+    await logAudit(env, request, {
+      action: 'report.update',
+      target: String(id),
+      targetName: (r.before && r.before.studentName) || (r.after && r.after.studentName) || '',
+      summary: '리포트 수정 [' + (((r.before && r.before.studentName) || '') + ' · ' + ((r.before && r.before.date) || '')).trim()
+        + '] — ' + (d.요약 || '변경 없음'),
+      detail: {
+        리포트id: id,
+        학생: (r.before && r.before.studentName) || '',
+        바뀐칸: d.바뀐칸, 변경: d.변경,
+        보낸값: patch,
+        수정전전문: r.before || null,     // 본문 전체 — 잘못 고쳤을 때 되돌릴 근거
+      },
+    });
     return Response.json({ ok: true });
   }
 
@@ -96,6 +141,20 @@ export async function onRequest({ request, env }) {
 
     const r = await deleteReport(env, id);
     if (!r.ok) return safeError(r.error || 'deleteReport failed', env, { message: '리포트 삭제에 실패했습니다.' });
+
+    // 🔴 되돌릴 수 없음 — 지워진 리포트 전문을 로그에 통째로 박는다. 이게 유일한 복원 근거.
+    await logAudit(env, request, {
+      action: 'report.delete',
+      target: String(id), targetName: (r.before && r.before.studentName) || '',
+      summary: '리포트 삭제 [' + (((r.before && r.before.studentName) || '') + ' · ' + ((r.before && r.before.date) || '')).trim()
+        + '] 영구 삭제 (복구 불가)',
+      detail: {
+        리포트id: id,
+        지워진리포트: r.before || '(행을 못 읽음 — 이미 없었을 수 있음)',
+        삭제건수: r.removed,
+        비고: r.removed === 0 ? '지울 행이 없었음' : '학부모 앱에서 즉시 사라짐',
+      },
+    });
     return Response.json({ ok: true });
   }
 

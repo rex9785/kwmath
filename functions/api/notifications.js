@@ -19,6 +19,7 @@ import { getStudentByName, getStudentById, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { sendPushToUsers } from './_push.js';
 import { safeError } from './_errors.js';
+import { logAudit } from './_auditlog.js';
 import {
   createNotification, listNotifications, countUnread,
   markRead, markAllRead, listNotificationsByStudentId,
@@ -155,6 +156,25 @@ export async function onRequest(context) {
             else if (p && typeof p.catch === 'function') p.catch(() => {});
           }
         }
+        // 📓 발신도 기록한다. "이 알림이 왜 이 학부모한테 갔나"를 나중에 되짚을 수 있어야 한다
+        //    (실제로 '세정학원 공지가 다른 학원에 갔다'를 추적한 적이 있다). 문구·대상·중복차단 결과까지.
+        await logAudit(env, request, {
+          action: 'notification.send',
+          target: String(st.id),
+          targetName: st.name || '',
+          summary: '[' + (st.name || st.id) + '] 알림 발송(' + type + ') — ' + String(title).slice(0, 40)
+            + (created.created ? '' : ' · 중복이라 재발송 안 함'),
+          detail: {
+            학생id: st.id, 학생이름: st.name || '', 학원: st.academy || '', 반: st.className || '',
+            유형: type, 제목: title, 본문: String(bodyText).slice(0, 1000), 링크: urlPath,
+            받는사람: audience, 중복키: dedupKey || null,
+            새로생성: !!created.created, 알림id: created.id || null,
+            푸시대상: created.created
+              ? (audience === 'parent' ? [st.parentPhone] : audience === 'student' ? [st.studentPhone] : [st.parentPhone, st.studentPhone])
+                  .map((p) => normalizePhone(p)).filter(Boolean)
+              : [],
+          },
+        });
         return Response.json({ ok: true, created: created.created, id: created.id });
       }
 
@@ -180,6 +200,7 @@ export async function onRequest(context) {
         const audience = ['parent', 'student', 'all'].includes((body.audience || '').trim()) ? (body.audience || '').trim() : 'all';
 
         let sent = 0; const misses = []; const pushPhones = new Set(); const nightSilentPhones = new Set();
+        const 발송상세 = [];   // 누구에게 갔는지 — 학원/반까지 남겨야 '엉뚱한 학원' 오배송을 되짚을 수 있다
         for (const id of ids) {
           const st = await getStudentById(env, id);
           if (!st) { misses.push(id); continue; }
@@ -188,6 +209,12 @@ export async function onRequest(context) {
           });
           if (!created.ok) { misses.push(id); continue; }
           sent++;
+          if (발송상세.length < 300) {
+            발송상세.push({
+              id: st.id, 이름: st.name || '', 학원: st.academy || '', 반: st.className || '',
+              학부모폰: st.parentPhone || '', 학생폰: st.studentPhone || '', 알림id: created.id || null,
+            });
+          }
           const targets = audience === 'parent' ? [st.parentPhone]
                         : audience === 'student' ? [st.studentPhone]
                         : [st.parentPhone, st.studentPhone];
@@ -203,6 +230,22 @@ export async function onRequest(context) {
           if (context && typeof context.waitUntil === 'function') context.waitUntil(pp);
           else if (pp && typeof pp.catch === 'function') pp.catch(() => {});
         }
+        // 📓 일괄 발송 1건 = 로그 1건. 대상 명단(이름·학원·반)을 통째로 남긴다.
+        //    오배송 추적은 "누구한테 갔나"가 없으면 아예 불가능하다.
+        await logAudit(env, request, {
+          action: 'notification.send.bulk',
+          target: 'students:' + ids.length,
+          targetName: (발송상세[0] && 발송상세[0].이름) || '',
+          summary: '일괄 알림 발송 ' + sent + '명 (요청 ' + ids.length + '명 · 실패 ' + misses.length + '명) — '
+            + String(title).slice(0, 40),
+          detail: {
+            제목: title, 본문: String(bodyText).slice(0, 2000), 링크: urlPath, 받는사람: audience,
+            요청수: ids.length, 성공: sent, 실패: misses,
+            대상명단: 발송상세, 명단일부만저장: sent > 300,
+            푸시대상폰: [...pushPhones].slice(0, 300),
+            밤무음대상: [...nightSilentPhones].slice(0, 300),
+          },
+        });
         return Response.json({ ok: true, sent, misses });
       }
 
@@ -237,6 +280,23 @@ export async function onRequest(context) {
       if (!ids.length) return Response.json({ error: '회수할 알림을 선택해주세요.' }, { status: 400 });
       const res = await deleteNotifications(env, ids);
       if (!res.ok) return Response.json({ error: res.error || '회수에 실패했습니다.' }, { status: 500 });
+      // ⚠️ 회수 = 영구 삭제. 이미 학부모 폰에 뜬 배너는 못 되돌리므로, "무슨 내용을 누구에게 보냈다가
+      //    언제 거둬들였는지"가 남아야 문의에 답할 수 있다. 원문(제목·본문·대상)을 통째로 남긴다.
+      const rows = res.before || [];
+      await logAudit(env, request, {
+        action: 'notification.recall',
+        target: ids.slice(0, 20).join(','),
+        targetName: (rows[0] && (rows[0].title || '')) || '',
+        summary: '알림 회수(영구 삭제) ' + res.deleted + '건'
+          + (rows[0] && rows[0].title ? ' — [' + String(rows[0].title).slice(0, 40) + ']' : '')
+          + (rows.length > 1 ? ' 외 ' + (rows.length - 1) + '건' : ''),
+        detail: {
+          요청id: ids, 삭제건수: res.deleted,
+          지워진알림: rows.slice(0, 100),
+          일부만저장: rows.length > 100,
+          주의: '이미 폰에 도착한 푸시 배너는 회수되지 않음(플랫폼 한계)',
+        },
+      });
       return Response.json({ ok: true, deleted: res.deleted });
     }
 

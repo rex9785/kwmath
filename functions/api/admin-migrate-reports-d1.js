@@ -15,6 +15,7 @@
 //   - 컷오버 때 이미 이관된 리포트도 위 중복검사로 자동 스킵됨.
 // ───────────────────────────────────────────────────────────
 import { safeError } from './_errors.js';
+import { logAudit } from './_auditlog.js';
 
 const REPORTS_DB = '82ef896dcf844c5b9c36f7e0ff0a97f2';
 
@@ -48,7 +49,21 @@ export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용' }, { status: 405 });
 
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
-  if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) return Response.json({ error: '인증 필요' }, { status: 401 });
+  if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) {
+    // 거부도 남긴다 — "리포트가 갑자기 늘었다/안 늘었다"를 추적할 때 누가 두드렸는지가 단서가 된다.
+    await logAudit(env, request, {
+      action: 'admin.migrate.reports.denied',
+      target: 'D1 reports 표',
+      summary: '리포트 이관(노션→D1) 인증 실패 — 거부(401)',
+      detail: {
+        결과: '거부(401). D1에 어떤 변경도 일어나지 않았다.',
+        사유: env.ADMIN_PASSWORD ? '관리자 비밀번호 불일치' : '서버에 ADMIN_PASSWORD 미설정',
+        효과: '없음.',
+        비고: '입력된 토큰 원문은 기록하지 않는다.',
+      },
+    });
+    return Response.json({ error: '인증 필요' }, { status: 401 });
+  }
   if (!env.DB) return Response.json({ error: 'D1 바인딩(DB) 없음 — wrangler.toml + 배포 확인' }, { status: 500 });
   if (!env.NOTION_TOKEN) return Response.json({ error: 'NOTION_TOKEN 없음' }, { status: 500 });
 
@@ -61,6 +76,10 @@ export async function onRequest({ request, env }) {
     notionTotal: 0, migrated: 0, skippedExisting: 0, invalid: 0,
     samples: [], errors: [],
   };
+
+  // 📓 감사로그용 — 실행 1회 = 로그 1건. 응답(out.samples 10건)과 별개로 앞 30건까지 모아 둔다.
+  const 시작 = Date.now();
+  const 표본 = [];
 
   try {
     const reps = await notionQueryAll(env, REPORTS_DB);
@@ -92,6 +111,7 @@ export async function onRequest({ request, env }) {
         academy:      sel(p, '학원'),
       };
       if (out.samples.length < 10) out.samples.push({ name, date, title: rec.title, public: rec.is_public });
+      if (표본.length < 30) 표본.push({ 학생: name, 수업날짜: date, 제목: rec.title, 공개: rec.is_public === 1 });
 
       if (!dryRun) {
         try {
@@ -103,9 +123,42 @@ export async function onRequest({ request, env }) {
       out.migrated++;
     }
 
+    // 🔴 실행 1회 = 로그 1건. 수백 건을 건별로 남기지 않는다(로그·detail 상한이 터진다).
+    await logAudit(env, request, {
+      action: dryRun ? 'admin.migrate.reports.dryrun' : 'admin.migrate.reports',
+      target: 'D1 reports 표',
+      summary: (dryRun ? '[미리보기] ' : '') + '노션 리포트→D1 이관 — 노션 ' + out.notionTotal
+        + '건 중 ' + out.migrated + '건 넣음 · 중복스킵 ' + out.skippedExisting + '건 · 형식오류 ' + out.invalid + '건',
+      detail: {
+        모드: dryRun ? '미리보기(dryRun) — D1에 쓰지 않음' : '실제 반영(dryRun=false)',
+        노션전체: out.notionTotal,
+        건수: { 넣음: out.migrated, 중복스킵: out.skippedExisting, 형식오류_이름이나날짜없음: out.invalid },
+        표본_앞30건: 표본,
+        표본잘림: out.migrated > 30,
+        걸린시간초: Math.round((Date.now() - 시작) / 100) / 10,
+        오류: out.errors.slice(0, 50),
+        효과: dryRun
+          ? '아무것도 바뀌지 않았다. 몇 건이 들어갈지 세어 본 결과다.'
+          : '이 리포트들이 학부모·학생 포털에 즉시 보이게 된다(공개=1인 것). 노션 원본은 그대로 남는다.',
+        비고: '같은 (학생 이름 + 수업 날짜)가 D1에 이미 있으면 건너뛰므로 재실행해도 중복이 생기지 않는다.',
+      },
+    });
     return Response.json(out);
   } catch (e) {
     out.ok = false;
+    // 중간에 터지면 일부만 들어간 상태다 — 어디까지 갔는지를 남긴다.
+    await logAudit(env, request, {
+      action: 'admin.migrate.reports.fail',
+      target: 'D1 reports 표',
+      summary: '노션 리포트→D1 이관 중단(오류) — ' + String((e && e.message) || e).slice(0, 120),
+      detail: {
+        모드: dryRun ? '미리보기(dryRun)' : '실제 반영',
+        오류: String((e && e.message) || e),
+        중단시점까지: { 넣음: out.migrated, 중복스킵: out.skippedExisting, 형식오류: out.invalid, 노션읽음: out.notionTotal },
+        걸린시간초: Math.round((Date.now() - 시작) / 100) / 10,
+        효과: dryRun ? '아무것도 바뀌지 않았다.' : '⚠️ 위 「넣음」 건수까지만 D1에 반영된 상태일 수 있다. 다시 돌리면 중복검사로 나머지만 들어간다.',
+      },
+    });
     return safeError(e, env, { message: '리포트 이관 중 오류가 발생했습니다.' });
   }
 }

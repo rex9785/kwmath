@@ -38,6 +38,7 @@ import {
 } from './_db.js';
 import { loadClassSchedules } from './class-options.js';
 import { staffScopeAcademy } from './_staff.js';
+import { logAudit } from './_auditlog.js';
 import { safeError } from './_errors.js';
 
 const HW_THRESHOLD = 50;                 // 숙제 이 % 이하면 priority(우선) 표시
@@ -248,16 +249,50 @@ export async function onRequest({ request, env }) {
         for (const s of students) byId[normSid(s.id)] = s;
 
         let done = 0, skipped = 0;
+        // 📓 2026-07-31 — 일괄 처리는 한 번 누르면 반 전체가 바뀐다. 예전엔 done/skipped 숫자만
+        //   응답으로 돌려주고 끝이라, "왜 이 학생이 오늘 클리닉 명단에서 빠졌지"를 나중에 물으면
+        //   답할 방법이 없었다. → 학생별로 이름·전/후를 전부 모아 로그 1건에 담는다.
+        const 처리내역 = [];
+        const 건너뜀 = [];
         for (const sid of ids) {
           const st = byId[sid];
-          if (!st) { skipped++; continue; }                    // 퇴원·삭제된 id는 조용히 건너뛴다
+          if (!st) { skipped++; 건너뜀.push({ 학생id: sid, 사유: '학생을 찾을 수 없음(퇴원·삭제)' }); continue; }
           // 조교는 자기 학원 학생만(원장=null→통과, 미배정 조교=''→전부 차단)
-          if (scopeAcademy !== null && (!scopeAcademy || String(st.academy || '').trim() !== scopeAcademy)) { skipped++; continue; }
+          if (scopeAcademy !== null && (!scopeAcademy || String(st.academy || '').trim() !== scopeAcademy)) {
+            skipped++; 건너뜀.push({ 학생id: sid, 이름: st.name || '', 사유: '담당 학원 아님(' + (st.academy || '미배정') + ')' });
+            continue;
+          }
           const r = (action === 'clear')
             ? await deleteClinicRoster(env, st.id, date)
             : await setClinicRoster(env, st.id, date, action, reason);
-          if (r && r.ok !== false) done++; else skipped++;
+          if (r && r.ok !== false) {
+            done++;
+            처리내역.push({
+              학생id: String(st.id), 이름: st.name || '', 학원: st.academy || '', 반: st.className || st.class_name || '',
+              전: r.before ? (r.before.action + (r.before.reason ? '(' + r.before.reason + ')' : '')) : '표시없음(기본판정)',
+              후: action === 'clear' ? '표시없음(기본판정으로 복귀)' : (action + (reason ? '(' + reason + ')' : '')),
+            });
+          } else {
+            skipped++;
+            건너뜀.push({ 학생id: sid, 이름: st.name || '', 사유: (r && r.error) || '저장 실패' });
+          }
         }
+
+        await logAudit(env, request, {
+          action: 'clinic.roster.bulk',
+          target: date, targetName: '클리닉 명단 ' + date,
+          summary: '클리닉 명단 일괄 ' + (action === 'clear' ? '표시 해제' : action === 'exclude' ? '제외' : '추가')
+            + ' [' + date + '] — ' + done + '명 처리 · ' + skipped + '명 건너뜀'
+            + (reason ? ' · 사유 "' + reason + '"' : ''),
+          detail: {
+            날짜: date, 동작: action, 사유: reason || '',
+            요청인원: ids.length, 처리: done, 건너뜀수: skipped,
+            처리내역: 처리내역.slice(0, 300),
+            내역잘림: 처리내역.length > 300,
+            건너뛴학생: 건너뜀.slice(0, 100),
+            스코프: scopeAcademy === null ? '원장(전체)' : ('조교(' + (scopeAcademy || '미배정') + ')'),
+          },
+        });
         return Response.json({ ok: true, date, action, done, skipped });
       } catch (e) {
         return safeError(e, env, { message: '명단 저장에 실패했습니다.' });
@@ -280,10 +315,39 @@ export async function onRequest({ request, env }) {
 
       if (action === 'clear') {
         const r = await deleteClinicRoster(env, st.id, date);
+        await logAudit(env, request, {
+          action: 'clinic.roster.clear',
+          target: String(st.id), targetName: st.name || '',
+          summary: '클리닉 명단 표시 해제 [' + (st.name || st.id) + ' · ' + date + '] — '
+            + (r.before ? ('"' + r.before.action + '" 표시를 지움 → 기본 판정으로 복귀') : '원래 표시가 없었음'),
+          detail: {
+            학생id: String(st.id), 이름: st.name || '', 학원: st.academy || '', 날짜: date,
+            지운표시: r.before || '(없음)', 삭제건수: r.removed || 0,
+            효과: '이제 이 학생은 반 시간표 기준 기본 판정을 따름',
+          },
+        });
         return Response.json({ ok: true, name: st.name, studentId: String(st.id), date, removed: r.removed || 0 });
       }
       const r = await setClinicRoster(env, st.id, date, action, reason);
       if (!r.ok) return safeError(r.error || 'setClinicRoster failed', env, { message: '명단 저장에 실패했습니다.' });
+
+      // 📓 "왜 이 학생이 오늘 클리닉에서 빠졌나"는 학부모 문의로 바로 오는 질문이다.
+      //   누가·언제·무슨 사유로 뺐는지가 남아야 답할 수 있다.
+      await logAudit(env, request, {
+        action: action === 'exclude' ? 'clinic.roster.exclude' : 'clinic.roster.add',
+        target: String(st.id), targetName: st.name || '',
+        summary: '클리닉 명단 ' + (action === 'exclude' ? '제외' : '수동 추가')
+          + ' [' + (st.name || st.id) + ' · ' + date + ']' + (reason ? ' · 사유 "' + reason + '"' : ' · 사유 없음'),
+        detail: {
+          학생id: String(st.id), 이름: st.name || '', 학원: st.academy || '',
+          반: st.className || st.class_name || '', 날짜: date,
+          표시: { 전: r.before ? (r.before.action + (r.before.reason ? '(' + r.before.reason + ')' : '')) : '표시없음(기본판정)',
+                 후: action + (reason ? '(' + reason + ')' : '') },
+          사유: reason || '',
+          새로생성: !!r.created,
+          지목방식: studentId ? 'studentId(동명이인 안전)' : 'name 폴백',
+        },
+      });
       return Response.json({ ok: true, name: st.name, studentId: String(st.id), date, action });
     } catch (e) {
       return safeError(e, env, { message: '명단 저장에 실패했습니다.' });

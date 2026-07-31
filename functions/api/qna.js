@@ -23,6 +23,7 @@ import { requireStudentAccess } from './_auth.js';
 import { sendPushToUsers } from './_push.js';
 import { listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
+import { logAudit } from './_auditlog.js';
 
 // 🔒 2026-07-29 — 조교 학원 스코프.
 //   미들웨어(functions/_middleware.js 74줄)는 "GET은 차단목록에 없으면 전부 허용" 구조라,
@@ -640,7 +641,11 @@ export async function onRequest(context) {
       if (answer.length > MAX_A_LEN) return jsonErr(`답변은 ${MAX_A_LEN}자 이하로 작성해주세요.`);
       const answeredBy = (body.answeredBy === '조교') ? '조교' : '선생님';
 
-      const ex = await env.DB.prepare('SELECT id, student_id, author_phone, kind, title, question FROM qna WHERE id=?').bind(id).first();
+      // 🔎 2026-07-31 — 답변 칸은 덮어쓰기다. 두 번째 답변을 달면 첫 답변이 흔적 없이 사라졌다.
+      //    같은 쿼리에서 기존 답변·답변자·상태까지 읽어 둔다(추가 쿼리 0).
+      const ex = await env.DB.prepare(
+        'SELECT id, student_id, author_phone, author_name, kind, title, question, answer, answered_by, status, answered_at FROM qna WHERE id=?'
+      ).bind(id).first();
       if (!ex) return jsonErr('질문을 찾을 수 없습니다.', 404);
 
       // 🔒 조교는 자기 학원 학생 질문에만 답변할 수 있습니다 (원장은 scope=null → 통과).
@@ -648,10 +653,32 @@ export async function onRequest(context) {
       if (scopeIds && !(ex.student_id != null && scopeIds.has(String(ex.student_id))))
         return jsonErr('담당 학원 학생의 질문만 답변할 수 있어요.', 403);
 
+      const answeredAt = new Date().toISOString();
       await env.DB.prepare(
         "UPDATE qna SET answer=?, answered_by=?, status='answered', answered_at=? WHERE id=?"
-      ).bind(answer, answeredBy, new Date().toISOString(), id).run();
+      ).bind(answer, answeredBy, answeredAt, id).run();
       notifyStudentAnswered(context, env, ex, answeredBy);
+
+      // 📓 누가(조교 이름까지) 어떤 질문에 뭐라고 답했는지 · 기존 답변을 갈아엎었는지 전부 남긴다.
+      //   answered_by 칸은 '선생님'/'조교' 두 글자뿐이라 조교가 여럿이면 누군지 알 수 없다
+      //   → 로그의 actor_name(미들웨어가 실은 실제 이름)이 그 빈칸을 메운다.
+      const 재답변 = !!(ex.answer && String(ex.answer).trim());
+      await logAudit(env, request, {
+        action: 재답변 ? 'qna.answer.overwrite' : 'qna.answer',
+        target: String(id), targetName: ex.author_name || '',
+        summary: '질문 [' + (ex.title || ('#' + id)) + '] ' + (재답변 ? '답변 덮어쓰기(기존 답변 사라짐)' : '답변 등록')
+          + ' · 표기 "' + answeredBy + '"',
+        detail: {
+          질문id: Number(id), 질문자: ex.author_name || '', 질문자폰: ex.author_phone || '',
+          학생id: ex.student_id, 종류: ex.kind || '', 제목: ex.title || '',
+          질문내용: String(ex.question || '').slice(0, 1000),
+          답변: { 전: ex.answer || '(없음)', 후: answer },
+          답변자표기: { 전: ex.answered_by || '(없음)', 후: answeredBy },
+          상태: { 전: ex.status || '', 후: 'answered' },
+          답변시각: { 전: ex.answered_at || '(없음)', 후: answeredAt },
+          기존답변덮어씀: 재답변,
+        },
+      });
       return jsonOk({ ok: true, id, status: 'answered', answeredBy });
     }
 
@@ -660,16 +687,55 @@ export async function onRequest(context) {
       const id = url.searchParams.get('id');
       if (!id) return jsonErr('id가 필요합니다.');
 
-      const row = await env.DB.prepare('SELECT author_phone FROM qna WHERE id=?').bind(id).first();
+      // 🔴 2026-07-31 — 예전엔 author_phone 한 칸만 읽고 지웠다. 질문·답변·사진이
+      //    통째로 사라졌는데 무엇이 사라졌는지 어디에도 안 남았다.
+      //    ⚠️ image/images 는 base64 사진이라 로그에 그대로 담으면 detail 한도(20000자)를 혼자 다 먹는다
+      //       → 본문 대신 **용량만** 기록한다(LENGTH). 사진 자체는 복구 불가라는 사실도 같이 남긴다.
+      const row = await env.DB.prepare(
+        'SELECT id, student_id, author_phone, author_name, author_role, mode, kind, is_private, ' +
+        'title, question, answer, answered_by, status, qdate, created_at, answered_at, ' +
+        'LENGTH(image) AS image_len, LENGTH(images) AS images_len FROM qna WHERE id=?'
+      ).bind(id).first();
       if (!row) return jsonOk({ ok: true, removed: 0 });
 
+      // 행위자 — 원장/조교면 미들웨어 헤더로 자동 판별되지만, 학생 본인 삭제는 포털 토큰이라 직접 넘겨야 한다.
+      let actorFields = {};
       if (!isAdmin) {
         const access = await requireStudentAccess(env, request);
         if (!access.ok) return access.response;
         if (row.author_phone !== access.phone) return jsonErr('본인이 작성한 질문만 삭제할 수 있습니다.', 403);
+        actorFields = { actor: access.phone, actorRole: 'student', actorName: row.author_name || '' };
       }
-      await env.DB.prepare('DELETE FROM qna WHERE id=?').bind(id).run();
-      return jsonOk({ ok: true, removed: 1 });
+      const del = await env.DB.prepare('DELETE FROM qna WHERE id=?').bind(id).run();
+      const removed = (del.meta && del.meta.changes) || 0;
+
+      await logAudit(env, request, {
+        action: 'qna.delete',
+        ...actorFields,
+        target: String(id), targetName: row.author_name || '',
+        summary: '질문 [' + (row.title || ('#' + id)) + '] 삭제 — 작성자 ' + (row.author_name || row.author_phone || '?')
+          + (isAdmin ? ' (관리자 삭제)' : ' (본인 삭제)') + ' · 복구 불가',
+        detail: {
+          질문id: Number(id),
+          지워진글: {
+            학생id: row.student_id, 작성자: row.author_name || '', 작성자폰: row.author_phone || '',
+            역할: row.author_role || '', 모드: row.mode || '', 종류: row.kind || '',
+            비밀글: !!row.is_private, 제목: row.title || '',
+            질문: String(row.question || '').slice(0, 3000),
+            답변: String(row.answer || '').slice(0, 3000),
+            답변자: row.answered_by || '', 상태: row.status || '',
+            작성일: row.created_at || '', 답변일: row.answered_at || '',
+          },
+          첨부사진: {
+            단일사진_바이트: row.image_len || 0,
+            여러사진_바이트: row.images_len || 0,
+            비고: (row.image_len || row.images_len) ? '사진 원본은 로그에 담지 않음 — 복구 불가' : '사진 없음',
+          },
+          삭제건수: removed,
+          삭제주체: isAdmin ? '원장/조교' : '작성자 본인',
+        },
+      });
+      return jsonOk({ ok: true, removed });
     }
 
     return jsonErr('지원하지 않는 메소드입니다.', 405);

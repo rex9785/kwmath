@@ -13,6 +13,7 @@ import { getStudentByName, getStudentById, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 import { listGrantsForStudent, requestMakeup, approveMakeup, revokeMakeup, listAllGrants } from './_makeup.js';
+import { logAudit, actorOf } from './_auditlog.js';
 
 // 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음). 미배정 조교는 빈 Set.
 async function staffNameScope(env, request) {
@@ -75,10 +76,45 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: '담당 학원 학생만 처리할 수 있어요.' }, { status: 403 });
 
       try {
+        // 📓 2026-07-31 — approved_by 에 여태 'admin' 다섯 글자만 박혀 있었다. 조교가 여럿인데
+        //   누가 열어줬는지 DB만 봐선 영영 알 수 없었다(homework.js checked_by 와 같은 문제).
+        //   미들웨어가 검증해 실어 보낸 실제 이름/번호를 쓴다.
+        const who = actorOf(request, env);
+        const 승인자표기 = (who.actorRole === 'staff' && (who.actorName || who.actor))
+          ? ((who.actorName || '조교') + '(' + (who.actor || '') + ')')
+          : (who.actorRole === 'owner' ? '원장' : 'admin');
+
         const r = (action === 'revoke')
           ? await revokeMakeup(env, st.id, date)
-          : await approveMakeup(env, st.id, date, 'admin');
+          : await approveMakeup(env, st.id, date, 승인자표기);
         if (!r.ok) return safeError(r.error || 'makeup write failed', env, { message: '처리에 실패했습니다.' });
+
+        // 📓 인강 해제 = 결석한 날의 영상·수업자료 잠금을 푸는 일이다.
+        //   여태 아무 기록이 없어, 안 온 날 영상을 누가 왜 열어줬는지 확인할 방법이 없었다.
+        const 전 = r.before || null;
+        await logAudit(env, request, {
+          action: action === 'revoke' ? 'makeup.revoke' : 'makeup.approve',
+          target: String(st.id), targetName: st.name || '',
+          summary: '인강 ' + (action === 'revoke' ? '해제 취소(다시 잠금)' : '해제 승인')
+            + ' [' + (st.name || st.id) + ' · ' + date + '] — '
+            + (action === 'revoke'
+               ? ('전: ' + (전 ? 전.status : '기록 없음') + ' · 삭제 ' + (r.removed || 0) + '건')
+               : ('전: ' + (전 ? 전.status : '기록 없음') + ' → approved'
+                  + (전 && 전.status === 'requested' ? ' (학생이 신청한 건 승인)' : ' (원장/조교가 직접 열어줌)'))),
+          detail: {
+            학생id: String(st.id), 이름: st.name || '', 학원: st.academy || '', 반: st.className || '',
+            날짜: date,
+            전: 전 || '(그 날짜 기록 없음)',
+            후: action === 'revoke' ? '(행 삭제 — 다시 잠김)'
+              : { status: 'approved', approved_by: 승인자표기, approved_at: r.approvedAt || '' },
+            승인자표기, 지목방식: (body.studentId !== undefined && String(body.studentId) !== '') ? 'studentId(동명이인 안전)' : 'name 폴백',
+            처리범위: allowed ? '조교(담당 학원 학생만)' : '원장(전체)',
+            효과: action === 'revoke'
+              ? '이 날짜 수업영상·수업자료가 다시 잠긴다(출석/지각 기록이 있으면 원래 열려 있음)'
+              : '이 날짜 수업영상·수업자료가 열린다 — 결석·기록없음이어도 열람 가능해짐',
+            삭제건수: action === 'revoke' ? (r.removed || 0) : undefined,
+          },
+        });
         return Response.json({ ok: true, action, studentId: st.id, name: st.name, date });
       } catch (e) { return safeError(e, env, { message: '처리에 실패했습니다.' }); }
     }
@@ -92,6 +128,25 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: 'date(YYYY-MM-DD) 필수' }, { status: 400 });
       const r = await requestMakeup(env, access.student.id, date);
       if (!r.ok) return safeError(r.error || 'makeup request failed', env, { message: '신청에 실패했습니다.' });
+
+      // 📓 학생·학부모가 신청한 것도 남긴다 — "신청했는데 안 열어줬다"는 말이 나오면
+      //   신청이 실제로 접수됐는지(그리고 이미 approved라 무시됐는지)를 여기서 확인한다.
+      await logAudit(env, request, {
+        action: 'makeup.request',
+        actor: String(access.student.id), actorRole: 'student', actorName: access.student.name || '',
+        target: String(access.student.id), targetName: access.student.name || '',
+        summary: '인강 신청 [' + (access.student.name || access.student.id) + ' · ' + date + '] — '
+          + (r.created ? '접수(requested)' : '이미 ' + r.status + ' 상태라 그대로 둠'),
+        detail: {
+          학생id: String(access.student.id), 이름: access.student.name || '', 날짜: date,
+          전: r.before || '(그 날짜 기록 없음)',
+          후: r.created ? { status: 'requested', requested_at: r.requestedAt || '' } : '(변화 없음)',
+          새로접수: !!r.created,
+          비고: r.created
+            ? '원장/조교가 승인해야 실제로 영상·자료가 열린다'
+            : '이미 신청/승인된 날짜 — 중복 신청은 상태를 낮추지 않는다(다운그레이드 금지)',
+        },
+      });
       return Response.json({ ok: true, status: r.status, date });
     } catch (e) { return safeError(e, env, { message: '신청에 실패했습니다.' }); }
   }

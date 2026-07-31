@@ -12,6 +12,7 @@ import { runAttendanceReminder, runReportReminder } from './admin-reminders.js';
 import { flushNightPushQueue } from './_push.js';
 import { runDailyBackup } from './_backup.js';
 import { writeHeartbeat } from './_heartbeat.js';
+import { logAudit } from './_auditlog.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 
@@ -128,6 +129,23 @@ export async function onRequest({ request, env, waitUntil }) {
     };
     const push = await dispatchNoticePush(env, request.url, item);
     results.push({ pageId: item.pageId, title: item.title, push });
+
+    // 📓 예약 공지 실발송 기록 — 누구 폰으로 갔는지까지. (수동 트리거/크론 양쪽 다 여기로 온다)
+    await logAudit(env, request, {
+      action: 'notice.push.scheduled',
+      target: String(item.pageId || ''), targetName: item.title || '',
+      summary: '예약 공지 발송(flush) [' + (item.badge || '공지') + '] ' + (item.title || '')
+        + ' · 대상 ' + item.targetType + (item.targetValue ? '(' + item.targetValue + ')' : '')
+        + ' · ' + ((push && push.targetCount) || 0) + '명',
+      detail: {
+        노션페이지id: item.pageId, 제목: item.title, 뱃지: item.badge, 내용: item.content,
+        대상유형: item.targetType, 대상값: item.targetValue,
+        받는사람: (push && push.phones) || [], 명단잘림: !!(push && push.phonesTruncated),
+        보낸수: (push && push.sent) || 0, 대상수: (push && push.targetCount) || 0,
+        오류: (push && push.error) || '',
+        트리거: '/api/notices-flush (관리자 수동 또는 크론)',
+      },
+    });
   }
 
   return Response.json({

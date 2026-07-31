@@ -3,6 +3,10 @@
 //   → { ok, student:{id,name,academy,className}, date, status, blocked, grantStatus,
 //        videos:[{ code, title, date, requireCode, absenceLocked, open, lockReason }] }
 //
+//   📌 2026-07-31 — admin-makeup.html은 이제 반 단위(/api/makeup-class)로 바뀌어 이 API를 부르지 않는다.
+//      지우지 않고 남겨둔다: 학생 1명·1날짜를 정확히 들여다볼 때(문의 대응·디버깅) 쓸 수 있고,
+//      class-videos.js(학생뷰)와 판정이 어긋나는지 대조하는 기준으로도 쓴다.
+//
 //   admin-makeup.html "직접 해제" 카드에서, 열기/닫기 전에 "무엇을 여는지 + 지금 열려있는지"를
 //   보여주기 위한 조회 전용 엔드포인트. class-videos.js(학생용)의 R2 매칭 + _makeup.js 잠금로직을
 //   그대로 미러하되, 학생 토큰이 아니라 admin 토큰으로 임의 학생(studentId)을 조회한다.

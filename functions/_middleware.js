@@ -45,6 +45,10 @@ const STAFF_GET_BLOCK = new Set([
   '/api/admin-seed-test',
   '/api/cron-health',      // 크론(스케줄러) 생존 점검 — 원장 콘솔 전용
   '/api/inquiry',          // 홈페이지 상담 문의(리드=학부모 연락처) — 원장 전용
+  // 🔴 2026-07-31 — 변경이력(감사로그). 조교가 무엇을 만졌는지, 비밀번호 초기화·관리자 로그인,
+  //    삭제된 데이터의 원본값(before)까지 전부 들어 있다. 조교가 보면 서로를 감시하게 되고
+  //    before 에 담긴 학생 개인정보가 통째로 샌다. audit-log.js 안에서도 한 번 더 막는다(이중 잠금).
+  '/api/audit-log',
   // '/api/surveys'는 staffAllowed 특례로 처리(조교=퀴즈만). surveys.js가 X-Staff-Phone로 quiz=1 전용 강제.
 ]);
 const STAFF_WRITE_ALLOW = new Set([
@@ -108,6 +112,26 @@ export async function onRequest(context) {
   //   ast_ (조교)  : 열람·질문답변 경로만 허용, 그 외엔 403.
   //   학생/공개 요청(다른 Bearer 또는 무인증)은 절대 건드리지 않음(권한 상승 방지).
   let forwardRequest = null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔒 2026-07-31 (2차 보완) — 신원 헤더 **무조건 세척**.
+  //   이 세 헤더는 미들웨어만 붙일 수 있어야 한다. 그런데 처음엔 translate() 안에서만 지웠다.
+  //   translate()는 (a) /api/ 경로이고 (b) ADMIN_PASSWORD가 있고 (c) 원장/조교 세션이 검증된
+  //   경우에만 돈다. 즉 **익명 요청·학생 요청·/api/가 아닌 경로·비번 원본 직접 호출**에서는
+  //   클라이언트가 손으로 넣은 X-Staff-Phone이 그대로 다운스트림에 도착했다.
+  //   _auditlog.actorOf()는 이 헤더를 제일 먼저 믿으므로, 아무나 남의 조교 번호를 적어 보내면
+  //   감사로그의 '누가'가 그 사람 이름으로 찍힌다 = 로그를 통째로 못 믿게 된다.
+  //   → 요청이 무엇이든 들어오자마자 지운다. 붙이는 건 아래 translate()만.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const SPOOFABLE = ['X-Staff-Phone', 'X-Staff-Name', 'X-Kw-Actor-Role'];
+  let fwdHeaders = null;   // 다운스트림에 보낼 헤더 — 손댈 일이 있을 때만 만든다
+  try {
+    if (SPOOFABLE.some((k) => context.request.headers.has(k))) {
+      fwdHeaders = new Headers(context.request.headers);
+      for (const k of SPOOFABLE) fwdHeaders.delete(k);
+    }
+  } catch (_) {}
+
   try {
     const env = context.env;
     if (env && env.ADMIN_PASSWORD && new URL(context.request.url).pathname.startsWith('/api/')) {
@@ -131,7 +155,8 @@ export async function onRequest(context) {
       //                       → encodeURIComponent로 감싼다. 읽는 쪽(_auditlog.actorOf)이 디코드한다.
       //   ⚠️ 이 두 개도 X-Staff-Phone과 똑같이 **먼저 지운 뒤** 세팅한다(외부 주입 차단).
       const translate = (staffPhone, staffName) => {
-        const h = new Headers(context.request.headers);
+        // 위에서 이미 세척한 헤더가 있으면 그걸 이어 쓴다(없으면 지금 만든다).
+        const h = fwdHeaders || new Headers(context.request.headers);
         h.set('Authorization', 'Bearer ' + env.ADMIN_PASSWORD);
         h.delete('X-Staff-Phone');                       // 외부 주입 차단(필수)
         h.delete('X-Staff-Name');
@@ -141,7 +166,7 @@ export async function onRequest(context) {
           try { h.set('X-Staff-Name', encodeURIComponent(String(staffName).slice(0, 40))); } catch (_) {}
         }
         h.set('X-Kw-Actor-Role', staffPhone ? 'staff' : 'owner');
-        forwardRequest = new Request(context.request, { headers: h });
+        fwdHeaders = h;
       };
 
       if (isAdminSessionToken(bearer)) {
@@ -181,6 +206,12 @@ export async function onRequest(context) {
       }
     }
   } catch (_) {}
+
+  // 헤더를 손댄 경우에만 요청 객체를 새로 만든다. **딱 한 번만** 만드는 게 중요하다 —
+  //   같은 요청으로 Request를 두 번 만들면 본문 스트림이 잠겨 POST/PATCH 본문이 깨질 수 있다.
+  if (fwdHeaders) {
+    try { forwardRequest = new Request(context.request, { headers: fwdHeaders }); } catch (_) { forwardRequest = null; }
+  }
 
   const response = forwardRequest ? await context.next(forwardRequest) : await context.next();
   const newResponse = new Response(response.body, response);

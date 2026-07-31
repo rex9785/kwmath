@@ -33,20 +33,29 @@ export async function isPushCategoryOn(env, userId, category) {
   } catch (_) { return true; }
 }
 
-// 카테고리 켜기/끄기 저장. 갱신된 prefs 반환.
+// 카테고리 켜기/끄기 저장.
+// 반환: { prefs, before, key, 새파일 }
+//   ⚠️ 이 파일은 request 를 받지 않는 헬퍼다 → 여기서 logAudit 을 부르면 누가·어느 기기로 껐는지가 전부 NULL 이 된다.
+//      그래서 **before 를 돌려주기만** 하고, 로그는 request 를 쥔 호출측(push-prefs.js)이 남긴다.
+//   ⚠️ before 는 반드시 깊은 복사로 떠 둔다. 아래 record.prefs[category] 가 읽어온 객체를 그 자리에서 고치기 때문에,
+//      그냥 참조를 들고 있으면 로그에 전/후가 똑같이 찍힌다(이 프로젝트에서 실제로 겪은 함정).
 export async function setPushPref(env, userId, category, on) {
   const key = prefKey(userId);
   let record = { userId: String(userId), prefs: {}, updatedAt: '' };
+  let 새파일 = true;
   try {
     const existing = await env.BUCKET.get(key);
     if (existing) {
+      새파일 = false;
       const j = JSON.parse(await existing.text());
       if (j && typeof j === 'object' && j.prefs && typeof j.prefs === 'object') record.prefs = j.prefs;
     }
   } catch (_) {}
+  let before;
+  try { before = JSON.parse(JSON.stringify(record.prefs)); } catch (_) { before = {}; }
   record.prefs[category] = !!on;
   record.userId = String(userId);
   record.updatedAt = new Date().toISOString();
   await env.BUCKET.put(key, JSON.stringify(record), { httpMetadata: { contentType: 'application/json' } });
-  return record.prefs;
+  return { prefs: record.prefs, before, key, 새파일 };
 }

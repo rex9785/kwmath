@@ -11,8 +11,25 @@
 
 import { requireAuth, fetchStudentsByPhone, normalizePhone } from './_auth.js';
 import { safeError, logError } from './_errors.js';
+import { logAudit, diffFields } from './_auditlog.js';
 
 const REVIEWS_DB = 'cafcab7fffd746d7948daf7c206820bd';
+
+// 로그에 담을 때만 긴 본문을 자른다(저장된 원문은 그대로). detail은 JSON 2만자에서 잘려 깨지므로 미리 막는다.
+function clip(s, n = 3000) {
+  const v = s == null ? '' : String(s);
+  return v.length > n ? v.slice(0, n) + '…(잘림)' : v;
+}
+
+// 후기 1건을 로그용 한글 표로. 승인상태·메인노출·처리메모는 PATCH가 통째로 덮어쓰는 칸이라 전/후 비교에 쓴다.
+function reviewForLog(r) {
+  if (!r) return null;
+  return {
+    승인상태: r.status || '',
+    메인노출: r.mainShow ? '예' : '아니오',
+    처리메모: clip(r.memo, 1000),
+  };
+}
 
 function jsonOk(data, status = 200) { return Response.json(data, { status }); }
 function jsonErr(msg, status = 400)  { return Response.json({ error: msg }, { status }); }
@@ -140,18 +157,39 @@ export async function onRequest({ request, env }) {
     // ────────────────────────────  POST  ────────────────────────────
     if (method === 'POST') {
       const auth = await requireAuth(env, request);
-      if (!auth.ok) return auth.response;
+      if (!auth.ok) {
+        await logAudit(env, request, {
+          action: 'review.create.denied',
+          summary: '후기 작성 거부(401) — 로그인 토큰 없음/만료',
+          detail: { 결과: '아무것도 저장되지 않음', 비고: '토큰 원문은 로그에 담지 않는다' },
+        });
+        return auth.response;
+      }
 
       const body = await request.json().catch(() => ({}));
       const authorType = (body.authorType || '').trim();
       const content    = (body.content || '').trim();
       const inputName  = (body.authorName || '').trim();
 
+      // 반려(400)도 남긴다 — "후기를 썼는데 안 올라간다"가 검증 반려인지 앱 오류인지 구분할 근거가 된다.
+      const rejectReview = async (msg) => {
+        await logAudit(env, request, {
+          action: 'review.create.reject',
+          actor: auth.phone, actorRole: authorType === '학부모' ? 'parent' : 'student',
+          summary: '후기 작성 반려(400) — ' + msg,
+          detail: {
+            작성자휴대폰: auth.phone, 보낸작성자유형: authorType || '(안 보냄)',
+            내용길이: content.length, 사유: msg, 결과: '아무것도 저장되지 않음',
+          },
+        });
+        return jsonErr(msg);
+      };
+
       if (!['학생', '학부모'].includes(authorType)) {
-        return jsonErr('작성자 유형은 학생 또는 학부모여야 합니다.');
+        return await rejectReview('작성자 유형은 학생 또는 학부모여야 합니다.');
       }
-      if (!content) return jsonErr('후기 내용을 입력해주세요.');
-      if (content.length > 2000) return jsonErr('후기는 2000자 이하로 작성해주세요.');
+      if (!content) return await rejectReview('후기 내용을 입력해주세요.');
+      if (content.length > 2000) return await rejectReview('후기는 2000자 이하로 작성해주세요.');
 
       // 휴대폰으로 학생 매칭 — 첫 학생 정보로 학생 이름/반 자동 채움
       const students = await fetchStudentsByPhone(env, auth.phone);
@@ -190,7 +228,47 @@ export async function onRequest({ request, env }) {
         }),
       });
       const created = await createRes.json();
-      if (created.object === 'error') { logError(created); return jsonErr('후기 등록에 실패했습니다.', 500); }
+      if (created.object === 'error') {
+        logError(created);
+        await logAudit(env, request, {
+          action: 'review.create.fail',
+          actor: auth.phone, actorRole: authorType === '학부모' ? 'parent' : 'student', actorName: authorName,
+          targetName: studentName || authorName,
+          summary: '후기 등록 실패(500) — 노션 저장 오류 [' + authorName + ']',
+          detail: {
+            작성자휴대폰: auth.phone, 작성자유형: authorType, 작성자이름: authorName,
+            학생id: firstStudent ? String(firstStudent.id) : '(연결된 학생 없음)',
+            학생이름: studentName || '', 반: className || '',
+            내용길이: content.length, 내용: clip(content),
+            노션오류: clip(created.message || created.code || '알 수 없는 오류', 300),
+            결과: '후기가 저장되지 않음 — 작성자가 다시 써야 함',
+          },
+        });
+        return jsonErr('후기 등록에 실패했습니다.', 500);
+      }
+
+      // 📓 2026-07-31 — 후기는 홈페이지 메인에 그대로 걸리는 글인데 작성 기록이 어디에도 안 남았다.
+      //   나중에 "이 후기 누가 썼냐 / 언제 들어왔냐 / 원문이 뭐였냐"를 물으면
+      //   노션 페이지가 지워진 뒤에는 답할 방법이 없다.
+      await logAudit(env, request, {
+        action: 'review.create',
+        actor: auth.phone, actorRole: authorType === '학부모' ? 'parent' : 'student', actorName: authorName,
+        target: String(created.id || ''), targetName: studentName || authorName,
+        summary: '후기 작성 [' + authorName + ' · ' + authorType + '] — ' + clip(content, 80),
+        detail: {
+          후기id: String(created.id || ''),
+          작성자휴대폰: auth.phone, 작성자유형: authorType, 작성자이름: authorName,
+          학생id: firstStudent ? String(firstStudent.id) : '(연결된 학생 없음)',
+          학생이름: studentName || '', 반: className || '',
+          제목: title, 내용길이: content.length, 내용: clip(content),
+          승인상태: '승인(현재 정책상 자동 승인 — 화면 응답만 "대기"로 나감)',
+          메인노출: '아니오(원장이 켜야 홈페이지에 뜸)',
+          지목방식: '작성자 휴대폰으로 찾은 **첫 학생**(students[0])을 학생 이름·반으로 붙임. '
+            + '노션 후기에는 학생 id가 저장되지 않는다 — 자녀가 둘인 학부모면 엉뚱한 자녀가 붙을 수 있다(현 코드 그대로 둠).',
+          효과: '이 후기는 포털 후기 탭에서 보이고, 원장이 「메인 노출」을 켜면 홈페이지 메인에 공개된다. '
+            + '공개 시 이름은 마스킹되지만 반 이름은 그대로 나간다.',
+        },
+      });
 
       return jsonOk({ ok: true, id: created.id, status: '대기' });
     }
@@ -198,7 +276,14 @@ export async function onRequest({ request, env }) {
     // ────────────────────────────  DELETE  ────────────────────────────
     if (method === 'DELETE') {
       const id = url.searchParams.get('id');
-      if (!id) return jsonErr('id가 필요합니다.');
+      if (!id) {
+        await logAudit(env, request, {
+          action: 'review.delete.reject',
+          summary: '후기 삭제 반려(400) — id가 없음',
+          detail: { 결과: '아무것도 삭제되지 않음' },
+        });
+        return jsonErr('id가 필요합니다.');
+      }
 
       // admin이면 무조건 삭제 가능
       let allow = isAdmin;
@@ -206,7 +291,15 @@ export async function onRequest({ request, env }) {
 
       if (!allow) {
         const auth = await requireAuth(env, request);
-        if (!auth.ok) return auth.response;
+        if (!auth.ok) {
+          await logAudit(env, request, {
+            action: 'review.delete.denied',
+            target: String(id),
+            summary: '후기 삭제 거부(401) — 관리자도 아니고 로그인 토큰도 없음',
+            detail: { 후기id: String(id), 결과: '아무것도 삭제되지 않음' },
+          });
+          return auth.response;
+        }
         phoneCheck = auth.phone;
       }
 
@@ -215,12 +308,39 @@ export async function onRequest({ request, env }) {
         method: 'GET', headers: notionHeaders(env),
       });
       const page = await pageRes.json();
-      if (page.object === 'error') { logError(page); return jsonErr('후기를 찾을 수 없습니다.', 404); }
+      if (page.object === 'error') {
+        logError(page);
+        await logAudit(env, request, {
+          action: 'review.delete.miss',
+          actor: phoneCheck || undefined, target: String(id),
+          summary: '후기 삭제 실패(404) — 후기를 찾을 수 없음 (id ' + String(id).slice(0, 60) + ')',
+          detail: {
+            후기id: String(id), 요청자: isAdmin ? '관리자' : ('작성자 본인 확인 대상(' + (phoneCheck || '') + ')'),
+            노션오류: clip(page.message || page.code || '알 수 없는 오류', 300),
+            추정원인: '이미 지워졌거나 id가 틀림',
+            결과: '아무것도 삭제되지 않음',
+          },
+        });
+        return jsonErr('후기를 찾을 수 없습니다.', 404);
+      }
 
+      // ⚠️ 지우기 전 값 — 노션 페이지는 archive되면 화면에서 사라지므로 원문을 여기서 통째로 보관한다.
       const review = pageToReview(page);
       if (!allow) {
         // 본인이 작성한 후기는 언제든 삭제 가능 (자동 승인 정책 후 대기 상태 가드 제거)
         if (review.authorPhone !== phoneCheck) {
+          // 🔴 남의 후기를 지우려 한 시도 — 원장이 알아야 할 사건이라 반드시 남긴다.
+          await logAudit(env, request, {
+            action: 'review.delete.denied',
+            actor: phoneCheck, target: String(id), targetName: review.authorName || '',
+            summary: '후기 삭제 거부(403) — 본인이 쓴 후기가 아님 (작성자 ' + (review.authorName || '?') + ')',
+            detail: {
+              후기id: String(id), 요청자휴대폰: phoneCheck || '',
+              후기작성자: review.authorName || '', 후기작성자유형: review.authorType || '',
+              내용앞부분: clip(review.content, 200),
+              결과: '거부됨 — 후기는 그대로 남아 있음',
+            },
+          });
           return jsonErr('본인이 작성한 후기만 삭제할 수 있습니다.', 403);
         }
       }
@@ -231,24 +351,92 @@ export async function onRequest({ request, env }) {
         body: JSON.stringify({ archived: true }),
       });
       const archived = await archRes.json();
-      if (archived.object === 'error') { logError(archived); return jsonErr('삭제에 실패했습니다.', 500); }
+      if (archived.object === 'error') {
+        logError(archived);
+        await logAudit(env, request, {
+          action: 'review.delete.fail',
+          actor: phoneCheck || undefined, target: String(id), targetName: review.authorName || '',
+          summary: '후기 삭제 실패(500) — 노션 archive 오류 [' + (review.authorName || id) + ']',
+          detail: {
+            후기id: String(id), 요청자: isAdmin ? '관리자' : ('작성자 본인(' + (phoneCheck || '') + ')'),
+            후기작성자: review.authorName || '', 내용앞부분: clip(review.content, 200),
+            노션오류: clip(archived.message || archived.code || '알 수 없는 오류', 300),
+            결과: '후기는 그대로 남아 있음',
+          },
+        });
+        return jsonErr('삭제에 실패했습니다.', 500);
+      }
+
+      // 🔴 후기 삭제는 되돌리기 어렵다(노션 archive). 지운 원문을 통째로 남겨야 복구·해명이 가능하다.
+      await logAudit(env, request, {
+        action: 'review.delete',
+        actor: phoneCheck || undefined,
+        actorRole: phoneCheck ? (review.authorType === '학부모' ? 'parent' : 'student') : undefined,
+        target: String(id), targetName: review.authorName || '',
+        summary: '후기 삭제 [' + (review.authorName || id) + ' · ' + (review.authorType || '') + '] — '
+          + (isAdmin ? '관리자가 삭제' : '작성자 본인이 삭제') + ' · ' + clip(review.content, 60),
+        detail: {
+          후기id: String(id),
+          지운사람: isAdmin ? '관리자(원장 또는 관리자 비밀번호)' : ('작성자 본인 ' + (phoneCheck || '')),
+          후기작성자: review.authorName || '', 작성자유형: review.authorType || '',
+          작성자휴대폰: review.authorPhone || '', 학생이름: review.studentName || '', 반: review.className || '',
+          승인상태: review.status || '', 메인노출: review.mainShow ? '예' : '아니오',
+          처리메모: clip(review.memo, 1000),
+          작성일: review.createdAt || '', 내용: clip(review.content),
+          효과: '노션에서 archive되어 포털 후기 탭·홈페이지 메인에서 즉시 사라진다. '
+            + '위 「내용」이 원문 사본이다(노션 휴지통에서도 지워지면 이 로그가 유일한 기록).',
+        },
+      });
 
       return jsonOk({ ok: true });
     }
 
     // ────────────────────────────  PATCH  ────────────────────────────
     if (method === 'PATCH') {
-      if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
+      if (!isAdmin) {
+        await logAudit(env, request, {
+          action: 'review.update.denied',
+          target: String(url.searchParams.get('id') || ''),
+          summary: '후기 승인/노출 변경 거부(401) — 관리자 인증 없음',
+          detail: { 후기id: String(url.searchParams.get('id') || ''), 결과: '아무것도 바뀌지 않음' },
+        });
+        return jsonErr('관리자 인증이 필요합니다.', 401);
+      }
 
       const id = url.searchParams.get('id');
-      if (!id) return jsonErr('id가 필요합니다.');
+      if (!id) {
+        await logAudit(env, request, {
+          action: 'review.update.reject',
+          summary: '후기 수정 반려(400) — id가 없음',
+          detail: { 결과: '아무것도 바뀌지 않음' },
+        });
+        return jsonErr('id가 필요합니다.');
+      }
 
       const body = await request.json().catch(() => ({}));
       const props = {};
 
+      const rejectPatch = async (msg) => {
+        await logAudit(env, request, {
+          action: 'review.update.reject',
+          target: String(id),
+          summary: '후기 수정 반려(400) — ' + msg,
+          detail: {
+            후기id: String(id), 사유: msg,
+            보낸값: {
+              승인상태: body.status === undefined ? '(안 보냄)' : String(body.status).slice(0, 30),
+              메인노출: body.mainShow === undefined ? '(안 보냄)' : (body.mainShow === true ? '예' : '아니오'),
+              처리메모: body.memo === undefined ? '(안 보냄)' : clip(body.memo, 500),
+            },
+            결과: '아무것도 바뀌지 않음',
+          },
+        });
+        return jsonErr(msg);
+      };
+
       if (body.status) {
         if (!['대기', '승인', '거절'].includes(body.status)) {
-          return jsonErr('승인 상태는 대기/승인/거절 중 하나여야 합니다.');
+          return await rejectPatch('승인 상태는 대기/승인/거절 중 하나여야 합니다.');
         }
         props['승인 상태'] = { select: { name: body.status } };
         // 거절/대기로 바꾸면 메인 노출 자동 off (안전망)
@@ -263,14 +451,72 @@ export async function onRequest({ request, env }) {
         props['처리 메모'] = { rich_text: [{ text: { content: String(body.memo).slice(0, 500) } }] };
       }
 
-      if (!Object.keys(props).length) return jsonErr('변경할 내용이 없습니다.');
+      if (!Object.keys(props).length) return await rejectPatch('변경할 내용이 없습니다.');
+
+      // 🔎 덮어쓰기 전 값을 읽어 둔다 — 승인상태·메인노출·처리메모는 통째로 덮어써져서
+      //    이 조회가 없으면 "원래 뭐였는지"가 영영 사라진다(노션은 예전 값을 안 돌려준다).
+      //    ⚠️ 로그용 조회라 실패해도 본 작업은 그대로 진행한다.
+      let before = null;
+      try {
+        const beforeRes = await fetch(`https://api.notion.com/v1/pages/${id}`, {
+          method: 'GET', headers: notionHeaders(env),
+        });
+        const beforePage = await beforeRes.json();
+        if (beforePage && beforePage.object !== 'error') before = pageToReview(beforePage);
+      } catch (_) { /* 로그용 — 실패해도 무시 */ }
 
       const patchRes = await fetch(`https://api.notion.com/v1/pages/${id}`, {
         method: 'PATCH', headers: notionHeaders(env),
         body: JSON.stringify({ properties: props }),
       });
       const updated = await patchRes.json();
-      if (updated.object === 'error') { logError(updated); return jsonErr('수정에 실패했습니다.', 500); }
+      if (updated.object === 'error') {
+        logError(updated);
+        await logAudit(env, request, {
+          action: 'review.update.fail',
+          target: String(id), targetName: (before && before.authorName) || '',
+          summary: '후기 수정 실패(500) — 노션 저장 오류 [' + ((before && before.authorName) || id) + ']',
+          detail: {
+            후기id: String(id), 이전값: reviewForLog(before) || '(이전 값을 읽지 못함)',
+            시도한값: {
+              승인상태: body.status === undefined ? '(안 보냄)' : String(body.status).slice(0, 30),
+              메인노출: body.mainShow === undefined ? '(안 보냄)' : (body.mainShow === true ? '예' : '아니오'),
+              처리메모: body.memo === undefined ? '(안 보냄)' : clip(body.memo, 500),
+            },
+            노션오류: clip(updated.message || updated.code || '알 수 없는 오류', 300),
+            결과: '후기 상태는 예전 값 그대로',
+          },
+        });
+        return jsonErr('수정에 실패했습니다.', 500);
+      }
+
+      // 📓 2026-07-31 — 「메인 노출」을 켜면 그 후기가 홈페이지 메인에 즉시 걸린다. 끄면 즉시 내려간다.
+      //   지금까지 누가 켰고 껐는지가 아무 데도 안 남아서, 학부모가 "내 후기가 왜 홈페이지에 있냐"고 물으면
+      //   답할 근거가 없었다. 처리 메모도 통째로 덮어써지므로 전/후를 같이 남긴다.
+      const after = pageToReview(updated);
+      const d = diffFields(reviewForLog(before), reviewForLog(after), ['승인상태', '메인노출', '처리메모']);
+      await logAudit(env, request, {
+        action: 'review.update',
+        target: String(id), targetName: after.authorName || (before && before.authorName) || '',
+        summary: '후기 상태 변경 [' + (after.authorName || id) + '] — ' + (d.요약 || '값 동일'),
+        detail: {
+          후기id: String(id),
+          작성자: after.authorName || '', 작성자유형: after.authorType || '',
+          학생이름: after.studentName || '', 반: after.className || '',
+          바뀐칸: d.바뀐칸, 변경: d.변경,
+          이전값: reviewForLog(before) || '(이전 값을 읽지 못함 — 노션 조회 실패)',
+          이후값: reviewForLog(after),
+          보낸값: {
+            승인상태: body.status === undefined ? '(안 보냄)' : String(body.status).slice(0, 30),
+            메인노출: body.mainShow === undefined ? '(안 보냄)' : (body.mainShow === true ? '예' : '아니오'),
+            처리메모: body.memo === undefined ? '(안 보냄)' : clip(body.memo, 500),
+          },
+          내용앞부분: clip(after.content, 200),
+          효과: '「메인 노출」이 켜지면 이 후기가 홈페이지 메인에 즉시 공개된다(이름은 마스킹되지만 반 이름은 그대로 나감). '
+            + '⚠️ 현재 퍼블릭 조회는 승인 상태를 보지 않고 「메인 노출」 체크만 본다 — 즉 "거절"이어도 노출이 켜져 있으면 공개된다.',
+          비고: '처리 메모는 500자에서 잘려 저장된다(현 코드). 이전 메모는 덮어써지므로 위 「이전값」이 유일한 사본이다.',
+        },
+      });
 
       return jsonOk({ ok: true });
     }

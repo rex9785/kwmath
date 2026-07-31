@@ -9,6 +9,7 @@ import { safeError } from './_errors.js';
 
 import { bearerFromRequest, verifyToken, fetchStudentsByPhone } from './_auth.js';
 import { dispatchNoticePush } from './notices-write.js';
+import { logAudit } from './_auditlog.js';
 
 const DB = '6cf7a459bd3d4444bd4c9341f3ffe907';
 const FLUSH_COOLDOWN_MS = 5 * 60 * 1000;
@@ -59,13 +60,35 @@ async function maybeFlushScheduled(env, originUrl) {
     for (const page of (data.results || [])) {
       if (page.archived || page.in_trash) continue;
       const pp = page.properties || {};
-      await dispatchNoticePush(env, originUrl, {
+      const item = {
         pageId: page.id,
         title: ttl(pp, '제목'),
         badge: sel(pp, '뱃지'),
         content: rt(pp, '내용'),
         targetType: sel(pp, '대상 유형') || '전체',
         targetValue: rt(pp, '대상 값'),
+      };
+      const push = await dispatchNoticePush(env, originUrl, item);
+
+      // 📓 2026-07-31 — 예약 공지는 **사람이 안 누르는데도** 발송된다.
+      //   누가 보냈냐고 물으면 답이 없던 자리 → actor='system'(예약 발송)으로 못 박아 남긴다.
+      //   request 가 없는 자리라 null 을 넘긴다(logAudit 이 허용).
+      await logAudit(env, null, {
+        action: 'notice.push.scheduled',
+        actor: 'system', actorRole: 'system', actorName: '예약 발송(자동)',
+        path: 'AUTO /api/notices (예약 플러시)',
+        target: String(item.pageId || ''), targetName: item.title || '',
+        summary: '예약 공지 자동 발송 [' + (item.badge || '공지') + '] ' + (item.title || '')
+          + ' · 대상 ' + item.targetType + (item.targetValue ? '(' + item.targetValue + ')' : '')
+          + ' · ' + ((push && push.targetCount) || 0) + '명',
+        detail: {
+          노션페이지id: item.pageId, 제목: item.title, 뱃지: item.badge, 내용: item.content,
+          대상유형: item.targetType, 대상값: item.targetValue,
+          받는사람: (push && push.phones) || [], 명단잘림: !!(push && push.phonesTruncated),
+          보낸수: (push && push.sent) || 0, 대상수: (push && push.targetCount) || 0,
+          오류: (push && push.error) || '',
+          트리거: '포털/공지 조회가 5분 쿨다운을 지나 자동 플러시',
+        },
       });
     }
   } catch (_) {}

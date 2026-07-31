@@ -31,6 +31,7 @@
 import { sendPushToUsers } from './_push.js';
 import { requireStudentAccess } from './_auth.js';
 import { upsertTestScore, deleteTestScore, TEST_KINDS } from './_scores.js';   // 테스트 종류 퀴즈 → 성적 자동 반영
+import { logAudit, diffFields } from './_auditlog.js';
 
 // 새 응답 알림을 받을 관리자 푸시 userId (inquiry.js와 동일 규약)
 const ADMIN_PUSH_USERS = ['__admin__'];
@@ -56,6 +57,20 @@ function jsonErr(msg, status = 400) { return Response.json({ error: msg }, { sta
 // 서버에서도 위험문자 제거(이중 방어).
 function clean(v, max) {
   return String(v == null ? '' : v).replace(/[<>]/g, '').trim().slice(0, max);
+}
+
+// ── 감사로그에 넣을 '답 1개' 요약 (2026-07-31) ──
+//   📓 답에는 학생이 직접 쓴 글이 들어온다. 로그에 통째로 박으면 두 가지가 터진다:
+//     ① detail 은 20000자에서 잘리는데, 잘리면 JSON 자체가 깨져 나머지 기록까지 못 읽는다.
+//     ② 사진·서명 같은 base64 가 섞이면 답 하나로 로그 한 칸이 다 찬다.
+//   → 그래서 값은 잘라 넣되 **원본 길이는 항상 같이 남긴다**(얼마나 긴 답이었는지는 안 사라진다).
+//     base64로 보이는 값은 내용 대신 길이만 남긴다.
+function logAnswer(v, max = 3000) {
+  const s = Array.isArray(v) ? v.join(', ') : String(v == null ? '' : v);
+  if (/^data:[^;]*;base64,/i.test(s) || (s.length > 800 && /^[A-Za-z0-9+/=\r\n]+$/.test(s))) {
+    return { 길이: s.length, 값: '(이미지·base64 추정 — 내용 대신 길이만 기록)' };
+  }
+  return { 길이: s.length, 값: s.slice(0, max), 잘림: s.length > max };
 }
 
 let _surveysReady = false;
@@ -487,6 +502,184 @@ function notifyAdmin(context, env, survey, who) {
   } catch (_) { /* best-effort */ }
 }
 
+// 📓 2026-07-31 — 테스트 퀴즈 점수가 성적표(exam_scores)에 어떻게 반영됐는지를 남긴다.
+//   왜 여기(호출부)에서 남기나: _scores.js 는 request 를 모른다. 거기서 로그를 부르면
+//   행위자·기기·경로·IP가 전부 NULL 로 박혀서 "어떤 조교가 이 점수를 바꿨나"를 영영 못 읽는다.
+//   → _scores.js 는 before/after 만 돌려주고, request 를 쥔 여기서 기록한다.
+//   성적은 학생·학부모에게 아무 알림 없이 조용히 바뀐다 — 바뀐 사실을 아는 건 이 로그뿐이다.
+//   ★ 반영이 **안 된 경우도** 남긴다. "시험 봤는데 성적표에 없어요"의 답(이름 오타·익명 설정)이 거기 있다.
+async function logScoreSync(env, request, r, ctx) {
+  try {
+    const 설문 = (ctx && ctx.survey) || {};
+    const 공통 = {
+      경로: (ctx && ctx.경로) || '',
+      설문id: 설문.id, 설문제목: 설문.title || '', 테스트종류: 설문.test_kind || '',
+      응답id: (ctx && ctx.responseId != null) ? ctx.responseId : null,
+      응답자이름: (ctx && ctx.respondentName) || '',
+      원점수: ctx && ctx.score, 만점: ctx && ctx.maxScore,
+      // 🔎 2026-07-31 — 이 경로만 학생을 **이름으로** 찾는다(_scores.js → getStudentByName).
+      //   설문 응답 행에는 student_id 가 아예 안 실려서 지금은 폴백 말고 방법이 없다.
+      //   attendance.js·clinic-roster.js·makeup.js 와 **같은 칸 이름**으로 못 박아 둔다 —
+      //   나중에 동명이인 사고가 터졌을 때 '이름으로 꽂힌 기록'만 한 번에 골라낼 수 있어야 하기 때문.
+      지목방식: 'name 폴백',
+      지목방식사유: '설문 응답에 student_id 가 없어 이름으로만 학생을 찾는다 — 동명이인이면 먼저 등록된 학생(id 작은 쪽)에 점수가 꽂힌다',
+    };
+    if (!r || r.ok !== true) {
+      await logAudit(env, request, {
+        action: 'score.quiz.skip',
+        target: 'survey/' + (설문.id || '') + '/response/' + ((ctx && ctx.responseId) || ''),
+        targetName: (ctx && ctx.respondentName) || '',
+        summary: '[' + ((ctx && ctx.respondentName) || '이름없음') + '] 「' + (설문.title || 설문.id)
+          + '」 점수가 성적표에 반영 안 됨 — ' + ((r && (r.skipped || r.error)) || '사유 미상'),
+        detail: {
+          ...공통,
+          반영: '안 됨',
+          사유: (r && (r.skipped || r.error)) || '헬퍼가 아무 값도 돌려주지 않음',
+          결과: '성적표(exam_scores)에 이 학생의 이 테스트 점수는 없다 — 학생 이름 표기부터 확인해야 한다',
+        },
+      });
+      return;
+    }
+    const d = diffFields(r.before, r.after);
+    await logAudit(env, request, {
+      action: r.created ? 'score.quiz.create' : 'score.quiz.update',
+      target: 'student/' + r.studentId + '/' + (r.sourceKey || ''),
+      targetName: r.studentName || (ctx && ctx.respondentName) || '',
+      summary: '[' + (r.studentName || '이름없음') + '] 성적표 ' + (r.examType || '') + ' 「' + (r.label || '') + '」 '
+        + (r.created ? '신규 반영' : '덮어씀') + ' — ' + r.rawScore + '/' + r.maxScore + '점 → 100점 환산 ' + r.pct + '점'
+        + (r.created ? '' : (d.요약 ? ' · ' + d.요약 : ' · 바뀐 값 없음')),
+      detail: {
+        ...공통,
+        학생: { id: r.studentId, 이름: r.studentName || '' },
+        성적행id: r.rowId, 성적표키: r.sourceKey,
+        신규여부: r.created ? '새 행 생성' : '기존 행 덮어쓰기',
+        환산점수: r.pct,
+        전: r.before, 후: r.after,
+        바뀐칸: d.바뀐칸, 변경: d.변경,
+        이전수정시각: r.previousUpdatedAt || '(신규)', 새수정시각: r.updatedAt,
+        이름매칭주의: '학생을 id가 아니라 **이름**으로 찾는다 — 동명이인이 있으면 먼저 등록된 학생(id 작은 쪽)에 반영된다',
+        결과: '이 점수는 학생·학부모 성적표 화면에 바로 보인다(알림은 따로 안 감)',
+      },
+    });
+  } catch (_) { /* 로깅 실패가 채점·제출을 막지 않게 */ }
+}
+
+// ⚠️ 2026-07-31 — 성적표에서 테스트 점수가 통째로 사라지는 경우(응답 삭제 → 재제출 허용).
+//   지운 값을 안 남기면 "성적표에 있던 점수가 왜 없어졌지"에 답할 근거가 하나도 없다.
+async function logScoreDelete(env, request, r, ctx) {
+  try {
+    const 설문 = (ctx && ctx.survey) || {};
+    const 공통 = {
+      경로: (ctx && ctx.경로) || '',
+      설문id: 설문.id, 설문제목: 설문.title || '', 테스트종류: 설문.test_kind || '',
+      응답id: (ctx && ctx.responseId != null) ? ctx.responseId : null,
+      응답자이름: (ctx && ctx.respondentName) || '',
+      // ⚠️ 2026-07-31 — 삭제도 이름으로 학생을 찾아서 지운다(_scores.js → getStudentByName).
+      //   동명이인이면 **엉뚱한 학생의 성적이 지워질 수 있는** 자리라 반영 때보다 위험이 크다.
+      //   지운 뒤에는 되돌릴 근거가 아래 '지워진성적'뿐이므로, 어떤 방식으로 지목했는지도 같이 남긴다.
+      지목방식: 'name 폴백',
+      지목방식사유: '설문 응답에 student_id 가 없어 이름으로만 학생을 찾는다 — 동명이인이면 먼저 등록된 학생(id 작은 쪽)의 성적이 지워진다',
+    };
+    if (!r || r.ok !== true) {
+      await logAudit(env, request, {
+        action: 'score.quiz.skip',
+        target: 'survey/' + (설문.id || '') + '/response/' + ((ctx && ctx.responseId) || ''),
+        targetName: (ctx && ctx.respondentName) || '',
+        summary: '[' + ((ctx && ctx.respondentName) || '이름없음') + '] 「' + (설문.title || 설문.id)
+          + '」 연동 성적 삭제 안 됨 — ' + ((r && (r.skipped || r.error)) || '사유 미상'),
+        detail: {
+          ...공통,
+          삭제: '안 함',
+          사유: (r && (r.skipped || r.error)) || '헬퍼가 아무 값도 돌려주지 않음',
+          결과: '성적표에 점수가 남아 있을 수 있다 — 응답은 지워졌는데 점수만 남으면 둘이 어긋난다',
+        },
+      });
+      return;
+    }
+    await logAudit(env, request, {
+      action: 'score.quiz.delete',
+      target: 'student/' + r.studentId + '/' + (r.sourceKey || ''),
+      targetName: r.studentName || (ctx && ctx.respondentName) || '',
+      summary: '[' + (r.studentName || '이름없음') + '] 성적표에서 「' + (설문.title || 설문.id) + '」 테스트 점수 삭제 — '
+        + (r.before ? (r.before.점수 + '점(' + (r.before.종류 || '') + ') 사라짐') : '지울 행이 없었음(0건)'),
+      detail: {
+        ...공통,
+        학생: { id: r.studentId, 이름: r.studentName || '' },
+        성적행id: r.rowId, 성적표키: r.sourceKey,
+        지워진성적: r.before,          // ★ 되돌리려면 이 값 그대로 다시 넣으면 된다
+        삭제행수: r.removed,
+        결과: r.removed
+          ? '학생·학부모 성적표에서 이 테스트 점수가 사라졌다(응답 삭제에 딸린 정리)'
+          : '지울 행이 없었다 — 애초에 성적표에 안 올라간 응답이었다',
+      },
+    });
+  } catch (_) { /* 로깅 실패가 삭제를 막지 않게 */ }
+}
+
+// ⚠️ 2026-07-31 — 조교가 자기 권한 밖(일반 설문)을 고치거나 지우려다 막힌 순간.
+//   막히면 DB가 안 바뀌니 지금까진 흔적이 0이었다. 그런데 "권한 밖을 건드리려 했다"는 사실 자체가 정보다 —
+//   일반 설문 응답에는 학생·학부모 개인정보가 들어 있어서, 누가 어디까지 손을 뻗었는지 되짚을 때
+//   이 줄이 출발점이 된다. 기록이 없으면 "그 설문은 열어본 적도 없다"와 구분할 방법이 아예 없다.
+//   행위자는 미들웨어가 실어 보낸 X-Staff-Phone 로 logAudit 이 자동 식별한다(어느 조교인지까지 남는다).
+async function logStaffBlocked(env, request, ctx) {
+  try {
+    const s = (ctx && ctx.survey) || {};
+    await logAudit(env, request, {
+      action: 'survey.staff.denied',
+      target: 'survey/' + ((ctx && ctx.surveyId) || ''),
+      targetName: s.title || '',
+      summary: '조교 권한 거부(403) — [' + (s.title || (ctx && ctx.surveyId) || '') + ']에 '
+        + ((ctx && ctx.행위) || '') + ' 시도, 테스트가 아닌 일반 설문이라 막힘',
+      detail: {
+        설문id: (ctx && ctx.surveyId) != null ? ctx.surveyId : null,
+        제목: s.title || '', 퀴즈: s.quiz === 1, 상태: s.status || '',
+        응답id: (ctx && ctx.responseId) != null ? ctx.responseId : null,
+        시도한행위: (ctx && ctx.행위) || '',
+        조교휴대폰: (ctx && ctx.staffPhone) || '',
+        사유: '조교는 테스트(quiz=1)만 다룰 수 있다 — 일반 설문과 그 응답은 원장 전용(학생·학부모 개인정보)',
+        결과: 'DB는 전혀 바뀌지 않았다(403 반환). 정말 필요한 작업이면 원장이 직접 해야 한다',
+      },
+    });
+  } catch (_) { /* 로깅 실패가 응답을 막지 않게 */ }
+}
+
+// 📓 2026-07-31 — 학생·학부모가 제출을 눌렀는데 서버가 되돌려보낸 경우.
+//   성공했을 때만 로그가 남으면 "냈는데 안 들어갔다"와 "아예 안 냈다"를 끝내 구분할 수 없다.
+//   막힌 것도 사건이다. 특히 '응답 대상이 아님'은 대상(학원·반) 지정이 잘못됐다는 신호라,
+//   공지 오배송 때처럼 "왜 우리 애만 못 내냐"를 추적할 때 유일한 단서가 된다.
+//   ⚠️ 행위자는 학생·학부모 토큰이라 헤더(actorOf)로는 절대 못 알아낸다 → actor 를 직접 넘긴다.
+async function logSubmitBlocked(env, request, access, ctx) {
+  try {
+    const s = (ctx && ctx.survey) || {};
+    const st = (access && access.student) || {};
+    await logAudit(env, request, {
+      action: (ctx && ctx.action) || 'survey.response.blocked',
+      actor: (access && access.phone) || '',
+      actorRole: st.role || 'student',
+      actorName: st.name || '',
+      target: 'survey/' + ((ctx && ctx.surveyId) || ''),
+      targetName: st.name || '',
+      summary: '[' + (st.name || (access && access.phone) || '이름없음') + '] '
+        + (s.quiz === 1 ? '테스트' : '설문') + ' [' + (s.title || (ctx && ctx.surveyId) || '') + '] '
+        + ((ctx && ctx.행위) || '응답 제출') + ' 막힘(' + ((ctx && ctx.코드) || '') + ') — '
+        + ((ctx && ctx.사유) || ''),
+      detail: {
+        설문id: (ctx && ctx.surveyId) != null ? ctx.surveyId : null,
+        제목: s.title || '', 퀴즈: s.quiz === 1, 설문상태: s.status || '',
+        학생id: st.id != null ? st.id : null,      // 동명이인 대비 — 이름 말고 id로 특정
+        학생이름: st.name || '', 역할: st.role || '',
+        로그인휴대폰: (access && access.phone) || '',
+        학원: st.academy || '', 반: st.className || '',
+        시도한행위: (ctx && ctx.행위) || '응답 제출',
+        막힌사유: (ctx && ctx.사유) || '',
+        응답코드: (ctx && ctx.코드) != null ? ctx.코드 : null,
+        ...((ctx && ctx.추가) || {}),
+        결과: (ctx && ctx.결과) || 'DB는 전혀 바뀌지 않았다 — 이 제출은 저장되지 않았다',
+      },
+    });
+  } catch (_) { /* 로깅 실패가 응답을 막지 않게 */ }
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -561,7 +754,40 @@ export async function onRequest(context) {
           'INSERT INTO surveys (title, description, audience, aud_academy, aud_class, anonymous, quiz, status, questions, test_kind, created_at, updated_at) ' +
           'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
         ).bind(title, description, audience, JSON.stringify(audAcademy), JSON.stringify(audClass), anonymous, quiz, status, JSON.stringify(questions), testKind, now, now).run();
-        return jsonOk({ ok: true, id: res.meta && res.meta.last_row_id });
+        const newId = res.meta && res.meta.last_row_id;
+
+        // 📓 2026-07-31 — surveys 표에는 '만든 사람' 칸이 아예 없다. 그래서 지금까지는
+        //   원장이 만든 설문인지 조교가 만든 테스트인지 DB만 봐선 영원히 구분이 안 됐다.
+        //   (공지 오배송 때처럼 "누가 이 대상으로 만들었냐"를 물으면 답할 근거가 없었다.)
+        //   → 만든 사람과 **만들 당시 설정(대상 학원·반 포함)** 을 여기서 함께 남긴다.
+        await logAudit(env, request, {
+          action: quiz === 1 ? 'quiz.create' : 'survey.create',
+          target: String(newId || ''),
+          targetName: title,
+          summary: (quiz === 1 ? '테스트' : '설문') + ' [' + title + '] 생성 — 상태 ' + status
+            + ' · 대상 ' + audience + ' · 문항 ' + questions.length + '개'
+            + (testKind ? ' · ' + testKind + '(성적표 자동반영)' : ''),
+          detail: {
+            설문id: newId || null, 제목: title, 설명: description || '(없음)',
+            상태: status, 퀴즈: quiz === 1, 익명: anonymous === 1,
+            대상역할: audience,
+            대상학원: audAcademy.length ? audAcademy : '(전체)',
+            대상반: audClass.length ? audClass : '(전체)',
+            테스트종류: testKind || '(일반 — 성적표 반영 안 함)',
+            문항수: questions.length,
+            // 문항 전문은 surveys.questions 에 그대로 살아 있으므로 여기선 요약만 남긴다.
+            //   (지워질 때는 DELETE 로그가 전문을 통째로 보관한다)
+            문항: questions.slice(0, 40).map(q => ({
+              id: q.id, 종류: q.type, 질문: String(q.label || '').slice(0, 150),
+              배점: q.points, 필수: !!q.required, 정답등록: q.correct !== undefined,
+            })),
+            생성시각: now,
+            결과: status === 'open'
+              ? '바로 열림 — 대상 학생·학부모에게 즉시 노출된다'
+              : '아직 안 열림(' + status + ') — 학생에겐 안 보인다',
+          },
+        });
+        return jsonOk({ ok: true, id: newId });
       }
 
       // ── PATCH ?grade=1 (장문형 수동 채점 O·X) — 원장 + 조교(퀴즈) ──
@@ -586,6 +812,10 @@ export async function onRequest(context) {
         );
         let manual = {};
         try { manual = JSON.parse(resp.manual || '{}') || {}; } catch (_) {}
+        // 🔎 2026-07-31 — 바로 아래 for 문이 manual 을 **제자리에서** 고친다.
+        //   깊은 복사를 안 하면 로그의 '전'과 '후'가 같은 객체를 가리켜 "안 바뀐 것처럼" 찍힌다
+        //   (다른 API에서 실제로 한 번 당한 사고라 여기선 미리 떠 둔다).
+        const manualBefore = JSON.parse(JSON.stringify(manual));
         const marks = (body.marks && typeof body.marks === 'object') ? body.marks : {};
         for (const qid of Object.keys(marks)) {
           if (!longIds.has(qid)) continue;   // 배점 있는 장문형 문항만 판정 가능
@@ -604,12 +834,58 @@ export async function onRequest(context) {
         await env.DB.prepare('UPDATE survey_responses SET score=?, max_score=?, manual=? WHERE id=?')
           .bind(score, graded.maxScore, JSON.stringify(manual), rid).run();
 
+        // 🔎 2026-07-31 — 서술형 O·X 는 사람이 눈으로 매기는 점수다(조교도 매길 수 있다).
+        //   예전엔 결과값만 덮어써서 "누가 O 줬다가 X로 바꿨는지 · 언제 점수가 내려갔는지"가
+        //   아무 데도 안 남았다. 이 판정은 성적표(exam_scores)까지 같이 바꾸므로,
+        //   나중에 점수 이의가 들어오면 이 로그가 유일한 판단 근거다.
+        const markLabel = (mv) => (mv === 1 ? 'O(정답)' : (mv === 0 ? 'X(오답)' : '미채점'));
+        const qLabel = new Map(questions.map(q => [q.id, String(q.label || '')]));
+        const gradeChanges = [];
+        for (const qid of Object.keys(marks)) {
+          if (!longIds.has(qid)) continue;
+          if (manualBefore[qid] === manual[qid]) continue;
+          gradeChanges.push({
+            문항id: qid, 문항: (qLabel.get(qid) || '').slice(0, 150),
+            전: markLabel(manualBefore[qid]), 후: markLabel(manual[qid]),
+          });
+        }
+        await logAudit(env, request, {
+          action: 'survey.response.grade',
+          target: 'survey/' + id + '/response/' + rid,
+          targetName: resp.respondent_name || '',
+          summary: '[' + (resp.respondent_name || '이름없음') + '] 테스트 [' + (s.title || id) + '] 서술형 채점 — '
+            + (gradeChanges.length
+                ? gradeChanges.map(c => c.문항id + ' ' + c.전 + '→' + c.후).join(' · ')
+                : '판정 변경 없음')
+            + ' · 점수 ' + (resp.score == null ? '-' : resp.score) + '→' + score + '/' + graded.maxScore,
+          detail: {
+            설문id: id, 설문제목: s.title || '', 응답id: rid,
+            응답자: resp.respondent_name || '', 응답자전화: resp.respondent_phone || '',
+            판정변경: gradeChanges,
+            판정변경없음: gradeChanges.length === 0,   // 헛클릭·취소도 남긴다(관우T: 사소한 것까지 전부)
+            보낸판정칸: Object.keys(marks).slice(0, 40),
+            점수: { 전: resp.score, 후: score },
+            만점: { 전: resp.max_score, 후: graded.maxScore },
+            내역: { 자동채점: graded.score, 서술형가산: manualScore },
+            판정전체: { 전: manualBefore, 후: manual },
+            테스트종류: s.test_kind || '(일반)',
+            성적표반영: !!(s.test_kind && s.anonymous !== 1 && resp.respondent_name),
+          },
+        });
+
         // 장문형 O·X 확정으로 점수가 바뀌면 성적표도 같은 값으로 덮어쓴다(테스트 종류 지정 퀴즈만).
         if (s.test_kind && s.anonymous !== 1 && resp.respondent_name) {
+          // 📓 2026-07-31 — 성적표에 어떻게 반영됐는지를 여기서 남긴다(_scores.js 는 request 를 몰라
+          //   거기서 남기면 "누가 했나"가 통째로 빈다). waitUntil 로 뒤에서 도는 구조는 그대로 두고
+          //   .then 으로 로그만 이어 붙였다 — 학생·조교가 체감하는 응답 속도는 변하지 않는다.
           const p = upsertTestScore(env, {
             survey: { id: s.id, title: s.title, testKind: s.test_kind, anonymous: s.anonymous === 1 },
             respondentName: resp.respondent_name, score, maxScore: graded.maxScore,
-          });
+          }).then((sr) => logScoreSync(env, request, sr, {
+            survey: s, responseId: rid, respondentName: resp.respondent_name,
+            score, maxScore: graded.maxScore,
+            경로: '장문형 O·X 수동 채점(PATCH ?grade=1)',
+          })).catch(() => {});
           if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
           else if (p && typeof p.catch === 'function') p.catch(() => {});
         }
@@ -626,7 +902,13 @@ export async function onRequest(context) {
         if (!id) return jsonErr('id가 필요합니다.');
         const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
         if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-        if (isStaff && s.quiz !== 1) return jsonErr('조교는 테스트만 수정할 수 있어요.', 403);
+        if (isStaff && s.quiz !== 1) {
+          await logStaffBlocked(env, request, {
+            survey: s, surveyId: id, staffPhone,
+            행위: '학생 답 직접 수정(PATCH ?editAnswers=1)',
+          });
+          return jsonErr('조교는 테스트만 수정할 수 있어요.', 403);
+        }
         const body = await request.json().catch(() => ({}));
         const rid = parseInt(body.responseId, 10);
         if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
@@ -641,6 +923,12 @@ export async function onRequest(context) {
         try { answers = JSON.parse(resp.answers || '{}') || {}; } catch (_) {}
         let manual = {};
         try { manual = JSON.parse(resp.manual || '{}') || {}; } catch (_) {}
+        // 🔴 2026-07-31 — 여기서 덮어쓰는 건 **학생이 자기 손으로 쓴 답**이다.
+        //   원본은 어디에도 백업되지 않아 덮어쓰는 순간 영영 사라지고(점수까지 같이 바뀐다),
+        //   지금까지는 관리자가 답을 고쳐도 "원래 뭐라고 썼었는지"를 되찾을 방법이 없었다.
+        //   아래 for 문이 answers·manual 을 제자리에서 고치므로 지금 복제해 둔다 — 이 스냅샷이 유일한 사본.
+        const answersBefore = JSON.parse(JSON.stringify(answers));
+        const manualBefore = JSON.parse(JSON.stringify(manual));
 
         const patch = (body.answers && typeof body.answers === 'object') ? body.answers : {};
         let touched = 0;
@@ -667,7 +955,26 @@ export async function onRequest(context) {
           touched++;
           if (q.type === 'long') delete manual[qid];   // 답이 바뀌었으니 기존 O·X 무효
         }
-        if (!touched) return jsonErr('수정할 답이 없습니다.');
+        if (!touched) {
+          // 📓 2026-07-31 — 아무것도 안 바뀐 헛손질(설문에 없는 문항 id만 보냄 등)도 남긴다.
+          //   관우T 지시: "아주 사소한 거 하나까지도 로그에 다 남겨."
+          //   "분명 고쳤는데 그대로다" 문의가 왔을 때, 요청 자체가 무효였음을 보여주는 유일한 증거가 된다.
+          await logAudit(env, request, {
+            action: 'survey.response.edit.noop',
+            target: 'survey/' + id + '/response/' + rid,
+            targetName: resp.respondent_name || '',
+            summary: '[' + (resp.respondent_name || '이름없음') + '] 응답 수정 시도했으나 바뀐 답 없음 — 설문 ['
+              + (s.title || id) + ']',
+            detail: {
+              설문id: id, 설문제목: s.title || '', 응답id: rid,
+              응답자: resp.respondent_name || '',
+              보낸문항id: Object.keys(patch).slice(0, 40),
+              설문의문항id: questions.map(q => q.id).slice(0, 40),
+              사유: '보낸 문항 id 가 이 설문의 문항과 하나도 안 맞음 — DB는 건드리지 않았다',
+            },
+          });
+          return jsonErr('수정할 답이 없습니다.');
+        }
 
         // 재채점 — 퀴즈일 때만(일반 설문은 score/max_score NULL 유지)
         let score = null, maxScore = null;
@@ -684,12 +991,56 @@ export async function onRequest(context) {
           'UPDATE survey_responses SET answers=?, score=?, max_score=?, manual=? WHERE id=?'
         ).bind(JSON.stringify(answers), score, maxScore, JSON.stringify(manual), rid).run();
 
+        // 🔴 2026-07-31 — 관리자·조교가 학생 답안을 직접 고치는 자리. **덮어쓴 옛 답은 이 로그에만 남는다.**
+        //   퀴즈면 점수와 성적표(exam_scores)까지 함께 바뀌므로, 학부모가 점수를 물어올 때
+        //   "누가 · 어느 문항을 · 뭐라고 쓴 걸 뭘로 바꿔서 · 몇 점이 됐는지"가 한 번에 읽혀야 한다.
+        //   답 전문 보존이 목적이라 한두 문항 수정이면 3000자까지 통째로 남기고,
+        //   한꺼번에 여러 문항을 고칠 때만 20000자 detail 한도에 맞춰 앞부분 + 길이로 줄인다.
+        const editedIds = Object.keys(patch).filter(qid => qById.has(qid));
+        const per = editedIds.length <= 3 ? 3000 : (editedIds.length <= 10 ? 600 : 150);
+        const editedList = editedIds.slice(0, 40).map(qid => {
+          const q = qById.get(qid);
+          const b = logAnswer(answersBefore[qid], per), a2 = logAnswer(answers[qid], per);
+          return {
+            문항id: qid, 문항: String(q.label || '').slice(0, 120), 종류: q.type,
+            전: b, 후: a2, 실제변경: b.값 !== a2.값 || b.길이 !== a2.길이,
+            서술형판정초기화: q.type === 'long' && manualBefore[qid] !== undefined,
+          };
+        });
+        await logAudit(env, request, {
+          action: 'survey.response.edit',
+          target: 'survey/' + id + '/response/' + rid,
+          targetName: resp.respondent_name || '',
+          summary: '[' + (resp.respondent_name || '이름없음') + '] ' + (s.quiz === 1 ? '테스트' : '설문') + ' ['
+            + (s.title || id) + '] 학생 답 ' + editedList.length + '문항 직접 수정'
+            + (s.quiz === 1 ? (' · 점수 ' + (resp.score == null ? '-' : resp.score) + '→' + score + '/' + maxScore) : '')
+            + ' (덮어쓴 옛 답은 이 로그가 유일한 사본)',
+          detail: {
+            설문id: id, 설문제목: s.title || '', 응답id: rid,
+            응답자: resp.respondent_name || '', 응답자전화: resp.respondent_phone || '',
+            수정문항수: editedList.length,
+            수정내역: editedList,
+            점수: { 전: resp.score, 후: score },
+            만점: { 전: resp.max_score, 후: maxScore },
+            서술형판정: { 전: manualBefore, 후: manual },
+            테스트종류: s.test_kind || '(일반)',
+            성적표반영: !!(s.quiz === 1 && s.test_kind && s.anonymous !== 1 && resp.respondent_name),
+            비고: '학생·학부모에게는 아무 알림도 안 간다 — 바뀐 사실을 아는 건 이 로그뿐',
+          },
+        });
+
         // 테스트 종류 퀴즈면 성적표도 수정된 점수로 덮어씀(같은 행 upsert — 중복 안 쌓임)
         if (s.quiz === 1 && s.test_kind && s.anonymous !== 1 && resp.respondent_name) {
+          // 📓 2026-07-31 — 관리자가 학생 답을 직접 고쳐 점수가 바뀐 경우. 학생에게는 아무 알림도 안 간다.
+          //   성적표가 몇 점에서 몇 점으로 바뀌었는지는 이 로그가 유일한 근거다.
           const p = upsertTestScore(env, {
             survey: { id: s.id, title: s.title, testKind: s.test_kind, anonymous: s.anonymous === 1 },
             respondentName: resp.respondent_name, score, maxScore,
-          });
+          }).then((sr) => logScoreSync(env, request, sr, {
+            survey: s, responseId: rid, respondentName: resp.respondent_name,
+            score, maxScore,
+            경로: '관리자가 학생 답 직접 수정 후 재채점(PATCH ?editAnswers=1)',
+          })).catch(() => {});
           if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
           else if (p && typeof p.catch === 'function') p.catch(() => {});
         }
@@ -700,9 +1051,18 @@ export async function onRequest(context) {
       if (method === 'PATCH') {
         const id = url.searchParams.get('id');
         if (!id) return jsonErr('id가 필요합니다.');
-        const ex = await env.DB.prepare('SELECT id, quiz FROM surveys WHERE id=?').bind(id).first();
+        // 🔎 2026-07-31 — 어차피 하던 존재확인 SELECT 를 **넓히기만** 하면 '고치기 전 값'이 공짜로 생긴다
+        //   (쿼리 수는 그대로). 예전엔 id·quiz만 읽어서, 제목·대상·문항이 무엇에서 무엇으로 바뀌었는지
+        //   남길 방법 자체가 없었다 — "왜 우리 반엔 안 떴냐"는 질문에 답할 근거가 통째로 비어 있었다.
+        const ex = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
         if (!ex) return jsonErr('설문을 찾을 수 없습니다.', 404);
-        if (isStaff && ex.quiz !== 1) return jsonErr('조교는 테스트만 수정할 수 있어요.', 403);
+        if (isStaff && ex.quiz !== 1) {
+          await logStaffBlocked(env, request, {
+            survey: ex, surveyId: id, staffPhone,
+            행위: '설문 설정 수정(PATCH — 제목·대상·상태·문항)',
+          });
+          return jsonErr('조교는 테스트만 수정할 수 있어요.', 403);
+        }
         const body = await request.json().catch(() => ({}));
         const sets = [], vals = [];
         if (body.title !== undefined) {
@@ -728,10 +1088,86 @@ export async function onRequest(context) {
           if (!qs.length) return jsonErr('질문을 하나 이상 추가해 주세요.');
           sets.push('questions=?'); vals.push(JSON.stringify(qs));
         }
-        if (!sets.length) return jsonOk({ ok: true, id });
+        if (!sets.length) {
+          // 📓 2026-07-31 — 고칠 칸이 하나도 안 넘어온 '빈 수정'도 남긴다(관우T: 사소한 것까지 전부).
+          //   화면은 "저장됨"이라고 뜨는데 DB는 그대로인 경우라, 이 기록이 없으면
+          //   "저장했는데 왜 안 바뀌었냐"를 영영 설명할 수 없다.
+          await logAudit(env, request, {
+            action: 'survey.update.noop',
+            target: String(id), targetName: ex.title || '',
+            summary: (ex.quiz === 1 ? '테스트' : '설문') + ' [' + (ex.title || id) + '] 수정 요청 — 변경 없음(DB 손 안 댐)',
+            detail: {
+              설문id: id, 제목: ex.title || '',
+              보낸칸: Object.keys(body || {}).slice(0, 30),
+              사유: '수정 대상 칸이 하나도 안 넘어옴 — UPDATE 자체를 실행하지 않았다',
+            },
+          });
+          return jsonOk({ ok: true, id });
+        }
         sets.push('updated_at=?'); vals.push(nowIso());
         vals.push(id);
         await env.DB.prepare('UPDATE surveys SET ' + sets.join(', ') + ' WHERE id=?').bind(...vals).run();
+
+        // 📓 2026-07-31 — 설문/테스트 설정 변경은 학생 화면에 즉시 반영되는 변화다(대상·상태·문항).
+        //   지금까진 updated_at 만 갱신돼 "언젠가 바뀌었다"만 알 수 있었고, 무엇이 어떻게 바뀌었는지는
+        //   아무 흔적도 없었다. 특히 대상(학원·반)은 오배송 사고의 직접 원인이 되는 칸이라 칸별 전/후로 남긴다.
+        const COL_KO = {
+          title: '제목', description: '설명', audience: '대상역할', aud_academy: '대상학원',
+          aud_class: '대상반', anonymous: '익명', quiz: '퀴즈여부', status: '상태',
+          test_kind: '테스트종류', questions: '문항',
+        };
+        const beforeKo = {}, afterKo = {};
+        sets.forEach((sq, i) => {
+          const col = sq.replace('=?', '');
+          if (col === 'updated_at') return;          // 항상 바뀌는 칸이라 diff에서 뺀다(잡음)
+          const k = COL_KO[col] || col;
+          beforeKo[k] = ex[col];
+          afterKo[k] = vals[i];
+        });
+        const d = diffFields(beforeKo, afterKo, Object.keys(afterKo));
+        await logAudit(env, request, {
+          action: ex.quiz === 1 ? 'quiz.update' : 'survey.update',
+          target: String(id), targetName: ex.title || '',
+          summary: (ex.quiz === 1 ? '테스트' : '설문') + ' [' + (ex.title || id) + '] 수정 — '
+            + (d.요약 || '값은 그대로(같은 값으로 덮어씀)'),
+          detail: {
+            설문id: id, 제목: ex.title || '',
+            바뀐칸: d.바뀐칸, 변경: d.변경,
+            보낸칸: Object.keys(body || {}).slice(0, 30),
+            // 문항을 통째로 갈아끼우면 옛 문항(정답 포함)은 사라진다 → 전문을 남긴다.
+            문항교체: body.questions !== undefined ? {
+              이전문항: String(ex.questions || '').slice(0, 3000),
+              새문항: String(afterKo['문항'] || '').slice(0, 3000),
+              이전문항길이: String(ex.questions || '').length,
+              새문항길이: String(afterKo['문항'] || '').length,
+            } : null,
+            결과: body.questions !== undefined && ex.quiz === 1
+              ? '문항이 바뀐 테스트라 아래 quiz.regrade 로그처럼 기존 응답이 전부 재채점된다'
+              : '기존 응답 점수는 그대로',
+          },
+        });
+
+        // 📓 2026-07-31 — 열림/종료는 "학생이 지금 낼 수 있냐"를 가르는 스위치라, 수정 로그에 섞어 두면
+        //   나중에 "언제 닫혔냐"를 찾기 어렵다. 상태 전환만 별도 한 줄로 더 남겨 검색되게 한다.
+        if (Object.prototype.hasOwnProperty.call(afterKo, '상태') && String(ex.status || '') !== String(afterKo['상태'])) {
+          const st = String(afterKo['상태']);
+          await logAudit(env, request, {
+            action: st === 'closed' ? 'survey.close' : (st === 'open' ? 'survey.open' : 'survey.draft'),
+            target: String(id), targetName: ex.title || '',
+            summary: (ex.quiz === 1 ? '테스트' : '설문') + ' [' + (ex.title || id) + '] '
+              + (st === 'closed' ? '종료 — 이제 학생은 제출할 수 없다'
+                 : st === 'open' ? '열림 — 대상 학생·학부모에게 즉시 노출된다'
+                 : '초안으로 되돌림 — 학생 화면에서 사라진다'),
+            detail: {
+              설문id: id, 제목: ex.title || '', 퀴즈: ex.quiz === 1,
+              상태: { 전: ex.status || '', 후: st },
+              대상역할: ex.audience || '', 테스트종류: ex.test_kind || '(일반)',
+              예외: st === 'closed'
+                ? '재제출 허용(resubmit_allow)을 받은 학생만 종료 후에도 제출 가능'
+                : '해당 없음',
+            },
+          });
+        }
 
         // ── 문항이 바뀐 퀴즈는 기존 응답 전체를 "가장 최근 문항" 기준으로 재채점 (2026-07-16 관우T 확정) ──
         //   문항 수정 전 제출한 학생도 새 기준으로 점수 통일 — 성적 불일치 방지.
@@ -744,6 +1180,7 @@ export async function onRequest(context) {
             const { results: resps } = await env.DB.prepare(
               'SELECT * FROM survey_responses WHERE survey_id=?'
             ).bind(id).all();
+            const regradeRows = [], regradeFailed = [];
             for (const r of (resps || [])) {
               let answers = {}; try { answers = JSON.parse(r.answers || '{}') || {}; } catch (_) {}
               let manual = {};  try { manual = JSON.parse(r.manual || '{}') || {}; } catch (_) {}
@@ -757,17 +1194,57 @@ export async function onRequest(context) {
                 await env.DB.prepare('UPDATE survey_responses SET score=?, max_score=? WHERE id=?')
                   .bind(score, graded.maxScore, r.id).run();
                 regraded++;
-              } catch (_) { continue; }
+                // 로그용 수집 — 학생별 점수 전/후. 아래 for 문 끝난 뒤 한 줄로 묶어 남긴다.
+                regradeRows.push({
+                  응답id: r.id, 응답자: r.respondent_name || '',
+                  전: r.score, 후: score, 만점전: r.max_score, 만점후: graded.maxScore,
+                });
+              } catch (_) { regradeFailed.push({ 응답id: r.id, 응답자: r.respondent_name || '' }); continue; }
               // 테스트 종류 퀴즈면 성적표(exam_scores)도 새 점수로 덮어씀(best-effort)
               if (s2.test_kind && s2.anonymous !== 1 && r.respondent_name) {
+                // 📓 2026-07-31 — 문항을 고치면 **이미 제출한 학생 전원**의 성적표가 조용히 새 점수로 덮여쓰인다.
+                //   한 번의 문항 수정이 반 전체 성적을 건드리는 셈인데 그 흔적이 하나도 없었다.
+                //   → 학생 1명당 1줄씩 남긴다(누구 점수가 몇 점에서 몇 점으로 바뀌었는지).
+                //   ⚠️ .then 의 인자 이름을 sr 로 둔다 — r 로 쓰면 바깥 응답 행(r)을 가려버린다.
                 const p = upsertTestScore(env, {
                   survey: { id: s2.id, title: s2.title, testKind: s2.test_kind, anonymous: false },
                   respondentName: r.respondent_name, score, maxScore: graded.maxScore,
-                });
+                }).then((sr) => logScoreSync(env, request, sr, {
+                  survey: s2, responseId: r.id, respondentName: r.respondent_name,
+                  score, maxScore: graded.maxScore,
+                  경로: '문항 수정에 따른 기존 응답 전체 재채점(PATCH 설문수정)',
+                })).catch(() => {});
                 if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
                 else if (p && typeof p.catch === 'function') p.catch(() => {});
               }
             }
+
+            // ⚠️ 2026-07-31 — 문항을 고치면 **이미 제출한 학생들 점수가 조용히 다시 매겨진다.**
+            //   학생·학부모에겐 알림이 안 가고 성적표(exam_scores)까지 덮어써지는데,
+            //   지금까진 응답 수(regraded)만 응답 JSON으로 돌려주고 끝이라 흔적이 0이었다.
+            //   → "어제 80점이었는데 오늘 60점"의 원인을 대는 유일한 근거로 학생별 전/후를 남긴다.
+            //   대상이 0명이어도 남긴다(관우T: 사소한 것까지 전부) — 재채점이 안 돈 것도 사실이다.
+            const scoreMoved = regradeRows.filter(x => String(x.전) !== String(x.후));
+            await logAudit(env, request, {
+              action: 'quiz.regrade',
+              target: String(id), targetName: s2.title || '',
+              summary: '테스트 [' + (s2.title || id) + '] 문항 수정에 따른 일괄 재채점 — 대상 '
+                + (resps || []).length + '명 · 반영 ' + regraded + '명 · 점수 바뀐 학생 ' + scoreMoved.length + '명'
+                + (regradeFailed.length ? ' · 실패 ' + regradeFailed.length + '명' : '')
+                + ((resps || []).length === 0 ? ' (아직 응답자가 없어 재채점 대상 0명)' : ''),
+              detail: {
+                설문id: id, 제목: s2.title || '',
+                대상응답수: (resps || []).length,
+                재채점성공: regraded,
+                점수바뀐인원: scoreMoved.length,
+                재채점내역: regradeRows.slice(0, 200),     // 200명 넘으면 앞부분만(detail 20000자 한도)
+                일부만저장: regradeRows.length > 200,
+                실패: regradeFailed.slice(0, 50),
+                테스트종류: s2.test_kind || '(일반)',
+                성적표반영: !!(s2.test_kind && s2.anonymous !== 1),
+                비고: '학생·학부모에게 알림은 안 나간다 — 점수가 바뀐 사실을 아는 건 이 로그뿐',
+              },
+            });
           }
         }
         return jsonOk({ ok: true, id, regraded });
@@ -783,23 +1260,78 @@ export async function onRequest(context) {
         if (!Number.isFinite(rid)) return jsonErr('responseId가 필요합니다.');
         const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
         if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-        if (isStaff && s.quiz !== 1) return jsonErr('조교는 테스트만 관리할 수 있어요.', 403);
+        if (isStaff && s.quiz !== 1) {
+          await logStaffBlocked(env, request, {
+            survey: s, surveyId: id, responseId: rid,
+            staffPhone, 행위: '학생 응답 1건 삭제(DELETE ?responseId=)',
+          });
+          return jsonErr('조교는 테스트만 관리할 수 있어요.', 403);
+        }
+        // 🔎 어차피 하던 존재확인 SELECT를 **넓히기만** 하면 before 가 공짜로 생긴다(쿼리 수 동일).
+        //    지워지는 건 학생의 답안 + 점수다. 무엇이 사라졌는지 남겨야 재제출 분쟁에 답할 수 있다.
         const resp = await env.DB.prepare(
-          'SELECT id, respondent_name, respondent_phone FROM survey_responses WHERE id=? AND survey_id=?'
+          'SELECT id, respondent_name, respondent_phone, answers, answers_twin, score, max_score, ' +
+          'score_twin, max_score_twin, created_at FROM survey_responses WHERE id=? AND survey_id=?'
         ).bind(rid, id).first();
         if (!resp) return jsonErr('응답을 찾을 수 없습니다.', 404);
-        await env.DB.prepare('DELETE FROM survey_responses WHERE id=?').bind(rid).run();
+        const dOne = await env.DB.prepare('DELETE FROM survey_responses WHERE id=?').bind(rid).run();
+        await logAudit(env, request, {
+          action: 'survey.response.delete',
+          target: 'survey/' + id + '/response/' + rid,
+          targetName: resp.respondent_name || '',
+          summary: '[' + (resp.respondent_name || '이름없음') + '] ' + (s.quiz === 1 ? '테스트' : '설문')
+            + ' [' + (s.title || id) + '] 응답 삭제 (점수 '
+            + (resp.score == null ? '-' : resp.score) + '/' + (resp.max_score == null ? '-' : resp.max_score) + ') → 재제출 허용',
+          detail: {
+            설문id: id, 설문제목: s.title || '', 응답id: rid,
+            응답자: resp.respondent_name || '', 응답자전화: resp.respondent_phone || '',
+            점수: { 원본: resp.score, 만점: resp.max_score, 쌍둥이: resp.score_twin, 쌍둥이만점: resp.max_score_twin },
+            지워진답안: String(resp.answers || '').slice(0, 4000),
+            지워진쌍둥이답안: String(resp.answers_twin || '').slice(0, 2000),
+            응답일: resp.created_at || '',
+            삭제행수: (dOne.meta && dOne.meta.changes) || 0,
+            연동성적삭제: !!(s.test_kind && resp.respondent_name),   // deleteTestScore 로 exam_scores 도 지움
+          },
+        });
         // 재제출 허용 grant 기록 — 이 학생(휴대폰)은 설문이 종료(closed)됐어도 다시 들어와 재제출 가능.
         //   (열린 설문은 응답 삭제만으로 중복차단이 풀려 재입장되지만, 종료된 테스트는 grant가 없으면 막힌다.)
         if (resp.respondent_phone) {
           const grants = resubmitPhones(s);
           if (!grants.includes(resp.respondent_phone)) {
             grants.push(resp.respondent_phone);
-            try { await env.DB.prepare('UPDATE surveys SET resubmit_allow=? WHERE id=?').bind(JSON.stringify(grants), id).run(); } catch (_) {}
+            let granted = false;
+            try { await env.DB.prepare('UPDATE surveys SET resubmit_allow=? WHERE id=?').bind(JSON.stringify(grants), id).run(); granted = true; } catch (_) {}
+            // 📓 2026-07-31 — 위 삭제 로그와 별개인 **두 번째 쓰기**다(설문 행이 바뀐다).
+            //   이건 "종료된 시험에 이 학생만 다시 들어올 수 있게" 여는 예외 허가인데,
+            //   설문 상태(closed)는 그대로라 화면만 봐서는 누구에게 문이 열렸는지 알 길이 없었다.
+            //   → 누구에게 언제 열어줬는지 따로 남긴다(회수는 survey.resubmit.consume 과 짝).
+            await logAudit(env, request, {
+              action: 'survey.resubmit.grant',
+              target: 'survey/' + id,
+              targetName: resp.respondent_name || '',
+              summary: '[' + (resp.respondent_name || '이름없음') + '] 재제출 허용 부여 — '
+                + (s.quiz === 1 ? '테스트' : '설문') + ' [' + (s.title || id) + ']'
+                + (s.status === 'closed' ? ' (종료된 설문이지만 이 학생만 다시 제출 가능)' : '')
+                + (granted ? '' : ' ※ 저장 실패'),
+              detail: {
+                설문id: id, 제목: s.title || '', 설문상태: s.status || '',
+                대상자: resp.respondent_name || '', 대상전화: resp.respondent_phone,
+                허용목록: { 전: resubmitPhones(s), 후: grants },
+                저장성공: granted,
+                결과: '이 학생이 다시 제출하면 허가는 1회성으로 소비된다(survey.resubmit.consume)',
+              },
+            });
           }
         }
         if (s.test_kind && resp.respondent_name) {
-          const p = deleteTestScore(env, { surveyId: s.id, respondentName: resp.respondent_name });
+          // ⚠️ 2026-07-31 — 응답을 지우면 성적표의 그 테스트 점수도 딸려서 사라진다.
+          //   위 응답삭제 로그(survey.response.delete)에는 '연동성적삭제: true' 한 줄뿐이라
+          //   **몇 점이 지워졌는지**는 안 남았다 → 지워진 성적값 자체를 여기서 남긴다(되돌릴 근거).
+          const p = deleteTestScore(env, { surveyId: s.id, respondentName: resp.respondent_name })
+            .then((sr) => logScoreDelete(env, request, sr, {
+              survey: s, responseId: rid, respondentName: resp.respondent_name,
+              경로: '응답 1건 삭제(재제출 허용) — DELETE ?responseId=',
+            })).catch(() => {});
           if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
           else if (p && typeof p.catch === 'function') p.catch(() => {});
         }
@@ -811,12 +1343,60 @@ export async function onRequest(context) {
         const id = url.searchParams.get('id');
         if (!id) return jsonErr('id가 필요합니다.');
         if (isStaff) {
-          const ex = await env.DB.prepare('SELECT quiz FROM surveys WHERE id=?').bind(id).first();
+          // 🔎 2026-07-31 — 어차피 하던 존재확인 SELECT 를 몇 칸 넓히기만 하면(쿼리 수 그대로)
+          //   막힌 로그에 "무슨 설문을 지우려 했는지"를 제목까지 적을 수 있다. quiz 한 칸만 읽으면
+          //   나중에 로그에 id 숫자만 남아 그게 어떤 설문이었는지 되짚을 수가 없다(이미 지워졌을 수도 있고).
+          const ex = await env.DB.prepare('SELECT id, title, quiz, status, test_kind FROM surveys WHERE id=?').bind(id).first();
           if (!ex) return jsonErr('설문을 찾을 수 없습니다.', 404);
-          if (ex.quiz !== 1) return jsonErr('조교는 테스트만 삭제할 수 있어요.', 403);
+          if (ex.quiz !== 1) {
+            await logStaffBlocked(env, request, {
+              survey: ex, surveyId: id, staffPhone,
+              행위: '설문 통째 삭제(DELETE — 응답 전체 동반 삭제)',
+            });
+            return jsonErr('조교는 테스트만 삭제할 수 있어요.', 403);
+          }
         }
-        await env.DB.prepare('DELETE FROM survey_responses WHERE survey_id=?').bind(id).run();
-        await env.DB.prepare('DELETE FROM surveys WHERE id=?').bind(id).run();
+
+        // ⚠️ 설문/테스트 1건 + 그 **모든 학생 응답**이 통째로 사라진다(복구 불가).
+        //    예전엔 로그가 없어서 "어떤 시험이었는지 · 누가 몇 점이었는지"조차 남지 않았다.
+        //    → 지우기 전에 설문 원본과 응답자 명단(이름·점수)을 먼저 읽어 둔다.
+        //    ※ 원장 경로는 존재확인조차 안 했으므로(조교만 SELECT), 여기서 처음 읽는다.
+        const sBefore = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
+        let respRows = [];
+        try {
+          const { results } = await env.DB.prepare(
+            'SELECT id, respondent_name, respondent_phone, score, max_score, score_twin, max_score_twin, created_at ' +
+            'FROM survey_responses WHERE survey_id=? ORDER BY id'
+          ).bind(id).all();
+          respRows = results || [];
+        } catch (_) {}
+
+        const dResp = await env.DB.prepare('DELETE FROM survey_responses WHERE survey_id=?').bind(id).run();
+        const dSurv = await env.DB.prepare('DELETE FROM surveys WHERE id=?').bind(id).run();
+
+        await logAudit(env, request, {
+          action: (sBefore && sBefore.quiz === 1) ? 'quiz.delete' : 'survey.delete',
+          target: String(id),
+          targetName: (sBefore && sBefore.title) || '',
+          summary: ((sBefore && sBefore.quiz === 1) ? '테스트' : '설문') + ' [' + ((sBefore && sBefore.title) || id)
+            + '] 영구 삭제 — 응답 ' + respRows.length + '명분 함께 삭제 (복구 불가)',
+          detail: {
+            설문id: id,
+            지워진설문: sBefore ? {
+              제목: sBefore.title || '', 상태: sBefore.status || '', 퀴즈: sBefore.quiz === 1,
+              테스트종류: sBefore.test_kind || '', 대상: sBefore.audience || '',
+              문항: sBefore.questions || '', 생성일: sBefore.created_at || '',
+            } : null,
+            응답자수: respRows.length,
+            지워진응답: respRows.slice(0, 300),          // "누구 점수가 날아갔나"의 유일한 근거
+            응답일부만저장: respRows.length > 300,
+            삭제행수: {
+              응답: (dResp.meta && dResp.meta.changes) || 0,
+              설문: (dSurv.meta && dSurv.meta.changes) || 0,
+            },
+            비고: '연동된 성적(exam_scores)은 이 경로에서 지우지 않는다 — 응답 개별삭제 때만 deleteTestScore 가 돈다',
+          },
+        });
         return jsonOk({ ok: true, removed: 1 });
       }
 
@@ -846,7 +1426,21 @@ export async function onRequest(context) {
       const resp = await env.DB.prepare(
         'SELECT * FROM survey_responses WHERE survey_id=? AND respondent_phone=?'
       ).bind(id, access.phone).first();
-      if (!resp) return jsonErr('먼저 원본 시험을 제출해 주세요.', 409);
+      if (!resp) {
+        // 📓 2026-07-31 — 클리닉에서 쌍둥이 답을 넣으려는데 원본 응답이 없어 막힌 경우.
+        //   원본이 '없다'는 건 안 봤거나, 이름·계정이 달라 다른 휴대폰으로 제출됐거나,
+        //   조교가 응답을 지운(재제출 허용) 직후라는 뜻이다 — 셋 다 사람이 확인해야 할 상황인데
+        //   지금까진 학생 화면의 안내문 한 줄로 끝나고 기록이 남지 않았다.
+        await logSubmitBlocked(env, request, access, {
+          survey: s, surveyId: id, 코드: 409,
+          action: 'quiz.twin.blocked',
+          행위: '오답 재도전(쌍둥이) 제출(POST ?respond=1&twin=1)',
+          사유: '이 휴대폰으로 제출된 원본 시험 응답이 없다',
+          추가: { 조회한휴대폰: access.phone },
+          결과: '재도전 답은 저장되지 않았다 — 원본이 다른 계정으로 제출됐거나 응답이 삭제된 상태일 수 있다',
+        });
+        return jsonErr('먼저 원본 시험을 제출해 주세요.', 409);
+      }
 
       const questions = parseQuestions(s.questions);
       let origAnswers = {};
@@ -857,7 +1451,31 @@ export async function onRequest(context) {
         const d = graded.detail[q.id];
         return d && d.correct === false && q.correctTwin != null && q.correctTwin !== '';
       });
-      if (!eligible.length) return jsonErr('재도전할 오답 문항이 없어요.', 400);
+      if (!eligible.length) {
+        // 🔎 2026-07-31 — 학생 화면엔 재도전 버튼이 떴는데 서버는 "대상 문항 0개"라고 되돌린 경우.
+        //   대개 문항이 수정돼 재채점되면서 오답이 정답이 됐거나, 쌍둥이 정답(correctTwin)이
+        //   등록 안 된 문항이라 그렇다. 학생은 "버튼은 있는데 안 된다"로 겪고 조교는 재현을 못 한다.
+        //   → 서버가 본 판정 근거(오답 수·쌍둥이 정답 등록 수)를 남겨 어느 쪽이 원인인지 바로 가리게 한다.
+        const 오답 = questions.filter(q => {
+          const d = graded.detail[q.id];
+          return d && d.correct === false;
+        });
+        await logSubmitBlocked(env, request, access, {
+          survey: s, surveyId: id, 코드: 400,
+          action: 'quiz.twin.blocked',
+          행위: '오답 재도전(쌍둥이) 제출(POST ?respond=1&twin=1)',
+          사유: '재도전 대상 문항이 0개 — 틀린 문항이 없거나, 틀린 문항에 쌍둥이 정답이 등록돼 있지 않다',
+          추가: {
+            응답id: resp.id,
+            원본점수: { 점수: resp.score, 만점: resp.max_score },
+            현재기준오답수: 오답.length,
+            오답문항id: 오답.map(q => q.id).slice(0, 40),
+            쌍둥이정답등록문항수: questions.filter(q => q.correctTwin != null && q.correctTwin !== '').length,
+          },
+          결과: '재도전 답은 저장되지 않았다 — 문항에 쌍둥이 정답을 등록해야 재도전이 열린다',
+        });
+        return jsonErr('재도전할 오답 문항이 없어요.', 400);
+      }
 
       // 병합: 이미 낸 쌍둥이 답 유지 + 이번에 낸 것 덮어쓰기.
       let prevTwin = {};
@@ -889,6 +1507,44 @@ export async function onRequest(context) {
       await env.DB.prepare(
         'UPDATE survey_responses SET answers_twin=?, score_twin=?, max_score_twin=? WHERE id=?'
       ).bind(JSON.stringify(twinAnswers), tScore, tMax, resp.id).run();
+
+      // 🔎 2026-07-31 — 클리닉 오답 재도전(쌍둥이) 제출. 학생이 직접 쓴 답이고,
+      //   같은 문항을 또 내면 앞서 낸 답이 조용히 덮어써진다(옛 답은 DB에 안 남는다).
+      //   "낸 적 없다 / 다르게 냈다" 다툼이 생기면 이 로그가 유일한 사본이라 전/후를 같이 남긴다.
+      //   ⚠️ 행위자는 로그인한 학생·학부모라 헤더(actorOf)로는 절대 못 알아낸다 → actor 를 직접 명시.
+      const twinChanged = [];
+      for (const q of eligible) {
+        if (!Object.prototype.hasOwnProperty.call(src, q.id)) continue;
+        const dd = detail[q.id] || {};
+        twinChanged.push({
+          문항id: q.id, 문항: String(q.label || '').slice(0, 100),
+          전: logAnswer(prevTwin[q.id], 200), 후: logAnswer(twinAnswers[q.id], 200),
+          채점: dd.pending ? '미입력' : (dd.correct ? 'O' : 'X'),
+        });
+      }
+      await logAudit(env, request, {
+        action: 'quiz.twin.submit',
+        actor: access.phone,
+        actorRole: (access.student && access.student.role) || 'student',
+        actorName: (access.student && access.student.name) || resp.respondent_name || '',
+        target: 'survey/' + id + '/response/' + resp.id,
+        targetName: resp.respondent_name || '',
+        summary: '[' + (resp.respondent_name || (access.student && access.student.name) || '이름없음') + '] 테스트 ['
+          + (s.title || id) + '] 오답 재도전 제출 — ' + twinChanged.length + '문항 입력 · '
+          + tScore + '/' + tMax + '개 정답 (원본 시험 점수는 그대로)',
+        detail: {
+          설문id: id, 설문제목: s.title || '', 응답id: resp.id,
+          학생id: (access.student && access.student.id) || null,   // 동명이인 대비 — 이름 말고 id로 특정
+          학생이름: (access.student && access.student.name) || '',
+          로그인휴대폰: access.phone, 역할: (access.student && access.student.role) || '',
+          재도전대상문항수: eligible.length,
+          이번에입력한문항: twinChanged.slice(0, 25),
+          입력문항일부만저장: twinChanged.length > 25,
+          점수: { 전: { 맞은개수: resp.score_twin, 대상: resp.max_score_twin }, 후: { 맞은개수: tScore, 대상: tMax } },
+          원본점수: { 점수: resp.score, 만점: resp.max_score },
+          비고: '쌍둥이 재도전은 원본 성적·성적표(exam_scores)에 반영되지 않는다',
+        },
+      });
       return jsonOk({ ok: true, twin: true, score: tScore, maxScore: tMax, detail });
     }
 
@@ -898,19 +1554,96 @@ export async function onRequest(context) {
       if (!id) return jsonErr('id가 필요합니다.');
       const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
       if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
-      if (s.status !== 'open' && !resubmitPhones(s).includes(access.phone)) return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
-      if (!audienceMatchesStudents(s, access.students)) return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
+      if (s.status !== 'open' && !resubmitPhones(s).includes(access.phone)) {
+        // 📓 2026-07-31 — 학생이 제출 버튼까지 눌렀는데 설문이 이미 닫혀 되돌아간 경우.
+        //   화면을 띄워 둔 채 시간이 지나면 학생은 낸 줄 알고, 조교는 미제출로 본다.
+        //   "몇 시에 닫혔고 이 학생은 몇 시에 냈나"를 대조할 근거가 이 줄뿐이다(survey.close 로그와 짝).
+        await logSubmitBlocked(env, request, access, {
+          survey: s, surveyId: id, 코드: 403,
+          행위: '응답 제출(POST ?respond=1)',
+          사유: '설문 상태가 ' + (s.status || '') + ' — 지금은 제출을 받지 않는다',
+          추가: {
+            // 이 학생은 허용 목록에 없어서 막힌 것이다. 목록에 다른 사람이 몇 명 있는지를 같이 남겨,
+            // "재제출 허용을 줬는데 왜 안 되냐"(= 다른 번호에 줬다)를 바로 가릴 수 있게 한다.
+            재제출허용인원: resubmitPhones(s).length,
+          },
+          결과: '제출 내용은 저장되지 않았다. 다시 받으려면 설문을 열거나 이 번호에 재제출 허용을 줘야 한다',
+        });
+        return jsonErr('지금은 응답할 수 없는 설문이에요.', 403);
+      }
+      if (!audienceMatchesStudents(s, access.students)) {
+        // ⚠️ 2026-07-31 — 대상(학원·반) 설정이 틀리면 정작 봐야 할 학생이 여기서 튕긴다.
+        //   공지 오배송과 같은 뿌리의 사고인데, 지금까진 튕긴 사실이 어디에도 안 남아
+        //   "우리 애는 시험을 못 봤다"는 말에 원인을 댈 수가 없었다.
+        //   → 설문의 대상 지정과 이 학생의 실제 학원·반을 나란히 남겨 어긋난 지점이 바로 보이게 한다.
+        await logSubmitBlocked(env, request, access, {
+          survey: s, surveyId: id, 코드: 403,
+          행위: '응답 제출(POST ?respond=1)',
+          사유: '이 계정은 설문의 응답 대상이 아니다(역할·학원·반 불일치)',
+          추가: {
+            설문대상역할: s.audience || 'all',
+            설문대상학원: parseList(s.aud_academy),
+            설문대상반: parseList(s.aud_class),
+            내계정의학생들: (access.students || []).slice(0, 20).map(x => ({
+              학생id: x.id, 이름: x.name || '', 역할: x.role || '',
+              학원: x.academy || '', 반: x.className || '',
+            })),
+          },
+          결과: '제출 내용은 저장되지 않았다 — 대상 학원·반 지정이 맞는지부터 확인해야 한다',
+        });
+        return jsonErr('이 설문의 응답 대상이 아니에요.', 403);
+      }
 
       // 중복 응답 차단 — 휴대폰 1개당 설문 1회
       const dup = await env.DB.prepare(
         'SELECT id FROM survey_responses WHERE survey_id=? AND respondent_phone=?'
       ).bind(id, access.phone).first();
-      if (dup) return jsonErr('이미 응답한 설문이에요. 감사합니다!', 409);
+      if (dup) {
+        // 📓 2026-07-31 — 중복 제출로 막힌 것도 남긴다(관우T: 사소한 것까지 전부).
+        //   학생은 "분명 냈는데 안 냈다고 나온다 / 또 내라고 한다"로 겪고, 조교는 화면만 봐선 알 수 없다.
+        //   이 줄이 있어야 "이미 낸 응답이 있어서 막혔다"는 사실과 그 시각을 댈 수 있다.
+        await logAudit(env, request, {
+          action: 'survey.response.duplicate',
+          actor: access.phone,
+          actorRole: (access.student && access.student.role) || 'student',
+          actorName: (access.student && access.student.name) || '',
+          target: 'survey/' + id,
+          targetName: (access.student && access.student.name) || '',
+          summary: '[' + ((access.student && access.student.name) || access.phone) + '] '
+            + (s.quiz === 1 ? '테스트' : '설문') + ' [' + (s.title || id) + '] 중복 제출 차단 — 이미 제출한 설문(409)',
+          detail: {
+            설문id: id, 제목: s.title || '', 퀴즈: s.quiz === 1,
+            학생id: (access.student && access.student.id) || null,
+            학생이름: (access.student && access.student.name) || '',
+            로그인휴대폰: access.phone,
+            기존응답id: dup.id,
+            결과: 'DB는 건드리지 않았다. 다시 내게 하려면 기존 응답을 삭제(재제출 허용)해야 한다',
+          },
+        });
+        return jsonErr('이미 응답한 설문이에요. 감사합니다!', 409);
+      }
 
       const questions = parseQuestions(s.questions);
       const body = await request.json().catch(() => ({}));
       const v = validateAnswers(questions, body.answers);
-      if (!v.ok) return jsonErr(v.error);
+      if (!v.ok) {
+        // 📓 2026-07-31 — 필수 문항을 안 채워 제출이 되돌아간 경우. 학생 입장에선 "냈다"고 기억하지만
+        //   DB에는 아무것도 안 들어간다. 시험 시간이 끝난 뒤 "제출했는데 왜 없냐"가 나오면,
+        //   이 줄이 "그 시각에 시도는 했으나 어느 문항이 비어 반려됐다"를 보여주는 유일한 증거다.
+        //   ⚠️ 학생이 쓴 답 자체는 여기 남기지 않는다 — 반려된 시도까지 답 전문을 쌓으면
+        //     로그가 답안 사본 창고가 된다. 어느 문항이 비었는지(반려 사유)만 남긴다.
+        await logSubmitBlocked(env, request, access, {
+          survey: s, surveyId: id, 코드: 400,
+          행위: '응답 제출(POST ?respond=1)',
+          사유: String(v.error || '').slice(0, 200),
+          추가: {
+            문항수: questions.length,
+            답이넘어온문항: Object.keys((body && body.answers) || {}).slice(0, 40),
+          },
+          결과: '제출 내용은 저장되지 않았다 — 학생이 그대로 창을 닫았으면 응답은 없는 상태다',
+        });
+        return jsonErr(v.error);
+      }
 
       // 퀴즈면 자동 채점 → 점수 저장 + 즉시 결과 반환(정답+점수 노출)
       const isQuiz = s.quiz === 1;
@@ -920,7 +1653,7 @@ export async function onRequest(context) {
       const name = clean(body.name, MAX_NAME) || (access.student && access.student.name) || '';
       const ua = clean(request.headers.get('user-agent') || '', 200);
       const now = nowIso();
-      await env.DB.prepare(
+      const ins = await env.DB.prepare(
         'INSERT INTO survey_responses (survey_id, respondent_phone, respondent_name, answers, score, max_score, ua, created_at) ' +
         'VALUES (?,?,?,?,?,?,?,?)'
       ).bind(
@@ -929,10 +1662,70 @@ export async function onRequest(context) {
         ua, now
       ).run();
 
+      // 🔎 2026-07-31 — 제출 사실 자체가 어디에도 안 남아 있었다. 응답 행이 나중에 지워지거나
+      //   관리자가 답을 고치면 "언제 · 누가 · 몇 점으로 냈는지"의 원본이 통째로 사라진다.
+      //   → 제출 시점의 신원(학생 id 포함)·점수·답 요지를 독립 증거로 남긴다.
+      //   답 전문은 survey_responses.answers 에 살아 있으므로 여기선 앞부분 + 길이만(로그 한도 보호).
+      //   ⚠️ 행위자는 학생·학부모 토큰이라 헤더로는 못 알아낸다 → actor 직접 명시.
+      const wasResubmit = resubmitPhones(s).includes(access.phone);
+      await logAudit(env, request, {
+        action: 'survey.response.submit',
+        actor: access.phone,
+        actorRole: (access.student && access.student.role) || 'student',
+        actorName: (access.student && access.student.name) || name || '',
+        target: 'survey/' + id + '/response/' + ((ins.meta && ins.meta.last_row_id) || ''),
+        targetName: name || '',
+        summary: '[' + (name || access.phone) + '] ' + (isQuiz ? '테스트' : '설문') + ' [' + (s.title || id) + '] 응답 제출'
+          + (isQuiz && graded ? (' — ' + graded.score + '/' + graded.maxScore + '점') : '')
+          + (wasResubmit ? ' (재제출 허용분)' : '')
+          + (s.anonymous === 1 ? ' · 익명설문' : ''),
+        detail: {
+          설문id: id, 제목: s.title || '', 퀴즈: isQuiz, 익명: s.anonymous === 1,
+          응답id: (ins.meta && ins.meta.last_row_id) || null,
+          학생id: (access.student && access.student.id) || null,   // 동명이인 대비 — 이름 말고 id로 특정
+          학생이름: (access.student && access.student.name) || '',
+          제출이름: name || '', 로그인휴대폰: access.phone,
+          역할: (access.student && access.student.role) || '',
+          학원: (access.student && access.student.academy) || '', 반: (access.student && access.student.className) || '',
+          점수: graded ? graded.score : null, 만점: graded ? graded.maxScore : null,
+          문항수: questions.length,
+          답요지: questions.slice(0, 40).map(q => ({
+            문항id: q.id, 문항: String(q.label || '').slice(0, 60), 답: logAnswer(v.answers[q.id], 150),
+          })),
+          재제출: wasResubmit,
+          설문상태: s.status || '',
+          테스트종류: s.test_kind || '(일반)',
+          성적표반영: !!(isQuiz && graded && s.test_kind && s.anonymous !== 1),
+          제출시각: now,
+        },
+      });
+
       // 재제출 grant 소비 — 이 학생이 다시 제출했으니 허용 목록에서 제거(1회성). (2026-07-23)
       if (resubmitPhones(s).includes(access.phone)) {
         const left = resubmitPhones(s).filter(p => p !== access.phone);
-        try { await env.DB.prepare('UPDATE surveys SET resubmit_allow=? WHERE id=?').bind(JSON.stringify(left), id).run(); } catch (_) {}
+        let consumed = false;
+        try { await env.DB.prepare('UPDATE surveys SET resubmit_allow=? WHERE id=?').bind(JSON.stringify(left), id).run(); consumed = true; } catch (_) {}
+        // 📓 2026-07-31 — 설문 행을 고치는 **별도의 쓰기**다. 1회성 재제출 허가를 여기서 회수한다.
+        //   허가(survey.resubmit.grant)와 회수가 짝이 안 맞으면 "왜 또 못 내냐 / 왜 또 낼 수 있냐"가
+        //   미궁이 된다. 저장 실패까지 같이 남겨야 목록이 안 지워진 경우를 잡아낼 수 있다.
+        await logAudit(env, request, {
+          action: 'survey.resubmit.consume',
+          actor: access.phone,
+          actorRole: (access.student && access.student.role) || 'student',
+          actorName: (access.student && access.student.name) || name || '',
+          target: 'survey/' + id,
+          targetName: name || '',
+          summary: '[' + (name || access.phone) + '] 재제출 허용 1회 소비 — ' + (s.quiz === 1 ? '테스트' : '설문')
+            + ' [' + (s.title || id) + ']' + (consumed ? '' : ' ※ 목록 저장 실패(허가가 안 지워졌을 수 있음)'),
+          detail: {
+            설문id: id, 제목: s.title || '', 설문상태: s.status || '',
+            학생id: (access.student && access.student.id) || null,
+            로그인휴대폰: access.phone,
+            허용목록: { 전: resubmitPhones(s), 후: left },
+            저장성공: consumed,
+            결과: consumed ? '이제 이 학생은 종료된 설문에 다시 못 들어온다' : '허가가 남아 또 제출될 수 있다 — 확인 필요',
+          },
+        });
       }
 
       const anon = s.anonymous === 1;
@@ -942,10 +1735,17 @@ export async function onRequest(context) {
       // 테스트 종류가 지정된 퀴즈면 채점 결과를 성적표(exam_scores)에 자동 반영.
       //   best-effort(제출 흐름을 막지 않음) — 익명·미매칭은 헬퍼가 알아서 스킵.
       if (isQuiz && graded && s.test_kind && !anon) {
+        // 📓 2026-07-31 — 학생이 제출한 그 순간 성적표에 점수가 꽂힌다. 예전엔 이 자동 반영이
+        //   성공했는지 실패했는지(이름이 명단과 안 맞아 그냥 스킵됐는지) 아무 데도 안 남아서,
+        //   "시험 봤는데 성적표에 없어요" 문의가 오면 원인을 짚을 수가 없었다.
         const p = upsertTestScore(env, {
           survey: { id: s.id, title: s.title, testKind: s.test_kind, anonymous: anon },
           respondentName: name, score: graded.score, maxScore: graded.maxScore,
-        });
+        }).then((sr) => logScoreSync(env, request, sr, {
+          survey: s, responseId: null, respondentName: name,
+          score: graded.score, maxScore: graded.maxScore,
+          경로: '학생 응답 제출 → 자동 채점(POST ?respond=1)',
+        })).catch(() => {});
         if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
         else if (p && typeof p.catch === 'function') p.catch(() => {});
       }

@@ -17,6 +17,11 @@
 import { sendPushToUsers } from './_push.js';
 import { loadClassSchedules } from './class-options.js';
 import { listStudents } from './_db.js';
+// 📓 감사로그(2026-07-31) — "알림이 안 왔다"는 신고에 답할 근거를 남긴다.
+//   ⚠️ 이 두 함수는 5분 크론이 하루 288번 부른다. 대부분의 틱은 "수업 없음/이미 확인함"으로 그냥 끝나는데,
+//      그것까지 남기면 변경이력이 크론 틱으로 뒤덮인다 → **실제로 알림을 쏜 때(또는 쏘려다 실패한 때)만** 1건.
+//      크론이 request 없이 부르므로 actor 는 'system' 으로 명시한다(사람에게 귀속시키면 거짓 기록이 된다).
+import { logAudit } from './_auditlog.js';
 
 const ADMIN_PUSH_USERS = ['__admin__'];
 const STATE_KEY = 'reminders/state.json';
@@ -99,13 +104,36 @@ export async function runAttendanceReminder(env) {
   if (missing.length) {
     const body = missing.map((k) => '· ' + k.replace('/', ' — ')).join('\n')
       + '\n수업 시작 30분이 지났는데 출결이 입력되지 않았어요.';
+    let 발송오류 = '';
     try {
       const res = await sendPushToUsers(env, ADMIN_PUSH_USERS, {
         title: '⏰ 오늘 출결 미입력 (' + missing.length + '개 반)',
         body, url: '/admin', tag: 'kwmath-att-reminder',
       });
       sent = (res && res.sent) || 0;
-    } catch (_) {}
+    } catch (e) { 발송오류 = String((e && e.message) || e); }
+
+    await logAudit(env, null, {
+      action: 발송오류 ? 'reminder.attendance.fail' : 'reminder.attendance.push',
+      actor: 'system', actorRole: 'system', actorName: '자동 리마인드(출결 미입력)',
+      target: now.dateStr,
+      path: 'cron runAttendanceReminder() ← /api/notices-flush',
+      summary: '출결 미입력 알림 ' + (발송오류 ? '발송 실패' : '발송') + ' — ' + now.dateStr + ' · '
+        + missing.length + '개 반(' + missing.join(', ').slice(0, 120) + ') · 기기 ' + sent + '대',
+      detail: {
+        날짜: now.dateStr,
+        미입력반: missing,
+        확인한반수: pending.length,
+        받는사람: ADMIN_PUSH_USERS,
+        보낸기기수: sent,
+        발송오류: 발송오류 || '없음',
+        알림본문: body,
+        효과: sent
+          ? '원장 폰에 "오늘 출결 미입력" 알림이 갔다. 이 반들은 오늘 다시 알리지 않는다(반별 하루 1회).'
+          : '보낼 기기가 없거나 발송이 실패해 알림이 실제로 도착하지 않았다. 그래도 "오늘 확인함"으로 표시되어 오늘은 다시 알리지 않는다.',
+        비고: '기준은 수업 시작 +30분 · KST 08~22시. 판단 근거는 R2 auth/class-options.json 의 수업 시간표.',
+      },
+    });
   }
 
   if (changed) {
@@ -226,6 +254,7 @@ export async function runReportReminder(env) {
     const md = y.dateStr.slice(5).replace('-', '/');
     const body = missing.map((k) => '· ' + k.replace('/', ' — ')).join('\n')
       + '\n어제(' + md + ') 수업 리포트가 아직 없어요.';
+    let 발송오류 = '';
     try {
       const res = await sendPushToUsers(env, ADMIN_PUSH_USERS, {
         title: '📝 리포트 미작성 (' + missing.length + '개 반)',
@@ -234,7 +263,30 @@ export async function runReportReminder(env) {
         body, url: '/staff-reports', tag: 'kwmath-report-reminder',
       });
       sent = (res && res.sent) || 0;
-    } catch (_) {}
+    } catch (e) { 발송오류 = String((e && e.message) || e); }
+
+    await logAudit(env, null, {
+      action: 발송오류 ? 'reminder.report.fail' : 'reminder.report.push',
+      actor: 'system', actorRole: 'system', actorName: '자동 리마인드(리포트 미작성)',
+      target: y.dateStr,
+      path: 'cron runReportReminder() ← /api/notices-flush',
+      summary: '리포트 미작성 알림 ' + (발송오류 ? '발송 실패' : '발송') + ' — 어제(' + y.dateStr + ') 수업 '
+        + missing.length + '개 반(' + missing.join(', ').slice(0, 120) + ') · 기기 ' + sent + '대',
+      detail: {
+        대상날짜: y.dateStr + ' (어제 수업분)',
+        미작성반: missing,
+        확인한반수: pending.length,
+        받는사람: ADMIN_PUSH_USERS,
+        보낸기기수: sent,
+        발송오류: 발송오류 || '없음',
+        알림본문: body,
+        효과: sent
+          ? '원장 폰에 "어제 리포트가 없다" 알림이 갔다. 이 반·이 날짜로는 다시 알리지 않는다.'
+          : '보낼 기기가 없거나 발송이 실패해 알림이 실제로 도착하지 않았다. 그래도 "확인함"으로 표시되어 다시 알리지 않는다.',
+        비고: '어제 그 반 출결이 0건이면 아예 묻지 않는다(수업이 없었던 것으로 본다). '
+          + '리포트 유무는 학생 이름+수업날짜로 세므로 동명이인이 있으면 "있다"로 셀 수 있다.',
+      },
+    });
   }
 
   if (changed) {
@@ -260,12 +312,45 @@ export async function onRequest({ request, env }) {
   const auth = (request.headers.get('authorization') || '').replace('Bearer ', '');
   const authed = (env.CRON_KEY && key && key === env.CRON_KEY) ||
                  (env.ADMIN_PASSWORD && auth === env.ADMIN_PASSWORD);
-  if (!authed) return Response.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401 });
+  if (!authed) {
+    await logAudit(env, request, {
+      action: 'reminder.manual.denied',
+      summary: '리마인더 수동 실행 인증 실패 — 거부(401)',
+      detail: {
+        결과: '거부(401). 아무 알림도 발송되지 않았다.',
+        사유: '?key=CRON_KEY 도 관리자 Bearer 도 일치하지 않음',
+        효과: '없음.',
+        비고: '입력된 키·토큰 원문은 기록하지 않는다.',
+      },
+    });
+    return Response.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401 });
+  }
   // 수동 점검용 — 출결·리포트 둘 다 돌려 본다. (평소 발동은 notices-flush 5분 크론이 담당)
   //   ?only=attendance / ?only=reports 로 하나만 돌릴 수 있다. 게이트는 각 함수 내부가 전담하므로
   //   여기서 눌러도 조건이 안 맞으면 fired:false 와 그 이유(reason)가 그대로 나온다.
   const only = (url.searchParams.get('only') || '').trim();
   const attendance = only === 'reports' ? { skipped: true } : await runAttendanceReminder(env);
   const reports    = only === 'attendance' ? { skipped: true } : await runReportReminder(env);
+
+  // 📓 사람이 직접 눌러 돌린 경우만 남긴다.
+  //    ?key=CRON_KEY 로 들어온 기계 호출까지 남기면(5분 주기라면) 하루 288건이 쌓인다.
+  //    실제 발송이 일어났다면 위 두 함수가 이미 각자 1건씩 남겼으므로, 여기는 "누가 눌렀나"만 담는다.
+  if (env.ADMIN_PASSWORD && auth === env.ADMIN_PASSWORD) {
+    await logAudit(env, request, {
+      action: 'reminder.manual.run',
+      summary: '리마인더 수동 실행 — 출결: ' + (attendance.skipped ? '건너뜀' : (attendance.fired ? '발송함' : ('발송 안 함(' + (attendance.reason || '') + ')')))
+        + ' · 리포트: ' + (reports.skipped ? '건너뜀' : (reports.fired ? '발송함' : ('발송 안 함(' + (reports.reason || '') + ')'))),
+      detail: {
+        요청범위: only ? ('only=' + only) : '출결·리포트 둘 다',
+        출결결과: attendance,
+        리포트결과: reports,
+        효과: (attendance.fired || reports.fired)
+          ? '실제로 알림이 나갔다. 무엇이 나갔는지는 같은 시각의 reminder.attendance.push / reminder.report.push 로그에 있다.'
+          : '조건(시간대·수업 유무·이미 확인함)이 안 맞아 아무 알림도 나가지 않았다. 데이터는 바뀌지 않았다.',
+        비고: '평소 발동은 /api/notices-flush 5분 크론이 담당한다. 이 로그는 사람이 직접 눌렀을 때만 남는다.',
+      },
+    });
+  }
+
   return Response.json({ ok: true, attendance, reports });
 }

@@ -4,6 +4,7 @@
 // 안전장치: 계정은 같은 번호를 쓰는 다른 학생이 남아있으면 보존(형제 로그인 보호).
 import { safeError } from './_errors.js';
 import { snapshotArchive } from './_outcomes.js';
+import { logAudit } from './_auditlog.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용' }, { status: 405 });
@@ -36,11 +37,30 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: '기록 보존(아카이브)에 실패해 삭제를 중단했습니다. 아무것도 지워지지 않았습니다. 잠시 후 다시 시도해주세요.' + (snap.error ? ' [' + snap.error + ']' : '') }, { status: 500 });
       }
       result.outcomes_saved += 1;
-      await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(id).run();
-      await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(id).run();
+      // 몇 건이 사라지는지 세어서 남긴다. "출결이 통째로 없어졌다"는 문의에 답할 수 있는 유일한 근거다.
+      const dAtt = await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(id).run();
+      const dStu = await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(id).run();
       try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(id).run(); result.scores_deleted += (sd.meta && sd.meta.changes) || 0; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
       const d = await env.DB.prepare('DELETE FROM students WHERE id = ?').bind(id).run();
       result.students_archived = (d.meta && d.meta.changes) || 0;
+      await logAudit(env, request, {
+        action: 'student.delete.enrollment',
+        target: String(id),
+        targetName: st.name || '',
+        summary: '[' + (st.name || id) + '] 등록 1건 삭제(퇴원) — 출결 ' + ((dAtt.meta && dAtt.meta.changes) || 0)
+          + '건 · 학습 ' + ((dStu.meta && dStu.meta.changes) || 0) + '건 · 성적 ' + result.scores_deleted + '건 함께 삭제',
+        detail: {
+          방식: 'enrollmentOnly(studentId 지정)',
+          지워진학생: st,
+          건수: {
+            출결: (dAtt.meta && dAtt.meta.changes) || 0,
+            학습: (dStu.meta && dStu.meta.changes) || 0,
+            성적: result.scores_deleted,
+            학생레코드: result.students_archived,
+          },
+          퇴원기록보존: 'student_archive(via=admin) 1건 — 실명·전화·성적·출결·학습 전체 보존됨',
+        },
+      });
       return Response.json({ ok: true, ...result });
     }
 
@@ -60,6 +80,7 @@ export async function onRequest({ request, env }) {
       }, { status: 409 });
     }
 
+    const 삭제내역 = [];   // 학생별로 무엇이 몇 건 사라졌는지 — 아래 감사로그에 그대로 들어간다
     for (const s of (studs || [])) {
       if (s.parent_phone) phones.add(s.parent_phone);
       if (s.student_phone) phones.add(s.student_phone);
@@ -71,28 +92,41 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: '기록 보존(아카이브)에 실패해 삭제를 중단했습니다. 아무것도 지워지지 않았습니다. 잠시 후 다시 시도해주세요.' + (snap.error ? ' [' + snap.error + ']' : '') }, { status: 500 });
       }
       result.outcomes_saved += 1;
-      await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(s.id).run();
-      await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(s.id).run();
-      try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(s.id).run(); result.scores_deleted += (sd.meta && sd.meta.changes) || 0; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
+      const dAtt = await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(s.id).run();
+      const dStu = await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(s.id).run();
+      let 성적삭제 = 0;
+      try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(s.id).run(); 성적삭제 = (sd.meta && sd.meta.changes) || 0; result.scores_deleted += 성적삭제; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
       const d = await env.DB.prepare('DELETE FROM students WHERE id = ?').bind(s.id).run();
       result.students_archived += (d.meta && d.meta.changes) || 0;
+      // 학생 1명당 1건씩 남긴다 — 나중에 학생 이름으로 검색이 되어야 한다(전체 1건만 남기면 안 잡힌다).
+      삭제내역.push({
+        studentId: s.id, 이름: name,
+        학교: s.school || '', 학년: s.grade || '', 등록일: s.created_at || '',
+        학부모폰: s.parent_phone || '', 학생폰: s.student_phone || '',
+        출결삭제: (dAtt.meta && dAtt.meta.changes) || 0,
+        학습삭제: (dStu.meta && dStu.meta.changes) || 0,
+        성적삭제: 성적삭제,
+      });
     }
 
     // 리포트 (이름 기준)
     // 삭제 전에 리포트 행 전체를 R2 아카이브에 보존한다(되돌릴 수단). D1 백업엔 PDF가 안 들어가므로 여기서 텍스트/메타를 남긴다.
     // 🛡️ 2026-07-30 — 아카이브 실패 시 리포트 행 삭제를 건너뛴다(보존 없는 삭제 금지). 이전엔 실패해도 DELETE가 진행됐다.
     let repArchOk = true;
+    let 리포트아카이브키 = '', 리포트원본건수 = 0;
     try {
       const { results: repRows } = await env.DB.prepare('SELECT * FROM reports WHERE student_name = ?').bind(name).all();
+      리포트원본건수 = (repRows || []).length;
       if ((repRows || []).length) {
         const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        리포트아카이브키 = 'archive/reports/' + name + '/' + stamp + '.json';
         await env.BUCKET.put(
-          'archive/reports/' + name + '/' + stamp + '.json',
+          리포트아카이브키,
           JSON.stringify({ archivedAt: new Date().toISOString(), student_name: name, count: repRows.length, rows: repRows }),
           { httpMetadata: { contentType: 'application/json' } }
         );
       }
-    } catch (e) { repArchOk = false; result.errors.push('report 아카이브 실패 — 리포트 행은 지우지 않고 남겼습니다. 다시 시도해주세요.'); }
+    } catch (e) { repArchOk = false; 리포트아카이브키 = ''; result.errors.push('report 아카이브 실패 — 리포트 행은 지우지 않고 남겼습니다. 다시 시도해주세요.'); }
 
     if (repArchOk) {
       const rd = await env.DB.prepare('DELETE FROM reports WHERE student_name = ?').bind(name).run();
@@ -104,16 +138,43 @@ export async function onRequest({ request, env }) {
     //   (동일 이름 재등록 시 파일키에 날짜/식별자가 들어가 충돌 위험은 낮음. 누적 용량은 소규모 학원 기준 무시 가능.)
 
     // 계정 — 같은 번호 쓰는 다른 학생 없을 때만 삭제 (형제 로그인 보호)
+    const 삭제된계정 = [], 보존된계정 = [];
     for (const phone of phones) {
       try {
         const stillUsed = await env.DB.prepare(
           'SELECT 1 FROM students WHERE parent_phone = ? OR student_phone = ? LIMIT 1'
         ).bind(phone, phone).first();
-        if (stillUsed) continue;
+        if (stillUsed) { 보존된계정.push(phone); continue; }   // 형제가 남아 있어 로그인 계정은 살린다
         const ad = await env.DB.prepare('DELETE FROM accounts WHERE phone = ?').bind(phone).run();
         result.accounts_archived += (ad.meta && ad.meta.changes) || 0;
+        if ((ad.meta && ad.meta.changes) || 0) 삭제된계정.push(phone);
       } catch (e) { result.errors.push('account ' + phone); }
     }
+
+    // 🔴 이름 기준 전체 퇴원 — 학생·출결·학습·성적·리포트·로그인계정이 한 번에 사라진다.
+    //    무엇이 몇 건 사라졌는지 + 복원 근거(아카이브 위치)를 한 건에 모아 남긴다.
+    await logAudit(env, request, {
+      action: 'student.delete.full',
+      target: ((studs || [])[0] && String((studs || [])[0].id)) || name,
+      targetName: name,
+      summary: '[' + name + '] 전체 퇴원 삭제 — 학생 ' + result.students_archived + '명 · 리포트 '
+        + result.reports_archived + '건 · 로그인계정 ' + result.accounts_archived + '개 삭제'
+        + (보존된계정.length ? ' (형제 사용 중 계정 ' + 보존된계정.length + '개는 보존)' : ''),
+      detail: {
+        방식: '이름 기준 전체 퇴원',
+        학생별삭제: 삭제내역,
+        리포트: {
+          원본건수: 리포트원본건수, 삭제건수: result.reports_archived,
+          아카이브키: 리포트아카이브키 || '(없음)',
+          아카이브성공: repArchOk,
+          비고: repArchOk ? 'R2 archive/reports/ 에 원본 보존 — 복원 가능' : '아카이브 실패로 리포트 행은 지우지 않고 남김',
+        },
+        R2개인파일: '삭제하지 않음(reports/{이름}/ PDF는 복원 수단으로 보존)',
+        계정: { 삭제: 삭제된계정, 보존_형제사용중: 보존된계정 },
+        퇴원기록보존: result.outcomes_saved + '건 (student_archive, via=admin)',
+        오류: result.errors,
+      },
+    });
 
     return Response.json({ ok: true, ...result });
   } catch (e) {

@@ -21,7 +21,7 @@ export const PRESENT_STATUS = new Set(['출석', '지각']);
 //   읽을 땐 숫자 24 → TEXT affinity가 "24"로 강제 → "24.0"과 문자열 불일치 → 승인해도 안 열림.
 //   normSid: 어떤 형태든 표준 문자열("24")로. sidPair: 조회 시 신·구("24","24.0") 둘 다 매칭.
 //   모든 write는 표준형("24")으로 저장하고, UPDATE는 student_id도 표준형으로 덮어 과거 "24.0" 행을 수렴시킨다.
-function normSid(id) { return String(id == null ? '' : id).trim().replace(/\.0+$/, ''); }
+export function normSid(id) { return String(id == null ? '' : id).trim().replace(/\.0+$/, ''); }
 function sidPair(id) { const s = normSid(id); return [s, s + '.0']; }
 
 // 파일명 등 텍스트에서 6자리 YYMMDD(앞뒤로 다른 숫자가 붙지 않은 독립 6자리)를 찾아 'YYYY-MM-DD'로 변환.
@@ -68,14 +68,15 @@ export async function requestMakeup(env, studentId, date) {
   try {
     const now = new Date().toISOString();
     const [a, b] = sidPair(studentId);
+    // 🔎 읽는 칸만 넓혀 before 확보 — 쿼리 수는 그대로. 호출측(makeup.js)이 이 값으로 로그를 남긴다.
     const existing = await env.DB.prepare(
-      'SELECT status FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
+      'SELECT student_id, date, status, requested_at, approved_at, approved_by FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
     ).bind(a, b, date).first();
-    if (existing) return { ok: true, status: existing.status };  // approved/requested 유지
+    if (existing) return { ok: true, status: existing.status, before: existing, created: false, noop: true };  // approved/requested 유지
     await env.DB.prepare(
       'INSERT INTO makeup_grants (student_id, date, status, requested_at) VALUES (?,?,?,?)'
     ).bind(a, date, 'requested', now).run();   // 표준형("24")으로 저장
-    return { ok: true, status: 'requested', created: true };
+    return { ok: true, status: 'requested', created: true, before: null, requestedAt: now };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -85,8 +86,10 @@ export async function approveMakeup(env, studentId, date, approvedBy) {
   try {
     const now = new Date().toISOString();
     const [a, b] = sidPair(studentId);
+    // 🔎 존재확인만 하던 SELECT 를 넓힌다 — "학생이 신청한 걸 승인"인지 "원장이 그냥 열어준 것"인지,
+    //    누가 언제 승인했던 건지가 before 에 남아야 로그가 의미를 갖는다(쿼리 수 동일).
     const existing = await env.DB.prepare(
-      'SELECT student_id FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
+      'SELECT student_id, date, status, requested_at, approved_at, approved_by FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
     ).bind(a, b, date).first();
     if (existing) {
       // student_id도 표준형("24")으로 덮어 과거 "24.0" 행을 수렴시킨다.
@@ -98,7 +101,11 @@ export async function approveMakeup(env, studentId, date, approvedBy) {
         'INSERT INTO makeup_grants (student_id, date, status, requested_at, approved_at, approved_by) VALUES (?,?,?,?,?,?)'
       ).bind(a, date, 'approved', now, now, approvedBy || '').run();
     }
-    return { ok: true, status: 'approved' };
+    return {
+      ok: true, status: 'approved',
+      before: existing || null, created: !existing,
+      approvedAt: now, approvedBy: approvedBy || '',
+    };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
@@ -107,11 +114,33 @@ export async function revokeMakeup(env, studentId, date) {
   await ensure(env);
   try {
     const [a, b] = sidPair(studentId);   // 신·구("24","24.0") 둘 다 삭제
+    // ⚠️ 지우면 그 날 영상·자료가 다시 잠긴다. 무엇을 되돌린 건지(승인이었나 신청이었나) 남긴다.
+    const before = await env.DB.prepare(
+      'SELECT student_id, date, status, requested_at, approved_at, approved_by FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
+    ).bind(a, b, date).first();
     const res = await env.DB.prepare(
       'DELETE FROM makeup_grants WHERE (student_id=? OR student_id=?) AND date=?'
     ).bind(a, b, date).run();
-    return { ok: true, removed: (res.meta && res.meta.changes) || 0 };
+    return { ok: true, removed: (res.meta && res.meta.changes) || 0, before: before || null };
   } catch (e) { return { ok: false, error: e.message }; }
+}
+
+// 날짜 하나로 그날 grant 전부 (반 단위 화면용) → { [표준student_id]: {status, requested_at, approved_at, approved_by} }
+//   ⚠️ 학생 수만큼 listGrantsForStudent를 부르면 20명이면 쿼리 20번. 반 화면은 이걸로 1번에 끝낸다.
+//   과거 "24.0" 행과 표준형 "24" 행이 둘 다 있을 수 있으므로 표준형 키로 접고,
+//   충돌하면 approved가 이긴다(열려 있던 걸 requested로 낮춰 보이면 안 되므로 — 다운그레이드 금지 규칙과 동일).
+export async function listGrantsByDate(env, date) {
+  await ensure(env);
+  const { results } = await env.DB.prepare(
+    'SELECT student_id, status, requested_at, approved_at, approved_by FROM makeup_grants WHERE date = ?'
+  ).bind(date).all();
+  const map = {};
+  for (const g of (results || [])) {
+    const k = normSid(g.student_id);
+    const prev = map[k];
+    if (!prev || (prev.status !== 'approved' && g.status === 'approved')) map[k] = g;
+  }
+  return map;
 }
 
 // 관리자 화면용 — 전체 목록(학생 이름 join). status로 필터 옵션. 최신 날짜 먼저.

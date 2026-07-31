@@ -33,6 +33,7 @@
 import { requireStudentAccess } from './_auth.js';
 import { staffScopeAcademy } from './_staff.js';
 import { getStudentById } from './_db.js';
+import { logAudit, actorOf } from './_auditlog.js';
 
 // ── 상한(관우T 결정: 한 번에 안전상한 50장) ──
 const MAX_PER_UPLOAD = 50;      // 한 번 업로드에 올릴 수 있는 최대 장수
@@ -276,7 +277,13 @@ export async function onRequest(context) {
           const on = b.checked !== false;                    // 기본 true(찍기). false면 해제.
           const fb = (b.feedback === undefined || b.feedback === null)
             ? (row.feedback || '') : String(b.feedback).slice(0, 300);
-          const who = scopeAcad === null ? '원장' : '조교';
+          // 📓 2026-07-31 — 예전엔 checked_by 에 '원장'/'조교' 두 글자만 넣었다. 조교가 여럿이면
+          //   누가 찍었는지 영영 알 수 없었다. 미들웨어가 실어 보낸 **조교 이름**을 그대로 쓴다.
+          //   admin-homework.html 이 "✓ {checkedBy} · 날짜"로 그대로 뿌리므로 화면도 같이 구체적이 된다.
+          const actorInfo = actorOf(request, env);
+          const who = (actorInfo.actorRole === 'staff' && actorInfo.actorName)
+            ? actorInfo.actorName
+            : (scopeAcad === null ? '원장' : '조교');
           const ts = nowIso();
           await env.DB.prepare(
             'UPDATE homework_submissions SET checked_at=?, checked_by=?, feedback=?, status=?, updated_at=? WHERE id=?'
@@ -286,33 +293,86 @@ export async function onRequest(context) {
           ).run();
           // ⚠️ updated_at은 일부러 그대로 둔다 — 이건 '학생이 마지막으로 낸 시각'이고,
           //   확인 시각으로 덮으면 원장 목록의 정렬(최근 제출순)이 뒤집힌다.
+
+          // 도장 하나도 로그로 남긴다 — "확인했다고 했는데 안 됐다"는 문의가 실제로 온다.
+          //   피드백 글은 학생이 읽는 글이므로 전/후를 통째로 남긴다.
+          await logAudit(env, request, {
+            action: on ? 'homework.check' : 'homework.uncheck',
+            target: 'submission/' + sid,
+            targetName: row.student_name || '',
+            summary: '[' + (row.student_name || ('학생#' + row.student_id)) + '] 과제 제출 '
+              + (on ? '확인 ✓' : '확인 해제')
+              + (fb !== (row.feedback || '') ? ' · 피드백 수정' : ''),
+            detail: {
+              제출id: Number(sid), 과제id: row.assignment_id, 학생id: row.student_id,
+              사진장수: row.photo_count || 0,
+              확인: {
+                전: row.checked_at ? ((row.checked_by || '?') + ' @ ' + row.checked_at) : '미확인',
+                후: on ? (who + ' @ ' + ts) : '미확인',
+              },
+              피드백: { 전: row.feedback || '', 후: fb },
+              상태: { 전: row.status || '', 후: on ? 'checked' : 'submitted' },
+              찍은사람표기: who,
+            },
+          });
           return jsonOk({ ok: true, id: Number(sid), checked: on, checkedAt: on ? ts : '', checkedBy: on ? who : '', feedback: fb });
         }
 
         if (action === 'toggle') {
           const id = url.searchParams.get('id');
           if (!id) return jsonErr('id가 필요합니다.', 400);
-          const cur = await env.DB.prepare('SELECT active FROM homework_assignments WHERE id=?').bind(id).first();
+          // 🔎 어차피 하던 존재확인 SELECT를 **한 칸 넓히기만** 하면 로그에 쓸 제목이 공짜로 생긴다(쿼리 수 동일).
+          const cur = await env.DB.prepare(
+            'SELECT active, title, due_date, target_academy, target_class FROM homework_assignments WHERE id=?'
+          ).bind(id).first();
           if (!cur) return jsonErr('과제를 찾을 수 없어요.', 404);
           const next = cur.active === 1 ? 0 : 1;
           await env.DB.prepare('UPDATE homework_assignments SET active=? WHERE id=?').bind(next, id).run();
+          // 마감(active=0)은 학생이 더는 제출할 수 없게 만든다 — "왜 못 내요?" 문의의 답이 여기 있다.
+          await logAudit(env, request, {
+            action: next === 1 ? 'homework.reopen' : 'homework.close',
+            target: String(id),
+            targetName: cur.title || '',
+            summary: '과제 [' + (cur.title || id) + '] ' + (next === 1 ? '다시 열기(제출 가능)' : '마감(제출 차단)'),
+            detail: {
+              과제id: Number(id), 제목: cur.title || '',
+              활성: { 전: cur.active === 1 ? '열림' : '마감', 후: next === 1 ? '열림' : '마감' },
+              마감일: cur.due_date || '', 대상학원: cur.target_academy || '(전체)', 대상반: cur.target_class || '(전체)',
+            },
+          });
           return jsonOk({ ok: true, id: Number(id), active: next === 1 });
         }
         const b = await request.json().catch(() => ({}));
         const title = (b.title || '').trim();
         if (!title) return jsonErr('과제 제목을 입력해 주세요.', 400);
+        // 📓 2026-07-31 — created_by 에 문자열 'admin' 을 박아 넣고 있었다(누가 냈는지 영영 모름).
+        //   실제 행위자로 바꾼다: 조교면 "이름(번호)", 원장이면 '원장', 비번 직접 호출이면 그 표기.
+        //   ※ 이 칸은 화면 어디에서도 읽지 않는다(전 파일 grep 확인) — 바꿔도 표시가 깨지지 않는다.
+        const who = actorOf(request, env);
+        const createdBy = who.actorRole === 'staff'
+          ? ((who.actorName || '조교') + '(' + who.actor + ')')
+          : (who.actorName || who.actor || 'admin');
+        const detailText = (b.detail || '').trim() || null;
+        const dueDate = (b.dueDate || b.due_date || '').trim() || null;
+        const tAcademy = (b.targetAcademy || b.target_academy || '').trim() || null;
+        const tClass = (b.targetClass || b.target_class || '').trim() || null;
         const res = await env.DB.prepare(
           'INSERT INTO homework_assignments (title, detail, due_date, target_academy, target_class, active, created_by, created_at) ' +
           'VALUES (?,?,?,?,?,1,?,?)'
-        ).bind(
-          title,
-          (b.detail || '').trim() || null,
-          (b.dueDate || b.due_date || '').trim() || null,
-          (b.targetAcademy || b.target_academy || '').trim() || null,
-          (b.targetClass || b.target_class || '').trim() || null,
-          'admin', nowIso()
-        ).run();
+        ).bind(title, detailText, dueDate, tAcademy, tClass, createdBy, nowIso()).run();
         const newId = res.meta && res.meta.last_row_id;
+        await logAudit(env, request, {
+          action: 'homework.create',
+          target: String(newId || ''),
+          targetName: title,
+          summary: '과제 [' + title + '] 생성 → ' + (tAcademy || '전체 학원') + ' · ' + (tClass || '전체 반')
+            + (dueDate ? ' · 마감 ' + dueDate : ''),
+          detail: {
+            과제id: newId, 제목: title, 설명: detailText || '', 마감일: dueDate || '',
+            대상학원: tAcademy || '(전체)', 대상반: tClass || '(전체)',
+            생성자표기: createdBy,
+          },
+        });
         return jsonOk({ ok: true, id: newId });
       }
 
@@ -384,6 +444,31 @@ export async function onRequest(context) {
           JSON.stringify(allKeys), allKeys.length, note, 'submitted', ts, ts
         ).run();
       }
+
+      // 학생 제출도 로그로 남긴다. "분명히 냈는데 없다"가 과제 기능에서 제일 흔한 분쟁이다.
+      //   행위자는 미들웨어가 아니라 **포털 토큰의 전화번호**다 → hint 로 직접 넘긴다.
+      await logAudit(env, request, {
+        action: existing ? 'homework.submit.add' : 'homework.submit',
+        actor: access.phone || ('student:' + student.id),
+        actorRole: 'student',
+        actorName: student.name || '',
+        target: 'assignment/' + aid,
+        targetName: student.name || '',
+        summary: '[' + (student.name || student.id) + '] 과제 [' + (assignment.title || aid) + '] 사진 '
+          + newKeys.length + '장 제출 (누적 ' + allKeys.length + '장)'
+          + (existing && existing.checked_at ? ' · 기존 확인✓ 자동 해제' : ''),
+        detail: {
+          과제id: Number(aid), 과제제목: assignment.title || '', 학생id: student.id,
+          제출행id: existing ? existing.id : null,
+          장수: { 전: existingKeys.length, 추가: newKeys.length, 후: allKeys.length },
+          올린키: newKeys,
+          메모: { 전: existing ? (existing.note || '') : '', 후: note || (existing && existing.note) || '' },
+          상태: { 전: existing ? (existing.status || '') : '(신규)', 후: 'submitted' },
+          확인해제: !!(existing && existing.checked_at),
+          해제된확인: existing && existing.checked_at ? ((existing.checked_by || '?') + ' @ ' + existing.checked_at) : null,
+          제출자전화: access.phone || '',
+        },
+      });
       return jsonOk({ ok: true, added: newKeys.length, photoCount: allKeys.length });
     }
 
@@ -394,15 +479,57 @@ export async function onRequest(context) {
         if (!isAdmin) return jsonErr('관리자 인증이 필요합니다.', 401);
         const id = url.searchParams.get('id');
         if (!id) return jsonErr('id가 필요합니다.', 400);
+
+        // ⚠️ 이 한 번의 클릭이 지우는 것: 과제 1건 + 그 과제의 **모든 학생 제출행** + R2 사진 **전부**(최대 수천 장).
+        //    전부 복구 불가다. 예전엔 로그가 아예 없어서 "무슨 과제였는지"조차 남지 않았다.
+        //    → 지우기 **전에** 제목·제출자 명단·사진 장수를 먼저 읽어 둔다. (읽기 2회, D1 읽기는 싸다)
+        const asg = await env.DB.prepare('SELECT * FROM homework_assignments WHERE id=?').bind(id).first();
+        let subs = [];
+        try {
+          const { results } = await env.DB.prepare(
+            'SELECT id, student_id, student_name, photo_count, status, note, checked_at, checked_by, created_at, updated_at ' +
+            'FROM homework_submissions WHERE assignment_id=? ORDER BY id'
+          ).bind(id).all();
+          subs = results || [];
+        } catch (_) {}
+        const 총사진 = subs.reduce((n, s) => n + (s.photo_count || 0), 0);
+
         // R2 사진 일괄 정리
+        let 지운사진키수 = 0, 사진키샘플 = [];
         try {
           const keys = await listAllUnder(env, 'homework/' + id + '/');
+          지운사진키수 = keys.length;
+          사진키샘플 = keys.slice(0, 50);   // 키 전부(수천 개)를 남기면 로그 1건이 터진다 — 개수는 위에 정확히.
           for (let i = 0; i < keys.length; i += 1000) {
             await env.BUCKET.delete(keys.slice(i, i + 1000));
           }
         } catch (_) {}
-        await env.DB.prepare('DELETE FROM homework_submissions WHERE assignment_id=?').bind(id).run();
-        await env.DB.prepare('DELETE FROM homework_assignments WHERE id=?').bind(id).run();
+        const delSub = await env.DB.prepare('DELETE FROM homework_submissions WHERE assignment_id=?').bind(id).run();
+        const delAsg = await env.DB.prepare('DELETE FROM homework_assignments WHERE id=?').bind(id).run();
+
+        await logAudit(env, request, {
+          action: 'homework.delete',
+          target: String(id),
+          targetName: (asg && asg.title) || '',
+          summary: '과제 [' + ((asg && asg.title) || ('#' + id)) + '] 영구 삭제 — 제출 ' + subs.length + '명 · 사진 '
+            + 지운사진키수 + '장 통째로 삭제 (복구 불가)',
+          detail: {
+            과제id: Number(id),
+            지워진과제: asg || null,
+            제출자수: subs.length,
+            사진_R2삭제수: 지운사진키수,
+            사진_제출행합계: 총사진,
+            사진키샘플: 사진키샘플,
+            사진키일부만저장: 지운사진키수 > 50,
+            // 제출 명단은 "누구 것이 날아갔나"의 유일한 근거다. 200명까지 원본 그대로.
+            지워진제출: subs.slice(0, 200),
+            제출일부만저장: subs.length > 200,
+            삭제행수: {
+              제출: (delSub.meta && delSub.meta.changes) || 0,
+              과제: (delAsg.meta && delAsg.meta.changes) || 0,
+            },
+          },
+        });
         return jsonOk({ ok: true, deleted: Number(id) });
       }
 
@@ -420,11 +547,27 @@ export async function onRequest(context) {
         'SELECT * FROM homework_submissions WHERE assignment_id=? AND student_id=?'
       ).bind(meta.aid, student.id).first();
       if (!row) return jsonErr('제출 내역을 찾을 수 없어요.', 404);
-      const keys = parseKeys(row).filter(k => k !== key);
+      const before = parseKeys(row);
+      const keys = before.filter(k => k !== key);
       try { await env.BUCKET.delete(key); } catch (_) {}
       await env.DB.prepare(
         'UPDATE homework_submissions SET photo_keys=?, photo_count=?, updated_at=? WHERE id=?'
       ).bind(JSON.stringify(keys), keys.length, nowIso(), row.id).run();
+      // 사진 1장도 R2에서 지우면 복구가 안 된다 — 어느 키가 사라졌는지 남긴다.
+      await logAudit(env, request, {
+        action: 'homework.photo.delete',
+        actor: access.phone || ('student:' + student.id),
+        actorRole: 'student',
+        actorName: student.name || '',
+        target: 'assignment/' + meta.aid,
+        targetName: student.name || '',
+        summary: '[' + (student.name || student.id) + '] 과제 사진 1장 삭제 (남은 ' + keys.length + '장)',
+        detail: {
+          과제id: meta.aid, 학생id: student.id, 제출행id: row.id,
+          지운키: key, 장수: { 전: before.length, 후: keys.length },
+          이미확인됨: !!row.checked_at,
+        },
+      });
       return jsonOk({ ok: true, photoCount: keys.length });
     }
 

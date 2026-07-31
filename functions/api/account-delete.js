@@ -12,6 +12,7 @@
 import { requireAuth, revokeToken } from './_auth.js';
 import { safeError } from './_errors.js';
 import { snapshotArchive } from './_outcomes.js';
+import { logAudit } from './_auditlog.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용됩니다.' }, { status: 405 });
@@ -60,17 +61,47 @@ export async function onRequest({ request, env }) {
     }
 
     // 리포트(D1) + R2 개인 파일 (이름 기준)
+    const 삭제된파일키 = [];
+    const 리포트아카이브 = [];
     for (const name of names) {
+      // 🛡️ 2026-07-31 — 관리자 삭제(delete-student.js)는 리포트 행을 지우기 전에
+      //    R2 archive/reports/{이름}/{시각}.json 으로 통째 보존한다. 여기(앱 자가탈퇴)만 그게 없어서
+      //    같은 데이터가 흔적 없이 사라지고 있었다 → 같은 보존을 넣는다.
+      //    ※ 관리자 경로와 다른 점: 애플 5.1.1은 계정 삭제를 보장해야 하므로 **보존 실패해도 삭제는 계속**한다.
+      try {
+        const { results: repRows } = await env.DB.prepare('SELECT * FROM reports WHERE student_name = ?').bind(name).all();
+        if ((repRows || []).length) {
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const akey = 'archive/reports/' + name + '/' + stamp + '_app.json';
+          await env.BUCKET.put(akey, JSON.stringify({
+            archivedAt: new Date().toISOString(), via: 'app-account-delete',
+            student_name: name, count: repRows.length, rows: repRows,
+          }), { httpMetadata: { contentType: 'application/json' } });
+          리포트아카이브.push({ 이름: name, 키: akey, 건수: repRows.length });
+        }
+      } catch (e) { result.errors.push('report 아카이브 실패:' + name); }
+
       try {
         const rd = await env.DB.prepare('DELETE FROM reports WHERE student_name = ?').bind(name).run();
         result.reports_deleted += (rd.meta && rd.meta.changes) || 0;
       } catch (e) { result.errors.push('reports:' + name); }
+
       for (const prefix of ['reports/' + name + '/', 'test-results/' + name + '/']) {
+        // ⚠️ 예전엔 limit:500 으로 한 번만 훑고 끝냈다 → 파일이 500개를 넘으면 나머지가 조용히 남고
+        //    응답은 "삭제 완료"로 나갔다. cursor 로 끝까지 돈다(안전장치로 50바퀴 = 25,000개 상한).
         try {
-          const listed = await env.BUCKET.list({ prefix, limit: 500 });
-          for (const obj of (listed.objects || [])) {
-            try { await env.BUCKET.delete(obj.key); result.files_deleted++; }
-            catch (e) { result.errors.push('file:' + obj.key); }
+          let cursor = undefined;
+          for (let guard = 0; guard < 50; guard++) {
+            const listed = await env.BUCKET.list({ prefix, limit: 500, cursor });
+            for (const obj of (listed.objects || [])) {
+              try {
+                await env.BUCKET.delete(obj.key);
+                result.files_deleted++;
+                if (삭제된파일키.length < 200) 삭제된파일키.push(obj.key);   // 로그 1건이 터지지 않게 상한
+              } catch (e) { result.errors.push('file:' + obj.key); }
+            }
+            if (!listed.truncated) break;
+            cursor = listed.cursor;
           }
         } catch (e) { result.errors.push('list:' + prefix); }
       }
@@ -84,6 +115,50 @@ export async function onRequest({ request, env }) {
 
     // 로그인 토큰 폐기
     try { await revokeToken(env, auth.token); } catch (e) { /* 비치명적 */ }
+
+    // 🛡️ 2026-07-31 — 푸시 등록도 같이 지운다.
+    //   계정을 지웠는데 이 번호로 등록된 기기 토큰(R2 fcm-tokens/·push-subs/)이 남아 있으면
+    //   ① 탈퇴한 번호 앞으로 알림이 계속 시도되고 ② 토큰·기기명 같은 개인정보가 남는다.
+    //   애플 5.1.1(계정 삭제) 취지에도 어긋난다.
+    const 푸시삭제 = [];
+    for (const k of ['fcm-tokens/' + encodeURIComponent(phone) + '.json',
+                     'push-subs/' + encodeURIComponent(phone) + '.json']) {
+      try {
+        const had = await env.BUCKET.head(k);
+        if (had) { await env.BUCKET.delete(k); 푸시삭제.push(k); }
+      } catch (e) { result.errors.push('push:' + k); }
+    }
+
+    // 🔴 되돌릴 수 없는 삭제 — 무엇이 사라졌는지 전부 남긴다.
+    //   행위자는 미들웨어가 아니라 **본인(포털 토큰의 전화번호)**이다 → actor 를 직접 넘긴다.
+    await logAudit(env, request, {
+      action: 'account.selfdelete',
+      actor: phone, actorRole: 'student',
+      actorName: ((studs || [])[0] && (studs || [])[0].name) || '',
+      target: phone,
+      targetName: Array.from(names).join(', ').slice(0, 60),
+      summary: '앱에서 본인 계정 삭제(탈퇴) — 학생 ' + result.students_deleted + '명 · 출결 ' + result.attendance_deleted
+        + '건 · 학습 ' + result.study_deleted + '건 · 성적 ' + result.scores_deleted + '건 · 리포트 '
+        + result.reports_deleted + '건 · 파일 ' + result.files_deleted + '개 삭제 (복구 불가)',
+      detail: {
+        전화번호: phone,
+        지워진학생: (studs || []).map((s) => ({
+          id: s.id, 이름: s.name || '', 학교: s.school || '', 학년: s.grade || '',
+          등록일: s.created_at || '', 학부모폰: s.parent_phone || '', 학생폰: s.student_phone || '',
+        })),
+        건수: {
+          학생: result.students_deleted, 출결: result.attendance_deleted, 학습: result.study_deleted,
+          성적: result.scores_deleted, 리포트: result.reports_deleted, 파일: result.files_deleted,
+          계정: result.account_deleted,
+        },
+        퇴원기록보존: result.outcomes_saved,      // student_archive 에 via='app' 으로 남은 건수
+        리포트아카이브: 리포트아카이브,            // R2 archive/reports/... (복원 근거)
+        삭제된파일키: 삭제된파일키,
+        파일키일부만저장: result.files_deleted > 200,
+        푸시등록삭제: 푸시삭제,
+        오류: result.errors,
+      },
+    });
 
     return Response.json({ ok: true, ...result });
   } catch (e) {
