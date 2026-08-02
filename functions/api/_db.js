@@ -172,6 +172,21 @@ export async function getStudentByName(env, name) {
   return rowToStudent(r);
 }
 
+// 👥 같은 이름 학생을 **전부** 돌려준다 (등록순). 동명이인 판정의 단일 출처.
+//   2026-07-31 신설 — getStudentByName 은 ORDER BY id LIMIT 1 이라 동명이인이면
+//   "먼저 등록된 1명"을 **조용히** 집어온다. 그 조용함이 문제다(엉뚱한 학생에게 성적이 들어가도 아무 표시가 없음).
+//   그래서 이름으로 학생을 잡아야 하는 곳은 이 함수로 **몇 명인지 먼저 세고**,
+//   2명 이상이면 쓰지 말고 학생번호(student_id)를 요구하거나 건너뛴다.
+//   ⚠️ 이름 매칭은 앞뒤 공백만 다듬어 정확히 일치하는 것만 본다(부분일치 금지 — 남의 학생을 끌어오면 안 됨).
+export async function listStudentsByName(env, name) {
+  const key = String(name || '').trim();
+  if (!key) return [];
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM students WHERE name = ? ORDER BY id ASC'
+  ).bind(key).all();
+  return (results || []).map(rowToStudent).filter(Boolean);
+}
+
 // 🆔 id(권장) 우선 → 없으면 name(구버전 호환)으로 학생 1명 해석.
 //   ⚠️ 동명이인이 있으면 name 경로는 먼저 등록된 1명만 잡힌다(위 ORDER BY id LIMIT 1).
 //      그래서 저장·삭제 같은 쓰기 경로는 반드시 id를 보낼 것.

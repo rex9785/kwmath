@@ -63,9 +63,31 @@ export async function onRequest({ request, env }) {
     let sid, demoName;
     const existing = await env.DB.prepare('SELECT id, name FROM students WHERE student_phone=? OR parent_phone=? ORDER BY id LIMIT 1')
       .bind(DEMO_PHONE, DEMO_PHONE).first();
+    // 🔒 2026-07-31 — 예전엔 이 번호를 쓰는 학생이면 **이름을 확인하지 않고** 데모 학생으로 삼았다.
+    //   그 뒤 아래 3)에서 "그 학생 이름"으로 리포트를 통째로 지우므로, 실제 학생이 이 번호를 쓰고 있었다면
+    //   그 학생은 물론 **그 이름의 동명이인 전원**의 리포트가 함께 사라졌다(되돌릴 수 없음).
+    //   → 이름이 데모 학생이 아니면 아무것도 건드리지 않고 중단한다.
+    if (existing && (existing.name || '') !== DEMO_NAME) {
+      await logAudit(env, request, {
+        action: 'admin.seed.demo.abort',
+        target: DEMO_PHONE, targetName: existing.name || '(이름없음)',
+        summary: '심사용 데모 데이터 채우기 중단(409) — ' + DEMO_PHONE + ' 을 쓰는 학생이 데모 학생이 아니라 ['
+          + (existing.name || '이름없음') + '](id ' + existing.id + ')',
+        detail: {
+          데모번호: DEMO_PHONE, 기대한이름: DEMO_NAME,
+          실제학생id: String(existing.id), 실제이름: existing.name || '(이름없음)',
+          결과: '아무 데이터도 지우거나 만들지 않았다.',
+          위험했던점: '예전 코드였다면 이 학생 이름으로 reports 를 전부 삭제했다 — 같은 이름의 다른 학생 리포트까지 지워졌다.',
+          해결방법: '그 학생의 전화번호를 실제 번호로 고치거나, 데모용으로 다른 번호를 쓰도록 정한다.',
+        },
+      });
+      return Response.json({
+        error: DEMO_PHONE + ' 번호를 실제 학생 [' + (existing.name || '이름없음') + '] 이(가) 쓰고 있어 중단했습니다. 데이터는 그대로입니다.',
+      }, { status: 409 });
+    }
     if (existing) {
       sid = existing.id;
-      demoName = existing.name || DEMO_NAME;
+      demoName = DEMO_NAME;              // 위 검사를 통과했으므로 항상 데모 이름이다.
       await setApprovalStatus(env, sid, '승인');
       log.student = 'reused id=' + sid + ' name=' + demoName;
     } else {
@@ -112,17 +134,19 @@ export async function onRequest({ request, env }) {
         지운잔재학생.push(row.id);
         cleaned++;
       }
-      if (demoName !== DEMO_NAME) {
-        const r = await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(DEMO_NAME).run();
-        지운기존.잔재학생리포트 = (r.meta && r.meta.changes) || 0;
-      }
+      // (2026-07-31) 예전엔 재사용한 학생 이름이 데모 이름과 다를 때 DEMO_NAME 리포트를 지웠다.
+      //   이제 위에서 이름이 다르면 아예 중단하므로 이 경우가 생기지 않는다 → 0 으로 둔다.
+      지운기존.잔재학생리포트 = 0;
       log.cleanedStrays = cleaned;
     } catch (e) { log.cleanedStrays = 'err:' + (e && e.message); }
 
     // 3) 데모 학생의 기존 샘플 정리 (데모 범위만)
     //    🔎 지운 행 수는 run()이 그대로 돌려준다 — 조회를 더 하지 않고 "무엇이 몇 건 사라졌는지"를 확보한다.
     //       (이 학생에게 진짜 데이터가 들어 있었다면 이 숫자가 그 증거가 된다.)
-    const d1 = await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(demoName).run();
+    // 🔒 reports 에는 student_id 칸이 없다(이름+전화 뒤4자리로만 저장). 이름만으로 지우면
+    //   같은 이름의 **다른 학생 리포트까지** 지워진다 → 데모 번호 뒤 4자리까지 함께 건다.
+    const d1 = await env.DB.prepare('DELETE FROM reports WHERE student_name=? AND phone_last4=?')
+      .bind(demoName, DEMO_PHONE.slice(-4)).run();
     const d2 = await env.DB.prepare('DELETE FROM attendance WHERE student_id=?').bind(sid).run();
     const d3 = await env.DB.prepare('DELETE FROM study_sessions WHERE student_id=?').bind(sid).run();
     const d4 = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id=?').bind(sid).run();
@@ -143,7 +167,7 @@ export async function onRequest({ request, env }) {
       const dt = new Date(now); dt.setUTCDate(dt.getUTCDate() - rp.d);
       const date = ymd(dt);
       const res = await createReport(env, {
-        studentName: demoName, phone4: '1234',
+        studentName: demoName, phone4: DEMO_PHONE.slice(-4),   // 위 삭제 쿼리와 같은 값을 써야 재실행이 깨끗하다
         title: demoName + ' - ' + date + ' 수업 리포트',
         date, content: rp.content, homework: rp.homework, notes: rp.notes, school: '대치동 정규반',
       });
@@ -206,15 +230,16 @@ export async function onRequest({ request, env }) {
 
     // 🔴 실행 1회 = 로그 1건. (리포트 3 + 출결 ~12 + 학습 5 + 성적 7 을 건별로 남기지 않는다)
     //    핵심은 "어느 학생 위에 덮어썼고, 그 과정에서 기존 몇 건이 지워졌나".
-    const 실제학생덮어씀 = !!existing && (existing.name || '') !== '' && (existing.name || '') !== DEMO_NAME;
+    //   (2026-07-31) 예전에 있던 '실제 학생 위에 덮어씀' 경고문은 뺐다 — 위에서 이름이 다르면
+    //   409로 중단하므로 여기까지 오면 반드시 데모 학생이다. 일어날 수 없는 경고를 남겨두면
+    //   나중에 로그를 읽는 사람이 "이 경고가 안 떴으니 안전했다"고 잘못 읽는다.
     await logAudit(env, request, {
       action: 'admin.seed.demo',
       target: String(sid), targetName: demoName,
       summary: '심사용 데모 데이터 채움 [' + demoName + '(id ' + sid + ')] — 기존 리포트 ' + 지운기존.리포트
         + ' · 출결 ' + 지운기존.출결 + ' · 학습 ' + 지운기존.학습 + ' · 성적 ' + 지운기존.성적
         + '건 삭제 후 리포트 ' + log.reports + ' · 출결 ' + log.attendance + ' · 학습 ' + log.study
-        + ' · 성적 ' + log.scores + '건 삽입'
-        + (실제학생덮어씀 ? ' ⚠️ 데모 이름이 아닌 학생 위에 덮어씀' : ''),
+        + ' · 성적 ' + log.scores + '건 삽입',
       detail: {
         데모전화번호: DEMO_PHONE,
         학생: existing
@@ -226,11 +251,10 @@ export async function onRequest({ request, env }) {
         새로넣은건수: { 리포트: log.reports, 출결: log.attendance, 학습: log.study, 성적: log.scores },
         걸린시간초: Math.round((Date.now() - 시작) / 100) / 10,
         효과: '이 학생(id ' + sid + ')의 리포트·출결·학습시간·시험성적이 통째로 데모 샘플로 바뀐다. '
-          + '학부모·학생 포털과 반 랭킹에 이 가짜 수치가 그대로 보인다.'
-          + (실제학생덮어씀
-            ? ' ⚠️ 재사용된 학생 이름이 「' + demoName + '」로 데모용(' + DEMO_NAME + ')이 아니다 — 실제 학생일 수 있으니 위 「지운기존데이터」 건수를 반드시 확인할 것.'
-            : ''),
-        비고: '데모 계정 비밀번호는 기록하지 않는다. 리포트 삭제는 학생 id가 아니라 이름 기준이라 동명이인이 있으면 함께 지워진다.',
+          + '학부모·학생 포털과 반 랭킹에 이 가짜 수치가 그대로 보인다.',
+        안전장치: '① ' + DEMO_PHONE + ' 을 쓰는 학생 이름이 「' + DEMO_NAME + '」가 아니면 아무것도 건드리지 않고 409로 중단한다. '
+          + '② 리포트 삭제는 이름 + 전화 뒤4자리(' + DEMO_PHONE.slice(-4) + ')를 함께 걸어, 같은 이름의 다른 학생 리포트는 지우지 않는다.',
+        비고: '데모 계정 비밀번호는 기록하지 않는다.',
       },
     });
 

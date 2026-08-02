@@ -15,18 +15,17 @@
 //  sortKey : 시간순 정렬용 문자열(프론트가 생성, 예 '2026-1-1' = 고1·1학기·중간). 없으면 id순.
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess } from './_auth.js';
-import { getStudentByName, getStudentById, listStudents } from './_db.js';
+import { listStudentsByName, getStudentById, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { ensureExamScoresTable } from './_scores.js';   // 스키마 단일 출처(테스트 자동성적과 공유)
 import { logAudit, diffFields } from './_auditlog.js';
 
-// 조교(X-Staff-Phone)가 맡은 학원의 학생 이름 Set. 미배정 조교는 빈 Set → 아무 학생도 못 봄/못 씀.
-//   ⚠️ 이름 Set은 레거시 ?name= 경로 전용이다. sid·반 조회는 academy를 직접 비교해 판정한다
-//      (다른 학원에 동명이인이 있으면 이름 Set만으로는 스코프를 우회당할 수 있으므로).
-async function rosterNames(env, academy) {
-  const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
-  return new Set(roster.map(s => s.name));
-}
+// 🔒 2026-07-31 — 조교 학원 스코프 판정에서 '이름 Set'을 없앴다.
+//   예전: 담당 학원 학생 **이름** Set에 들어 있으면 통과 → 그 뒤 getStudentByName 이
+//         (ORDER BY id LIMIT 1) **다른 학원의 동명이인**을 집어올 수 있었다.
+//         즉 "우리 학원에 김민준이 있다"는 사실만으로 남의 학원 김민준 성적을 읽고 쓸 수 있었다.
+//   지금: sid 경로든 이름 경로든 **찾아낸 학생의 academy 를 담당 학원과 직접 대조**한다(아래 resolveStudent).
+//         이름 Set은 더 이상 어디에서도 쓰지 않으므로 제거했다.
 
 // exam_scores 스키마 보장은 _scores.js의 ensureExamScoresTable로 일원화(source_key 컬럼 포함).
 
@@ -67,8 +66,7 @@ export async function onRequest({ request, env }) {
   catch (e) { return Response.json({ error: '성적 DB 초기화에 실패했습니다.' }, { status: 500 }); }
 
   // 조교 학원 스코프 (원장이면 null = 제한 없음, ''이면 미배정). isAdmin 경로에서만 의미 있음.
-  const scopeAcad    = isAdmin ? await staffScopeAcademy(env, request) : null;
-  const allowedNames = (isAdmin && scopeAcad !== null) ? await rosterNames(env, scopeAcad) : null;
+  const scopeAcad = isAdmin ? await staffScopeAcademy(env, request) : null;
 
   // ── GET ?scope=class : 반(또는 학원) 전체 명단 + 성적 — 반 평균 화면 전용 ──
   //   학생 식별을 처음부터 student_id로 하므로 동명이인이 섞이지 않는다(이름 계약 안 씀).
@@ -119,6 +117,10 @@ export async function onRequest({ request, env }) {
   //   잡히므로(ORDER BY id LIMIT 1) 이름 경로로 들어온 쓰기는 특히 표시가 필요하다.
   async function resolveStudent(bodyName, bodySid) {
     if (isAdmin) {
+      // 🔒 담당 학원이 아직 지정되지 않은 조교는 어떤 학생도 못 본다.
+      //   (scopeAcad === '' = 미배정. 이게 없으면 '학원 미지정 학생'과 ''끼리 맞아떨어져 통과해 버린다.)
+      if (scopeAcad !== null && !scopeAcad)
+        return { error: '담당 학원이 아직 지정되지 않았어요. 원장님께 학원 배정을 요청해 주세요.', status: 403, via: '조교 학원 미배정' };
       // sid 우선 — 동명이인이 있어도 정확히 그 학생 한 명.
       const sid = String(bodySid || url.searchParams.get('sid') || '').trim();
       if (sid) {
@@ -130,13 +132,27 @@ export async function onRequest({ request, env }) {
                    name: st.name, academy: st.academy || '', 담당학원: scopeAcad };
         return { id: st.id, name: st.name, academy: st.academy || '', via };
       }
+      // ── 이름 폴백 (구버전 화면 호환) ──
+      //   여기서 조용히 엉뚱한 학생을 집으면 성적이 남의 성적표에 박힌다. 그래서 두 겹으로 막는다.
       const via = 'name 폴백';
       const name = (bodyName || url.searchParams.get('name') || '').trim();
       if (!name) return { error: 'name 필수', status: 400, via };
-      // 조교는 자기 학원 학생만 (원장은 allowedNames=null → 통과). 조회·입력·삭제 모두 이 경로를 거침.
-      if (allowedNames && !allowedNames.has(name)) return { error: '담당 학원 학생만 성적을 입력·조회할 수 있어요.', status: 403, via, 찾은키: name, 담당학원: scopeAcad };
-      const st = await getStudentByName(env, name);
-      if (!st) return { error: '학생을 D1에서 찾을 수 없습니다.', status: 404, via, 찾은키: name };
+      const 후보 = await listStudentsByName(env, name);
+      if (!후보.length) return { error: '학생을 D1에서 찾을 수 없습니다.', status: 404, via, 찾은키: name };
+      // ① 같은 이름이 2명 이상이면 **아무것도 하지 않고 거부**한다(409).
+      //    예전엔 먼저 등록된 1명이 조용히 선택돼, 성적이 엉뚱한 학생에게 들어가도 아무도 몰랐다.
+      if (후보.length > 1) {
+        return {
+          error: '같은 이름 학생이 ' + 후보.length + '명이라 누구인지 확정할 수 없어요. 학생 목록에서 학생을 골라 주세요.',
+          status: 409, via, 찾은키: name, 동명이인수: 후보.length,
+          후보목록: 후보.map(s => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '', 학교: s.school || '' })),
+        };
+      }
+      // ② 1명이어도 그 학생의 학원을 담당 학원과 직접 대조 — sid 경로와 완전히 같은 기준.
+      const st = 후보[0];
+      if (scopeAcad !== null && (st.academy || '') !== scopeAcad)
+        return { error: '담당 학원 학생만 성적을 입력·조회할 수 있어요.', status: 403, via, 찾은키: name,
+                 name: st.name, academy: st.academy || '', 담당학원: scopeAcad };
       return { id: st.id, name: st.name, academy: st.academy || '', via };
     }
     const access = await requireStudentAccess(env, request); // ?name= 쿼리로 자녀 선택 + 권한 검증
@@ -191,6 +207,7 @@ export async function onRequest({ request, env }) {
           찾으려한값: String(r.찾은키 || body.sid || body.name || '(없음)').slice(0, 100),
           학생이름: r.name || '(확인 안 됨)', 학생학원: r.academy || '(확인 안 됨)',
           조교담당학원: r.담당학원 === undefined ? '(원장 · 제한 없음)' : (r.담당학원 || '(미배정)'),
+          동명이인: r.동명이인수 ? (r.동명이인수 + '명 — ' + JSON.stringify(r.후보목록 || [])) : '해당 없음',
           결과: '아무것도 저장되지 않음',
         },
       });
@@ -394,6 +411,7 @@ export async function onRequest({ request, env }) {
           찾으려한값: String(r.찾은키 || body.sid || body.name || '(없음)').slice(0, 100),
           학생이름: r.name || '(확인 안 됨)', 학생학원: r.academy || '(확인 안 됨)',
           조교담당학원: r.담당학원 === undefined ? '(원장 · 제한 없음)' : (r.담당학원 || '(미배정)'),
+          동명이인: r.동명이인수 ? (r.동명이인수 + '명 — ' + JSON.stringify(r.후보목록 || [])) : '해당 없음',
           결과: '아무것도 지워지지 않음',
         },
       });

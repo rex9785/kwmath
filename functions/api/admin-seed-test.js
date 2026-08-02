@@ -69,9 +69,30 @@ export async function onRequest({ request, env }) {
     let sid, name;
     const existing = await env.DB.prepare('SELECT id, name FROM students WHERE student_phone=? OR parent_phone=? ORDER BY id LIMIT 1')
       .bind(TEST_PHONE, TEST_PHONE).first();
+    // 🔒 2026-07-31 — 예전엔 이 번호를 쓰는 학생이면 **이름을 확인하지 않고** 체험 학생으로 삼았다.
+    //   그 뒤 2)에서 "그 학생 이름"으로 리포트를 통째로 지우므로, 실제 학생이 이 번호를 쓰고 있었다면
+    //   그 학생과 **그 이름의 동명이인 전원**의 리포트가 함께 사라졌다(되돌릴 수 없음).
+    if (existing && (existing.name || '') !== TEST_NAME) {
+      await logAudit(env, request, {
+        action: 'admin.seed.test.abort',
+        target: TEST_PHONE, targetName: existing.name || '(이름없음)',
+        summary: '설명회 체험 데이터 채우기 중단(409) — ' + TEST_PHONE + ' 을 쓰는 학생이 체험 학생이 아니라 ['
+          + (existing.name || '이름없음') + '](id ' + existing.id + ')',
+        detail: {
+          체험번호: TEST_PHONE, 기대한이름: TEST_NAME,
+          실제학생id: String(existing.id), 실제이름: existing.name || '(이름없음)',
+          결과: '아무 데이터도 지우거나 만들지 않았다.',
+          위험했던점: '예전 코드였다면 이 학생 이름으로 reports 를 전부 삭제했다 — 같은 이름의 다른 학생 리포트까지 지워졌다.',
+          해결방법: '그 학생의 전화번호를 실제 번호로 고치거나, 체험용으로 다른 번호를 쓰도록 정한다.',
+        },
+      });
+      return Response.json({
+        error: TEST_PHONE + ' 번호를 실제 학생 [' + (existing.name || '이름없음') + '] 이(가) 쓰고 있어 중단했습니다. 데이터는 그대로입니다.',
+      }, { status: 409 });
+    }
     if (existing) {
       sid = existing.id;
-      name = existing.name || TEST_NAME;
+      name = TEST_NAME;                  // 위 검사를 통과했으므로 항상 체험 이름이다.
       await setApprovalStatus(env, sid, '승인');
       log.student = 'reused id=' + sid + ' name=' + name;
     } else {
@@ -104,7 +125,10 @@ export async function onRequest({ request, env }) {
 
     // 2) 이 학생의 기존 샘플 정리 (체험 범위만)
     //    🔎 지운 행 수는 run()이 그대로 돌려준다 — 조회를 더 하지 않고 "무엇이 몇 건 사라졌는지"를 확보한다.
-    const d1 = await env.DB.prepare('DELETE FROM reports WHERE student_name=?').bind(name).run();
+    // 🔒 reports 에는 student_id 칸이 없다(이름+전화 뒤4자리로만 저장). 이름만으로 지우면
+    //   같은 이름의 **다른 학생 리포트까지** 지워진다 → 체험 번호 뒤 4자리까지 함께 건다.
+    const d1 = await env.DB.prepare('DELETE FROM reports WHERE student_name=? AND phone_last4=?')
+      .bind(name, TEST_PHONE.slice(-4)).run();
     const d2 = await env.DB.prepare('DELETE FROM attendance WHERE student_id=?').bind(sid).run();
     const d3 = await env.DB.prepare('DELETE FROM study_sessions WHERE student_id=?').bind(sid).run();
     const d4 = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id=?').bind(sid).run();
@@ -178,15 +202,16 @@ export async function onRequest({ request, env }) {
     log.scores = scCnt;
 
     // 🔴 실행 1회 = 로그 1건. (출결 13 + 학습 ~27 + 리포트 3 + 성적 5 를 건별로 남기지 않는다)
-    const 실제학생덮어씀 = !!existing && (existing.name || '') !== '' && (existing.name || '') !== TEST_NAME;
+    //   (2026-07-31) 예전에 있던 '실제 학생 위에 덮어씀' 경고문은 뺐다 — 위에서 이름이 다르면
+    //   409로 중단하므로 여기까지 오면 반드시 체험 학생이다. 일어날 수 없는 경고를 남겨두면
+    //   나중에 로그를 읽는 사람이 "이 경고가 안 떴으니 안전했다"고 잘못 읽는다.
     await logAudit(env, request, {
       action: 'admin.seed.test',
       target: String(sid), targetName: name,
       summary: '설명회 체험 데이터 채움 [' + name + '(id ' + sid + ')] — 기존 리포트 ' + 지운기존.리포트
         + ' · 출결 ' + 지운기존.출결 + ' · 학습 ' + 지운기존.학습 + ' · 성적 ' + 지운기존.성적
         + '건 삭제 후 출결 ' + log.attendance + ' · 학습 ' + log.study + ' · 리포트 ' + log.reports
-        + ' · 성적 ' + log.scores + '건 삽입'
-        + (실제학생덮어씀 ? ' ⚠️ 체험 이름이 아닌 학생 위에 덮어씀' : ''),
+        + ' · 성적 ' + log.scores + '건 삽입',
       detail: {
         체험전화번호: TEST_PHONE,
         학생: existing
@@ -197,11 +222,10 @@ export async function onRequest({ request, env }) {
         채운기간: '2026년 5월 (출결 월·수·금 13일 · 학습 일요일 제외 매일 · 리포트 3건)',
         걸린시간초: Math.round((Date.now() - 시작) / 100) / 10,
         효과: '이 학생(id ' + sid + ')의 리포트·출결·학습시간·시험성적이 통째로 체험용 샘플로 바뀐다. '
-          + '학부모·학생 포털과 반 랭킹에 이 가짜 수치가 그대로 보인다.'
-          + (실제학생덮어씀
-            ? ' ⚠️ 재사용된 학생 이름이 「' + name + '」로 체험용(' + TEST_NAME + ')이 아니다 — 실제 학생일 수 있으니 위 「지운기존데이터」 건수를 반드시 확인할 것.'
-            : ''),
-        비고: '체험 계정 비밀번호는 기록하지 않는다. 리포트 삭제는 학생 id가 아니라 이름 기준이라 동명이인이 있으면 함께 지워진다.',
+          + '학부모·학생 포털과 반 랭킹에 이 가짜 수치가 그대로 보인다.',
+        안전장치: '① ' + TEST_PHONE + ' 을 쓰는 학생 이름이 「' + TEST_NAME + '」가 아니면 아무것도 건드리지 않고 409로 중단한다. '
+          + '② 리포트 삭제는 이름 + 전화 뒤4자리(' + TEST_PHONE.slice(-4) + ')를 함께 걸어, 같은 이름의 다른 학생 리포트는 지우지 않는다.',
+        비고: '체험 계정 비밀번호는 기록하지 않는다.',
       },
     });
 

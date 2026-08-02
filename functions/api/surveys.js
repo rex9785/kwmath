@@ -517,12 +517,13 @@ async function logScoreSync(env, request, r, ctx) {
       응답id: (ctx && ctx.responseId != null) ? ctx.responseId : null,
       응답자이름: (ctx && ctx.respondentName) || '',
       원점수: ctx && ctx.score, 만점: ctx && ctx.maxScore,
-      // 🔎 2026-07-31 — 이 경로만 학생을 **이름으로** 찾는다(_scores.js → getStudentByName).
+      // 🔎 2026-07-31 — 이 경로만 학생을 **이름으로** 찾는다(_scores.js → listStudentsByName).
       //   설문 응답 행에는 student_id 가 아예 안 실려서 지금은 폴백 말고 방법이 없다.
       //   attendance.js·clinic-roster.js·makeup.js 와 **같은 칸 이름**으로 못 박아 둔다 —
       //   나중에 동명이인 사고가 터졌을 때 '이름으로 꽂힌 기록'만 한 번에 골라낼 수 있어야 하기 때문.
       지목방식: 'name 폴백',
-      지목방식사유: '설문 응답에 student_id 가 없어 이름으로만 학생을 찾는다 — 동명이인이면 먼저 등록된 학생(id 작은 쪽)에 점수가 꽂힌다',
+      지목방식사유: '설문 응답에 student_id 가 없어 이름으로만 학생을 찾는다 — 같은 이름이 2명 이상이면 '
+        + '(2026-07-31부터) 아무에게도 넣지 않고 skip 사유를 남긴다. 예전엔 먼저 등록된 학생(id 작은 쪽)에 조용히 꽂혔다',
     };
     if (!r || r.ok !== true) {
       await logAudit(env, request, {
@@ -574,11 +575,13 @@ async function logScoreDelete(env, request, r, ctx) {
       설문id: 설문.id, 설문제목: 설문.title || '', 테스트종류: 설문.test_kind || '',
       응답id: (ctx && ctx.responseId != null) ? ctx.responseId : null,
       응답자이름: (ctx && ctx.respondentName) || '',
-      // ⚠️ 2026-07-31 — 삭제도 이름으로 학생을 찾아서 지운다(_scores.js → getStudentByName).
+      // ⚠️ 2026-07-31 — 삭제도 이름으로 학생을 찾아서 지운다(_scores.js → listStudentsByName).
       //   동명이인이면 **엉뚱한 학생의 성적이 지워질 수 있는** 자리라 반영 때보다 위험이 크다.
+      //   → 그래서 같은 이름이 2명 이상이면 **아무것도 지우지 않고** skip 사유만 남긴다.
       //   지운 뒤에는 되돌릴 근거가 아래 '지워진성적'뿐이므로, 어떤 방식으로 지목했는지도 같이 남긴다.
       지목방식: 'name 폴백',
-      지목방식사유: '설문 응답에 student_id 가 없어 이름으로만 학생을 찾는다 — 동명이인이면 먼저 등록된 학생(id 작은 쪽)의 성적이 지워진다',
+      지목방식사유: '설문 응답에 student_id 가 없어 이름으로만 학생을 찾는다 — 같은 이름이 2명 이상이면 '
+        + '(2026-07-31부터) 아무것도 지우지 않는다. 예전엔 먼저 등록된 학생(id 작은 쪽)의 성적이 지워졌다',
     };
     if (!r || r.ok !== true) {
       await logAudit(env, request, {

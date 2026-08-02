@@ -17,7 +17,11 @@
 //     (_db.js 의 upsertClinicReview / deleteClinicReview 와 같은 방식)
 //   반환값은 전부 **덤**이다 — 예전처럼 무시해도 동작은 똑같다(절대 throw 안 함).
 // ───────────────────────────────────────────────────────────
-import { getStudentByName } from './_db.js';
+// 👥 2026-07-31 — getStudentByName(ORDER BY id LIMIT 1) 대신 listStudentsByName 을 쓴다.
+//   퀴즈 응답은 **이름 한 줄**로만 들어오는데, 같은 이름 학생이 둘이면 예전 코드는
+//   먼저 등록된 학생의 성적표에 점수를 조용히 꽂았다(그 학생은 시험을 보지도 않았는데).
+//   이제는 2명 이상이면 **쓰지 않고 사유를 돌려준다** → surveys.js 가 로그로 남긴다.
+import { listStudentsByName } from './_db.js';
 
 // 퀴즈 빌더에서 고를 수 있는 '테스트 종류' — 이 값만 성적에 자동 반영한다.
 export const TEST_KINDS = new Set(['일일테스트', '주간테스트', '월말테스트']);
@@ -57,10 +61,23 @@ export async function upsertTestScore(env, opts) {
     if (!Number.isFinite(score)) return { ok: false, skipped: '점수가 숫자가 아님' };
     const name = String(opts.respondentName || '').trim();
     if (!name) return { ok: false, skipped: '응답자 이름이 비어 있음' };
-    const st = await getStudentByName(env, name);
-    if (!st || !st.id) {                            // 등록 학생과 이름 매칭 안 되면 스킵
+    const 후보 = await listStudentsByName(env, name);
+    if (!후보.length) {                              // 등록 학생과 이름 매칭 안 되면 스킵
       return { ok: false, skipped: '등록 학생 명단에 [' + name + ']이(가) 없음 — 이름 표기가 다르면 성적표에 안 올라간다', respondentName: name };
     }
+    if (후보.length > 1) {
+      // ⚠️ 동명이인 — 누구 점수인지 확정 불가. 아무에게도 넣지 않는다(잘못 넣으면 되돌리기 어렵다).
+      //   해결법: 명단에서 이름을 김민준1·김민준2 처럼 구분해 등록하거나, 퀴즈를 학생 계정으로 응시하게 한다.
+      return {
+        ok: false,
+        skipped: '같은 이름 학생이 ' + 후보.length + '명(' + 후보.map(s => '#' + s.id + ' ' + (s.academy || '학원미지정')).join(' · ')
+          + ') — 누구 점수인지 확정할 수 없어 성적표에 넣지 않았다',
+        respondentName: name,
+        동명이인수: 후보.length,
+        후보목록: 후보.map(s => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+      };
+    }
+    const st = 후보[0];
 
     const pct = Math.max(0, Math.min(100, Math.round(score / maxScore * 100)));  // 100점 만점 환산
     const sourceKey = 'quiz:' + survey.id;
@@ -126,10 +143,22 @@ export async function deleteTestScore(env, opts) {
     const surveyId = opts && opts.surveyId;
     const name = String((opts && opts.respondentName) || '').trim();
     if (!surveyId || !name) return { ok: false, skipped: 'surveyId 또는 응답자 이름이 없음' };
-    const st = await getStudentByName(env, name);
-    if (!st || !st.id) {
+    const 후보 = await listStudentsByName(env, name);
+    if (!후보.length) {
       return { ok: false, skipped: '등록 학생 명단에 [' + name + ']이(가) 없음 — 지울 성적 행도 없음', respondentName: name };
     }
+    if (후보.length > 1) {
+      // ⚠️ 동명이인 — 지우기는 되돌릴 수 없다. 엉뚱한 학생의 성적을 지우느니 아무것도 안 지운다.
+      return {
+        ok: false,
+        skipped: '같은 이름 학생이 ' + 후보.length + '명(' + 후보.map(s => '#' + s.id + ' ' + (s.academy || '학원미지정')).join(' · ')
+          + ') — 누구 성적인지 확정할 수 없어 아무것도 지우지 않았다',
+        respondentName: name,
+        동명이인수: 후보.length,
+        후보목록: 후보.map(s => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+      };
+    }
+    const st = 후보[0];
     await ensureExamScoresTable(env);
     const sourceKey = 'quiz:' + surveyId;
     // ⚠️ 2026-07-31 — 삭제는 되돌릴 수 없다. 지우기 전에 그 행을 먼저 읽어 before 로 돌려준다.

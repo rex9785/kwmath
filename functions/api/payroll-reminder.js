@@ -1,7 +1,8 @@
 // /api/payroll-reminder  (GET, 공개) + runPayrollReminder(env) (내부 재사용)
 // ───────────────────────────────────────────────────────────
 // "월급날(매월 5일) 리마인더" 를 관우T(__admin__) 폰으로 푸시.
-// 푸시 본문 = 승인된 조교별  "이름 / 계좌 / 전월 정산금액"  목록.
+// 푸시 본문 = 승인된 조교별  "이름 / 계좌(뒤 4자리만) / 전월 정산금액"  목록.
+//   ⚠️ 계좌번호 전체는 푸시에 넣지 않는다(잠금화면 노출). 전체 번호는 앱 /admin-staff 에서 본다.
 //
 // ⚠️ Cloudflare Pages는 cron(예약 실행)을 지원하지 않음 → 진짜 스케줄러가 없다.
 //   대신 두 경로로 트리거되며, 발송 판단(아침시간·하루1발)은 전부 아래 게이트가 한다:
@@ -41,6 +42,20 @@ function won(n) {
   return (Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+// 🔒 계좌번호 마스킹 (2026-07-31) — 푸시 본문은 잠금화면에 그대로 뜬다.
+//   폰을 잠깐 책상에 두거나 남에게 화면을 보여줄 때 조교 계좌 전체가 노출되던 문제.
+//   은행명(숫자 아닌 앞부분)은 남기고 계좌 숫자는 뒤 4자리만 남긴다. 예) '신한 110-123-456789' → '신한 ****6789'
+//   전체 번호는 앱(/admin-staff 월급 표·수정폼·CSV)에서 그대로 볼 수 있으므로 잃는 정보 없음.
+function maskAccount(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '계좌미등록';
+  const digits = s.replace(/\D/g, '');
+  const bank = s.replace(/[\d\-\s]+/g, ' ').trim();   // 숫자·하이픈 제거 → 은행명만 남음
+  const head = bank ? bank + ' ' : '';
+  if (digits.length < 4) return head + '****';        // 숫자가 4자리 미만이면 뒷자리 없이 가림
+  return head + '****' + digits.slice(-4);
+}
+
 // 실제 발송 로직 — notices-flush(크론)와 onRequest(트래픽)가 공유.
 // 절대 throw 안 함(베스트에포트). 항상 상태 객체 반환.
 export async function runPayrollReminder(env) {
@@ -65,7 +80,7 @@ export async function runPayrollReminder(env) {
   const tgtM = p.m === 1 ? 12 : p.m - 1;
   const tgtMonth = tgtY + '-' + String(tgtM).padStart(2, '0');
 
-  // 승인된 조교별 전월 정산액 → "이름 / 계좌 / 금액" 줄 목록
+  // 승인된 조교별 전월 정산액 → "이름 / 계좌(마스킹) / 금액" 줄 목록
   let lines = [];
   // 로그용 — 계좌번호는 뒤 4자리만 남긴다(금액·시간은 그대로. 누가 얼마 받았는지가 이 로그의 핵심이다).
   const 로그용조교 = [];
@@ -95,13 +110,13 @@ export async function runPayrollReminder(env) {
     로그용조교.sort((a, b) => b.정산액 - a.정산액);   // 로그도 같은 순서로
     lines = rows.map((r) => {
       const amt = r.wage > 0 ? (won(r.pay) + '원') : (r.hours + '시간(시급미설정)');
-      return r.name + ' / ' + (r.account || '계좌미등록') + ' / ' + amt;
+      return r.name + ' / ' + maskAccount(r.account) + ' / ' + amt;
     });
   } catch (_) {}
 
   const title = (p.d === 4) ? '💰 내일(5일) 조교 월급날' : '💰 오늘 조교 월급날 (5일)';
   const body = lines.length
-    ? (tgtM + '월 정산\n' + lines.join('\n'))
+    ? (tgtM + '월 정산\n' + lines.join('\n') + '\n\n· 계좌번호 전체는 알림을 눌러 앱에서 확인')
     : (tgtM + '월 근무기록이 있는 조교가 없어요');
 
   let res = { sent: 0 };
@@ -130,8 +145,8 @@ export async function runPayrollReminder(env) {
       효과: ((res && res.sent) || 0)
         ? '원장 폰에 조교별 지급 목록이 갔다. 오늘은 다시 보내지 않는다(하루 1발 멱등).'
         : '보낼 기기가 없거나 발송이 실패해 알림이 도착하지 않았다. 그래도 오늘 보낸 것으로 표시되어 오늘은 재발송되지 않는다.',
-      비고: '계좌번호는 뒤 4자리만 남긴다(푸시 본문에는 전체가 들어가지만 로그에는 담지 않는다). '
-        + '전월 근무기록이 0인 조교는 목록에서 빠진다.',
+      비고: '계좌번호는 푸시 본문·이 로그 둘 다 뒤 4자리만 남긴다(2026-07-31 변경 — 그 전에는 푸시 본문에 전체가 들어갔다). '
+        + '전체 번호는 앱 /admin-staff 에서만 본다. 전월 근무기록이 0인 조교는 목록에서 빠진다.',
     },
   });
 

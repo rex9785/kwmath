@@ -79,24 +79,65 @@ export async function onRequest({ request, env }) {
     const name = src.name;
     if (!name) return await rejectAdd('원본 학생 이름 없음');
 
-    const dup = await env.DB.prepare(
-      'SELECT id FROM students WHERE name = ? AND academy = ? AND class_name = ? LIMIT 1'
-    ).bind(name, academy, className).first();
-    if (dup) {
-      // ⚠️ 중복 판정을 **이름**으로 한다 — 동명이인이면 남의 등록 때문에 막힐 수 있다(아래 지목방식 참고).
+    // 🔒 2026-07-31 — 중복 판정에서 '이름만' 보던 것을 고쳤다.
+    //   예전: 이름+학원+반 이 같으면 무조건 409 → **동명이인**이면 남의 등록 때문에 진짜 등록이 막혔다.
+    //   지금: "같은 사람인가"까지 본다. 사람 식별 = 전화번호(학생·학부모 중 하나라도 일치).
+    //     ① 같은 사람  → 진짜 중복(409)
+    //     ② 다른 사람  → 동명이인이므로 **통과**시키고 로그에 남긴다(나중에 "왜 같은 이름이 둘이지"에 답할 근거)
+    //     ③ 양쪽 다 전화번호가 없어 구분 불가 → 안전하게 막고(409) 전화번호 등록을 안내한다
+    //        (엉뚱한 사람을 같은 반에 하나 더 만들어 두면 출결·성적이 두 곳으로 갈라져 되돌리기 어렵다)
+    const d = (v) => String(v || '').replace(/\D/g, '');
+    const 원본전화 = [d(src.studentPhone), d(src.parentPhone)].filter(Boolean);
+    const { results: 동명행 } = await env.DB.prepare(
+      'SELECT id, name, student_phone, parent_phone FROM students WHERE name = ? AND academy = ? AND class_name = ?'
+    ).bind(name, academy, className).all();
+    const 후보 = 동명행 || [];
+    const 전화of = (r) => [d(r.student_phone), d(r.parent_phone)].filter(Boolean);
+    const 같은사람 = 후보.find((r) => 전화of(r).some((x) => 원본전화.includes(x)));
+    const 판별불가 = !원본전화.length || 후보.some((r) => !전화of(r).length);
+
+    if (후보.length && (같은사람 || 판별불가)) {
+      const 진짜중복 = !!같은사람;
       await logAudit(env, request, {
-        action: 'enrollment.add.duplicate',
+        action: 진짜중복 ? 'enrollment.add.duplicate' : 'enrollment.add.ambiguous',
         target: String(sourceId), targetName: name,
-        summary: '반 등록 추가 중단(409) — [' + name + ']은 이미 ' + academy + ' · ' + className + '에 등록돼 있음',
+        summary: 진짜중복
+          ? ('반 등록 추가 중단(409) — [' + name + ']은 이미 ' + academy + ' · ' + className + '에 등록돼 있음(전화번호 일치 = 같은 사람)')
+          : ('반 등록 추가 중단(409) — ' + academy + ' · ' + className + '에 같은 이름 [' + name + ']이 있는데 전화번호가 없어 같은 사람인지 구분 불가'),
         detail: {
           원본학생id: String(sourceId), 이름: name,
           넣으려던학원: academy, 넣으려던반: className,
-          이미있는등록id: String(dup.id),
-          중복판정방식: '이름+학원+반으로 검사 — 동명이인이면 남의 등록 때문에 막힐 수 있음(현 코드 그대로 둠)',
+          같은이름등록수: 후보.length,
+          같은이름등록id: 후보.map((r) => String(r.id)),
+          이미있는등록id: String((같은사람 || 후보[0]).id),
+          중복판정방식: '이름+학원+반이 같은 행을 모두 찾은 뒤 전화번호(학생·학부모)로 같은 사람인지 대조',
+          판정: 진짜중복 ? '전화번호가 겹침 → 같은 사람 → 진짜 중복' : '전화번호가 비어 있어 동명이인인지 같은 사람인지 판별 불가',
           결과: '아무것도 만들어지지 않음',
+          해결방법: 진짜중복 ? '이미 그 반에 있으므로 추가할 필요 없음'
+            : '두 학생의 전화번호(학생 또는 학부모)를 채워 넣으면 동명이인으로 구분돼 등록이 진행된다',
         },
       });
-      return Response.json({ error: '이미 [' + academy + ' · ' + className + ']에 등록돼있습니다.' }, { status: 409 });
+      return Response.json({
+        error: 진짜중복
+          ? ('이미 [' + academy + ' · ' + className + ']에 등록돼있습니다.')
+          : ('[' + academy + ' · ' + className + ']에 같은 이름 학생이 이미 있습니다. 동명이인이라면 두 학생의 전화번호를 먼저 등록해 주세요.'),
+      }, { status: 409 });
+    }
+    if (후보.length) {
+      // ② 동명이인 확정 — 막지 않고 진행하되, 나중에 헷갈리지 않게 기록만 남긴다.
+      await logAudit(env, request, {
+        action: 'enrollment.add.namesake',
+        target: String(sourceId), targetName: name,
+        summary: '동명이인 확인 후 반 등록 진행 — ' + academy + ' · ' + className + '에 [' + name + '] 이 이미 '
+          + 후보.length + '명 있으나 전화번호가 달라 다른 사람으로 판정',
+        detail: {
+          원본학생id: String(sourceId), 이름: name, 넣으려던학원: academy, 넣으려던반: className,
+          기존동명이인id: 후보.map((r) => String(r.id)),
+          판정근거: '학생·학부모 전화번호가 하나도 겹치지 않음',
+          권장: '리포트·외부 명단은 이름으로 맞추므로, 관리자 화면 안내대로 ' + name + '1 · ' + name + '2 처럼 구분해 두는 것을 권장',
+          결과: '등록을 계속 진행함',
+        },
+      });
     }
 
     const newKey = generateKey();
