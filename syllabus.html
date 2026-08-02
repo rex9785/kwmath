@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>2026 2학기 공통수학2 내신 완성반 강의계획서 | 이관우T</title>
+<meta name="description" content="반포 세정학원 이관우T · 동덕여고 1학년 2학기 공통수학2 내신 완성반. 화·목 18:00~22:00, 총 12회. 3개년 8개 시험지 분석 위에 설계한 회차별 진도계획.">
+<meta property="og:title" content="2026 2학기 공통수학2 내신 완성반 강의계획서 | 이관우T">
+<meta property="og:description" content="동덕여고 3개년 출제 분석 위에 설계한 12회 커리큘럼. 반포 세정학원 이관우T.">
+<meta property="og:type" content="article">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --wine:#862633;--wine-deep:#511F26;--wine-tint:#F3E7E6;
+    --ink:#211914;--muted:#71675E;--muted2:#9C9086;
+    --paper:#FBF8F4;--beige:#F1EAE0;--card:#FFFFFF;
+    --dark:#20140F;--footer-bg:#170D09;--gold:#C79A3C;
+    --line:#E8DED2;--line-d:rgba(255,255,255,.14);
+    --serif:'Noto Serif KR',serif;
+    --sans:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  }
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);word-break:keep-all;overflow-wrap:break-word;line-break:strict;line-height:1.75;}
+  a{color:var(--wine);}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 5%;}
+
+  header.site{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(251,248,244,.92);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line);}
+  .nav-inner{max-width:1000px;margin:0 auto;padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:58px;gap:12px;}
+  .nav-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
+  .nav-logo img{height:30px;width:auto;object-fit:contain;display:block;}
+  .nav-logo span{font-family:var(--serif);font-weight:900;font-size:1rem;color:var(--wine);}
+  .nav-right{display:flex;align-items:center;gap:14px;}
+  .nav-right a{font-size:.8rem;font-weight:700;text-decoration:none;color:var(--muted);white-space:nowrap;}
+  .nav-right a.cta{background:var(--wine);color:#fff;padding:8px 15px;border-radius:6px;}
+
+  /* ── 표지 ── */
+  .cover{background:var(--dark);color:#fff;padding:120px 0 0;position:relative;overflow:hidden;}
+  .cover::before{content:"";position:absolute;right:-8%;top:-10%;width:52vw;height:52vw;max-width:520px;max-height:520px;border-radius:50%;border:1px solid rgba(134,38,51,.6);}
+  .cover-in{position:relative;z-index:2;padding-bottom:56px;}
+  .cover .kick{display:inline-flex;align-items:center;gap:10px;font-size:.7rem;font-weight:700;letter-spacing:.16em;color:var(--gold);margin-bottom:24px;}
+  .cover .kick::before{content:"";width:34px;height:1px;background:var(--gold);}
+  .cover h1{font-family:var(--serif);font-weight:900;font-size:clamp(1.9rem,4.8vw,3.3rem);line-height:1.28;letter-spacing:-.03em;margin-bottom:14px;}
+  .cover h1 em{font-style:normal;color:#E8A0A8;}
+  .cover .sub{font-size:clamp(.95rem,1.6vw,1.08rem);color:rgba(255,255,255,.72);max-width:620px;line-height:1.85;}
+  .who{margin-top:34px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  .who .nm{font-family:var(--serif);font-weight:900;font-size:1.35rem;letter-spacing:.01em;}
+  .who .dv{width:1px;height:20px;background:var(--line-d);}
+  .who .tx{font-size:.85rem;color:rgba(255,255,255,.6);}
+
+  /* ── 강좌 정보 카드 ── */
+  .info{background:var(--wine);color:#fff;}
+  .info-in{display:grid;grid-template-columns:repeat(4,1fr);}
+  .ic{padding:26px 18px;border-right:1px solid rgba(255,255,255,.17);}
+  .ic:last-child{border-right:0;}
+  .ic .k{font-size:.68rem;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.62);margin-bottom:9px;}
+  .ic .v{font-family:var(--serif);font-weight:700;font-size:1.02rem;line-height:1.5;letter-spacing:-.01em;}
+  .ic .v small{display:block;font-family:var(--sans);font-size:.76rem;font-weight:600;color:rgba(255,255,255,.7);margin-top:4px;}
+
+  section{padding:76px 0;}
+  .alt{background:var(--beige);}
+  .eyebrow{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;}
+  .eyebrow .no{font-family:var(--serif);font-weight:900;font-size:1.05rem;color:var(--wine);letter-spacing:.04em;}
+  .eyebrow .lb{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--muted2);}
+  h2.sec{font-family:var(--serif);font-weight:900;font-size:clamp(1.55rem,3.1vw,2.25rem);line-height:1.36;letter-spacing:-.025em;margin-bottom:14px;}
+  .sec-lead{color:var(--muted);font-size:.97rem;max-width:700px;margin-bottom:38px;}
+
+  /* ── 근거 배너 ── */
+  .evid{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--wine);padding:30px 30px;display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:space-between;}
+  .evid .lft{flex:1 1 320px;}
+  .evid h3{font-family:var(--serif);font-weight:900;font-size:1.22rem;margin-bottom:10px;letter-spacing:-.02em;}
+  .evid p{font-size:.9rem;color:var(--muted);line-height:1.8;}
+  .evid .nums{display:flex;gap:26px;flex-wrap:wrap;}
+  .evid .nums div{text-align:center;}
+  .evid .nums b{display:block;font-family:var(--serif);font-weight:900;font-size:1.9rem;color:var(--wine);line-height:1;letter-spacing:-.03em;}
+  .evid .nums i{font-style:normal;display:block;font-size:.7rem;font-weight:700;color:var(--muted2);margin-top:7px;}
+  .evid a.go{display:inline-block;margin-top:16px;font-size:.86rem;font-weight:700;text-decoration:none;border-bottom:1px solid var(--wine);padding-bottom:2px;}
+
+  /* ── 특징 ── */
+  .feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);}
+  .ft{background:var(--card);padding:30px 26px;}
+  .ft .n{font-family:var(--serif);font-weight:900;font-size:.8rem;color:var(--wine);letter-spacing:.08em;margin-bottom:13px;}
+  .ft h4{font-family:var(--serif);font-weight:700;font-size:1.09rem;line-height:1.5;margin-bottom:11px;letter-spacing:-.015em;}
+  .ft p{font-size:.89rem;color:var(--muted);line-height:1.82;}
+  .ft p b{color:var(--ink);font-weight:700;}
+
+  /* ── 진도 타임라인 ── */
+  .plan{position:relative;padding-left:0;}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:0;background:var(--card);border:1px solid var(--line);border-top:0;}
+  .row:first-of-type{border-top:1px solid var(--line);}
+  .row .lft{background:var(--beige);padding:22px 14px;text-align:center;border-right:1px solid var(--line);}
+  .row .lft .rn{font-family:var(--serif);font-weight:900;font-size:1.5rem;line-height:1;color:var(--wine);letter-spacing:-.03em;}
+  .row .lft .rl{font-size:.66rem;font-weight:700;color:var(--muted2);margin-top:6px;letter-spacing:.04em;}
+  .row .rgt{padding:22px 24px;}
+  .row .unit{display:inline-block;font-size:.66rem;font-weight:800;letter-spacing:.06em;color:var(--wine);background:var(--wine-tint);padding:4px 10px;border-radius:3px;margin-bottom:10px;}
+  .row .rgt h4{font-family:var(--serif);font-weight:700;font-size:1.04rem;margin-bottom:8px;letter-spacing:-.01em;}
+  .row .rgt p{font-size:.88rem;color:var(--muted);line-height:1.8;}
+  .row .rgt .pin{margin-top:11px;font-size:.82rem;color:var(--wine-deep);background:var(--wine-tint);border-radius:5px;padding:9px 13px;line-height:1.7;}
+  .row .rgt .pin b{font-weight:700;}
+  .row.mid .lft{background:var(--wine);}
+  .row.mid .lft .rn{color:#fff;}
+  .row.mid .lft .rl{color:rgba(255,255,255,.75);}
+  .phase{display:flex;align-items:center;gap:14px;margin:42px 0 18px;}
+  .phase:first-child{margin-top:0;}
+  .phase b{font-family:var(--serif);font-weight:900;font-size:1.06rem;letter-spacing:-.01em;white-space:nowrap;}
+  .phase span{font-size:.78rem;font-weight:700;color:#fff;background:var(--wine);padding:5px 12px;border-radius:999px;white-space:nowrap;}
+  .phase i{flex:1;height:1px;background:var(--line);}
+
+  /* ── 리스트 박스 ── */
+  .boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;}
+  .box{background:var(--card);border:1px solid var(--line);padding:28px 26px;}
+  .box h3{font-family:var(--serif);font-weight:900;font-size:1.14rem;margin-bottom:6px;letter-spacing:-.02em;}
+  .box .cap{font-size:.78rem;color:var(--muted2);font-weight:600;margin-bottom:18px;}
+  .box ul{list-style:none;}
+  .box li{position:relative;padding-left:20px;font-size:.9rem;color:var(--muted);line-height:1.78;margin-bottom:13px;}
+  .box li:last-child{margin-bottom:0;}
+  .box li::before{content:"";position:absolute;left:0;top:.62em;width:7px;height:7px;border-radius:2px;background:var(--wine);}
+  .box li b{color:var(--ink);font-weight:700;}
+
+  /* ── 인용 ── */
+  .pull{background:var(--dark);color:#fff;padding:56px 6%;margin:0;}
+  .pull-in{max-width:1000px;margin:0 auto;}
+  .pull .mk{font-family:var(--serif);font-size:3rem;line-height:0;color:var(--wine);display:block;margin-bottom:26px;}
+  .pull blockquote{font-family:var(--serif);font-weight:700;font-size:clamp(1.1rem,2.1vw,1.5rem);line-height:1.8;letter-spacing:-.02em;}
+  .pull cite{display:block;font-style:normal;font-size:.8rem;color:rgba(255,255,255,.5);margin-top:22px;font-weight:600;}
+
+  .cta-band{background:var(--wine);color:#fff;padding:64px 6%;text-align:center;}
+  .cta-band h3{font-family:var(--serif);font-weight:900;font-size:clamp(1.35rem,2.9vw,2rem);line-height:1.45;letter-spacing:-.025em;margin-bottom:14px;}
+  .cta-band p{color:rgba(255,255,255,.8);font-size:.94rem;margin-bottom:30px;max-width:540px;margin-left:auto;margin-right:auto;}
+  .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;}
+  .btn.solid{background:#fff;color:var(--wine);}
+  .btn.ghost{border:1px solid rgba(255,255,255,.45);color:#fff;}
+
+  footer{background:var(--footer-bg);color:rgba(255,255,255,.5);padding:44px 0;font-size:.8rem;}
+  footer .fin{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;align-items:center;}
+  footer b{color:#fff;font-family:var(--serif);font-weight:700;font-size:.95rem;display:block;margin-bottom:6px;}
+  footer a{color:rgba(255,255,255,.72);text-decoration:none;}
+
+  @media(max-width:860px){
+    .info-in{grid-template-columns:repeat(2,1fr);}
+    .ic{border-bottom:1px solid rgba(255,255,255,.17);}
+    .ic:nth-child(2n){border-right:0;}
+    .ic:nth-child(n+3){border-bottom:0;}
+    section{padding:56px 0;}
+    .cover{padding-top:100px;}
+    .nav-right a:not(.cta){display:none;}
+    .row{grid-template-columns:74px 1fr;}
+    .row .rgt{padding:18px 16px;}
+  }
+  @media print{
+    header.site,.cta-btns,.nav-right{display:none;}
+    body{background:#fff;font-size:10.5pt;}
+    .cover,.info,.pull,.cta-band{background:#fff!important;color:#000!important;}
+    .cover h1,.pull blockquote,.cta-band h3,.ic .v,.who .nm{color:#000!important;}
+    .cover::before{display:none;}
+    .cover h1 em{color:var(--wine)!important;}
+    .cover .sub,.who .tx,.ic .k,.ic .v small,.pull cite,.cta-band p{color:#444!important;}
+    .info-in{border:1px solid #ccc;}
+    .ic{border-right:1px solid #ccc!important;}
+    section{padding:22px 0;}
+    .row,.ft,.box,.evid{page-break-inside:avoid;}
+    footer{background:#fff;color:#666;border-top:1px solid #ccc;}
+    footer b,footer a{color:#000;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="nav-inner">
+    <a class="nav-logo" href="index.html"><img src="가로로고_투명.png" alt="이관우 수학" onerror="this.outerHTML='<span>이관우 수학</span>'"></a>
+    <div class="nav-right">
+      <a href="#plan">회차별 진도</a>
+      <a href="#manage">관리 프로그램</a>
+      <a class="cta" href="dongduk.html">출제 분석 보기</a>
+    </div>
+  </div>
+</header>
+
+<div class="cover">
+  <div class="wrap cover-in">
+    <div class="kick">반포 세정학원 &middot; 2026학년도 2학기 강의계획서</div>
+    <h1>동덕여고 2학기,<br><em>시험지에서 거꾸로</em> 설계한 12회</h1>
+    <p class="sub">진도를 순서대로 나가는 계획표가 아닙니다. 동덕여고가 3년간 어디에 몇 점을 걸었는지 먼저 확인하고, 그 배점 지도 위에 회차를 얹었습니다.</p>
+    <div class="who">
+      <span class="nm">이관우</span>
+      <span class="dv"></span>
+      <span class="tx">고등 수학 전임 &middot; 11년차</span>
+      <span class="dv"></span>
+      <span class="tx">공식이 아니라 이유를 가르칩니다</span>
+    </div>
+  </div>
+</div>
+
+<div class="info">
+  <div class="wrap info-in">
+    <div class="ic"><div class="k">과목 · 대상</div><div class="v">공통수학2<small>동덕여고 1학년</small></div></div>
+    <div class="ic"><div class="k">수업 시간</div><div class="v">화 · 목<small>18:00 ~ 22:00</small></div></div>
+    <div class="ic"><div class="k">개강</div><div class="v">2026. 8. 20.<small>목요일</small></div></div>
+    <div class="ic"><div class="k">회차</div><div class="v">총 12회<small>정규 11회 + 종합 1회</small></div></div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="evid">
+      <div class="lft">
+        <h3>이 계획서는 &lsquo;근거&rsquo;가 먼저 있습니다</h3>
+        <p>2023학년도부터 2025학년도까지 동덕여고 1학년 시험지 여덟 장을, 문항별 배점 단위까지 펼쳐 다시 집계했습니다. 어느 단원에 몇 점이 걸렸고 등급이 정확히 어느 문항에서 갈렸는지 확인한 다음, 그 순서대로 회차를 배치했습니다.</p>
+        <a class="go" href="dongduk.html">동덕여고 2학기 출제 분석 전문 보기 &rarr;</a>
+      </div>
+      <div class="nums">
+        <div><b>3</b><i>개년</i></div>
+        <div><b>8</b><i>개 시험지</i></div>
+        <div><b>44.0<span style="font-size:1rem">%</span></b><i>중간 · 원의 방정식</i></div>
+        <div><b>70.3<span style="font-size:1rem">%</span></b><i>기말 · 함수 계열</i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">01</span><span class="lb">수업 특징 및 장점</span></div>
+    <h2 class="sec">공식이 아니라 이유를 가르칩니다</h2>
+    <p class="sec-lead">동덕여고 최상단 문항은 계산이 아니라 &lsquo;조건을 다시 읽는 힘&rsquo;에서 갈립니다. 그래서 수업의 중심도 거기에 둡니다.</p>
+
+    <div class="feats">
+      <div class="ft">
+        <div class="n">POINT 01</div>
+        <h4>왜 그 식이 나오는지부터 설명합니다</h4>
+        <p>공식을 외워서 대입하는 학생은 13번(숨은 접선), 16번(조건 번역) 같은 문항 앞에서 멈춥니다. 모든 개념을 <b>&ldquo;왜 이렇게 되는가&rdquo;</b>에서 출발해 설명하고, 학생이 스스로 그 이유를 다시 말할 수 있을 때까지 확인합니다.</p>
+      </div>
+      <div class="ft">
+        <div class="n">POINT 02</div>
+        <h4>유형이 아니라 &lsquo;도구&rsquo;로 정리합니다</h4>
+        <p>원의 접선만 해도 접선의 방정식 · 점과 직선 사이의 거리 · 숨은 수직 접선 · 공통접선의 닮음중심으로 도구가 나뉩니다. 문제집 유형 번호가 아니라 <b>손에 쥔 도구 목록</b>으로 정리해야 처음 보는 문항에서 손이 움직입니다.</p>
+      </div>
+      <div class="ft">
+        <div class="n">POINT 03</div>
+        <h4>&lsquo;모두 구하시오&rsquo;를 절차로 훈련합니다</h4>
+        <p>동덕여고는 답이 <b>나열</b>인 문항을 해마다 서답형 상단에 놓습니다. 케이스표를 먼저 그리고 빈칸을 확인한 뒤 답을 쓰는 절차를 반복시켜, 하나를 빠뜨려 만점을 놓치는 실수를 구조적으로 막습니다.</p>
+      </div>
+      <div class="ft">
+        <div class="n">POINT 04</div>
+        <h4>서술형은 &lsquo;문장&rsquo;을 채점받게 씁니다</h4>
+        <p>정답표에 &ldquo;풀이 과정이 없으면 정답이어도 0점&rdquo;이 명기돼 있습니다. 배제 논증 한 줄, 등호 성립 조건 한 줄을 <b>직접 써 보고 첨삭받는</b> 시간을 매 회차에 넣습니다.</p>
+      </div>
+      <div class="ft">
+        <div class="n">POINT 05</div>
+        <h4>학교 시험지의 문법으로 마무리합니다</h4>
+        <p>0.1점 간격 소수점 배점, (가)(나)(다) 조건 제시형, 선택형 후반 집중 배치 &mdash; 동덕여고 시험지의 형식 그대로 실전 테스트를 구성해, 시험장에서 처음 보는 것이 없게 만듭니다.</p>
+      </div>
+      <div class="ft">
+        <div class="n">POINT 06</div>
+        <h4>범위 밖이지만 소환되는 것까지 챙깁니다</h4>
+        <p>동덕여고는 2학기 서답형에서 <b>1학기 복소수</b>를 불러온 전력이 있고, 최상단 문항의 절반은 이차함수 조건 해석입니다. 이차함수 그래프와 판별식은 2학기 내내 손에서 놓지 않게 합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="pull">
+  <div class="pull-in">
+    <span class="mk">&ldquo;</span>
+    <blockquote>&ldquo;이 문제 어떻게 푸는지 알려 주세요&rdquo;가 아니라<br>&ldquo;저는 이렇게 읽었는데 맞나요&rdquo;라고 묻기 시작하면,<br>그때부터 성적은 알아서 올라갑니다.</blockquote>
+    <cite>이관우</cite>
+  </div>
+</div>
+
+<section id="plan">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">02</span><span class="lb">회차별 진도계획</span></div>
+    <h2 class="sec">총 12회 &mdash; 중간고사 범위 6회,<br>기말고사 범위 6회</h2>
+    <p class="sec-lead">각 회차 4시간. 개념 강의 &rarr; 도구 정리 &rarr; 실전 문항 &rarr; 서술형 첨삭 순으로 진행하며, 회차 끝에는 그날 배운 것만으로 풀리는 확인 테스트를 봅니다.</p>
+
+    <div class="phase"><b>PHASE 1</b><span>2학기 중간고사 범위 · 도형의 방정식</span><i></i></div>
+    <div class="plan">
+      <div class="row">
+        <div class="lft"><div class="rn">1</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">평면좌표</span>
+          <h4>두 점 사이의 거리 · 내분과 외분 · 무게중심</h4>
+          <p>좌표평면에서 길이와 위치를 다루는 기본기를 세웁니다. 공식 세 개를 외우는 시간이 아니라, 내분·외분이 왜 그 꼴로 나오는지를 수직선에서부터 다시 세웁니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2023학년도 1학기 기말에서 내분·외분/무게중심 계열 단독 23.7점. 이 단원 최대 블록이었습니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">2</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">직선의 방정식</span>
+          <h4>정점을 지나는 직선 · 평행과 수직 · 점과 직선 사이의 거리</h4>
+          <p>직선 문항은 대부분 &lsquo;조건을 좌표로 옮기는&rsquo; 문제입니다. 각의 이등분선, 등거리 조건, 절편 조건을 각각 어떤 식으로 번역하는지 유형별 대응표를 만듭니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2024학년도 1학기 기말 직선 계열 22.4점, 2025학년도 2학기 중간 11.8점. 점과 직선 사이의 거리는 다음 회차 원의 접선으로 그대로 연결됩니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">3</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">원의 방정식 ①</span>
+          <h4>표준형과 일반형 · 축에 접하는 원 · 두 원의 위치 관계</h4>
+          <p>중심과 반지름을 조건에서 뽑아내는 훈련을 집중적으로 합니다. 특히 &ldquo;조건을 만족하는 원을 모두 구하시오&rdquo; 유형에 대비해 케이스표를 그리는 절차를 이 회차에서 처음 손에 붙입니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2025학년도 2학기 중간 서술형 3번은 조건을 만족하는 원 <b>네 개를 모두</b> 요구했습니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">4</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">원의 방정식 ② · 최대 승부처</span>
+          <h4>원의 접선 총정리 &mdash; 접선의 방정식 · 공통접선 · 닮음의 중심</h4>
+          <p>기울기가 주어진 접선, 원 위의 점에서의 접선, 원 밖의 점에서 그은 접선을 도구로 분리하고, x=k 같은 <b>숨은 수직 접선</b>을 놓치지 않는 점검 절차를 만듭니다. 두 원의 공통접선은 닮음의 중심으로 처리하는 법까지 다룹니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2025학년도 2학기 중간에서 접선을 소재로 한 문항만 <b>일곱 개</b>(7 · 11 · 13 · 14 · 서술2 · 서술4 · 서술5). 준킬러 13 · 14번이 모두 여기서 나왔습니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">5</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">도형의 이동</span>
+          <h4>평행이동과 대칭이동 · 자취의 방정식 · 이차함수와의 결합</h4>
+          <p>이동은 단독으로는 쉬운 단원인데, 동덕여고는 늘 이차함수·원과 묶어 최상단에 놓습니다. &lsquo;조건 &rarr; 중심의 자취 &rarr; 개수 논증&rsquo;으로 이어지는 흐름을 이 회차에서 완성합니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2025학년도 2학기 중간 킬러 16번과 서술형 5번이 모두 이동＋이차함수 결합형이었습니다(합계 12.7점).</div>
+        </div>
+      </div>
+      <div class="row mid">
+        <div class="lft"><div class="rn">6</div><div class="rl">총정리</div></div>
+        <div class="rgt">
+          <span class="unit">중간고사 범위 실전</span>
+          <h4>조건 번역 · 케이스 완비 집중 훈련 + 실전 모의</h4>
+          <p>동덕여고 형식 그대로(선택형 소수점 배점 + 서답형) 실전 세트를 풀고 즉시 첨삭합니다. 특히 (가)(나)(다) 조건 제시형과 &ldquo;모두 구하시오&rdquo; 문항만 따로 모은 세트를 한 번 더 돌려 시험 직전 약점을 확정합니다.</p>
+          <div class="pin"><b>변별 구간</b> &mdash; 8~12번(20.6점)에서 2·3등급, 13~15번(13.5점)에서 1·2등급이 갈립니다. 여기를 겨냥한 세트로 구성합니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase"><b>PHASE 2</b><span>2학기 기말고사 범위 · 집합과 명제 · 함수와 그래프</span><i></i></div>
+    <div class="plan">
+      <div class="row">
+        <div class="lft"><div class="rn">7</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">집합</span>
+          <h4>집합의 연산법칙 · 원소의 개수 · 부분집합의 개수</h4>
+          <p>배점은 크지 않지만 실수로 잃기 가장 쉬운 단원입니다. 조건을 포함관계로 옮기는 번역(A∩B=A &rArr; A⊂B)을 반복해, 뒤에 나올 명제·함수 문항의 기초 체력으로 씁니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2025학년도 기말 14.3점, 2023학년도 2학기 중간 23.5점. 매년 서답형에 한 자리를 차지합니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">8</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">명제</span>
+          <h4>참·거짓과 대우 · 충분조건과 필요조건 · 절대부등식</h4>
+          <p>충분·필요조건은 포함관계 그림으로, 절대부등식은 등호 성립 조건까지 반드시 함께 씁니다. 산술·기하평균을 두 번 연달아 쓰는 2단 구조가 동덕여고 서답형의 단골입니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2023학년도 2학기 중간에서 명제 단독 <b>37.1점</b>, 2024학년도 26.5점. 배점이 적은 해에도 고난도 한 자리는 늘 여기입니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">9</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">함수</span>
+          <h4>함수의 정의와 일대일대응 · 합성함수 · 조건을 만족하는 함수의 개수</h4>
+          <p>함수를 &lsquo;식&rsquo;이 아니라 <b>대응표</b>로 보는 훈련을 합니다. 개수 세기 문항은 케이스를 몇 갈래로 쪼갤지가 전부이므로, 분할 기준을 세우는 연습을 집중적으로 합니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2025학년도 기말 함수 단원 34.0점으로 최대. 준킬러 20번이 조건부 함수 개수 세기(케이스 4분할)였습니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">10</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">역함수 · 최대 승부처</span>
+          <h4>존재조건 · 계산 · 성질 · 구조(대합과 가환)</h4>
+          <p>역함수를 네 얼굴로 나눠 익힙니다. 특히 <b>존재조건을 문장으로 서술하는 연습</b>(일대일대응 &rArr; 구간에서 단조 &rArr; 축의 위치 부등식 + 경계값 등식)에 시간을 크게 씁니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2025학년도 기말에서 역함수는 <b>다섯 문항</b>(3 · 12 · 14 · 19 · 서술2)에 나뉘어 나왔습니다. 2023학년도 기말 킬러도 역함수의 가환 조건이었습니다.</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="lft"><div class="rn">11</div><div class="rl">회차</div></div>
+        <div class="rgt">
+          <span class="unit">유리함수 · 무리함수</span>
+          <h4>그래프 개형과 점근선 · 절댓값 그래프 · 교점 개수 함수 g(t)</h4>
+          <p>개형을 손으로 정확히 그리는 것에서 시작해, 절댓값을 씌웠을 때 개형이 어떻게 갈라지는지 케이스로 정리합니다. t의 구간마다 교점 개수를 세어 g(t)를 직접 작성하는 훈련이 이 회차의 핵심입니다.</p>
+          <div class="pin"><b>출제 근거</b> &mdash; 2024학년도 2학기 기말 유리＋무리 <b>61.3점</b>, 2025학년도 기말 36.3점. 최상단 21번이 절댓값 유리함수의 교점 개수 역설계였습니다.</div>
+        </div>
+      </div>
+      <div class="row mid">
+        <div class="lft"><div class="rn">12</div><div class="rl">종합</div></div>
+        <div class="rgt">
+          <span class="unit">기말 실전 + 전 범위 종합</span>
+          <h4>기말고사 범위 총정리 · 서술형 첨삭 · 약점 진단 모의테스트</h4>
+          <p>동덕여고 기말 형식(선택형 21 + 서술형 3)으로 실전 세트를 치르고, 채점이 아니라 <b>&lsquo;채점자가 어디서 감점하는지&rsquo;</b>를 기준으로 첨삭합니다. 마지막에 2학기 전 범위 약점 진단 테스트로 개인별 보완 목록을 확정합니다.</p>
+          <div class="pin"><b>변별 구간</b> &mdash; 13~18번(25.8점)에서 2·3등급, 17 · 19 · 20번(13.4점)에서 1·2등급, 21번＋서술형 3번(11.6점)이 1등급 내부를 나눕니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="manage">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">03</span><span class="lb">테스트 · 과제 · 관리</span></div>
+    <h2 class="sec">수업 시간에 이해했는지는<br>수업이 끝난 뒤에 확인합니다</h2>
+    <p class="sec-lead">배운 것을 그날 확인하고, 틀린 것을 그 주에 다시 만나고, 그 기록이 학부모님께 그대로 전달되는 구조입니다.</p>
+
+    <div class="boxes">
+      <div class="box">
+        <h3>테스트 방식</h3>
+        <div class="cap">이해했다는 착각을 그날 걸러냅니다</div>
+        <ul>
+          <li><b>매 회차 확인 테스트</b> &mdash; 그날 배운 도구만으로 풀리는 문항으로 구성해, 진도를 따라왔는지 즉시 확인합니다.</li>
+          <li><b>빈출 개념 백지 테스트</b> &mdash; 접선의 방정식, 역함수 존재조건처럼 &lsquo;안다고 착각하기 쉬운&rsquo; 개념을 아무것도 보지 않고 써 보게 합니다.</li>
+          <li><b>서술형 첨삭</b> &mdash; 답이 아니라 <b>문장</b>을 채점합니다. 등호 성립 조건, 배제 논증처럼 감점 포인트가 되는 한 줄을 직접 쓰고 교정받습니다.</li>
+          <li><b>실전 모의 (6 · 12회차)</b> &mdash; 동덕여고 시험지 형식 그대로 시간을 재고 치릅니다.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>과제</h3>
+        <div class="cap">양이 아니라 &lsquo;다시 만나는 횟수&rsquo;로 설계합니다</div>
+        <ul>
+          <li><b>회차별 과제</b> &mdash; 그날 정리한 도구를 다른 문항에서 한 번 더 쓰게 하는 구성으로, 분량보다 반복 각도를 우선합니다.</li>
+          <li><b>개인별 오답 주간지</b> &mdash; 한 주 동안 틀린 문항을 학생별로 다시 묶어 나갑니다. 남의 오답이 아니라 <b>본인의 오답</b>만 담깁니다.</li>
+          <li><b>케이스표 훈련지</b> &mdash; &ldquo;모두 구하시오&rdquo; 유형 전용. 답을 쓰기 전에 케이스표를 채우는 절차를 습관으로 만듭니다.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>관리 프로그램</h3>
+        <div class="cap">수업 밖에서 벌어지는 일까지 관리합니다</div>
+        <ul>
+          <li><b>매 수업 리포트</b> &mdash; 그날의 진도, 확인 테스트 결과, 관찰된 약점을 정리해 학부모님께 전송합니다.</li>
+          <li><b>수업 영상 녹화 제공</b> &mdash; 결석했거나 다시 듣고 싶은 부분을 언제든 되돌려 볼 수 있습니다.</li>
+          <li><b>수업 전·후 현장 클리닉</b> &mdash; 정규 시간 앞뒤로 개별 질문과 재설명을 받습니다.</li>
+          <li><b>1:1 질의응답 상시</b> &mdash; 집에서 막힌 문항은 사진으로 보내면 그날 안에 답을 받습니다.</li>
+          <li><b>오답 누적 관리</b> &mdash; 틀린 문항이 학생별로 계속 쌓여, 시험 2주 전에는 &lsquo;나만의 약점 목록&rsquo;이 완성돼 있습니다.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">04</span><span class="lb">담당 강사</span></div>
+    <h2 class="sec">이관우</h2>
+    <div class="boxes">
+      <div class="box">
+        <h3>어떻게 가르치는가</h3>
+        <div class="cap">11년차 고등 수학 전임</div>
+        <ul>
+          <li><b>공식이 아니라 이유</b> &mdash; 모든 개념을 &ldquo;왜 이렇게 되는가&rdquo;에서 시작합니다. 이유를 알고 있는 학생만 처음 보는 조건 앞에서 손이 움직입니다.</li>
+          <li><b>학생이 다시 설명하게 합니다</b> &mdash; 제 설명을 들은 것으로 끝내지 않고, 학생이 자기 말로 되돌려 말할 수 있을 때 넘어갑니다.</li>
+          <li><b>시험지를 직접 분석합니다</b> &mdash; 담당 학교의 기출을 문항 단위로 풀고 배점까지 집계해 수업 설계에 그대로 반영합니다. 이 계획서가 그 결과물입니다.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>학습 관리 시스템</h3>
+        <div class="cap">자체 개발 · 운영 중</div>
+        <ul>
+          <li><b>학생용 앱</b> &mdash; 출결, 숙제, 성적, 오답, 수업 영상, 질의응답을 한곳에서 확인합니다.</li>
+          <li><b>학부모 리포트</b> &mdash; 매 수업 후 자동으로 정리돼 전달되므로, 아이가 오늘 무엇을 했는지 물어볼 필요가 없습니다.</li>
+          <li><b>누적 기록</b> &mdash; 한 학기 동안의 테스트 점수와 오답이 이어져 쌓이므로, 시험 직전 대비가 &lsquo;감&rsquo;이 아니라 기록 위에서 이뤄집니다.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="cta-band">
+  <h3>왜 이렇게 짰는지,<br>시험지에서 직접 확인하실 수 있습니다</h3>
+  <p>3개년 여덟 장의 시험지를 배점 단위까지 펼쳐 정리한 분석 전문을 공개해 두었습니다.</p>
+  <div class="cta-btns">
+    <a class="btn solid" href="dongduk.html">동덕여고 2학기 출제 분석 보기</a>
+    <a class="btn ghost" href="index.html">이관우 수학 소개</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap fin">
+    <div>
+      <b>이관우 수학</b>
+      반포 세정학원 &middot; 2026학년도 2학기 공통수학2 내신 완성반
+    </div>
+    <div>
+      <a href="index.html">홈</a> &nbsp;·&nbsp; <a href="dongduk.html">출제 분석</a>
+    </div>
+  </div>
+</footer>
+
+
+</body>
+</html>

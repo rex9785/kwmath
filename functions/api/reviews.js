@@ -101,7 +101,10 @@ export async function onRequest({ request, env }) {
       if (url.searchParams.get('public') === '1') {
         const list = await queryReviews(env, {
           and: [
-// status 필터 제거 — 모든 후기 자동 승인
+            // 🔒 2026-08-02 — 「승인」된 후기만 메인에 나간다.
+            //    이 줄이 빠져 있던 동안에는 「메인 노출」 체크만 보고 있어서,
+            //    "거절"한 후기도 노출이 켜져 있으면 홈페이지에 그대로 공개됐다.
+            { property: '승인 상태', select: { equals: '승인' } },
             { property: '메인 노출', checkbox: { equals: true } },
           ],
         });
@@ -143,8 +146,11 @@ export async function onRequest({ request, env }) {
         return jsonOk({ reviews: list });
       }
       // 포털 후기 탭: 승인된 것만
+      // ⚠️ 2026-08-02 — 여기가 빈 객체 {} 였다. {}는 truthy라 queryReviews의
+      //    `filter || undefined`를 통과해 노션에 filter:{} 로 그대로 나갔고,
+      //    결과적으로 대기·거절 후기까지 전부 포털에 보였다.
       const list = await queryReviews(env, {
-// status 필터 제거
+        property: '승인 상태', select: { equals: '승인' },
       });
       return jsonOk({
         reviews: list.map(r => ({
@@ -439,10 +445,8 @@ export async function onRequest({ request, env }) {
           return await rejectPatch('승인 상태는 대기/승인/거절 중 하나여야 합니다.');
         }
         props['승인 상태'] = { select: { name: body.status } };
-        // 거절/대기로 바꾸면 메인 노출 자동 off (안전망)
-        if (body.status !== '승인' && body.mainShow === undefined) {
-          props['메인 노출'] = { checkbox: false };
-        }
+        // (메인 노출 자동 off 안전망은 아래 before 조회 뒤로 옮겼다 — 「🔒 2026-08-02 안전망」 참고.
+        //  여기서 끄면 뒤따르는 body.mainShow 처리에 다시 덮어써졌다.)
       }
       if (body.mainShow !== undefined) {
         props['메인 노출'] = { checkbox: body.mainShow === true };
@@ -464,6 +468,17 @@ export async function onRequest({ request, env }) {
         const beforePage = await beforeRes.json();
         if (beforePage && beforePage.object !== 'error') before = pageToReview(beforePage);
       } catch (_) { /* 로그용 — 실패해도 무시 */ }
+
+      // 🔒 2026-08-02 안전망 — 「승인」이 아닌 후기는 메인에 노출될 수 없다.
+      //    예전 안전망은 `body.mainShow === undefined` 일 때만 껐기 때문에
+      //    { status:'거절', mainShow:true } 를 같이 보내면 거절인데 노출 ON 으로 남았다.
+      //    이제는 최종 승인 상태가 '승인'이 아니면 보낸 mainShow 를 무시하고 무조건 끈다.
+      //    (현재 상태를 못 읽은 경우엔 건드리지 않는다 — 메모만 고치는 요청에서
+      //     멀쩡한 노출이 꺼지는 부작용을 막기 위함.)
+      const finalStatus = body.status || (before ? before.status : null);
+      if (finalStatus && finalStatus !== '승인') {
+        props['메인 노출'] = { checkbox: false };
+      }
 
       const patchRes = await fetch(`https://api.notion.com/v1/pages/${id}`, {
         method: 'PATCH', headers: notionHeaders(env),
@@ -513,7 +528,8 @@ export async function onRequest({ request, env }) {
           },
           내용앞부분: clip(after.content, 200),
           효과: '「메인 노출」이 켜지면 이 후기가 홈페이지 메인에 즉시 공개된다(이름은 마스킹되지만 반 이름은 그대로 나감). '
-            + '⚠️ 현재 퍼블릭 조회는 승인 상태를 보지 않고 「메인 노출」 체크만 본다 — 즉 "거절"이어도 노출이 켜져 있으면 공개된다.',
+            + '2026-08-02부터 퍼블릭 조회는 「승인 상태 = 승인」 + 「메인 노출 체크」 둘 다 만족해야 공개한다 — '
+            + '대기·거절은 노출이 켜져 있어도 메인에 안 나가고, 승인이 아닌 상태로 바꾸면 메인 노출도 같이 꺼진다.',
           비고: '처리 메모는 500자에서 잘려 저장된다(현 코드). 이전 메모는 덮어써지므로 위 「이전값」이 유일한 사본이다.',
         },
       });
