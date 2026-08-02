@@ -68,8 +68,21 @@ export async function collectTargetPhones(env, targetType, targetValue) {
       sql = 'SELECT parent_phone, student_phone FROM students WHERE id = ?';
       binds = [Number(m[1])];
     } else {
-      sql = 'SELECT parent_phone, student_phone FROM students WHERE name = ?';
-      binds = [targetValue];
+      // 👥 2026-07-31 — 구형 이름 폴백은 LIMIT 이 없어서 같은 이름 학생이 2명이면
+      //   **양쪽 집에 모두** 개인 공지 푸시가 나갔다(한 학생에게만 하려던 이야기가 남의 집으로).
+      //   이름만으로는 누구인지 확정할 수 없으므로 아무에게도 보내지 않는다.
+      //   (공지 글 자체는 정상 저장된다 — 푸시만 멈춘다. 필요하면 「id|이름」 형식으로 다시 지정할 것.)
+      const { results: 후보 } = await env.DB.prepare(
+        'SELECT id, parent_phone, student_phone FROM students WHERE name = ? ORDER BY id ASC'
+      ).bind(targetValue).all();
+      const rows = 후보 || [];
+      if (rows.length > 1) return [];
+      const phones = new Set();
+      for (const r of rows) {
+        if (r.parent_phone) phones.add(r.parent_phone);
+        if (r.student_phone) phones.add(r.student_phone);
+      }
+      return [...phones];
     }
   } else {
     return [];

@@ -15,7 +15,7 @@
 //        → 알림 1건 생성(dedup 시 재삽입 안 함) + 학부모/학생 폰으로 푸시(best-effort).
 // ───────────────────────────────────────────────────────────
 import { requireStudentAccess, normalizePhone } from './_auth.js';
-import { getStudentByName, getStudentById, listStudents } from './_db.js';
+import { listStudentsByName, getStudentById } from './_db.js';   // listStudents 는 staffNameScope 제거로 더 안 씀
 import { staffScopeAcademy } from './_staff.js';
 import { sendPushToUsers } from './_push.js';
 import { safeError } from './_errors.js';
@@ -26,14 +26,11 @@ import {
   listRecentNotificationsAdmin, deleteNotifications,
 } from './_notifications.js';
 
-// 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음). (scores.js와 동일 패턴)
-//   미배정 조교는 빈 Set → 아무 학생도 조회·발신 불가.
-async function staffNameScope(env, request) {
-  const academy = await staffScopeAcademy(env, request);
-  if (academy === null) return null;                               // 원장 → 전체
-  const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
-  return new Set(roster.map(s => s.name));
-}
+// 👥 2026-07-31 — 여기 있던 staffNameScope(담당 학원 학생 "이름" Set)를 없앴다.
+//   이름 Set 통과는 동명이인 앞에서 무의미하다: 세정학원에 김민준이 있으면 대치동 김민준도 통과했고,
+//   그 뒤 getStudentByName 이 id 낮은 쪽을 집어 **다른 학원 학생의 알림**을 열어 줬다.
+//   권한 판정은 학생을 먼저 확정한 뒤 그 학생의 academy 로 한다(scores.js 와 같은 방식).
+//   원장 여부만 필요할 땐 staffScopeAcademy(env, request) === null 로 본다.
 
 function todayKST() {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -68,15 +65,34 @@ export async function onRequest(context) {
           const notifications = await listRecentNotificationsAdmin(env, url.searchParams.get('limit'));
           return Response.json({ notifications });
         }
-        // 관리자: 특정 학생에게 나간 알림 조회 (조교는 자기 학원 학생만)
+        // 관리자: 특정 학생에게 나간 알림 조회 (id 권장 · 조교는 자기 학원 학생만)
+        //   👥 2026-07-31 — 예전엔 ①이름이 담당 학원 명단에 있으면 통과시키고 ②getStudentByName 으로
+        //     "먼저 등록된 1명"을 집었다. 같은 이름이 다른 학원에도 있으면 그 학생의 알림 내역이
+        //     엉뚱한 조교에게 보였다(이름만 같으면 통과 → id 낮은 쪽이 잡힘).
+        //     지금은 학생을 먼저 확정하고 **그 학생의 학원**을 담당 학원과 대조한다.
+        const qsid = (url.searchParams.get('id') || '').trim();
         const name = (url.searchParams.get('name') || '').trim();
-        if (!name) return Response.json({ error: 'name 필수' }, { status: 400 });
-        const allowedNames = await staffNameScope(env, request);
-        if (allowedNames && !allowedNames.has(name)) {
-          return Response.json({ error: '담당 학원 학생만 조회할 수 있어요.' }, { status: 403 });
+        if (!qsid && !name) return Response.json({ error: 'id 또는 name 필수' }, { status: 400 });
+        const 스코프학원 = await staffScopeAcademy(env, request);   // null=원장 · ''=미배정 조교 · '학원명'
+        if (스코프학원 !== null && !스코프학원)
+          return Response.json({ error: '담당 학원이 아직 지정되지 않았어요. 원장님께 학원 배정을 요청해 주세요.' }, { status: 403 });
+        let st = null;
+        if (qsid) {
+          st = await getStudentById(env, qsid);
+        } else {
+          const 후보 = await listStudentsByName(env, name);
+          if (후보.length > 1) {
+            return Response.json({
+              error: '같은 이름 학생이 ' + 후보.length + '명이라 누구인지 확정할 수 없어요. 학생 목록에서 학생을 골라 주세요.',
+              동명이인수: 후보.length,
+              후보목록: 후보.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '', 학교: s.school || '' })),
+            }, { status: 409 });
+          }
+          st = 후보[0] || null;
         }
-        const st = await getStudentByName(env, name);
         if (!st) return Response.json({ error: '학생을 찾을 수 없습니다.' }, { status: 404 });
+        if (스코프학원 !== null && (st.academy || '') !== 스코프학원)
+          return Response.json({ error: '담당 학원 학생만 조회할 수 있어요.' }, { status: 403 });
         const notifications = await listNotificationsByStudentId(env, st.id, url.searchParams.get('limit'));
         const unread = await countUnread(env, [st.id]);
         return Response.json({ name: st.name, notifications, unread });
@@ -105,7 +121,37 @@ export async function onRequest(context) {
         if (!sid && !name) return Response.json({ error: 'id 또는 name 필수' }, { status: 400 });
         // 조교 스코프는 이름이 아니라 학원(academy)으로 판정 — 같은 이름이 다른 학원에 있어도 안 섞임.
         const academy = await staffScopeAcademy(env, request);   // null=원장(제한없음) · ''=미배정 조교 · '학원명'
-        const st = sid ? await getStudentById(env, sid) : await getStudentByName(env, name);
+        // 👥 2026-07-31 — 이름 폴백이 가장 위험한 자리다. 여기서 잘못 잡히면 **다른 집 학부모 폰으로
+        //   푸시가 실제로 나간다**(회수해도 이미 읽음). 예전엔 getStudentByName 이 동명이인 중
+        //   먼저 등록된 1명을 조용히 집었다 → 같은 이름의 다른 학생 가정에 "클리닉 미참석" 문자가 갈 수 있었다.
+        //   지금은 2명 이상이면 아무에게도 보내지 않고 409로 되돌려 학생을 고르게 한다.
+        //   (라이브 화면인 clinic-roster.html·admin-notify.html 은 이미 id 를 보낸다 — 이 폴백은 구버전 대비용.)
+        let st = null;
+        if (sid) {
+          st = await getStudentById(env, sid);
+        } else {
+          const 후보 = await listStudentsByName(env, name);
+          if (후보.length > 1) {
+            await logAudit(env, request, {
+              action: 'notification.send.ambiguous',
+              target: '', targetName: name,
+              summary: '[' + name + '] 알림 발송 중단 — 같은 이름 학생이 ' + 후보.length + '명이라 누구인지 확정 못 함',
+              detail: {
+                찾은이름: name, 동명이인수: 후보.length,
+                후보목록: 후보.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+                유형: (body.type || 'manual').trim(),
+                효과: '아무에게도 알림·푸시를 보내지 않았다. 예전엔 먼저 등록된 학생(id 작은 쪽)의 가정으로 실제 발송됐다',
+                조치: '학생 목록에서 학생을 골라 id 로 다시 보낼 것',
+              },
+            });
+            return Response.json({
+              error: '같은 이름 학생이 ' + 후보.length + '명이라 누구인지 확정할 수 없어요. 학생 목록에서 학생을 골라 주세요.',
+              동명이인수: 후보.length,
+              후보목록: 후보.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '', 학교: s.school || '' })),
+            }, { status: 409 });
+          }
+          st = 후보[0] || null;
+        }
         if (!st) return Response.json({ error: '학생을 찾을 수 없습니다.' }, { status: 404 });
         if (academy !== null && (!academy || (st.academy || '') !== academy)) {
           return Response.json({ error: '담당 학원 학생만 연락할 수 있어요.' }, { status: 403 });
@@ -183,9 +229,9 @@ export async function onRequest(context) {
       //   ⚠️ 학생 식별은 이름이 아니라 id로 — 동명이인 안전(D1 이주 때 정한 계약. admin 승인/수정/삭제도 문자열 id).
       if (action === 'create_bulk') {
         if (!isAdmin) return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
-        // 자유 알림은 원장만(조교는 정형 알림만). staffNameScope가 null이어야 원장.
-        const allowedNames = await staffNameScope(env, request);
-        if (allowedNames !== null) return Response.json({ error: '자유 알림은 원장만 보낼 수 있어요.' }, { status: 403 });
+        // 자유 알림은 원장만(조교는 정형 알림만). staffScopeAcademy 가 null 이어야 원장.
+        if ((await staffScopeAcademy(env, request)) !== null)
+          return Response.json({ error: '자유 알림은 원장만 보낼 수 있어요.' }, { status: 403 });
 
         const ids = Array.isArray(body.ids)
           ? [...new Set(body.ids.map(n => String(n == null ? '' : n).trim()).filter(Boolean))]

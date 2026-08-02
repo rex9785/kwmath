@@ -2,13 +2,13 @@
 // 같은 반 학생들의 주간 공부량 통계 + 본인 순위 (익명)
 //
 // 공부 데이터: Cloudflare D1 study_sessions (Phase 4 전환 — 이전엔 R2 study/{name}.json)
-// 반 명단: Notion 학생 DB (students 묶음 전환 전까지 노션 유지)
+// 반 명단: Cloudflare D1 students (예전 주석엔 "노션 유지"라고 적혀 있었으나 이미 D1로 넘어왔다)
 //
 // GET ?week=YYYY-Www (선택)
 //   학생/학부모 토큰 → 본인(자녀) 반 통계 / admin 토큰 + ?academy=X&class=Y → 그 반 전체
 
-import { requireStudentAccess, STUDENTS_DB } from './_auth.js';
-import { getStudentByName, getStudySessions } from './_db.js';
+import { requireStudentAccess } from './_auth.js';
+import { getStudySessions } from './_db.js';
 import { safeError } from './_errors.js';
 
 function ymd(d) {
@@ -38,12 +38,15 @@ function rangeFor(period, date) {
   return weekRange(d);  // 기본 week
 }
 
-// 학생 이름 → D1 student_id → 주간 공부 분 합계
-async function loadStudyTotal(env, name, startStr, endStr) {
+// student_id → 기간 내 공부 분 합계
+//   👥 2026-07-31 — 예전엔 이름을 받아 getStudentByName(ORDER BY id LIMIT 1) 으로 다시 학생을 찾았다.
+//     ① 같은 이름이 다른 학원에도 있으면 **그 학생의 공부시간**이 이 반 통계에 섞여 들어왔고,
+//     ② 같은 반에 동명이인이 있으면 두 줄 모두 같은 학생을 가리켜 한 명은 통째로 사라졌다.
+//     명단을 뽑을 때 이미 id 를 알고 있으니 이름으로 되짚을 이유가 없다 — id 를 그대로 쓴다.
+async function loadStudyTotal(env, studentId, startStr, endStr) {
   try {
-    const st = await getStudentByName(env, name);
-    if (!st) return 0;
-    const sessions = await getStudySessions(env, st.id);
+    if (studentId == null || studentId === '') return 0;
+    const sessions = await getStudySessions(env, studentId);
     let sum = 0;
     for (const s of sessions) {
       const d = s.date || ymd(s.startedAt);
@@ -56,12 +59,12 @@ async function loadStudyTotal(env, name, startStr, endStr) {
 }
 
 async function listClassmates(env, academy, className) {
-  // 같은 academy + className 학생 명단 (Cloudflare D1)
+  // 같은 academy + className 학생 명단 (Cloudflare D1). id 를 같이 뽑아야 동명이인이 섞이지 않는다.
   try {
     const { results } = await env.DB.prepare(
-      'SELECT name FROM students WHERE academy = ? AND class_name = ?'
+      'SELECT id, name FROM students WHERE academy = ? AND class_name = ? ORDER BY id ASC'
     ).bind(academy, className).all();
-    return (results || []).map(r => ({ name: r.name })).filter(s => s.name);
+    return (results || []).map(r => ({ id: r.id, name: r.name })).filter(s => s.id != null && s.name);
   } catch {
     return [];
   }
@@ -75,18 +78,20 @@ export async function onRequest({ request, env }) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   const isAdmin = env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
 
-  let academy, className, myName;
+  let academy, className, myId;
   if (isAdmin) {
     academy   = (url.searchParams.get('academy') || '').trim();
     className = (url.searchParams.get('class') || '').trim();
     if (!academy || !className) return Response.json({ error: 'admin: academy + class 필요' }, { status: 400 });
-    myName = '';  // admin은 본인 없음
+    myId = null;  // admin은 본인 없음
   } else {
     const access = await requireStudentAccess(env, request);
     if (!access.ok) return access.response;
     academy   = access.student.academy || '';
     className = access.student.className || '';
-    myName    = access.student.name || '';
+    // 👥 "나"는 이름이 아니라 학생 id 로 찾는다 — 같은 반에 동명이인이 있으면
+    //   이름 비교로는 두 줄 다 "나"가 되고, 순위·백분위가 엉뚱한 사람 것으로 나온다.
+    myId      = access.student.id != null ? String(access.student.id) : null;
     if (!academy || !className) {
       return Response.json({ ok: true, students: [], myMinutes: 0, classAvg: 0, note: '학원/반 정보 없음' });
     }
@@ -104,8 +109,8 @@ export async function onRequest({ request, env }) {
     const classmates = await listClassmates(env, academy, className);
     const results = [];
     for (const s of classmates) {
-      const mins = await loadStudyTotal(env, s.name, startStr, endStr);
-      results.push({ name: s.name, minutes: mins, isMe: s.name === myName });
+      const mins = await loadStudyTotal(env, s.id, startStr, endStr);
+      results.push({ id: String(s.id), name: s.name, minutes: mins, isMe: myId != null && String(s.id) === myId });
     }
     // 정렬 (분 많은 순)
     results.sort((a, b) => b.minutes - a.minutes);
@@ -115,6 +120,7 @@ export async function onRequest({ request, env }) {
     const studentsOut = results.map((r, i) => ({
       anonName: r.isMe ? '나' : '친구 ' + (r.rank),
       name: isAdmin ? r.name : undefined,  // admin은 실명도 보냄
+      id: isAdmin ? r.id : undefined,      // 같은 반에 동명이인이 있으면 실명만으론 못 가린다(원장 화면 전용)
       minutes: r.minutes,
       isMe: r.isMe,
       rank: r.rank,

@@ -9,18 +9,20 @@
 //
 //   ※ 학생 식별은 studentId(동명이인 안전) 우선, 없으면 name.
 import { requireStudentAccess } from './_auth.js';
-import { getStudentByName, getStudentById, listStudents } from './_db.js';
+import { listStudentsByName, getStudentById, listStudents } from './_db.js';
 import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 import { listGrantsForStudent, requestMakeup, approveMakeup, revokeMakeup, listAllGrants } from './_makeup.js';
 import { logAudit, actorOf } from './_auditlog.js';
 
-// 조교(X-Staff-Phone)면 "맡은 학원" 학생 이름 Set, 원장이면 null(제한 없음). 미배정 조교는 빈 Set.
-async function staffNameScope(env, request) {
+// 조교(X-Staff-Phone)면 "맡은 학원" 학생 **id** Set, 원장이면 null(제한 없음). 미배정 조교는 빈 Set.
+//   👥 2026-07-31 — 예전엔 이름 Set 이었다. 세정학원에 김민준이 있으면 대치동 김민준의
+//     인강 해제 내역까지 목록에 딸려 나왔다(이름만 같으면 통과). id 로 바꾸면 그런 일이 없다.
+async function staffIdScope(env, request) {
   const academy = await staffScopeAcademy(env, request);
   if (academy === null) return null;                               // 원장 → 전체
   const roster = academy ? (await listStudents(env)).filter(s => (s.academy || '') === academy) : [];
-  return new Set(roster.map(s => s.name));
+  return new Set(roster.map(s => String(s.id)));
 }
 
 export async function onRequest({ request, env }) {
@@ -35,8 +37,8 @@ export async function onRequest({ request, env }) {
       try {
         const status = (url.searchParams.get('status') || '').trim();
         let out = await listAllGrants(env, status || undefined);
-        const allowed = await staffNameScope(env, request);
-        if (allowed) out = out.filter(g => allowed.has(g.name));
+        const allowed = await staffIdScope(env, request);
+        if (allowed) out = out.filter(g => allowed.has(String(g.student_id)));
         return Response.json(out);
       } catch (e) { return safeError(e, env, { message: '목록을 불러오지 못했습니다.' }); }
     }
@@ -62,17 +64,28 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: 'date(YYYY-MM-DD) 필수' }, { status: 400 });
 
       // 학생 식별 — studentId 우선, 없으면 name
+      //   👥 2026-07-31 — 이름 폴백이 getStudentByName(ORDER BY id LIMIT 1) 이었다. 같은 이름이 2명이면
+      //     먼저 등록된 쪽의 영상 잠금이 조용히 풀렸다(= 결석한 날 수업영상을 엉뚱한 학생이 보게 됨).
+      //     2명 이상이면 아무것도 하지 않고 409로 되돌린다.
       let st = null;
       if (body.studentId !== undefined && body.studentId !== null && String(body.studentId) !== '') {
         st = await getStudentById(env, body.studentId);
       } else if ((body.name || '').trim()) {
-        st = await getStudentByName(env, body.name.trim());
+        const 후보 = await listStudentsByName(env, body.name.trim());
+        if (후보.length > 1) {
+          return Response.json({
+            error: '같은 이름 학생이 ' + 후보.length + '명이라 누구인지 확정할 수 없어요. 학생 목록에서 학생을 골라 주세요.',
+            동명이인수: 후보.length,
+            후보목록: 후보.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+          }, { status: 409 });
+        }
+        st = 후보[0] || null;
       }
       if (!st) return Response.json({ error: '학생을 찾을 수 없습니다. (name 또는 studentId 필요)' }, { status: 404 });
 
-      // 조교는 자기 학원 학생만 (원장이면 allowed=null → 통과)
-      const allowed = await staffNameScope(env, request);
-      if (allowed && !allowed.has(st.name))
+      // 조교는 자기 학원 학생만 (원장이면 allowed=null → 통과). 이름이 아니라 학생 id로 검사한다.
+      const allowed = await staffIdScope(env, request);
+      if (allowed && !allowed.has(String(st.id)))
         return Response.json({ error: '담당 학원 학생만 처리할 수 있어요.' }, { status: 403 });
 
       try {

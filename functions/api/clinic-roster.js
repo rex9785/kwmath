@@ -32,7 +32,7 @@
 //        action: 'add' | 'exclude' | 'clear'
 
 import {
-  getStudentById, getStudentByName, listStudents,
+  getStudentById, listStudentsByName, listStudents,
   listAttendanceByDate, listClinicByDate,
   listClinicRoster, setClinicRoster, deleteClinicRoster,
 } from './_db.js';
@@ -306,7 +306,24 @@ export async function onRequest({ request, env }) {
 
     try {
       // id 우선 해석(동명이인 안전), 없으면 이름 폴백
-      const st = studentId ? await getStudentById(env, studentId) : await getStudentByName(env, name);
+      //   👥 2026-07-31 — 이름 폴백이 getStudentByName(ORDER BY id LIMIT 1) 이었다. 같은 이름이 2명이면
+      //     **먼저 등록된 쪽**이 조용히 잡혀서, 엉뚱한 학생이 오늘 클리닉 명단에서 빠지거나(exclude)
+      //     끼워 넣어졌다. 그 학생 학부모는 "왜 우리 애가 빠졌냐"고 묻는데 로그는 멀쩡해 보인다.
+      //     2명 이상이면 아무것도 건드리지 않고 409로 되돌린다.
+      let st = null;
+      if (studentId) {
+        st = await getStudentById(env, studentId);
+      } else {
+        const 후보 = await listStudentsByName(env, name);
+        if (후보.length > 1) {
+          return Response.json({
+            error: '같은 이름 학생이 ' + 후보.length + '명이라 누구인지 확정할 수 없어요. 명단에서 학생을 골라 주세요.',
+            동명이인수: 후보.length,
+            후보목록: 후보.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+          }, { status: 409 });
+        }
+        st = 후보[0] || null;
+      }
       if (!st) return Response.json({ error: '학생을 D1에서 찾을 수 없습니다.' }, { status: 404 });
 
       // 조교는 자기 학원 학생만. id로 해석한 학생의 학원으로 검사(원장=null→통과, 미배정 조교=''→전부 차단).

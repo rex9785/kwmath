@@ -167,6 +167,11 @@ export async function getStudentById(env, id) {
   return rowToStudent(r);
 }
 
+// ⛔ 2026-07-31 — 새 코드에서 쓰지 말 것. 동명이인이면 **먼저 등록된 1명을 조용히** 집는다.
+//   이 조용함 때문에 성적·출결·알림이 엉뚱한 학생에게 들어가고도 화면·로그가 정상으로 보였다.
+//   이날 실제 호출부를 전부 listStudentsByName / resolveStudentDetailed 로 옮겨 **호출자 0개**가 됐다.
+//   (남겨 둔 이유: 혹시 놓친 곳이 있어도 갑자기 터지지 않게. 새로 쓰지만 말 것.)
+//   대신 쓸 것 → listStudentsByName(몇 명인지 세고 판단) · resolveStudentDetailed(id 우선 + 사유 반환)
 export async function getStudentByName(env, name) {
   const r = await env.DB.prepare('SELECT * FROM students WHERE name = ? ORDER BY id LIMIT 1').bind(name).first();
   return rowToStudent(r);
@@ -187,19 +192,38 @@ export async function listStudentsByName(env, name) {
   return (results || []).map(rowToStudent).filter(Boolean);
 }
 
-// 🆔 id(권장) 우선 → 없으면 name(구버전 호환)으로 학생 1명 해석.
-//   ⚠️ 동명이인이 있으면 name 경로는 먼저 등록된 1명만 잡힌다(위 ORDER BY id LIMIT 1).
-//      그래서 저장·삭제 같은 쓰기 경로는 반드시 id를 보낼 것.
-//      (2026-07-29 도입: staff-students.html 출결·클리닉 쓰기가 이름 기반이라 남의 기록에 저장될 위험이 있었음)
-export async function resolveStudent(env, rawId, rawName) {
+// 🆔 id(권장) 우선 → 없으면 name(구버전 호환)으로 학생 1명 해석. **사유까지** 돌려주는 판.
+//   👥 2026-07-31 — 예전 resolveStudent 는 이름 경로에서 getStudentByName(ORDER BY id LIMIT 1) 을 써서
+//     동명이인이면 "먼저 등록된 1명"을 조용히 집었다. 출결·클리닉이 이걸 쓰므로, 같은 이름 학생이 있으면
+//     **엉뚱한 학생의 출결이 바뀌고도 화면엔 정상 저장으로 보였다**.
+//     이제 이름으로 2명 이상이 잡히면 아무도 고르지 않고 이유를 돌려준다(fail-closed).
+//   반환: { ok:true, student } | { ok:false, reason:'no-key'|'not-found'|'ambiguous', 동명이인수?, 후보목록? }
+export async function resolveStudentDetailed(env, rawId, rawName) {
   const id = (rawId === undefined || rawId === null) ? '' : String(rawId).trim();
   if (id) {
     const n = Number(id);
-    return await getStudentById(env, (Number.isInteger(n) && String(n) === id) ? n : id);
+    const st = await getStudentById(env, (Number.isInteger(n) && String(n) === id) ? n : id);
+    return st ? { ok: true, student: st } : { ok: false, reason: 'not-found' };
   }
   const name = (rawName || '').trim();
-  if (!name) return null;
-  return await getStudentByName(env, name);
+  if (!name) return { ok: false, reason: 'no-key' };
+  const 후보 = await listStudentsByName(env, name);
+  if (!후보.length) return { ok: false, reason: 'not-found' };
+  if (후보.length > 1) {
+    return {
+      ok: false, reason: 'ambiguous', 동명이인수: 후보.length,
+      후보목록: 후보.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '', 학교: s.school || '' })),
+    };
+  }
+  return { ok: true, student: 후보[0] };
+}
+
+// 🆔 위와 같은 해석이되 학생 객체(또는 null)만 돌려주는 옛 형태 — 기존 호출부 호환용.
+//   ⚠️ 동명이인이면 null 이 온다(예전엔 먼저 등록된 1명이 왔다). "못 찾음"과 "여럿이라 못 고름"을
+//      구분해 안내하려면 resolveStudentDetailed 를 쓸 것.
+export async function resolveStudent(env, rawId, rawName) {
+  const r = await resolveStudentDetailed(env, rawId, rawName);
+  return r.ok ? r.student : null;
 }
 
 // ── 운영진(원장) 학생 명단 제외 ──

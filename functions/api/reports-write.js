@@ -5,18 +5,35 @@
 //   DELETE { pageId }                                                          — 삭제
 // pageId는 문자열로 와도 숫자로 변환해서 D1 조회.
 
-import { getStudentByName, createReport, updateReport, deleteReport, getReportByStudentAndDate } from './_db.js';
+import { listStudentsByName, createReport, updateReport, deleteReport, getReportByStudentAndDate } from './_db.js';
 import { safeError } from './_errors.js';
 import { sendPushToUsers } from './_push.js';   // 🔔 2026-07-30 — 웹푸시+FCM 병행 (push-send 경유 시 FCM 미발송 버그 수정)
 import { logAudit, diffFields } from './_auditlog.js';
 
 // 학생 이름 → 학부모 휴대폰 (푸쉬 발송용, D1)
+//   👥 2026-07-31 — 예전엔 getStudentByName(ORDER BY id LIMIT 1) 이라 같은 이름이 2명이면
+//     **먼저 등록된 학생의 학부모 폰**으로 "새 리포트가 올라왔어요" 푸시가 조용히 갔다.
+//     리포트 자체는 이름으로 저장되니(reports 테이블에 student_id 칸이 없음) 어느 쪽 리포트인지
+//     서버가 알 도리가 없다. 그래서 2명 이상이면 **아무에게도 푸시하지 않는다**.
+//     (리포트 저장은 그대로 성공한다 — 관우T가 MathOS에서 올린 글을 잃게 만들면 안 되므로.
+//      대신 아래에서 "푸시 안 감 + 이유"를 감사로그에 남겨 수동으로 알릴 수 있게 한다.)
+//   반환: { phone, 사유 } — phone 이 null 이면 사유가 왜인지 말해 준다.
 async function findParentPhone(env, studentName) {
   try {
-    const st = await getStudentByName(env, studentName);
-    return st && st.parentPhone ? st.parentPhone : null;
+    const 후보 = await listStudentsByName(env, studentName);
+    if (!후보.length) return { phone: null, 사유: '학생 명단에 없는 이름 — 학부모 번호를 찾지 못함' };
+    if (후보.length > 1) {
+      return {
+        phone: null,
+        사유: '같은 이름 학생이 ' + 후보.length + '명이라 어느 집에 보낼지 확정할 수 없어 푸시를 보내지 않음',
+        동명이인수: 후보.length,
+        후보목록: 후보.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+      };
+    }
+    const st = 후보[0];
+    return st.parentPhone ? { phone: st.parentPhone } : { phone: null, 사유: '학부모 번호가 비어 있음' };
   } catch (e) {
-    return null;
+    return { phone: null, 사유: '학생 조회 중 오류 — 푸시 생략' };
   }
 }
 
@@ -32,10 +49,20 @@ export async function onRequest({ request, env }) {
     if (!studentName || !date)
       return Response.json({ error: '학생 이름과 수업 날짜는 필수입니다.' }, { status: 400 });
 
+    // 👥 2026-07-31 — 같은 이름 학생이 2명 이상인지 먼저 센다.
+    //   reports 테이블에는 student_id 칸이 없어서 리포트는 **이름으로만** 학생과 이어진다.
+    //   그래서 동명이인이 있으면 아래 "같은 이름+같은 날짜" 중복 가드가
+    //   **다른 학생의 리포트를 내 리포트로 덮어써 버릴 수 있다**(되돌릴 수 없음).
+    //   원칙: 이름 뒤 숫자 별칭(김민준1·김민준2)으로 갈라 두는 게 정답이고, 별칭이 아직 없는 상태에서는
+    //   덮어쓰기(복구 불가)보다 두 건 쌓기(수동 삭제로 복구 가능)를 택한다.
+    const 동명이인 = await listStudentsByName(env, studentName);
+    const 이름모호 = 동명이인.length > 1;
+
     // ── 재업로드 중복 가드: 같은 학생+같은 날짜 리포트가 이미 있으면 새로 쌓지 않고 그 행을 갱신 ──
     //    (7/01 실사고: MathOS에서 두 번 올려 학생당 2건 누적 → 수동 삭제. 이제 두 번 눌러도 최신 내용 1건.)
     //    푸시도 재발송 안 함 — 학부모는 첫 업로드 때 이미 받았음.
-    const dup = await getReportByStudentAndDate(env, studentName, date);
+    //    단, 이름이 모호하면(동명이인) 이 가드를 끈다 — 남의 리포트를 덮을 위험이 더 크다.
+    const dup = 이름모호 ? null : await getReportByStudentAndDate(env, studentName, date);
     if (dup && dup.id != null) {
       const u = await updateReport(env, dup.id, { date, school, content, homework, notes });
       if (!u.ok) return safeError(u.error || 'updateReport(dedup) failed', env, { message: '리포트 저장에 실패했습니다.' });
@@ -62,20 +89,43 @@ export async function onRequest({ request, env }) {
     if (!r.ok) return safeError(r.error || 'createReport failed', env, { message: '리포트 저장에 실패했습니다.' });
 
     await logAudit(env, request, {
-      action: 'report.create',
+      action: 이름모호 ? 'report.create.ambiguous' : 'report.create',
       target: String(r.id || ''), targetName: studentName,
-      summary: '리포트 작성 [' + studentName + ' · ' + date + ']' + (body.noPush ? ' (푸시 없음 — 복사 등록)' : ''),
+      summary: '리포트 작성 [' + studentName + ' · ' + date + ']' + (body.noPush ? ' (푸시 없음 — 복사 등록)' : '')
+        + (이름모호 ? ' ⚠️ 같은 이름 학생 ' + 동명이인.length + '명 — 누구 리포트인지 이름만으로는 구분 안 됨' : ''),
       detail: {
         리포트id: r.id, 학생: studentName, 수업일: date, 학원: school || '대치동 정규반',
         수업내용: content || '', 숙제: homework || '', 특이사항: notes || '',
         푸시보냄: !body.noPush,
+        ...(이름모호 ? {
+          동명이인수: 동명이인.length,
+          후보목록: 동명이인.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+          주의: 'reports 테이블은 이름으로만 학생과 이어진다 — 이 리포트는 같은 이름 학부모 모두에게 보일 수 있다. '
+            + '학생 관리에서 이름 뒤 숫자 별칭(예: ' + studentName + '1 · ' + studentName + '2)으로 갈라 줄 것',
+          덮어쓰기가드: '이번엔 껐다(남의 리포트를 덮지 않기 위해). 같은 날짜에 두 건이 쌓였다면 한 건은 지워야 한다',
+        } : {}),
       },
     });
 
     // 푸쉬 알림 (비치명적 — 실패해도 생성은 성공)
     //   noPush=true면 조용히 생략 — "이미 올린 레포트를 다른 학생에게 복사"할 때 그 학부모엔 알림 안 보냄(관우T 확정 2026-07-23).
     if (!body.noPush) try {
-      const parentPhone = await findParentPhone(env, studentName);
+      const 부모 = await findParentPhone(env, studentName);
+      const parentPhone = 부모.phone;
+      // 👥 푸시를 못 보냈으면 왜 못 보냈는지 반드시 남긴다. 동명이인이라 건너뛴 경우
+      //   관우T가 직접 연락해야 하는데, 아무 흔적이 없으면 "보냈겠지" 하고 넘어가게 된다.
+      if (!parentPhone) {
+        await logAudit(env, request, {
+          action: 부모.동명이인수 ? 'report.push.ambiguous' : 'report.push.skipped',
+          target: String(r.id || ''), targetName: studentName,
+          summary: '리포트 푸시 안 감 [' + studentName + ' · ' + date + '] — ' + (부모.사유 || '사유 미상'),
+          detail: {
+            리포트id: r.id, 학생: studentName, 수업일: date,
+            사유: 부모.사유 || '', 동명이인수: 부모.동명이인수 || 0, 후보목록: 부모.후보목록 || [],
+            효과: '리포트는 정상 저장됐지만 학부모 폰 알림은 나가지 않았다. 필요하면 직접 연락할 것',
+          },
+        });
+      }
       if (parentPhone) {
         // 🔔 2026-07-30 — push-send(웹푸시 전용) 경유 → sendPushToUsers(웹+FCM 병행)로 교체.
         //   앱(WebView) 학부모는 FCM만 등록돼 있어 기존 경로로는 낮 리포트 푸시를 못 받았다
@@ -93,7 +143,16 @@ export async function onRequest({ request, env }) {
       }
     } catch (e) { /* 무시 */ }
 
-    return Response.json({ ok: true, id: String(r.id) });
+    // 👥 동명이인이면 저장은 됐지만 사람이 손볼 게 남았다 — 화면에 띄울 수 있게 경고를 같이 돌려준다.
+    return Response.json({
+      ok: true, id: String(r.id),
+      ...(이름모호 ? {
+        경고: '「' + studentName + '」 이름의 학생이 ' + 동명이인.length + '명이라 이 리포트가 누구 것인지 이름만으로는 구분되지 않아요. '
+          + '학부모 알림도 보내지 않았습니다. 학생 관리에서 이름 뒤에 숫자(예: ' + studentName + '1)를 붙여 갈라 주세요.',
+        동명이인수: 동명이인.length,
+        후보목록: 동명이인.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '' })),
+      } : {}),
+    });
   }
 
   // ── 수정 ──

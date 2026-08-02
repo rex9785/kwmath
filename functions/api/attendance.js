@@ -14,7 +14,17 @@
 // status: '출석' / '지각' / '결석' / '병결' / '공결'   homework: 0~100
 
 import { requireStudentAccess, normalizePhone } from './_auth.js';
-import { getStudentsByPhone, resolveStudent, getAttendance, upsertAttendance, deleteAttendance, listAllAttendance, listStudents } from './_db.js';
+import { getStudentsByPhone, resolveStudentDetailed, getAttendance, upsertAttendance, deleteAttendance, listAllAttendance, listStudents } from './_db.js';
+
+// 👥 2026-07-31 — 이름으로 학생을 잡을 때 같은 이름이 2명 이상이면 아무도 고르지 않고 409로 되돌린다.
+//   예전엔 resolveStudent 가 먼저 등록된 1명을 조용히 집어서, 엉뚱한 학생의 출결이 바뀌고도
+//   화면엔 "저장됨"으로 보였다. 되돌리려면 로그를 뒤져야 하는데 로그도 정상으로 보인다 — 그래서 막는다.
+function 동명이인409(r) {
+  return Response.json({
+    error: '같은 이름 학생이 ' + r.동명이인수 + '명이라 누구인지 확정할 수 없어요. 학생 목록에서 학생을 골라 주세요.',
+    동명이인수: r.동명이인수, 후보목록: r.후보목록,
+  }, { status: 409 });
+}
 import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 import { createNotification } from './_notifications.js';
@@ -139,7 +149,10 @@ export async function onRequest(context) {
         studentId = me ? me.id : null;
       } else {
         if (!queryId && !targetName) return Response.json({ error: 'id 또는 name 필수' }, { status: 400 });
-        const st = await resolveStudent(env, queryId, targetName);
+        const rs = await resolveStudentDetailed(env, queryId, targetName);
+        // 동명이인이면 빈 달력을 보여 주면 안 된다("결석이 하나도 없네"로 잘못 읽힌다) — 이유를 말한다.
+        if (!rs.ok && rs.reason === 'ambiguous') return 동명이인409(rs);
+        const st = rs.ok ? rs.student : null;
         // 조교가 자기 학원 밖 학생을 조회하면 빈 기록 반환(존재 여부도 숨김)
         if (scope && (!st || !scope.ids.has(String(st.id)))) {
           return Response.json({ name: targetName, records: {}, updatedAt: null });
@@ -191,7 +204,9 @@ export async function onRequest(context) {
       return Response.json({ error: '업데이트할 필드 없음(status/homework/homework_note/note)' }, { status: 400 });
 
     try {
-      const st = await resolveStudent(env, body.id, name);
+      const rs = await resolveStudentDetailed(env, body.id, name);
+      if (!rs.ok && rs.reason === 'ambiguous') return 동명이인409(rs);
+      const st = rs.ok ? rs.student : null;
       if (!st) return Response.json({ error: '학생을 D1에서 찾을 수 없습니다. (신규 등록 학생이면 마이그레이션 재실행 필요)' }, { status: 404 });
       // 조교는 자기 학원 학생만 입력 가능 (원장이면 scope=null → 통과) — 🆔 id로 판정
       const scope = await staffScope(env, request);
@@ -240,7 +255,9 @@ export async function onRequest(context) {
     if ((body.id === undefined && !name) || !date) return Response.json({ error: '(id 또는 name) + date 필수' }, { status: 400 });
 
     try {
-      const st = await resolveStudent(env, body.id, name);
+      const rs = await resolveStudentDetailed(env, body.id, name);
+      if (!rs.ok && rs.reason === 'ambiguous') return 동명이인409(rs);   // 지우기 전에 멈춘다 — 삭제는 되돌릴 수 없다
+      const st = rs.ok ? rs.student : null;
       if (!st) return Response.json({ ok: true, removed: 0 });
       // 조교는 자기 학원 학생만 삭제 가능 (원장이면 scope=null → 통과) — 🆔 id로 판정
       const scope = await staffScope(env, request);

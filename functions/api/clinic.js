@@ -15,7 +15,16 @@
 // achieve(성취도): 0 / 25 / 50 / 75 / 100   minutes(클리닉 시간, 분): 0~780 (시 0~12·분 0~60)
 
 import { requireStudentAccess } from './_auth.js';
-import { getStudentsByPhone, resolveStudent, getClinic, upsertClinic, deleteClinic, listAllClinic, listStudents } from './_db.js';
+import { getStudentsByPhone, resolveStudentDetailed, getClinic, upsertClinic, deleteClinic, listAllClinic, listStudents } from './_db.js';
+
+// 👥 2026-07-31 — 이름으로 학생을 잡을 때 같은 이름이 2명 이상이면 아무도 고르지 않고 409로 되돌린다.
+//   예전엔 resolveStudent 가 먼저 등록된 1명을 조용히 집어서, 엉뚱한 학생의 클리닉 기록이 바뀌었다.
+function 동명이인409(r) {
+  return Response.json({
+    error: '같은 이름 학생이 ' + r.동명이인수 + '명이라 누구인지 확정할 수 없어요. 학생 목록에서 학생을 골라 주세요.',
+    동명이인수: r.동명이인수, 후보목록: r.후보목록,
+  }, { status: 409 });
+}
 import { staffScopeAcademy } from './_staff.js';
 import { safeError } from './_errors.js';
 import { logAudit, diffFields } from './_auditlog.js';
@@ -79,7 +88,10 @@ export async function onRequest({ request, env }) {
         studentId = me ? me.id : null;
       } else {
         if (!queryId && !targetName) return Response.json({ error: 'id 또는 name 필수' }, { status: 400 });
-        const st = await resolveStudent(env, queryId, targetName);
+        const rs = await resolveStudentDetailed(env, queryId, targetName);
+        // 동명이인이면 빈 기록을 보여 주면 안 된다("클리닉을 한 번도 안 왔네"로 잘못 읽힌다) — 이유를 말한다.
+        if (!rs.ok && rs.reason === 'ambiguous') return 동명이인409(rs);
+        const st = rs.ok ? rs.student : null;
         // 조교가 자기 학원 밖 학생을 조회하면 빈 기록 반환(존재 여부도 숨김)
         if (scope && (!st || !scope.ids.has(String(st.id)))) {
           return Response.json({ name: targetName, records: {}, updatedAt: null });
@@ -170,7 +182,9 @@ export async function onRequest({ request, env }) {
       return await rejectPost('업데이트할 필드 없음(status/achieve/minutes/note)');
 
     try {
-      const st = await resolveStudent(env, body.id, name);
+      const rs = await resolveStudentDetailed(env, body.id, name);
+      if (!rs.ok && rs.reason === 'ambiguous') return 동명이인409(rs);
+      const st = rs.ok ? rs.student : null;
       if (!st) {
         // 학생을 못 찾은 것도 사건이다 — 퇴원 처리된 학생을 조교가 계속 입력하고 있는 상황이 여기서 드러난다.
         await logAudit(env, request, {
@@ -288,7 +302,9 @@ export async function onRequest({ request, env }) {
     }
 
     try {
-      const st = await resolveStudent(env, body.id, name);
+      const rs = await resolveStudentDetailed(env, body.id, name);
+      if (!rs.ok && rs.reason === 'ambiguous') return 동명이인409(rs);   // 지우기 전에 멈춘다 — 삭제는 되돌릴 수 없다
+      const st = rs.ok ? rs.student : null;
       if (!st) {
         // 학생이 없으면 조용히 ok:true가 나간다 — 화면상 "지워졌다"로 보이므로 흔적을 남겨야 오해를 푼다.
         await logAudit(env, request, {
