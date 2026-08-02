@@ -4020,19 +4020,34 @@
     if (via === "open")  return "목록열람";
     return "";
   }
-  function renderAccessLog(log){
+  function renderAccessLog(log, source){
     if (!log || !log.length) return '<div style="font-size:0.8rem;color:var(--text-light);">아직 접근 기록이 없습니다.</div>';
     const cntP = log.filter(l => l && l.role === "parent").length;
     const cntS = log.filter(l => l && l.role === "student").length;
-    const summary = `<div style="font-size:0.78rem;color:var(--text-light);margin-bottom:6px;font-weight:700;">학부모 ${cntP}명 · 학생 ${cntS}명 · 전체 ${log.length}건</div>`;
+    // 같은 이름이 둘 이상이면(동명이인) 학생번호를 같이 보여줘야 누가 봤는지 갈린다.
+    const dupName = {};
+    log.forEach(l => {
+      const n = (l && l.name) || "익명";
+      if (!(l && l.student_id != null)) return;
+      dupName[n] = dupName[n] || new Set();
+      dupName[n].add(l.student_id);
+    });
+    const 합쳐표시 = source === "r2+audit"
+      ? '<span style="font-weight:400;"> · 변경이력과 합쳐 표시</span>' : "";
+    const summary = `<div style="font-size:0.78rem;color:var(--text-light);margin-bottom:6px;font-weight:700;">학부모 ${cntP}명 · 학생 ${cntS}명 · 전체 ${log.length}건${합쳐표시}</div>`;
     const rows = log.slice().reverse().map(l => {
       const t = l && l.time ? new Date(l.time) : null;
       const when = t ? (t.getMonth()+1) + "/" + t.getDate() + " " + String(t.getHours()).padStart(2,"0") + ":" + String(t.getMinutes()).padStart(2,"0") : "";
       const via = _vViaLabel(l && l.via);
       const phone = _vMaskPhone(l && l.phone);
+      const nm = (l && l.name) || "익명";
+      // 이름이 겹치는데 학생번호가 서로 다를 때만 번호를 붙인다(평소엔 화면을 어지럽히지 않는다).
+      const sid = (l && l.student_id != null && dupName[nm] && dupName[nm].size > 1)
+        ? `<span style="color:var(--text-light);font-size:0.72rem;">#${l.student_id}</span>` : "";
       return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #E8E4DC;font-size:0.8rem;">
         ${_vRoleBadge(l && l.role)}
-        <strong>${escapeHtml((l && l.name) || "익명")}</strong>
+        <strong>${escapeHtml(nm)}</strong>
+        ${sid}
         ${phone ? `<span style="color:var(--text-light);">${phone}</span>` : ""}
         ${via ? `<span style="color:var(--text-light);">· ${via}</span>` : ""}
         <span style="margin-left:auto;color:var(--text-light);">${when}</span>
@@ -4065,7 +4080,7 @@
         : "";
       const _accLog = Array.isArray(v.access_log) ? v.access_log : [];
       const accBtn = `<button type="button" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);" onclick="toggleAccess(\x27${v.code}\x27)">👁 접근 ${v.access_count || 0}회${_accLog.length ? " ▾" : ""}</button>`;
-      const accPanel = `<div id="acc-${v.code}" style="display:none;width:100%;margin-top:10px;padding:10px 12px;background:#F7F5F0;border-radius:10px;box-sizing:border-box;">${renderAccessLog(_accLog)}</div>`;
+      const accPanel = `<div id="acc-${v.code}" style="display:none;width:100%;margin-top:10px;padding:10px 12px;background:#F7F5F0;border-radius:10px;box-sizing:border-box;">${renderAccessLog(_accLog, v.access_source)}</div>`;
       return `<div class="video-card">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           ${checkbox}
