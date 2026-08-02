@@ -301,14 +301,59 @@
           if(r.ok){ toast(next==='open'?'설문을 공개했어요':'설문을 종료했어요'); loadList(); } else toast('변경 실패');
         }).catch(function(){ toast('변경 실패'); });
       });
-      card.querySelector('[data-act="del"]').addEventListener('click', function(){
-        if(!confirm('이 설문과 모든 응답을 삭제할까요? 되돌릴 수 없어요.')) return;
-        api('DELETE', '?id=' + s.id).then(function(r){
-          if(r.ok){ toast('삭제했어요'); loadList(); } else toast('삭제 실패');
-        }).catch(function(){ toast('삭제 실패'); });
-      });
+      card.querySelector('[data-act="del"]').addEventListener('click', function(){ askDelete(s); });
       viewEl.appendChild(card);
     });
+  }
+
+  // ─────────────── 삭제 (성적표 점수 처리를 그때 고른다) ───────────────
+  // 2026-08-02 §11 6번 · 관우T 확정(원문 "물어봐").
+  //   테스트를 지우면 그 테스트로 성적표에 올라간 점수는 **기본으로 남는다**(예전 동작 그대로).
+  //   점수가 실제로 있을 때만 한 번 더 여쭙고, 그때 「함께 삭제 / 남기기」를 고르시게 한다.
+  //   ⚠️ 기본을 「남기기」로 둔 이유: 실수로 아이들 성적 이력이 통째로 날아가는 쪽이 훨씬 아프다.
+  //   ⚠️ 성적 일괄 삭제는 원장 전용이다(서버도 403으로 막는다) — 조교는 이 물음을 보지 않는다.
+  function askDelete(s){
+    var 무엇 = (s.quiz ? '테스트' : '설문');
+    // 성적표에 올라간 점수가 몇 명분인지 먼저 세어본다. 실패하면 안전하게 「남기기」로 간다.
+    api('GET', '?admin=1&id=' + s.id + '&scoreCount=1')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(){ return null; })
+      .then(function(d){
+        var n = (d && typeof d.count === 'number') ? d.count : 0;
+        var withScores = false;
+
+        if(n > 0 && !isStaff){
+          var who = (d.names || []).join(', ') + (d.more > 0 ? ' 외 ' + d.more + '명' : '');
+          var ask = '「' + (s.title || '제목 없음') + '」 ' + 무엇 + '을 삭제합니다.\n\n'
+            + '이 ' + 무엇 + '으로 성적표에 올라간 점수가 ' + n + '명분 있어요.\n'
+            + (who ? '(' + who + ')\n' : '')
+            + '\n이 점수도 함께 지울까요?\n\n'
+            + '[확인] 성적표 점수도 함께 삭제\n'
+            + '[취소] 성적표 점수는 그대로 남겨두기\n\n'
+            + '※ 어느 쪽이든 ' + 무엇 + '과 응답은 삭제됩니다. 다음 창에서 최종 확인해요.';
+          withScores = confirm(ask);
+        }
+
+        var last = '정말 삭제할까요? 되돌릴 수 없어요.\n\n'
+          + '· ' + 무엇 + '과 모든 응답이 삭제돼요.\n'
+          + (n > 0
+            ? (withScores
+              ? '· 성적표 점수 ' + n + '명분도 함께 삭제돼요.\n'
+              : '· 성적표 점수 ' + n + '명분은 그대로 남아요.\n'
+                + '  (원본 ' + 무엇 + '이 없어도 학생 성적표에는 계속 보여요. 나중에 성적 화면에서 한 줄씩 지울 수 있어요.)\n')
+            : '');
+        if(!confirm(last)) return;
+
+        api('DELETE', '?id=' + s.id + (withScores ? '&deleteScores=1' : '')).then(function(r){
+          if(!r.ok){ toast('삭제 실패'); return; }
+          return r.json().then(function(x){
+            toast(withScores && x && x.scoreRemoved
+              ? '삭제했어요 — 성적표 점수 ' + x.scoreRemoved + '명분도 지웠어요'
+              : '삭제했어요');
+            loadList();
+          }).catch(function(){ toast('삭제했어요'); loadList(); });
+        }).catch(function(){ toast('삭제 실패'); });
+      });
   }
 
   // ─────────────── 빌더 ───────────────

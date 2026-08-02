@@ -336,6 +336,7 @@
           <button type="button" class="admin-card" onclick="openSection('notices')">📢<b>공지사항 관리</b><span>공지 작성·수정</span></button>
           <button type="button" class="admin-card" onclick="openSection('files')">📁<b>자료실 관리</b><span>파일 업로드·삭제</span></button>
           <button type="button" class="admin-card" onclick="openSection('videos')">📺<b>영상 관리</b><span>수업 영상</span></button>
+          <button type="button" class="admin-card" onclick="openSection('reviews')">💬<b>수강 후기<i class="cbadge" id="bdgReviews"></i></b><span>앱 공개·홈페이지 대표 선정</span></button>
         </div>
       </div>
       <div class="menu-sec">
@@ -382,6 +383,34 @@
         </div>
         <div id="appVerMsg" style="font-size:0.82rem;margin:4px 0 10px;min-height:18px;"></div>
         <button type="button" id="appVerSaveBtn" onclick="saveAppVersion()" style="background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-weight:800;font-size:0.9rem;font-family:inherit;cursor:pointer;">저장</button>
+      </div>
+    </div>
+
+    <!-- 수강 후기 관리 탭 -->
+    <!-- 2026-08-02 관우T 확정 「유튜브 보류 댓글」 방식.
+         후기는 쓰는 즉시 **쓴 사람 본인 눈에만** 앱 둘러보기에 보인다. 남에겐 안 보인다.
+         작성자에게는 대기/승인 상태를 어떤 형태로도 알리지 않는다("자기가 거절당했다는거를 모르게").
+         → 그래서 이 화면에도 「거절」 버튼을 두지 않는다. 안 쓸 후기는 그냥 놔두면 된다. -->
+    <div class="tab-panel" id="tab-reviews">
+      <p class="panel-title">💬 수강 후기 관리</p>
+      <div style="font-size:0.82rem;color:var(--text-light);line-height:1.75;margin-bottom:16px;background:#faf7f8;border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+        후기는 쓰는 즉시 <b>쓴 사람 본인에게만</b> 앱에 보여요. 다른 사람에겐 안 보입니다.<br>
+        · <b>앱에 공개</b>를 켜면 → 앱 「둘러보기」에서 <b>모든 학생·학부모</b>가 봅니다.<br>
+        · <b>홈페이지 대표</b>까지 켜면 → <b>kwmath.co.kr 메인</b>에 실립니다(이름은 박O영처럼 가려서 나가고, <b>반 이름은 그대로</b> 나갑니다).<br>
+        · 안 쓸 후기는 <b>「이번엔 넘어가기」</b>를 누르세요. 거절 버튼은 일부러 안 만들었어요 —
+        후기는 지워지지 않고, 쓴 사람 화면도 그대로이며(본인에겐 계속 보임), 알림도 안 갑니다.
+        <b>「검토할 후기」 목록에서만 빠집니다.</b>
+      </div>
+      <div class="notice-filter-tabs" id="reviewFilterTabs">
+        <button class="nft-btn active" data-filter="wait" onclick="filterAdminReviews('wait', this)">검토할 후기 <span class="nft-count" id="rvc-wait">0</span></button>
+        <button class="nft-btn" data-filter="app" onclick="filterAdminReviews('app', this)">앱에 공개중 <span class="nft-count" id="rvc-app">0</span></button>
+        <button class="nft-btn" data-filter="main" onclick="filterAdminReviews('main', this)">홈페이지 대표 <span class="nft-count" id="rvc-main">0</span></button>
+        <button class="nft-btn" data-filter="all" onclick="filterAdminReviews('all', this)">전체 <span class="nft-count" id="rvc-all">0</span></button>
+        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:auto;" onclick="loadAdminReviews()">🔄 새로고침</button>
+      </div>
+      <div id="adminReviewMsg" style="font-size:0.82rem;margin:6px 0 10px;min-height:18px;"></div>
+      <div class="notice-list" id="adminReviewList">
+        <div class="empty">불러오는 중...</div>
       </div>
     </div>
 
@@ -878,13 +907,14 @@
     const H = { 'Authorization': 'Bearer ' + adminToken };
     const grab = (u) => fetch(u, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    const [inq, qna, stf, hw, att, stu] = await Promise.allSettled([
+    const [inq, qna, stf, hw, att, stu, rev] = await Promise.allSettled([
       grab('/api/inquiry?admin=1'),
       grab('/api/qna?count=1'),
       grab('/api/staff-approve'),
       grab('/api/homework?admin=1'),
       grab('/api/attendance?all=1'),   // ⚠️ 살펴볼 학생 판정용 — 새 API를 안 만든다(원칙 ①)
       grab('/api/students'),           // 같은 판정을 재원생으로만 한정하려고 (숫자 ↔ 목록 일치)
+      grab('/api/reviews?admin=1'),    // 검토할 후기 — 본문이 텍스트뿐이라 가볍다(최대 100건)
     ]).then(rs => rs.map(r => (r.status === 'fulfilled' ? r.value : null)));
 
     const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
@@ -924,10 +954,19 @@
       try { syncRiskFilterBtn(); } catch (_) {}
     }
 
+    // ⑦ 검토할 후기 — 아직 「앱에 공개」를 안 켠 것. 켜기 전까지는 쓴 사람만 자기 글을 본다.
+    //    급한 일은 아니라 오늘 목록에서는 맨 아래에 둔다.
+    let nRev = null;
+    if (rev && Array.isArray(rev.reviews)) {
+      adminReviewsCache = rev.reviews;   // 후기 탭을 열면 이 값으로 바로 그려지고, 곧 새로 받는다
+      nRev = rev.reviews.filter(r => reviewMatchesFilter(r, 'wait')).length;
+    }
+
     setBadge('bdgInquiry', nInq);
     setBadge('bdgQna', nQna);
     setBadge('bdgStaff', nStf);
     setBadge('bdgHomework', nHwNew);
+    setBadge('bdgReviews', nRev);
 
     const rows = [];
     //   href = 다른 페이지로 이동 / js = 이 페이지 안에서 처리(탭 전환 등). 둘 중 하나만 쓴다.
@@ -943,6 +982,7 @@
     row(nHwNew, '📸', '확인 안 한 과제 제출', '/admin-homework');
     row(nHw, '📸', '마감된 채로 열려 있는 과제', '/admin-homework');
     row(nRisk, '⚠️', '살펴볼 학생 (출결·숙제 꺾임)', '', 'openRiskStudents()');
+    row(nRev, '💬', '검토할 수강 후기', '', "openSection('reviews')");
 
     const title = '<div class="today-t">오늘 확인할 것<em>' + kstTodayLabel() + '</em></div>';
     if (rows.length) {
@@ -1173,6 +1213,7 @@
     if (name === 'files') loadFiles();
     if (name === 'videos') loadVideos();
     if (name === 'appversion') loadAppVersion();
+    if (name === 'reviews') loadAdminReviews();
       }
 
   // ── 학생 목록: 재원생 / 퇴원생 서브탭 ──
@@ -1293,6 +1334,214 @@
   }
 
   // ─────────────── 수강 후기 관리 ───────────────
+  // ┌─ 2026-08-02 관우T 확정 정책 — 「유튜브 보류 댓글」 방식 ────────────────────
+  // │ "후기를 쓰면 일단 쓰는 사람한테는 보여, 근데 내가 승인 누르기 전까지는
+  // │  자기만 볼 수 있는거야 … 유튜브 댓글이 그래"
+  // │ "거절보류는 그냥 달지마 자기가 거절당했다는거를 모르게"
+  // │ "홈페이지에는 굳이 올리지말자 대표적인거 몇개만 올리면 되고 수강후기는 앱에 쌓아놓자"
+  // │
+  // │ 관문이 둘이다 —
+  // │   ① 승인 상태='승인'  → 앱 「둘러보기」에 공개 (후기가 쌓이는 본체)
+  // │   ② 메인 노출=true    → 홈페이지 대표 후기 (몇 개만)  ※ ②는 ①을 전제
+  // │
+  // │ 🚫 이 화면에 「거절」 버튼을 만들지 말 것. 상태는 대기/승인 2단만 쓴다.
+  // │    안 쓸 후기는 「이번엔 넘어가기」(=처리 메모만 남김). 상태는 대기 그대로다.
+  // │ 🚫 작성자 화면(reviews.html)에는 상태를 어떤 형태로도 내보내지 않는다.
+  // │    /api/reviews 의 작성자용 응답(?mine=1 · 둘러보기)도 status·memo 를 빼고 내려준다.
+  // │    ← 「이번엔 넘어가기」가 메모에 "공개 안 함"을 적으므로 이게 없으면 그대로 샌다.
+  // └──────────────────────────────────────────────────────────────────────────
+  let adminReviewsCache = [];
+  let adminReviewFilter = 'wait';
+
+  async function loadAdminReviews() {
+    const box = document.getElementById('adminReviewList');
+    if (!box) return;
+    box.innerHTML = '<div class="empty">불러오는 중...</div>';
+    try {
+      const res = await fetch('/api/reviews?admin=1', {
+        cache: 'no-store',
+        headers: { 'Authorization': 'Bearer ' + adminToken }
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error((d && d.error) || '불러오기 실패');
+      adminReviewsCache = d.reviews || [];
+      renderAdminReviews();
+      updateReviewBadge();
+    } catch (e) {
+      adminReviewsCache = [];
+      box.innerHTML = '<div class="empty">후기를 불러오지 못했어요.<br><span style="font-size:0.8rem;">'
+        + escapeHtml(e.message || '') + '</span></div>';
+    }
+  }
+
+  // 'wait'(검토할 후기) = 「아직 앱에 공개 안 했고, 처리 메모도 안 적은 것」.
+  //   ⚠️ 단순히 「승인 아님」으로 세면 안 된다. 관우T 정책상 안 쓸 후기는 거절하지 않고
+  //      그냥 대기로 남겨두므로, 그 숫자가 홈 배지에 영영 박혀 줄지 않는다.
+  //      "줄지 않는 숫자는 며칠이면 눈이 무시한다"(오늘 요약 원칙 ③)를 정면으로 어긴다.
+  //      그래서 처리 메모를 한 줄이라도 적으면 = 「내가 보고 판단 끝냈다」로 보고 배지에서 뺀다.
+  //      메모는 관리자만 보는 칸이라 작성자에게는 아무것도 새지 않는다.
+  //   옛 데이터에 '거절'이 남아 있어도 승인이 아니므로 여기로 모인다.
+  function reviewMatchesFilter(r, f) {
+    const memo = (r.memo || '').trim();
+    if (f === 'all')  return true;
+    if (f === 'wait') return r.status !== '승인' && !memo;
+    if (f === 'app')  return r.status === '승인';
+    if (f === 'main') return r.status === '승인' && r.mainShow === true;
+    return true;
+  }
+
+  function filterAdminReviews(f, btn) {
+    adminReviewFilter = f;
+    document.querySelectorAll('#reviewFilterTabs .nft-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderAdminReviews();
+  }
+
+  function renderAdminReviews() {
+    const box = document.getElementById('adminReviewList');
+    if (!box) return;
+    const list = adminReviewsCache;
+    const setCount = (elId, f) => {
+      const el = document.getElementById(elId);
+      if (el) el.textContent = list.filter(r => reviewMatchesFilter(r, f)).length;
+    };
+    setCount('rvc-wait', 'wait'); setCount('rvc-app', 'app');
+    setCount('rvc-main', 'main'); setCount('rvc-all', 'all');
+
+    const shown = list.filter(r => reviewMatchesFilter(r, adminReviewFilter));
+    if (!shown.length) {
+      const empty = {
+        wait: '검토할 후기가 없어요. 새 후기가 오면 여기에 쌓입니다.',
+        app:  '앱에 공개된 후기가 없어요.',
+        main: '홈페이지 대표로 고른 후기가 없어요.',
+        all:  '아직 등록된 후기가 없어요.',
+      }[adminReviewFilter] || '후기가 없어요.';
+      box.innerHTML = '<div class="empty">' + empty + '</div>';
+      return;
+    }
+    box.innerHTML = shown.map(adminReviewCardHtml).join('');
+  }
+
+  function adminReviewCardHtml(r) {
+    const on   = r.status === '승인';
+    const main = r.mainShow === true;
+    const memo = (r.memo || '').trim();
+    const id   = jsArg(r.id);
+    const bar  = main ? '#1F7A33' : (on ? 'var(--primary)' : '#c9bcc0');
+    const pill = (bg, fg, txt) => '<span style="background:' + bg + ';color:' + fg
+      + ';font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:8px;">' + txt + '</span>';
+    const chip = main ? pill('#e7f4ea', '#1F7A33', '🏠 홈페이지 대표')
+      : (on ? pill('#f5e9ec', 'var(--primary)', '📱 앱에 공개중')
+        : (memo ? pill('#f1eef0', '#7a6d71', '🙈 본인만 보는 중 · 검토함')
+          : pill('#fff4e0', '#9a6b12', '🆕 검토 전')));
+
+    const meta = [
+      r.authorType ? escapeHtml(r.authorType) : '',
+      (r.authorType === '학부모' && r.studentName) ? '자녀 ' + escapeHtml(r.studentName) : '',
+      r.className ? escapeHtml(r.className) : '',
+      r.authorPhone ? escapeHtml(r.authorPhone) : '',
+      (r.createdAt || '').slice(0, 10),
+    ].filter(Boolean).join(' · ');
+
+    const btn = (label, handler, filled) =>
+      '<button type="button" onclick="' + handler + '" style="'
+      + (filled
+        ? 'background:var(--primary);color:#fff;border:1.5px solid var(--primary);'
+        : 'background:#fff;color:var(--primary);border:1.5px solid var(--primary);')
+      + 'padding:7px 14px;border-radius:9px;font-size:0.8rem;font-weight:800;font-family:inherit;cursor:pointer;">'
+      + label + '</button>';
+
+    return ''
+      + '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid ' + bar + ';border-radius:12px;padding:15px 17px;">'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">'
+      +     '<b style="font-size:0.95rem;">' + escapeHtml(r.authorName || '이름 없음') + '</b>'
+      +     '<span style="color:var(--text-light);font-size:0.78rem;">' + meta + '</span>'
+      +     '<span style="margin-left:auto;">' + chip + '</span>'
+      +   '</div>'
+      +   (r.title ? '<div style="font-weight:800;font-size:0.9rem;margin-bottom:4px;">' + escapeHtml(r.title) + '</div>' : '')
+      +   '<div style="font-size:0.88rem;line-height:1.75;white-space:pre-wrap;color:var(--text);">' + escapeHtml(r.content || '') + '</div>'
+      +   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px;">'
+      +     btn(on ? '📱 앱에 공개중 — 끄기' : '📱 앱에 공개', "toggleReviewApp('" + id + "', " + (on ? 'false' : 'true') + ", this)", on)
+      +     btn(main ? '🏠 홈페이지 대표 — 내리기' : '🏠 홈페이지 대표로', "toggleReviewMain('" + id + "', " + (main ? 'false' : 'true') + ", this)", main)
+      //   안 쓸 후기를 「검토할 후기」 목록에서 내리는 유일한 수단. 후기 자체는 그대로 남고
+      //   작성자 화면도 그대로다(본인에겐 계속 보임). 홈 배지 숫자만 줄어든다.
+      +     (on || memo ? '' :
+            '<button type="button" onclick="passReview(\'' + id + '\', this)" style="background:none;border:none;color:var(--text-light);'
+            + 'font-size:0.8rem;font-family:inherit;cursor:pointer;text-decoration:underline;padding:7px 4px;">이번엔 넘어가기</button>')
+      +   '</div>'
+      +   '<div style="display:flex;gap:6px;margin-top:10px;">'
+      +     '<input id="rvmemo-' + escapeAttr(r.id) + '" type="text" value="' + escapeAttr(r.memo || '') + '" placeholder="처리 메모 (나만 봅니다)" '
+      +       'style="flex:1;padding:7px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:0.8rem;font-family:inherit;outline:none;">'
+      +     '<button type="button" onclick="saveReviewMemo(\'' + id + '\', this)" style="background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:7px 12px;border-radius:8px;font-size:0.8rem;font-family:inherit;cursor:pointer;">💾</button>'
+      +   '</div>'
+      + '</div>';
+  }
+
+  async function patchAdminReview(id, body, btn) {
+    const msg = document.getElementById('adminReviewMsg');
+    let oldLabel = '';
+    if (btn) { oldLabel = btn.textContent; btn.disabled = true; btn.textContent = '저장 중…'; }
+    if (msg) { msg.style.color = 'var(--text-light)'; msg.textContent = ''; }
+    try {
+      const res = await fetch('/api/reviews?id=' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify(body)
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error((d && d.error) || '저장 실패');
+      if (msg) { msg.style.color = '#1F7A33'; msg.textContent = '✅ 반영됐어요.'; }
+      await loadAdminReviews();   // 목록을 다시 그리므로 버튼 상태 복구는 필요 없다
+    } catch (e) {
+      if (msg) { msg.style.color = '#c0392b'; msg.textContent = '오류: ' + (e.message || '저장 실패'); }
+      if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
+    }
+  }
+
+  // 관문 ① 앱 공개. 끄면 다시 「쓴 사람 본인만 보는」 상태로 돌아간다.
+  function toggleReviewApp(id, turnOn, btn) {
+    const r = adminReviewsCache.find(x => x.id === id);
+    if (turnOn) { patchAdminReview(id, { status: '승인' }, btn); return; }
+    const warn = (r && r.mainShow)
+      ? '앱 공개를 끄면 홈페이지 대표에서도 함께 내려갑니다.\n\n계속할까요?'
+      : '앱 공개를 끌까요?\n\n다시 「쓴 사람 본인만 보이는」 상태가 됩니다.\n쓴 사람에게는 아무 알림도 가지 않아요.';
+    if (!confirm(warn)) return;
+    patchAdminReview(id, { status: '대기' }, btn);
+  }
+
+  // 관문 ② 홈페이지 대표. ①이 전제라, 안 켜져 있으면 한 번에 둘 다 켜준다.
+  // (서버 PATCH 안전망도 승인이 아니면 메인 노출을 강제로 끈다 — 어긋난 상태가 생길 수 없다)
+  function toggleReviewMain(id, turnOn, btn) {
+    const r = adminReviewsCache.find(x => x.id === id);
+    if (!turnOn) { patchAdminReview(id, { mainShow: false }, btn); return; }
+    if (!r || r.status !== '승인') {
+      if (!confirm('홈페이지 대표로 올리려면 앱 공개가 먼저예요.\n\n「앱에 공개」도 같이 켜서 홈페이지 메인에 실을까요?\n(이름은 박O영처럼 가려서 나가지만 반 이름은 그대로 나갑니다.)')) return;
+      patchAdminReview(id, { status: '승인', mainShow: true }, btn);
+      return;
+    }
+    if (!confirm('이 후기를 kwmath.co.kr 메인에 싣습니다.\n\n이름은 박O영처럼 가려서 나가지만 반 이름은 그대로 나가요.\n계속할까요?')) return;
+    patchAdminReview(id, { mainShow: true }, btn);
+  }
+
+  function saveReviewMemo(id, btn) {
+    const el = document.getElementById('rvmemo-' + id);
+    if (!el) return;
+    patchAdminReview(id, { memo: el.value || '' }, btn);
+  }
+
+  // 「이번엔 넘어가기」 — 상태는 대기 그대로 두고 처리 메모만 남긴다.
+  //   메모가 있으면 「검토할 후기」에서 빠져 홈 배지가 줄어든다(reviewMatchesFilter 참고).
+  //   작성자에게는 아무 변화도, 아무 알림도 없다.
+  function passReview(id, btn) {
+    if (!confirm('이 후기는 앱에 공개하지 않고 넘어갈까요?\n\n· 후기는 지워지지 않고 그대로 남아요.\n· 쓴 사람 화면도 그대로예요 — 본인에게는 계속 보이고, 알림도 안 갑니다.\n· 「검토할 후기」 목록에서만 빠집니다. (전체 탭에서 다시 볼 수 있어요)')) return;
+    const stamp = kstToday();
+    patchAdminReview(id, { memo: '검토함 — 공개 안 함 (' + stamp + ')' }, btn);
+  }
+
+  // 홈 카드 배지 — 「검토할 후기」 건수. 0이면 .cbadge:empty 규칙으로 저절로 숨는다.
+  function updateReviewBadge() {
+    setBadge('bdgReviews', adminReviewsCache.filter(r => reviewMatchesFilter(r, 'wait')).length);
+  }
 
   // ── 공지사항 로드 ──
   let adminNoticesCache = [];

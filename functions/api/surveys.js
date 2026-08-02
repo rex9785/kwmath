@@ -16,7 +16,9 @@
 //   POST   /api/surveys                   설문 생성 { title, description?, audience?, anonymous?, status?, questions[] }
 //   PATCH  /api/surveys?id=X              설문 수정 { title?, description?, audience?, anonymous?, status?, questions? }
 //   PATCH  /api/surveys?id=X&editAnswers=1  학생 답 직접 수정 { responseId, answers:{qid:value} } — 재채점+성적 반영
-//   DELETE /api/surveys?id=X              설문 삭제(+응답 전체)
+//   GET    /api/surveys?admin=1&id=X&scoreCount=1  이 테스트로 성적표에 올라간 점수가 몇 명분인지(삭제 확인창용)
+//   DELETE /api/surveys?id=X              설문 삭제(+응답 전체) — 성적표는 **기본으로 남긴다**
+//   DELETE /api/surveys?id=X&deleteScores=1  위와 같되 성적표의 그 테스트 점수도 함께 삭제
 //   DELETE /api/surveys?id=X&responseId=Y 응답 1건 삭제(재제출 허용) — 성적표 잔재도 정리
 //
 //  ── 응답자(로그인 학생·학부모) : Authorization: Bearer <학생토큰> ──
@@ -707,6 +709,30 @@ export async function onRequest(context) {
           const s = await env.DB.prepare('SELECT * FROM surveys WHERE id=?').bind(id).first();
           if (!s) return jsonErr('설문을 찾을 수 없습니다.', 404);
           if (isStaff && s.quiz !== 1) return jsonErr('조교는 테스트만 볼 수 있어요.', 403);
+
+          // ── GET ?id=X&scoreCount=1 — 「이 테스트를 지우면 성적표에서 같이 지울 수 있는 점수가 몇 명분인가」
+          //   2026-08-02 관우T 확정(§11 6번, 원문 "물어봐"): 테스트를 지울 때 성적을 같이 지울지
+          //   **그 자리에서 고르신다.** 확인창에 진짜 인원수·이름을 보여주려면 삭제 전에 세어야 한다.
+          //   ⚠️ 이름이 아니라 **source_key 로만** 찾는다 — 동명이인 오삭제가 원천적으로 불가능하다
+          //      (deleteTestScore 는 이름 매칭이라 동명이인이면 아예 포기한다. 이 경로는 그 한계가 없다).
+          if (url.searchParams.get('scoreCount') === '1') {
+            let scoreRows = [];
+            try {
+              const q = await env.DB.prepare(
+                'SELECT e.id, e.student_id, e.label, e.raw_score, e.exam_date, st.name AS student_name ' +
+                'FROM exam_scores e LEFT JOIN students st ON st.id = e.student_id ' +
+                'WHERE e.source_key=? ORDER BY e.id'
+              ).bind('quiz:' + id).all();
+              scoreRows = q.results || [];
+            } catch (_) { /* exam_scores 가 아직 없을 수 있다 — 0건으로 본다 */ }
+            return jsonOk({
+              ok: true,
+              count: scoreRows.length,
+              names: scoreRows.slice(0, 20).map(x => x.student_name || ('학생#' + x.student_id)),
+              more: Math.max(0, scoreRows.length - 20),
+            });
+          }
+
           const { results } = await env.DB.prepare(
             'SELECT * FROM survey_responses WHERE survey_id=? ORDER BY created_at DESC, id DESC'
           ).bind(id).all();
@@ -1374,15 +1400,60 @@ export async function onRequest(context) {
           respRows = results || [];
         } catch (_) {}
 
+        // ── 2026-08-02 §11 6번 — 성적표에 올라간 이 테스트 점수를 어떻게 할지 ──
+        //   관우T 확정(원문 "물어봐"): **지울 때 그때그때 고른다.**
+        //   기본은 「남긴다」 — `deleteScores=1` 이 없으면 예전과 **완전히 동일**하게 동작한다(무회귀).
+        //   실수로 아이들 성적 이력이 통째로 날아가는 쪽이 훨씬 아프기 때문이다.
+        //   ⚠️ 어느 쪽을 고르든 **지우기 전에** 그 성적 행들을 읽어 로그에 통째로 박는다.
+        //      남긴 경우에도 남긴다 — 나중에 "원본 테스트가 없는 이 점수는 뭐지"의 답이 이 로그다.
+        //   ⚠️ 이름이 아니라 source_key 로만 지운다 → 동명이인 오삭제가 원천적으로 불가능.
+        //      (deleteTestScore 는 이름 매칭이라 동명이인이면 아예 포기한다. 이 경로엔 그 한계가 없다.)
+        const wantDeleteScores = url.searchParams.get('deleteScores') === '1';
+        // 🔒 여러 학생의 성적을 한 번에 지우는 건 원장만. 조교는 테스트만 지운다.
+        //    (조교도 응답 1건 삭제로 그 학생 점수 하나는 지울 수 있다 — 여기서 막는 건 **일괄**이다.)
+        //    조용히 무시하지 않고 **아무것도 지우기 전에** 403 으로 세운다.
+        if (wantDeleteScores && isStaff) {
+          return jsonErr('성적표 점수까지 한꺼번에 지우는 건 원장만 할 수 있어요. 테스트만 지우려면 「성적은 남기기」로 다시 시도해 주세요.', 403);
+        }
+        const scoreSourceKey = 'quiz:' + id;
+        let scoreRows = [];
+        try {
+          const q = await env.DB.prepare(
+            'SELECT e.id, e.student_id, e.exam_type, e.label, e.raw_score, e.exam_date, e.created_at, st.name AS student_name ' +
+            'FROM exam_scores e LEFT JOIN students st ON st.id = e.student_id ' +
+            'WHERE e.source_key=? ORDER BY e.id'
+          ).bind(scoreSourceKey).all();
+          scoreRows = q.results || [];
+        } catch (_) { /* exam_scores 가 아직 없을 수 있다 — 0건으로 본다 */ }
+
         const dResp = await env.DB.prepare('DELETE FROM survey_responses WHERE survey_id=?').bind(id).run();
         const dSurv = await env.DB.prepare('DELETE FROM surveys WHERE id=?').bind(id).run();
+
+        let scoreRemoved = 0;
+        let scoreDeleteError = '';
+        if (wantDeleteScores && scoreRows.length) {
+          try {
+            const dScore = await env.DB.prepare('DELETE FROM exam_scores WHERE source_key=?')
+              .bind(scoreSourceKey).run();
+            scoreRemoved = (dScore.meta && dScore.meta.changes) || 0;
+          } catch (e) {
+            // 성적 삭제 실패가 설문 삭제를 되돌리지는 못한다(이미 지워졌다) → 사유를 로그에 남긴다.
+            scoreDeleteError = String((e && e.message) || e);
+          }
+        }
 
         await logAudit(env, request, {
           action: (sBefore && sBefore.quiz === 1) ? 'quiz.delete' : 'survey.delete',
           target: String(id),
           targetName: (sBefore && sBefore.title) || '',
           summary: ((sBefore && sBefore.quiz === 1) ? '테스트' : '설문') + ' [' + ((sBefore && sBefore.title) || id)
-            + '] 영구 삭제 — 응답 ' + respRows.length + '명분 함께 삭제 (복구 불가)',
+            + '] 영구 삭제 — 응답 ' + respRows.length + '명분 함께 삭제 (복구 불가)'
+            + (scoreRows.length
+              ? (wantDeleteScores
+                ? ' · 성적표 점수 ' + scoreRemoved + '명분도 함께 삭제'
+                  + (scoreDeleteError ? ' ※ 실패: ' + scoreDeleteError : '')
+                : ' · 성적표 점수 ' + scoreRows.length + '명분은 원장 선택으로 남김')
+              : ''),
           detail: {
             설문id: id,
             지워진설문: sBefore ? {
@@ -1397,10 +1468,35 @@ export async function onRequest(context) {
               응답: (dResp.meta && dResp.meta.changes) || 0,
               설문: (dSurv.meta && dSurv.meta.changes) || 0,
             },
-            비고: '연동된 성적(exam_scores)은 이 경로에서 지우지 않는다 — 응답 개별삭제 때만 deleteTestScore 가 돈다',
+            성적표처리: scoreRows.length === 0
+              ? '해당 없음 (성적표에 올라간 점수 0건)'
+              : (wantDeleteScores ? '원장이 「함께 삭제」를 선택' : '원장이 「남기기」를 선택 (기본)'),
+            성적표대상: scoreRows.length,
+            성적표삭제행수: scoreRemoved,
+            성적표삭제실패: scoreDeleteError || '',
+            // 지웠든 남겼든 **지우기 전 스냅샷**을 박아 둔다. 지웠으면 되살릴 근거,
+            // 남겼으면 "원본 테스트 없는 이 점수는 뭔가"의 답이 된다.
+            대상성적: scoreRows.slice(0, 300).map(x => ({
+              학생: x.student_name || ('학생#' + x.student_id),
+              학생id: String(x.student_id),
+              종류: x.exam_type || '',
+              제목: x.label || '',
+              점수: x.raw_score,
+              시험일: x.exam_date || '',
+              등록시각: x.created_at || '',
+            })),
+            성적일부만저장: scoreRows.length > 300,
+            비고: wantDeleteScores
+              ? '성적표(exam_scores)의 source_key=' + scoreSourceKey + ' 행을 함께 삭제했다 — 이름이 아니라 source_key 기준이라 동명이인 오삭제 없음'
+              : '성적표(exam_scores)는 남겼다 — 원본 테스트가 사라져도 학생 성적표의 그 점수는 그대로 보인다(제목은 삭제 시점 제목 그대로). 나중에 지우려면 성적 화면에서 한 줄씩 삭제',
           },
         });
-        return jsonOk({ ok: true, removed: 1 });
+        return jsonOk({
+          ok: true, removed: 1,
+          scoreCount: scoreRows.length,
+          scoreRemoved,
+          scoreKept: wantDeleteScores ? 0 : scoreRows.length,
+        });
       }
 
       return jsonErr('지원하지 않는 메소드입니다.', 405);

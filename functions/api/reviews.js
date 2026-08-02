@@ -1,13 +1,33 @@
-// /api/reviews — 수강 후기 (학생/학부모 작성, 관리자 승인 후 노출)
+// /api/reviews — 수강 후기 (학생/학부모 작성)
 //
-// GET  /api/reviews?public=1   퍼블릭. 승인+메인노출 후기 목록 (메인 홈피용)
-// GET  /api/reviews?mine=1     토큰. 본인이 작성한 후기
-// GET  /api/reviews            토큰. 승인된 모든 후기 (포털 후기 탭용)
-// GET  /api/reviews?admin=1    admin. 승인 상태 무관 전체 (대기/승인/거절 다)
-// POST /api/reviews            토큰. 새 후기 작성 (대기 상태로 들어감)
+// ┌─ 2026-08-02 관우T 확정 정책 — "유튜브 보류 댓글" 방식 ────────────────────
+// │ 관우T 원문: "후기를 쓰면 일단 쓰는 사람한테는 보여, 근데 내가 승인 누르기
+// │             전까지는 자기만 볼 수 있는거야 … 유튜브 댓글이 그래"
+// │             "거절보류는 그냥 달지마 자기가 거절당했다는거를 모르게"
+// │             "홈페이지에는 굳이 올리지말자 대표적인거 몇개만 올리면 되고
+// │              수강후기는 앱에 쌓아놓자"
+// │
+// │ 1) 쓰면 곧바로 **본인 눈에는** 둘러보기 목록에 뜬다. 남에겐 안 보인다.
+// │    → 쓴 사람은 올라갔다고 생각하고 넘어간다. "승인 대기"라는 말이 안 나온다.
+// │ 2) 작성자 화면에 **승인 상태를 절대 내보내지 않는다.** '대기'/'거절' 같은
+// │    글자가 보이면 걸러졌다는 걸 알게 되므로 정책 자체가 무너진다.
+// │    (reviews.html 의 statusBadge() 도 같은 이유로 삭제했다 — 되살리지 말 것.)
+// │ 3) 상태는 **`대기` / `승인` 2단만 쓴다. `거절`은 만들지 않는다.**
+// │    안 올릴 후기는 그냥 `대기`로 둔다.
+// │ 4) 관문이 둘이다 —
+// │      ① `승인 상태='승인'`  → **앱 둘러보기 탭에 공개** (후기가 쌓이는 본체)
+// │      ② `메인 노출=true`    → **홈페이지 대표 후기로 게시** (몇 개만 고름)
+// │    ②는 ①을 전제로 한다. 승인 안 된 건 홈페이지에 못 간다(PATCH 안전망).
+// └──────────────────────────────────────────────────────────────────────────
+//
+// GET  /api/reviews?public=1   퍼블릭. 승인+메인노출 후기 (홈페이지 대표 후기용)
+// GET  /api/reviews?mine=1     토큰. 본인이 작성한 후기 (상태 무관, status·memo 제거)
+// GET  /api/reviews            토큰. 둘러보기 탭 — 승인된 것 + **내가 쓴 것(상태 무관)**
+// GET  /api/reviews?admin=1    admin. 승인 상태 무관 전체
+// POST /api/reviews            토큰. 새 후기 작성 → `대기` 로 들어감
 //   body: { authorType: '학생'|'학부모', authorName?: string, content: string }
-// DELETE /api/reviews?id=...   토큰. 본인 후기 삭제 (대기 상태일 때만)
-// PATCH  /api/reviews?id=...   admin. { status: '승인'|'거절'|'대기', mainShow?: boolean, memo?: string }
+// DELETE /api/reviews?id=...   토큰. 본인 후기 삭제 (상태 무관)
+// PATCH  /api/reviews?id=...   admin. { status: '승인'|'대기', mainShow?: boolean, memo?: string }
 
 import { requireAuth, fetchStudentsByPhone, normalizePhone } from './_auth.js';
 import { safeError, logError } from './_errors.js';
@@ -143,18 +163,40 @@ export async function onRequest({ request, env }) {
         const list = await queryReviews(env, {
           property: '작성자 휴대폰', rich_text: { equals: auth.phone },
         });
-        return jsonOk({ reviews: list });
+        // 🔒 2026-08-02 — 여기서 list 를 통째로 내보내면 `status`(대기/승인)와
+        //    `memo`(처리 메모)까지 작성자 브라우저로 간다. 화면에 안 그려도
+        //    개발자도구 네트워크 탭에 그대로 보인다.
+        //    관리자 화면의 「이번엔 넘어가기」는 메모에 "검토함 — 공개 안 함"을 적으므로,
+        //    이 줄이 없으면 작성자가 자기가 걸러졌다는 걸 그대로 읽게 된다
+        //    (= "자기가 거절당했다는거를 모르게" 정면 위반).
+        //    ⚠️ 여기에 status·memo·authorPhone 을 다시 넣지 말 것.
+        return jsonOk({
+          reviews: list.map(r => ({
+            id: r.id, title: r.title, content: r.content, authorName: r.authorName,
+            authorType: r.authorType, className: r.className, createdAt: r.createdAt,
+          })),
+        });
       }
-      // 포털 후기 탭: 승인된 것만
-      // ⚠️ 2026-08-02 — 여기가 빈 객체 {} 였다. {}는 truthy라 queryReviews의
+      // 둘러보기 탭 — 「승인된 것」 + 「내가 쓴 것(상태 무관)」
+      //
+      // ⚠️ 2026-08-02 ①차: 여기가 빈 객체 {} 였다. {}는 truthy라 queryReviews의
       //    `filter || undefined`를 통과해 노션에 filter:{} 로 그대로 나갔고,
-      //    결과적으로 대기·거절 후기까지 전부 포털에 보였다.
+      //    결과적으로 남의 대기·거절 후기까지 전부 포털에 보였다.
+      // 🔑 2026-08-02 ②차(관우T 확정 정책): `승인`만 걸면 쓴 사람이 둘러보기에서
+      //    자기 글을 못 찾고 "안 올라갔네 / 걸러졌네"를 눈치챈다. 그래서
+      //    **본인 휴대폰으로 쓴 글은 승인 전이라도 본인 눈에는 보이게** or 로 묶는다.
+      //    남에게는 여전히 승인된 것만 나간다 — auth.phone 은 이 요청을 보낸
+      //    사람의 토큰에서 나온 값이라 남의 대기글이 딸려올 수 없다.
       const list = await queryReviews(env, {
-        property: '승인 상태', select: { equals: '승인' },
+        or: [
+          { property: '승인 상태',    select:    { equals: '승인' } },
+          { property: '작성자 휴대폰', rich_text: { equals: auth.phone } },
+        ],
       });
+      // 🔒 ?mine=1 과 같은 이유로 status·memo·authorPhone 은 빼고 내려보낸다.
       return jsonOk({
         reviews: list.map(r => ({
-          id: r.id, content: r.content, authorName: r.authorName,
+          id: r.id, title: r.title, content: r.content, authorName: r.authorName,
           authorType: r.authorType, className: r.className, createdAt: r.createdAt,
         })),
       });
@@ -228,7 +270,14 @@ export async function onRequest({ request, env }) {
             '작성자 휴대폰': { rich_text: [{ text: { content: auth.phone } }] },
             '학생 이름':    { rich_text: [{ text: { content: studentName } }] },
             '반':           { rich_text: [{ text: { content: className } }] },
-            '승인 상태':    { select:    { name: '승인' } },
+            // 🔑 2026-08-02 관우T 확정 — 새 후기는 `대기` 로 들어간다.
+            //    (예전엔 여기가 '승인' 이라 쓰는 즉시 모두에게 공개됐다.)
+            //    `대기` 여도 **쓴 사람 본인에게는** 둘러보기 탭에 그대로 보이므로,
+            //    작성자 입장에선 올라간 것과 구분이 안 된다. 남에게만 안 보인다.
+            //    ⚠️ 이 값을 다시 '승인' 으로 되돌리면 = 무검열 즉시공개다.
+            //       되돌리기 전에 관우T께 반드시 확인할 것.
+            '승인 상태':    { select:    { name: '대기' } },
+            // 홈페이지 대표 후기는 관우T가 승인 화면에서 따로 고른다(관문 ②).
             '메인 노출':    { checkbox:  false },
           },
         }),
@@ -267,16 +316,20 @@ export async function onRequest({ request, env }) {
           학생id: firstStudent ? String(firstStudent.id) : '(연결된 학생 없음)',
           학생이름: studentName || '', 반: className || '',
           제목: title, 내용길이: content.length, 내용: clip(content),
-          승인상태: '승인(현재 정책상 자동 승인 — 화면 응답만 "대기"로 나감)',
-          메인노출: '아니오(원장이 켜야 홈페이지에 뜸)',
+          승인상태: '대기(관우T가 승인 화면에서 「앱에 공개」를 켜야 남들에게 보인다)',
+          메인노출: '아니오(관우T가 「홈페이지 대표로」를 켜야 홈페이지에 뜸 — 승인이 먼저다)',
           지목방식: '작성자 휴대폰으로 찾은 **첫 학생**(students[0])을 학생 이름·반으로 붙임. '
             + '노션 후기에는 학생 id가 저장되지 않는다 — 자녀가 둘인 학부모면 엉뚱한 자녀가 붙을 수 있다(현 코드 그대로 둠).',
-          효과: '이 후기는 포털 후기 탭에서 보이고, 원장이 「메인 노출」을 켜면 홈페이지 메인에 공개된다. '
-            + '공개 시 이름은 마스킹되지만 반 이름은 그대로 나간다.',
+          효과: '지금은 **쓴 사람 본인에게만** 둘러보기 탭에 보인다(남에겐 안 보임). '
+            + '관우T가 「앱에 공개」를 켜면 모든 포털 사용자에게 보이고, 거기서 「홈페이지 대표로」까지 켜면 '
+            + '홈페이지 메인에 공개된다. 홈페이지 공개 시 이름은 마스킹되지만 반 이름은 그대로 나간다.',
         },
       });
 
-      return jsonOk({ ok: true, id: created.id, status: '대기' });
+      // ⚠️ 승인 상태를 응답에 담지 않는다. 담아두면 언젠가 화면에서 그걸 찍게 되고,
+      //    그 순간 작성자가 "내 글은 대기구나"를 알게 된다(관우T 정책 위반).
+      //    작성자에게 필요한 건 "등록됐다" 뿐이다.
+      return jsonOk({ ok: true, id: created.id });
     }
 
     // ────────────────────────────  DELETE  ────────────────────────────
