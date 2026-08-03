@@ -87,8 +87,11 @@
   a:hover{color:var(--wine-deep);}
 
   /* ── 헤더: D-day 칩 + 네비 (1층) ── */
-  header.site{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(251,248,244,.9);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line);}
-  .nav-inner{max-width:1160px;margin:0 auto;padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:66px;gap:14px;}
+  header.site{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(251,248,244,.9);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line);padding:0 5%;}
+  /* ⚠️ 좌우 여백(5%)은 .nav-inner 가 아니라 header.site 에 준다.
+     .nav-inner{max-width:1160px} 안쪽에 %패딩을 주면 화면이 넓을수록 메뉴가 쓸 수 있는 폭이
+     오히려 줄어들어(1522px 화면에서 1009px) D-day 칩이 「수업소개」를 덮는다. 되돌리지 말 것. */
+  .nav-inner{max-width:1160px;margin:0 auto;padding:0;display:flex;align-items:center;justify-content:space-between;height:66px;gap:14px;}
   .nav-left{display:flex;align-items:center;gap:16px;min-width:0;}
   .nav-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
   .nav-logo img{height:36px;width:auto;object-fit:contain;display:block;}
@@ -388,11 +391,26 @@
   /* ── 반응형 ── */
   /* 노트북 폭(921~1160px): 메뉴가 7개(「학교별 내신 분석」 추가)라 기본 간격으로는 버튼과 겹친다.
      항목을 숨기지 않고 간격·글자만 줄여 한 줄을 유지한다. 921px 미만은 아래에서 어차피 숨긴다. */
-  @media (max-width:1160px) and (min-width:921px){
+  /* 노트북 폭: 메뉴 8개 + 버튼 2개가 한 줄에 들어가야 한다. 상한을 1290px 로 둔 이유 =
+     화면이 1290px 보다 좁으면 header 여백(5%)을 뺀 폭이 1160px 밑으로 내려가기 때문. */
+  @media (max-width:1290px) and (min-width:921px){
     .nav-links{gap:1.05rem;}
     .nav-links a{font-size:.82rem;}
     .nav-portal{padding:7px 11px;font-size:.76rem!important;}
     .nav-cta{padding:8px 14px;font-size:.78rem!important;}
+  }
+  @media (max-width:1190px) and (min-width:921px){
+    .dday-chip .dd-l{display:none;}          /* 「2027 수능」 접고 D-408 만 */
+    .nav-links{gap:.78rem;}
+    .nav-links a{font-size:.79rem;}
+    .nav-portal{padding:6px 9px;font-size:.73rem!important;}
+    .nav-cta{padding:7px 12px;font-size:.75rem!important;}
+  }
+  @media (max-width:1020px) and (min-width:921px){
+    .nav-links{gap:.5rem;}
+    .nav-links a{font-size:.72rem;}
+    .nav-portal{padding:5px 7px;font-size:.69rem!important;}
+    .nav-cta{padding:6px 9px;font-size:.71rem!important;}
   }
   @media (max-width:920px){
     .hero{padding-top:120px;}
@@ -416,7 +434,8 @@
     .dday-chip .dd-l{display:none;}
     .dday-chip b{font-size:.78rem;}
     /* 네비: 메뉴는 숨기고 .nav-keep(포털 로그인·상담 신청)만 유지 + 로고·칩·버튼 겹침 방지 압축 */
-    .nav-inner{padding:0 4%;gap:10px;}
+    header.site{padding:0 4%;}
+    .nav-inner{gap:10px;}
     .nav-left{gap:10px;}
     .nav-logo img{height:30px;}
     .nav-links{gap:6px;}
@@ -470,6 +489,7 @@
       <li><a href="#video">샘플강의</a></li>
       <li><a href="/lectures">공개강의</a></li>
       <li><a href="/analysis">학교별 내신 분석</a></li>
+      <li><a href="/consulting">입시 컨설팅</a></li>
       <li><a href="/materials">자료실</a></li>
       <li class="nav-keep"><a href="/portal" class="nav-portal">포털 로그인</a></li>
       <li class="nav-keep"><a href="#contact" class="nav-cta">상담 신청</a></li>
@@ -763,10 +783,38 @@
   </div>
 </section>
 
+<!-- CONSULTING: 입시 컨설팅 — 카드는 /consulting-sample(리포트 전문), 아래 버튼은 /consulting(허브)로 간다.
+     새 리포트를 공개하면 이 카드 하나를 복사해 넣고 consulting.html·sitemap.xml도 같이 손본다. -->
+<section id="consulting" style="background:var(--beige);">
+  <div class="section-inner">
+    <div class="eyebrow"><span class="no">07</span>CONSULTING</div>
+    <h2 class="section-title" data-rv>수학만 가르치고<br>끝내지 않습니다</h2>
+    <p class="section-desc" data-rv>재원생에게는 개인별 대입 전략 리포트를 따로 비용 없이 만들어 드립니다. 성적표 원본을 학기별로 판독해 내신을 직접 계산하고, 지망 대학 환산표에 그 성적을 실제로 넣어 지금 위치를 숫자로 보여 드립니다. 실제로 써 드린 리포트를 이름과 학교만 가리고 전문 공개해 두었습니다.</p>
+    <div class="schools" data-rv>
+      <a class="school-card" href="/consulting-sample">
+        <div class="school-top">
+          <span class="school-name">간호학과 지망 · 고2 여학생</span>
+          <span class="school-tag">전문 공개</span>
+        </div>
+        <div class="school-nums">
+          <div class="school-num"><b>17</b><i>개 섹션<br>진단부터 지원 조합까지</i></div>
+          <div class="school-num"><b>4.25</b><i>옛 9등급 환산<br>5등급제 2.48의 실제 위치</i></div>
+          <div class="school-num"><b>26.75%</b><i>도달 상한선<br>남은 41단위를 다 잘 봤을 때</i></div>
+        </div>
+        <p>5등급제 성적표의 2.48을 그대로 읽으면 상위권으로 보이지만, 옛 9등급으로 환산하면 4.25등급입니다. 이 차이를 먼저 확정하고 남은 학기를 전부 상위 10%로 마쳐도 어디서 멈추는지 계산한 뒤에 전략을 짰습니다. 지망 대학 두 곳의 환산표에 현재 성적을 직접 넣어 97.76점과 92.84점을 산출했습니다.</p>
+        <div class="school-go">리포트 전문 보기 →</div>
+      </a>
+    </div>
+    <p class="schools-more">공개본은 학생 이름·학교명·소재지만 가린 사본입니다. 성적과 계산 과정, 전략은 원본 그대로입니다.</p>
+    <!-- 아카이브 입구 — 모바일에서는 상단 메뉴가 숨겨지므로 이 버튼이 /consulting 으로 가는 유일한 길이다. 지우지 말 것. -->
+    <a class="schools-all" href="/consulting">입시 컨설팅 자세히 보기 →</a>
+  </div>
+</section>
+
 <!-- REVIEWS -->
 <section id="reviews">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">07</span>REVIEWS</div>
+    <div class="eyebrow"><span class="no">08</span>REVIEWS</div>
     <h2 class="section-title" data-rv>수강생들의 이야기</h2>
     <p class="section-desc" data-rv>이관우 선생님과 함께 성장한 학생들의 이야기를 들어보세요.</p>
     <div class="pull" data-rv>
@@ -870,7 +918,7 @@
 <!-- CLIPS -->
 <section class="clips" id="clips" style="background:var(--beige);">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">08</span>CLIPS</div>
+    <div class="eyebrow"><span class="no">09</span>CLIPS</div>
     <h2 class="section-title" data-rv>바이럴 강의 클립</h2>
     <p class="section-desc" data-rv>관우T의 인기 강의 클립을 미리 만나보세요. 직접 수업 스타일을 확인할 수 있습니다.</p>
     <div class="clips-grid" id="clipsGrid">
@@ -885,7 +933,7 @@
 <!-- OPEN CLASS -->
 <section id="openclass">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">09</span>OPEN CLASS</div>
+    <div class="eyebrow"><span class="no">10</span>OPEN CLASS</div>
     <h2 class="section-title" data-rv>설명회 · 공개강의</h2>
     <p class="section-desc" data-rv>반별 강의 소개와 공개강의 영상을 직접 확인해보세요. (썸네일 클릭 → 유튜브에서 재생)</p>
     <div class="openclass-grid" id="ocGrid">
@@ -932,7 +980,7 @@
 <!-- VIDEO — 샘플 강의 (다크 밴드) -->
 <section id="video" class="dark-sec">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">10</span>PREVIEW</div>
+    <div class="eyebrow"><span class="no">11</span>PREVIEW</div>
     <h2 class="section-title" data-rv>샘플 강의</h2>
     <p class="section-desc" data-rv>직접 강의를 확인해보세요. 이관우 선생님의 수업 방식을 미리 경험할 수 있습니다.</p>
     <div class="video-grid">
@@ -974,7 +1022,7 @@
 <!-- TIMETABLE -->
 <section class="timetable" id="timetable">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">11</span>TIMETABLE</div>
+    <div class="eyebrow"><span class="no">12</span>TIMETABLE</div>
     <h2 class="section-title" data-rv>수업 시간표</h2>
     <p class="section-desc" data-rv>현재 정규반과 7월 오픈 예정 세정학원 시간표를 안내해 드립니다.</p>
     <div class="tt-grid" id="ttGrid">
@@ -996,7 +1044,7 @@
 <!-- NOTICE -->
 <section id="notice">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">12</span>NOTICE</div>
+    <div class="eyebrow"><span class="no">13</span>NOTICE</div>
     <h2 class="section-title" data-rv>공지사항</h2>
     <p class="section-desc" data-rv>수업 관련 중요 공지를 확인해주세요.</p>
     <div class="notice-list" id="noticeList">
@@ -1008,7 +1056,7 @@
 <!-- FAQ -->
 <section id="faq" style="background:var(--beige);">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">13</span>FAQ</div>
+    <div class="eyebrow"><span class="no">14</span>FAQ</div>
     <h2 class="section-title" data-rv>자주 묻는 질문</h2>
     <p class="section-desc" data-rv>궁금하신 점을 먼저 확인해보세요.</p>
     <div id="faqList" class="faq-wrap"></div>
@@ -1018,7 +1066,7 @@
 <!-- CONTACT (다크) -->
 <section id="contact" class="dark-sec">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">14</span>CONTACT</div>
+    <div class="eyebrow"><span class="no">15</span>CONTACT</div>
     <h2 class="section-title" data-rv>수업 문의하기</h2>
     <p class="section-desc" data-rv>궁금한 점이 있으시면 언제든지 문의해 주세요. 빠르게 답변 드리겠습니다.</p>
     <div class="ct-grid">

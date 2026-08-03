@@ -1,0 +1,84 @@
+# 루트 .js 문법검사 (2026-08-03 신설 — §11-15)
+#
+# ▣ 왜 필요한가
+#   Cloudflare Pages 는 `functions/` 안의 파일만 "코드"로 취급해 빌드할 때 문법을 검사한다.
+#   리포 루트의 .js 4개(session-keep.js · kwnav.js · app-native.js · sw.js)는
+#   `pages_build_output_dir = "."` 설정 때문에 **사진 파일처럼 그대로 배달만** 되고
+#   빌드 과정에서 한 번도 열어보지 않는다.
+#   → 여기 문법오류가 나면 **배포는 초록불인데 브라우저에서만 터진다.**
+#
+# ▣ 터지면 뭐가 조용히 죽나 (전부 try/catch 안이라 화면엔 아무 에러도 안 뜬다)
+#   session-keep.js : 원장·조교 30일 자동 로그인 연장 정지 → 한 달 뒤 갑자기 튕김
+#                     KWPush.ensure() 정지 → 앱 알림 등록 보충이 안 됨
+#                     로그아웃 시 FCM 해제 정지 → 2026-07-31 사고(남의 학원 알림 수신) 재발
+#   kwnav.js        : 관리자 ☰ 메뉴의 「원장 전용」 9줄이 통째로 사라짐
+#   app-native.js   : 앱 껍데기 전용 동작 정지
+#   sw.js           : 서비스워커(오프라인·푸시 수신) 정지
+#
+# ▣ 이 검사가 하는 일 / 못 하는 일
+#   한다  : push 할 때마다 루트 .js 전부를 node 로 파싱해 문법오류를 잡고, 있으면 빨간 X + 메일
+#   못 한다: **배포 자체를 막지는 못한다.** 깨진 채로도 Cloudflare 는 그냥 올린다.
+#            배포를 막으려면 Cloudflare 대시보드에서 Build command 를 따로 걸어야 한다(별건).
+#
+# ▣ 파일 목록을 하드코딩하지 않는 이유
+#   루트에 .js 를 새로 만들어도 자동으로 검사 대상이 된다. 대신 "0개 발견"이면 실패시킨다
+#   (경로가 바뀌어 아무것도 검사 안 하면서 초록불이 뜨는 게 제일 위험하다).
+
+name: 루트 JS 문법검사
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: 루트 .js 파싱
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 검사기 자가진단 (일부러 깨뜨린 파일을 잡는지)
+        run: |
+          printf '(function(){ if (1) { \n' > /tmp/__selftest_broken.js
+          if node --check /tmp/__selftest_broken.js 2>/dev/null; then
+            echo "::error::검사기 자체가 고장났습니다 — 깨진 파일을 통과시켰습니다. 이 워크플로의 결과를 믿지 마세요."
+            exit 1
+          fi
+          echo "🔎 자가진단 통과 — 검사기가 살아 있습니다."
+
+      - name: 루트 .js 전부 문법검사
+        run: |
+          fail=0
+          found=0
+          for f in *.js; do
+            [ -e "$f" ] || continue
+            found=$((found+1))
+            # 이 파일들은 <script src> 로 실려 돌아가는 고전 스크립트다(import/export 없음).
+            # 혹시 나중에 누가 모듈로 바꾸면 CommonJS 로 검사할 때 가짜 실패가 나므로,
+            # import/export 가 보이면 .mjs 사본으로 복사해 ESM 으로 검사한다.
+            if grep -Eq '^[[:space:]]*(import|export)[[:space:]{]' "$f"; then
+              cp "$f" "/tmp/${f%.js}.mjs"
+              target="/tmp/${f%.js}.mjs"
+              mode="ESM"
+            else
+              target="$f"
+              mode="script"
+            fi
+            if node --check "$target"; then
+              echo "✅ $f ($mode)"
+            else
+              echo "::error file=$f::문법오류 — 이대로 배포되면 이 파일이 통째로 안 돌아갑니다."
+              fail=1
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::루트에서 .js 를 하나도 못 찾았습니다. 파일이 옮겨졌거나 이 워크플로가 잘못된 위치에서 돌고 있습니다 — 아무것도 검사하지 않고 초록불이 뜨는 것을 막으려고 일부러 실패시킵니다."
+            exit 1
+          fi
+          echo "검사한 파일: ${found}개"
+          exit $fail
