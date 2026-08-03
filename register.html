@@ -128,11 +128,12 @@
           </div>
           <div class="form-row">
             <label>반 코드 <span class="req">*</span></label>
-            <input id="classCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="선생님께 받은 숫자코드" oninput="onClassCodeInput(this)" autocomplete="off">
+            <!-- maxlength 는 반 코드 자릿수(class-options.js genCode() = 5자리)와 같아야 한다.
+                 6이면 한 자 더 친 오타도 그대로 제출돼 실패 1회로 카운트된다. -->
+            <input id="classCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="선생님께 받은 숫자코드" oninput="onClassCodeInput(this)" autocomplete="off">
             <div class="form-hint">선생님이 알려주신 반 코드를 입력하면 자동으로 반이 배정됩니다.</div>
           </div>
         </div>
-        <div class="form-row" id="classConfirm" style="display:none;margin-top:-2px;"></div>
       </div>
 
       <div class="form-section">
@@ -263,6 +264,9 @@
     <div id="doneScreen">
       <div class="done-icon">📝</div>
       <h2>등록 신청이 접수됐어요!</h2>
+      <!-- 🛡️ §11-16 — 타이핑 중 「반 즉시확인」을 없앤 대신, 접수된 반을 여기서 알려준다.
+           오타가 우연히 다른 반의 실제 코드와 겹쳤을 때 학부모가 알아차릴 수 있는 유일한 지점. -->
+      <div id="doneClass" style="display:none;background:#E8F5E9;border:1.5px solid #66BB6A;border-radius:10px;padding:12px 16px;color:#1B5E20;font-weight:700;font-size:0.92rem;margin:0 auto 16px;max-width:340px;"></div>
       <p>관우T가 확인 후 <strong>승인</strong>해드릴 예정입니다.<br>
       승인되면 곧 연락드리겠습니다.<br><br>
       <span style="color:var(--primary);font-weight:700;">✅ 승인 완료 후</span> <strong>포털</strong>에서 휴대폰 번호로 로그인 가능합니다.<br>
@@ -279,40 +283,37 @@
 
 <script>
   // 🔑 반 코드 → 학원/반 자동 배정 (학원·반 드롭다운 대신 코드 입력)
-  let resolvedAcademy = '';
-  let resolvedClassName = '';
-  let _codeTimer = null;
+  //
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🛡️ 2026-08-03 (§11-16) — 타이핑 중 「반 즉시확인」을 없앴다 (관우T 확정)
+  //
+  //   예전에는 코드를 다 치면 곧바로 /api/class-options?code= 에 물어
+  //   「✅ ○○학원 · ○○반으로 등록돼요」를 띄웠다. 편했지만 대가가 컸다.
+  //
+  //   ① 그 조회 창구는 로그인 없이 누구나 몇 번이든 두드릴 수 있는 문이었다.
+  //      반 코드는 5자리(9만 가지)라, 자동 프로그램이 이 문으로 전수 대입해
+  //      맞는 코드를 찾아낸 뒤 「맞는 코드로만」 가입 신청을 넣으면
+  //      신청 쪽에 걸어둔 잠금장치는 한 번도 안 걸린다.
+  //   ② 학부모가 「신청」을 누르지도 않았는데 타이핑만으로 시도 횟수가 깎였다.
+  //
+  //   → 조회 창구는 원장 전용으로 잠갔고(class-options.js), 코드는 이제
+  //     **「등록 완료」를 실제로 누를 때 단 한 번** 서버로 간다.
+  //     그래서 5회 제한이 「버튼을 5번 눌렀을 때」가 되어 오히려 넉넉해졌다.
+  //
+  //   잃은 것을 메우는 자리: 신청이 접수되면 완료 화면에
+  //   「○○학원 · ○○반으로 신청되었어요」를 보여준다(아래 submitForm 참고).
+  //   오타가 우연히 다른 반의 실제 코드와 겹쳤을 때 알아차릴 수 있는 지점이다.
+  //
+  //   ⚠️ 되살리지 말 것 — 되살리려면 그 창구에 반드시 같은 잠금을 함께 걸어야 한다.
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  function escHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  // (escHtml 은 즉시확인 화면에서만 쓰던 함수라 §11-16 때 함께 지웠다.
+  //  다시 화면에 서버 값을 그려 넣게 되면 textContent 를 쓰거나 escHtml 을 되살릴 것.)
 
+  // 숫자만 · 코드 자릿수까지만 (class-options.js genCode() = 5자리). 서버 호출 없음.
   function onClassCodeInput(el) {
-    const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 6);
+    const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 5);
     if (el.value !== v) el.value = v;
-    resolvedAcademy = ''; resolvedClassName = '';
-    const box = document.getElementById('classConfirm');
-    if (v.length < 4) { box.style.display = 'none'; box.innerHTML = ''; return; }
-    clearTimeout(_codeTimer);
-    _codeTimer = setTimeout(function(){ lookupClassCode(v); }, 350);
-  }
-
-  async function lookupClassCode(code) {
-    const box = document.getElementById('classConfirm');
-    box.style.display = 'block';
-    box.innerHTML = '<span style="color:#888;font-size:0.85rem;">반 확인 중…</span>';
-    try {
-      const res = await fetch('/api/class-options?code=' + encodeURIComponent(code));
-      const data = await res.json();
-      if (data && data.valid) {
-        resolvedAcademy = data.academy; resolvedClassName = data.className;
-        box.innerHTML = '<div style="background:#E8F5E9;border:1.5px solid #66BB6A;border-radius:10px;padding:10px 14px;color:#1B5E20;font-weight:700;font-size:0.88rem;">✅ ' + escHtml(data.academy) + ' · ' + escHtml(data.className) + ' 반으로 등록돼요</div>';
-      } else {
-        resolvedAcademy = ''; resolvedClassName = '';
-        box.innerHTML = '<div style="background:#FDECEA;border:1.5px solid #E57373;border-radius:10px;padding:10px 14px;color:#B71C1C;font-weight:700;font-size:0.88rem;">❌ 코드를 찾을 수 없어요. 선생님께 다시 확인해주세요.</div>';
-      }
-    } catch (e) {
-      resolvedAcademy = ''; resolvedClassName = '';
-      box.innerHTML = '<div style="color:#B71C1C;font-size:0.85rem;">확인 중 오류가 났어요. 잠시 후 다시 시도해주세요.</div>';
-    }
   }
 
   function toggleCheck(e, el) {
@@ -397,7 +398,11 @@
     if (studentDigits.length < 10) { showErr('학생 휴대폰 번호를 정확히 입력해주세요.'); return; }
     if (parentDigits.length < 10)  { showErr('학부모 휴대폰 번호를 정확히 입력해주세요.'); return; }
     if (!classCode) { showErr('반 코드를 입력해주세요. (선생님께 받은 숫자코드)'); return; }
-    if (!resolvedClassName) { showErr('반 코드를 확인할 수 없습니다. 코드를 다시 확인해주세요.'); return; }
+    // 🛡️ §11-16 — 코드가 맞는지는 서버가 판정한다(옛 즉시확인 제거).
+    //    여기서는 자릿수만 본다. 짧은 코드를 서버로 보내면 무조건 실패로 카운트되기 때문.
+    if (classCode.replace(/[^0-9]/g, '').length !== 5) {
+      showErr('반 코드는 숫자 5자리입니다. 선생님께 받은 코드를 다시 확인해주세요.'); return;
+    }
     if (!mathMockGrade)   { showErr('모의고사 수학 등급을 선택해주세요. (모르면 "모름")'); return; }
     if (!schoolMathGrade) { showErr('내신 수학 등급을 선택해주세요. (모르면 "모름")'); return; }
     if (!advanceProgress) { showErr('선행 진도를 선택해주세요. (모르면 "모름")'); return; }
@@ -431,6 +436,13 @@
       });
       const data = await res.json();
       if (res.ok && data.ok) {
+        // 🛡️ §11-16 — 접수된 학원·반을 완료 화면에 보여준다(서버가 코드로 찾아 돌려준 값).
+        //    옛 버전이 없거나 값이 안 오면 조용히 감춘다 — 접수 자체는 이미 성공했으므로.
+        if (data.academy && data.className) {
+          var doneBox = document.getElementById('doneClass');
+          doneBox.textContent = '✅ ' + data.academy + ' · ' + data.className + ' 반으로 신청되었어요';
+          doneBox.style.display = 'block';
+        }
         document.getElementById('formArea').style.display = 'none';
         document.getElementById('doneScreen').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });

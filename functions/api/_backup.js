@@ -54,7 +54,10 @@ const TABLES = [
   //   다만 한 파일에 통째로 담는 구조라 무한정 커지면 백업 자체가 터진다.
   //   → 최신 10만 건까지만. D1 원본은 자동삭제가 없으므로 그 이전 것도 DB에는 그대로 남아 있다.
   { name: 'audit_log', limit: 100000 },
-  // 일부러 뺀 것: access_events(접근로그 — 대용량이고 복구 가치 낮음) · login_lockouts(일시적 잠금 상태)
+  // 일부러 뺀 것: access_events(접근로그 — 대용량이고 복구 가치 낮음)
+  //   · login_lockouts(일시적 잠금 상태)
+  //   · gate_lockouts(2026-08-03 §11-16 신설. 위와 같은 이유 — 잃어버려도 다음 실패부터 다시 세면 되고,
+  //     오히려 복원하면 옛 잠금이 되살아나 정상 학부모가 막힌다. 빠뜨린 게 아니라 뺀 것.)
 ];
 
 function kstDayStr(offsetDays = 0) {
@@ -200,7 +203,7 @@ export async function runDailyBackup(env) {
             + '실수로 지운 데이터는 이 파일에서 되돌릴 수 있다. 같은 날 다시 돌리면 이 파일을 덮어쓴다. '
             + (deleted ? '동시에 ' + KEEP_DAYS + '일보다 오래된 백업 ' + deleted + '개는 영구 삭제됐다 — 그 날짜로는 더 이상 복구할 수 없다.' : ''),
         비고: 'accounts 표에는 로그인 비밀번호 해시가 들어가지만 이 로그에는 건수만 남기고 값은 담지 않는다. '
-          + 'qna 첨부이미지·access_events·login_lockouts 는 백업 대상에서 일부러 뺐다.',
+          + 'qna 첨부이미지·access_events·login_lockouts·gate_lockouts 는 백업 대상에서 일부러 뺐다.',
       },
     });
 

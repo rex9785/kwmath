@@ -6,6 +6,10 @@ import { safeError } from './_errors.js';
 import { resolveClassCode } from './class-options.js';
 import { sendPushToUsers } from './_push.js';
 import { logAudit, describeDevice } from './_auditlog.js';
+import {
+  gateKeyFromRequest, checkGateLockout, recordGateFailure, clearGateLockout,
+  gateTriesLeft, fmtRetry,
+} from './_lockout.js';
 
 // 새 회원가입 신청 → 원장(관우T) 앱 푸시 (inquiry.js와 동일 규약: __admin__ 채널)
 const ADMIN_PUSH_USERS = ['__admin__'];
@@ -183,9 +187,39 @@ export async function onRequest(context) {
     return Response.json({ error: '저를 어떻게 알게 되셨는지 선택해주세요. (없으면 "기타")' }, { status: 400 });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🛡️ 2026-08-03 (§11-16) — 반 코드 무차별 대입 차단 (같은 IP 기준)
+  //   반 코드는 5자리 숫자(10000~99999) = **9만 가지뿐**인데, 이 API 는 로그인 전이라
+  //   지금까지 시도 횟수를 세는 장치가 아예 없었다 → 자동 프로그램이면 몇 시간이면 전수 대입이 끝난다.
+  //   맞는 코드를 하나 찾는 순간 가짜 가입 신청을 무제한으로 밀어넣을 수 있다
+  //   (원장 폰 승인 알림 폭탄 · 승인 대기 목록 오염 · 거절 감사로그 폭증).
+  //   → 로그인과 **똑같은 장치**(_lockout.js)를 IP 를 키로 재사용한다:
+  //     연속 5회 틀리면 1분 → 5분 → 15분 → 60분, 시간이 지나면 스스로 풀린다.
+  //     9만 번을 넣으려면 사실상 수십 년이 걸린다.
+  //
+  //   ⚠️ 세는 건 **반 코드 실패뿐**이다. 위쪽 필수칸 미입력 같은 정상 실수는 세지 않는다
+  //      (그건 안내를 보고 채워 넣으면 되는 일이라 잠글 이유가 없다).
+  //   ⚠️ 코드가 맞으면 그 즉시 카운터를 지운다 → 학원·학교 공용 와이파이에서
+  //      여러 명이 가입해도 코드를 제대로 받은 사람은 남의 실패에 발목 잡히지 않는다.
+  //   ⚠️ login.js 는 "잠긴 중에도 계속 두드리는 것 자체가 신호"라며 매 시도를 감사로그에 남기지만,
+  //      여기는 **로그인 없이 아무나 두드릴 수 있는 문**이라 그렇게 하면 로그가 폭증한다.
+  //      → 잠긴 뒤 들어오는 시도는 로그를 남기지 않는다. 잠기는 그 순간 1건에
+  //        누적 횟수·잠금 시간을 전부 담아 두므로 사후 추적에는 지장이 없다.
+  //   ⚠️ IP 를 못 얻으면(gateKeyFromRequest 가 '') 잠금은 통째로 비활성이다 — 가용성 우선.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const 관문키 = gateKeyFromRequest(request, 'register-code');
+  const 관문잠금 = await checkGateLockout(env, 관문키);
+  if (관문잠금.locked) {
+    return Response.json({
+      error: '반 코드를 여러 번 잘못 입력해 잠시 제한되었습니다. 약 '
+        + fmtRetry(관문잠금.retryAfterSec) + ' 후 다시 시도하시거나, 선생님께 코드를 다시 확인해주세요.',
+    }, { status: 429 });
+  }
+
   // 🔑 반 코드 → 학원/반 자동 배정 (서버측 권위 검증). 코드 없거나 틀리면 등록 불가(스팸 차단).
   const resolvedClass = await resolveClassCode(env, classCode);
   if (!resolvedClass) {
+    const 관문실패 = await recordGateFailure(env, 관문키);
     // 🔎 반 코드는 아무나 등록 못 하게 막는 관문이다. 틀린 코드가 반복되면
     //   (a) 코드를 잘못 안내했거나 (b) 코드를 모르는 외부인이 계속 시도 중이라는 뜻 →
     //   판별하려면 **입력된 코드까지** 남아야 한다(코드는 비밀번호가 아니라 반 식별자다).
@@ -193,20 +227,44 @@ export async function onRequest(context) {
       action: 'student.register.code.reject',
       ...신청자,
       target: 신청자.actor, targetName: 신청자이름,
-      summary: '학생 가입 신청 거부 — 반 코드 불일치 · ' + (신청자이름 || '이름없음')
-        + ' · 입력코드 ' + (String(classCode || '').replace(/\D/g, '').slice(0, 20) || '(빈칸)'),
+      summary: '학생 가입 신청 거부 — 반 코드 불일치 (누적 ' + 관문실패.failCount + '회) · '
+        + (신청자이름 || '이름없음')
+        + ' · 입력코드 ' + (String(classCode || '').replace(/\D/g, '').slice(0, 20) || '(빈칸)')
+        + (관문실패.locked ? ' → 이 접속지점 ' + fmtRetry(관문실패.retryAfterSec) + ' 잠금' : ''),
       detail: {
-        결과: '거부(400). students 테이블에 아무 행도 생기지 않았다.',
+        결과: 관문실패.locked
+          ? '거부(429). students 테이블에 아무 행도 생기지 않았다. + 이 접속지점(IP)을 '
+            + fmtRetry(관문실패.retryAfterSec) + ' 동안 잠갔다.'
+          : '거부(400). students 테이블에 아무 행도 생기지 않았다.',
         사유: '입력한 반 코드가 등록된 어느 학원·반 코드와도 일치하지 않는다.',
         입력한반코드: String(classCode || '').replace(/\D/g, '').slice(0, 20) || '(빈칸)',
+        같은접속지점누적실패: 관문실패.failCount + '회',
+        잠김: 관문실패.locked
+          ? '예 — ' + fmtRetry(관문실패.retryAfterSec) + ' 동안 이 접속지점에서는 가입 신청이 막힌다(시간 지나면 자동 해제)'
+          : '아니오 (' + gateTriesLeft(관문실패.failCount) + '회 더 틀리면 일시 잠금)',
         입력값: 입력요약(),
         효과: '없음. 학생도 안 생기고 원장 알림도 가지 않았다.',
         비고: '같은 사람이 반복해서 틀리면 안내한 코드가 바뀌었을 수 있다(반 코드는 /api/class-options에서 관리). '
-          + '전혀 모르는 번호가 여러 코드를 시도하면 스팸 가입 시도로 본다.',
+          + '전혀 모르는 번호가 여러 코드를 시도하면 스팸 가입 시도로 본다. '
+          + '⚠️ 잠긴 뒤 들어오는 시도는 로그를 남기지 않는다(§11-16 — 공개 관문이라 로그 폭증을 막으려고 일부러 그렇게 했다). '
+          + '누적 횟수가 갑자기 크게 뛰어 있으면 그사이 조용히 두드린 시도가 더 있었다는 뜻이다.',
       },
     });
-    return Response.json({ error: '반 코드가 올바르지 않습니다. 선생님께 받은 코드를 다시 확인해주세요.' }, { status: 400 });
+    if (관문실패.locked) {
+      return Response.json({
+        error: '반 코드를 여러 번 잘못 입력해 약 ' + fmtRetry(관문실패.retryAfterSec)
+          + ' 동안 제한됩니다. 선생님께 받은 코드를 다시 확인해주세요.',
+      }, { status: 429 });
+    }
+    const 남은횟수 = gateTriesLeft(관문실패.failCount);
+    const 꼬리 = (남은횟수 > 0 && 남은횟수 <= 2) ? ` (${남은횟수}회 더 틀리면 잠시 제한됩니다)` : '';
+    return Response.json({ error: '반 코드가 올바르지 않습니다. 선생님께 받은 코드를 다시 확인해주세요.' + 꼬리 }, { status: 400 });
   }
+
+  // 관문 통과 → 이 접속지점의 실패 카운터를 지운다.
+  //   📓 이게 있어야 학원·학교 공용 와이파이에서 앞사람이 코드를 몇 번 틀렸어도
+  //      제대로 받은 사람이 성공하는 순간 카운터가 0으로 돌아간다.
+  await clearGateLockout(env, 관문키);
 
   let phone4 = (parentPhone4 || '').replace(/[^0-9]/g, '').slice(-4);
   if (phone4.length !== 4 && parentPhone) {
@@ -416,6 +474,11 @@ export async function onRequest(context) {
     pending: true,
     personalKey,
     id: String(r.id),
+    // 📌 2026-08-03 (§11-16) — 신청 완료 화면에 「어느 반으로 신청됐는지」를 보여주려고 돌려준다.
+    //    타이핑 중 즉시확인(옛 /api/class-options?code=)을 없앤 대신 여기서 알려주는 것.
+    //    오타가 우연히 다른 반의 실제 코드와 겹쳤을 때 학부모가 바로 알아차릴 수 있는 유일한 지점이다.
+    academy: resolvedClass.academy,
+    className: resolvedClass.className,
     message: '등록 신청이 접수됐습니다. 관우T 승인 후 로그인 가능합니다.\n승인되면 학부모/학생 휴대폰 번호로 로그인하실 수 있어요. (초기 비밀번호 0000)',
   });
 }

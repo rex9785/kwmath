@@ -148,7 +148,9 @@ async function hashIp(env, ip) {
   } catch (_) { return null; }
 }
 
-function clientIp(request) {
+// 📤 2026-08-03 (§11-16) — _lockout.js 가 「같은 IP 기준 잠금」에 쓰려고 가져다 쓴다.
+//    IP 를 꺼내는 규칙이 두 곳으로 갈라지지 않도록 여기 하나만 두고 내보낸다.
+export function clientIp(request) {
   try {
     const cf = request.headers.get('CF-Connecting-IP');
     if (cf) return cf.trim();

@@ -367,6 +367,54 @@
   .oc-title{margin-top:12px;font-weight:700;font-size:.95rem;color:var(--ink);text-align:center;line-height:1.4;}
   .oc-btns{text-align:center;margin-top:34px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;align-items:center;}
 
+  /* ── 영상 통합 섹션(§09 VIDEO) 탭 ──
+     예전 09 CLIPS / 10 OPEN CLASS / 11 PREVIEW 세 섹션(합계 2,486px)을 한 섹션 3탭으로 접었다.
+     다크 밴드(.dark-sec) 위에 얹히므로 아래 「다크 보정」 규칙이 반드시 함께 있어야 한다. */
+  .vtabs{display:flex;gap:6px;margin-top:44px;flex-wrap:wrap;border-bottom:1px solid var(--line-d);}
+  .vtab{appearance:none;background:none;border:0;border-bottom:2px solid transparent;color:rgba(239,230,220,.6);font-family:inherit;font-weight:700;font-size:.94rem;letter-spacing:-.01em;padding:12px 18px 13px;margin-bottom:-1px;cursor:pointer;transition:color .2s,border-color .2s;white-space:nowrap;}
+  .vtab:hover{color:#fff;}
+  .vtab[aria-selected="true"]{color:#fff;border-bottom-color:var(--gold);}
+  .vpane{display:none;}
+  .vpane.on{display:block;}
+  .vpane .clips-grid,.vpane .openclass-grid,.vpane .video-grid{margin-top:38px;}
+  /* 다크 보정 — 원래 라이트 배경 기준이던 클립/공개강의 카드·버튼 색을 다크 밴드에 맞춘다. */
+  .dark-sec .clip-card{background:#2A1B15;border-color:var(--line-d);}
+  .dark-sec .oc-thumb{border-color:var(--line-d);}
+  .dark-sec .oc-title{color:#EFE6DC;}
+  .dark-sec .btn-line{border-color:rgba(239,230,220,.5);color:#EFE6DC;}
+  .dark-sec .btn-line:hover{border-color:var(--gold);color:var(--gold);}
+  .dark-sec .btn-ghost{color:#EFE6DC;border-color:rgba(239,230,220,.5);}
+  .dark-sec .btn-ghost:hover{color:var(--gold);border-color:var(--gold);}
+
+  /* ── 시간표 안으로 편입된 공지사항(구 §13 NOTICE 단독 섹션) ── */
+  .tt-notice{margin-top:58px;padding-top:44px;border-top:1px solid var(--line);}
+  .tt-notice-h{font-family:var(--serif);font-size:1.16rem;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:11px;}
+  .tt-notice-h::before{content:"";width:24px;height:1px;background:var(--wine);flex-shrink:0;}
+  .tt-notice .notice-list{margin-top:22px;}
+
+  /* ── 모바일 네비: ☰ + 우측 슬라이드 드로어 ──
+     920px 이하에서 .nav-links > li 가 전부 숨겨지므로(아래 반응형) 드로어가 유일한 메뉴다. 지우지 말 것. */
+  .nav-burger-li{display:none;}
+  .nav-burger{appearance:none;background:none;border:1px solid var(--line);border-radius:6px;width:38px;height:34px;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;flex-shrink:0;}
+  .nav-burger span{display:block;width:17px;height:2px;background:var(--ink);border-radius:2px;}
+  .nav-burger:hover{border-color:var(--wine);}
+  .nav-burger:hover span{background:var(--wine);}
+  .mnav-ovl{position:fixed;inset:0;z-index:9998;background:rgba(20,8,10,.5);opacity:0;visibility:hidden;transition:opacity .28s,visibility .28s;}
+  .mnav-ovl.show{opacity:1;visibility:visible;}
+  .mnav{position:fixed;top:0;right:0;bottom:0;z-index:9999;width:274px;max-width:82vw;background:var(--paper);border-left:1px solid var(--line);box-shadow:-14px 0 40px rgba(0,0,0,.18);transform:translateX(100%);visibility:hidden;transition:transform .3s cubic-bezier(.22,.61,.36,1),visibility .3s;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .mnav.show{transform:translateX(0);visibility:visible;}
+  .mnav-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .mnav-head .t{font-family:var(--serif);font-weight:700;font-size:.9rem;color:var(--ink);letter-spacing:.02em;}
+  .mnav-x{appearance:none;background:none;border:0;font-size:1.55rem;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px;}
+  .mnav ul{list-style:none;padding:6px 0 0;margin:0;}
+  .mnav li a{display:block;padding:15px 20px;text-decoration:none;color:var(--ink);font-size:.95rem;font-weight:700;letter-spacing:-.01em;border-bottom:1px solid var(--line);}
+  .mnav li a:hover,.mnav li a:active{background:var(--wine-tint);color:var(--wine);}
+  .mnav-foot{margin-top:auto;padding:18px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+  .mnav-foot a{display:block;text-align:center;text-decoration:none;font-weight:700;font-size:.9rem;padding:13px;border-radius:6px;}
+  .mnav-foot .p{border:1px solid var(--line);color:var(--ink);}
+  .mnav-foot .c{background:var(--wine);color:#fff;}
+  body.mnav-open{overflow:hidden;}
+
   /* ── FAQ ── */
   .faq-wrap{margin-top:52px;display:flex;flex-direction:column;border-top:1px solid var(--line);}
   .faq-item{background:transparent;border-bottom:1px solid var(--line);overflow:hidden;transition:background .2s;}
@@ -462,7 +510,8 @@
     .dday-chip{font-size:.66rem;padding:4px 9px;}
     .dday-chip .dd-l{display:none;}
     .dday-chip b{font-size:.78rem;}
-    /* 네비: 메뉴는 숨기고 .nav-keep(포털 로그인·상담 신청)만 유지 + 로고·칩·버튼 겹침 방지 압축 */
+    /* 네비: 메뉴는 숨기고 .nav-keep(포털 로그인·상담 신청) + ☰ 만 유지.
+       숨긴 6개 메뉴는 ☰ → 우측 슬라이드 드로어(.mnav)로 들어간다. ☰ 를 지우면 모바일에 메뉴가 0개가 된다. */
     header.site{padding:0 4%;}
     .nav-inner{gap:10px;}
     .nav-left{gap:10px;}
@@ -470,8 +519,11 @@
     .nav-links{gap:6px;}
     .nav-links > li{display:none;}
     .nav-links > li.nav-keep{display:list-item;}
+    .nav-links > li.nav-burger-li{display:list-item;}
     .nav-portal{padding:7px 10px;font-size:.72rem!important;}
     .nav-cta{padding:8px 12px;font-size:.74rem!important;}
+    .vtabs{gap:2px;}
+    .vtab{font-size:.86rem;padding:11px 12px;}
   }
   @media (max-width:640px){
     .review-grid{grid-template-columns:1fr;}
@@ -485,6 +537,8 @@
     .nav-links{gap:5px;}
     .nav-portal{padding:6px 8px;font-size:.68rem!important;}
     .nav-cta{padding:7px 10px;font-size:.7rem!important;}
+    .nav-burger{width:34px;height:31px;}
+    .vtab{font-size:.8rem;padding:10px 9px;}
     /* 파노라마 카드: 숫자·막대차트·레이더가 카드 폭 밖으로 안 삐져나오게 축소 */
     .panorama-card{width:300px;padding:22px 18px 20px;}
     .pano-title{font-size:1.05rem;}
@@ -511,20 +565,43 @@
       <a href="#home" class="nav-logo"><img src="가로로고_투명.png" alt="이관우 수학연구소 로고"></a>
       <span class="dday-chip" title="2027 수능까지 — 매일 한 문제씩 더!"><span class="dd-l">2027 수능 </span><b>D-<span id="ddayNum">??</span></b></span>
     </div>
+    <!-- 메뉴 6개 고정. 「샘플강의+공개강의」는 §09 영상 한 줄로 합쳤고, 「공지사항」은 시간표 섹션 안으로 옮겼다.
+         늘리려면 먼저 1290/1190/1020px 구간 폭 계산을 다시 해야 한다(항목이 늘면 버튼과 겹친다). -->
     <ul class="nav-links">
       <li><a href="#program">수업소개</a></li>
       <li><a href="#timetable">시간표</a></li>
-      <li><a href="#notice">공지사항</a></li>
-      <li><a href="#video">샘플강의</a></li>
-      <li><a href="/lectures">공개강의</a></li>
+      <li><a href="#video">영상</a></li>
       <li><a href="/analysis">학교별 내신 분석</a></li>
       <li><a href="/consulting">입시 컨설팅</a></li>
       <li><a href="/materials">자료실</a></li>
       <li class="nav-keep"><a href="/portal" class="nav-portal">포털 로그인</a></li>
       <li class="nav-keep"><a href="#contact" class="nav-cta">상담 신청</a></li>
+      <li class="nav-burger-li"><button class="nav-burger" id="navBurger" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="mnav"><span></span><span></span><span></span></button></li>
     </ul>
   </div>
 </header>
+
+<!-- 모바일 메뉴 드로어 — 920px 이하에서 ☰ 로 열리며 오른쪽에서 슬라이드해 나온다.
+     이게 없으면 휴대폰에서 메뉴가 하나도 안 보인다(반응형에서 .nav-links > li 전부 숨김). 지우지 말 것. -->
+<div class="mnav-ovl" id="mnavOvl"></div>
+<nav class="mnav" id="mnav" aria-label="모바일 메뉴" aria-hidden="true">
+  <div class="mnav-head">
+    <span class="t">MENU</span>
+    <button class="mnav-x" id="mnavX" type="button" aria-label="메뉴 닫기">&times;</button>
+  </div>
+  <ul>
+    <li><a href="#program">수업소개</a></li>
+    <li><a href="#timetable">시간표</a></li>
+    <li><a href="#video">영상</a></li>
+    <li><a href="/analysis">학교별 내신 분석</a></li>
+    <li><a href="/consulting">입시 컨설팅</a></li>
+    <li><a href="/materials">자료실</a></li>
+  </ul>
+  <div class="mnav-foot">
+    <a class="p" href="/portal">포털 로그인</a>
+    <a class="c" href="#contact">상담 신청</a>
+  </div>
+</nav>
 
 <!-- HERO -->
 <section class="hero" id="home" style="padding-bottom:0;">
@@ -536,7 +613,7 @@
       <p class="hero-strong">원리를 이해하고 익숙해질 때까지 — 그 반복이 실력이 됩니다.</p>
       <div class="hero-btns">
         <a class="btn-solid" href="#contact">수업 문의하기</a>
-        <a class="btn-ghost" href="#video">샘플 강의 보기</a>
+        <a class="btn-ghost" href="#video">강의 영상 보기</a>
       </div>
       <div class="hero-applinks">
         이관우 수학연구소 앱 출시 —
@@ -962,28 +1039,35 @@
   </div>
 </section>
 
-<!-- CLIPS -->
-<section class="clips" id="clips" style="background:var(--beige);">
+<!-- VIDEO — §09 영상으로 보기
+     구 09 CLIPS(985px) · 10 OPEN CLASS(742px) · 11 PREVIEW(759px) 세 섹션을 한 섹션 3탭으로 접었다.
+     ⚠️ id="video" 는 히어로 CTA(#video)와 lectures.html 의 /#video 가 가리키는 앵커다. 바꾸지 말 것.
+     ⚠️ id="clips" / id="openclass" 는 예전 섹션 앵커를 살리려고 탭 패널 id 로 그대로 남겼다. -->
+<section id="video" class="dark-sec">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">09</span>CLIPS</div>
-    <h2 class="section-title" data-rv>바이럴 강의 클립</h2>
-    <p class="section-desc" data-rv>관우T의 인기 강의 클립을 미리 만나보세요. 직접 수업 스타일을 확인할 수 있습니다.</p>
-    <div class="clips-grid" id="clipsGrid">
-      <div style="text-align:center;color:var(--muted);padding:20px;font-size:0.9rem;">클립을 불러오는 중...</div>
-    </div>
-    <div class="clips-more">
-      <a href="https://www.instagram.com/kwa.noo.math" target="_blank" class="btn-line">인스타그램에서 더 보기</a>
-    </div>
-  </div>
-</section>
+    <div class="eyebrow"><span class="no">09</span>VIDEO</div>
+    <h2 class="section-title" data-rv>영상으로 보기</h2>
+    <p class="section-desc" data-rv>수업 클립, 설명회·공개강의, 샘플 강의를 한자리에서 확인하실 수 있습니다.</p>
 
-<!-- OPEN CLASS -->
-<section id="openclass">
-  <div class="section-inner">
-    <div class="eyebrow"><span class="no">10</span>OPEN CLASS</div>
-    <h2 class="section-title" data-rv>설명회 · 공개강의</h2>
-    <p class="section-desc" data-rv>반별 강의 소개와 공개강의 영상을 직접 확인해보세요. (썸네일 클릭 → 유튜브에서 재생)</p>
-    <div class="openclass-grid" id="ocGrid">
+    <div class="vtabs" role="tablist" aria-label="영상 종류">
+      <button class="vtab" type="button" id="vtabClips" role="tab" aria-selected="true" aria-controls="clips">수업 클립</button>
+      <button class="vtab" type="button" id="vtabOc" role="tab" aria-selected="false" aria-controls="openclass">설명회 · 공개강의</button>
+      <button class="vtab" type="button" id="vtabPreview" role="tab" aria-selected="false" aria-controls="preview">샘플 강의</button>
+    </div>
+
+    <!-- 탭 1 · 수업 클립 -->
+    <div class="vpane on" id="clips" role="tabpanel" aria-labelledby="vtabClips">
+      <div class="clips-grid" id="clipsGrid">
+        <div style="text-align:center;color:rgba(239,230,220,.6);padding:20px;font-size:0.9rem;">클립을 불러오는 중...</div>
+      </div>
+      <div class="clips-more">
+        <a href="https://www.instagram.com/kwa.noo.math" target="_blank" class="btn-line">인스타그램에서 더 보기</a>
+      </div>
+    </div>
+
+    <!-- 탭 2 · 설명회 · 공개강의 -->
+    <div class="vpane" id="openclass" role="tabpanel" aria-labelledby="vtabOc">
+      <div class="openclass-grid" id="ocGrid">
       <a class="oc-card" href="https://youtu.be/YxA09CKECBM" target="_blank" rel="noopener noreferrer">
         <div class="oc-thumb"><img src="선행반_설명회.jpg" alt="세정학원 SUMMER 설명회 통합"><span class="oc-play">▶</span></div>
         <div class="oc-title">세정학원 SUMMER 설명회 통합</div>
@@ -996,12 +1080,13 @@
         <div class="oc-thumb"><img src="https://img.youtube.com/vi/HCLGDC8C6G0/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/HCLGDC8C6G0/hqdefault.jpg';" alt="공통수학2 선행반 강의소개"><span class="oc-play">▶</span></div>
         <div class="oc-title">공통수학2 선행반 강의소개</div>
       </a>
+      </div>
+      <div class="oc-btns">
+        <a class="btn-solid" id="kwap2Open" role="button" tabindex="0" style="cursor:pointer;">SUMMER 개강 설명회 보기</a>
+        <a href="/lectures" class="btn-ghost">공개강의·설명회 전체 보기</a>
+      </div>
     </div>
-    <div class="oc-btns">
-      <a class="btn-solid" id="kwap2Open" role="button" tabindex="0" style="cursor:pointer;">SUMMER 개강 설명회 보기</a>
-      <a href="/lectures" class="btn-ghost">공개강의·설명회 전체 보기</a>
-    </div>
-  </div>
+
   <script>
   /* 설명회/공개강의 최신 영상 자동 표시 (YouTube Data API 연동 시). */
   (function(){
@@ -1022,15 +1107,11 @@
     }).catch(function(){});
   })();
   </script>
-</section>
 
-<!-- VIDEO — 샘플 강의 (다크 밴드) -->
-<section id="video" class="dark-sec">
-  <div class="section-inner">
-    <div class="eyebrow"><span class="no">11</span>PREVIEW</div>
-    <h2 class="section-title" data-rv>샘플 강의</h2>
-    <p class="section-desc" data-rv>직접 강의를 확인해보세요. 이관우 선생님의 수업 방식을 미리 경험할 수 있습니다.</p>
-    <div class="video-grid">
+    <!-- 탭 3 · 샘플 강의 -->
+    <div class="vpane" id="preview" role="tabpanel" aria-labelledby="vtabPreview">
+      <p class="section-desc" style="margin-top:34px;">직접 강의를 확인해보세요. 이관우 선생님의 수업 방식을 미리 경험할 수 있습니다.</p>
+      <div class="video-grid" style="margin-top:26px;">
       <div class="video-wrap">
         <iframe src="https://www.youtube.com/embed/1jFef67tcl8" allowfullscreen title="이관우 수학 샘플 강의"></iframe>
       </div>
@@ -1062,16 +1143,40 @@
           <a href="https://www.youtube.com/@kwmath_lab" target="_blank">유튜브에서 더 보기 →</a>
         </div>
       </div>
-    </div>
+      </div>
+    </div><!-- /탭 3 -->
   </div>
+  <script>
+  /* 영상 탭 전환 — 탭 3개 중 하나만 .on. 해시(#clips/#openclass/#preview)로 들어와도 해당 탭이 열린다. */
+  (function(){
+    var pairs=[['vtabClips','clips'],['vtabOc','openclass'],['vtabPreview','preview']];
+    function show(paneId){
+      pairs.forEach(function(p){
+        var b=document.getElementById(p[0]), pane=document.getElementById(p[1]);
+        if(!b||!pane) return;
+        var on=(p[1]===paneId);
+        b.setAttribute('aria-selected', on?'true':'false');
+        pane.classList.toggle('on', on);
+      });
+    }
+    pairs.forEach(function(p){
+      var b=document.getElementById(p[0]);
+      if(b) b.addEventListener('click', function(){ show(p[1]); });
+    });
+    var h=(location.hash||'').replace('#','');
+    if(h==='openclass'||h==='preview') show(h);
+  })();
+  </script>
 </section>
 
-<!-- TIMETABLE -->
+<!-- TIMETABLE (+ 공지사항 편입)
+     구 §13 NOTICE 단독 섹션(816px)을 이 섹션 안 .tt-notice 로 옮겼다.
+     ⚠️ 안쪽 div 의 id="notice" 는 예전 #notice 앵커를 살리기 위한 것이다. 지우지 말 것. -->
 <section class="timetable" id="timetable">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">12</span>TIMETABLE</div>
-    <h2 class="section-title" data-rv>수업 시간표</h2>
-    <p class="section-desc" data-rv>현재 정규반과 7월 오픈 예정 세정학원 시간표를 안내해 드립니다.</p>
+    <div class="eyebrow"><span class="no">10</span>TIMETABLE</div>
+    <h2 class="section-title" data-rv>수업 시간표 · 공지사항</h2>
+    <p class="section-desc" data-rv>현재 정규반과 7월 오픈 예정 세정학원 시간표, 그리고 최근 공지를 함께 안내해 드립니다.</p>
     <div class="tt-grid" id="ttGrid">
       <div style="text-align:center;color:var(--muted);padding:20px;font-size:0.9rem;">시간표를 불러오는 중...</div>
     </div>
@@ -1085,17 +1190,13 @@
         <a href="syllabus.html" style="text-decoration:none;background:var(--wine);color:#fff;font-weight:800;font-size:.95rem;padding:14px 26px;border-radius:8px;">강의계획서 보기</a>
       </div>
     </div>
-  </div>
-</section>
 
-<!-- NOTICE -->
-<section id="notice">
-  <div class="section-inner">
-    <div class="eyebrow"><span class="no">13</span>NOTICE</div>
-    <h2 class="section-title" data-rv>공지사항</h2>
-    <p class="section-desc" data-rv>수업 관련 중요 공지를 확인해주세요.</p>
-    <div class="notice-list" id="noticeList">
-      <div style="text-align:center;color:var(--muted);padding:20px;font-size:0.9rem;">공지사항을 불러오는 중...</div>
+    <!-- 공지사항 (구 §13 NOTICE 섹션) -->
+    <div class="tt-notice" id="notice">
+      <h3 class="tt-notice-h" data-rv>최근 공지</h3>
+      <div class="notice-list" id="noticeList">
+        <div style="text-align:center;color:var(--muted);padding:20px;font-size:0.9rem;">공지사항을 불러오는 중...</div>
+      </div>
     </div>
   </div>
 </section>
@@ -1103,7 +1204,7 @@
 <!-- FAQ -->
 <section id="faq" style="background:var(--beige);">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">14</span>FAQ</div>
+    <div class="eyebrow"><span class="no">11</span>FAQ</div>
     <h2 class="section-title" data-rv>자주 묻는 질문</h2>
     <p class="section-desc" data-rv>궁금하신 점을 먼저 확인해보세요.</p>
     <div id="faqList" class="faq-wrap"></div>
@@ -1113,7 +1214,7 @@
 <!-- CONTACT (다크) -->
 <section id="contact" class="dark-sec">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">15</span>CONTACT</div>
+    <div class="eyebrow"><span class="no">12</span>CONTACT</div>
     <h2 class="section-title" data-rv>수업 문의하기</h2>
     <p class="section-desc" data-rv>궁금한 점이 있으시면 언제든지 문의해 주세요. 빠르게 답변 드리겠습니다.</p>
     <div class="ct-grid">
@@ -1182,6 +1283,32 @@
   const diff = Math.ceil((target - now) / (1000*60*60*24));
   const el = document.getElementById('ddayNum');
   if (el) el.textContent = diff > 0 ? diff : 'D';
+})();
+
+/* ===== 모바일 네비 드로어 (☰ → 오른쪽에서 슬라이드) =====
+   920px 이하에서는 상단 메뉴가 전부 숨겨지므로 이게 유일한 메뉴다. */
+(function(){
+  var b  = document.getElementById('navBurger');
+  var d  = document.getElementById('mnav');
+  var o  = document.getElementById('mnavOvl');
+  var x  = document.getElementById('mnavX');
+  if (!b || !d || !o) return;
+  function open(){
+    d.classList.add('show'); o.classList.add('show');
+    document.body.classList.add('mnav-open');
+    b.setAttribute('aria-expanded','true'); d.setAttribute('aria-hidden','false');
+  }
+  function close(){
+    d.classList.remove('show'); o.classList.remove('show');
+    document.body.classList.remove('mnav-open');
+    b.setAttribute('aria-expanded','false'); d.setAttribute('aria-hidden','true');
+  }
+  b.addEventListener('click', open);
+  o.addEventListener('click', close);
+  if (x) x.addEventListener('click', close);
+  d.addEventListener('click', function(e){ if (e.target.closest('a')) close(); });   // 항목을 고르면 닫는다
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+  window.addEventListener('resize', function(){ if (window.innerWidth > 920) close(); });
 })();
 
 /* ===== 스크롤 리빌 — JS가 rv를 부여하므로 JS 실패 시에도 콘텐츠는 항상 보임 ===== */
@@ -1323,7 +1450,7 @@ const FAQ_DATA = [
     const res = await fetch('/api/clips');
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) {
-      grid.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:0.9rem;">등록된 클립이 없습니다.</div>';
+      grid.innerHTML = '<div style="text-align:center;color:rgba(239,230,220,.6);padding:24px;font-size:0.9rem;">등록된 클립이 없습니다.</div>';
       return;
     }
     grid.innerHTML = data.slice(0,4).map(c=>`
@@ -1334,7 +1461,7 @@ const FAQ_DATA = [
       </div>
     `).join('');
   } catch(e) {
-    grid.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:0.9rem;">클립을 불러오지 못했습니다.</div>';
+    grid.innerHTML = '<div style="text-align:center;color:rgba(239,230,220,.6);padding:24px;font-size:0.9rem;">클립을 불러오지 못했습니다.</div>';
   }
 })();
 

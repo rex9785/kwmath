@@ -1,5 +1,10 @@
 import { listStudents } from './_db.js';
 import { logAudit } from './_auditlog.js';
+// 🛡️ §11-16 — 이 파일은 _lockout.js 를 쓰지 않는다.
+//    「코드로 반 찾기(GET ?code=)」를 원장 전용으로 잠갔기 때문에(아래 onRequest 참고)
+//    공개로 두드릴 수 있는 문이 남아 있지 않다. 잠금이 필요한 곳은
+//    가입 신청(POST /api/student-register) 한 곳뿐이고, 거기에만 걸려 있다.
+//    ⚠️ ?code= 를 다시 공개로 되돌린다면 반드시 _lockout.js 의 gate* 잠금을 함께 걸 것.
 // /api/class-options
 //   GET  — 공개 (누구나 호출). R2의 학원/반 옵션 + 실제 학생 데이터에서 사용 중인 옵션 합집합 반환
 //   POST — admin only. body: { action: 'add-class'|'delete-class'|'add-academy'|'delete-academy'|'set-schedule', academy, className?, schedule? }
@@ -49,6 +54,9 @@ async function saveOptions(env, data) {
 
 // 🔑 반 코드 — 학원/반마다 자동 발급되는 5자리 숫자.
 //   학생 등록 시 이 코드로 반 자동 배정 + 코드 없으면 등록 불가(스팸 차단).
+//
+// ⚠️ 자릿수(5)는 register.html 의 입력칸 maxlength / 제출 전 자릿수 검사와 같아야 한다.
+//    자릿수를 바꾸려면 아래 genCode() 와 register.html 두 곳을 같이 고칠 것.
 function genCode(existing) {
   let code, tries = 0;
   do { code = String(Math.floor(10000 + Math.random() * 90000)); tries++; }
@@ -172,6 +180,32 @@ export async function onRequest({ request, env }) {
     const url = new URL(request.url);
     const codeQ = (url.searchParams.get('code') || '').replace(/[^0-9]/g, '');
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🔒 2026-08-03 (§11-16) — 「코드로 반 찾기」는 원장 전용 (관우T 확정)
+    //
+    //   예전엔 등록 페이지가 학부모가 코드를 타이핑하는 도중에 이 창구로
+    //   「이 코드 맞아?」를 물어보고 반 이름을 화면에 띄웠다. 편했지만,
+    //   이 창구는 로그인 없이 누구나 몇 번이든 두드릴 수 있는 문이었다.
+    //   코드는 5자리 숫자(10000~99999 = 9만 가지)뿐이라, 자동 프로그램이
+    //   순서대로 훑으면 실제 반 코드를 알아내 가짜 신청을 밀어넣을 수 있었다.
+    //
+    //   → 등록 페이지의 즉시확인을 없앴고(register.html), 창구 자체도 여기서 잠근다.
+    //     이제 코드 판정은 가입 신청(POST /api/student-register) 한 곳에서만 일어나고,
+    //     거기엔 같은 IP 기준 횟수 제한(_lockout.js 의 gate*)이 걸려 있다.
+    //     학부모는 「등록 완료」 화면에서 배정된 학원·반을 확인한다.
+    //
+    //   ⚠️ 되살리지 말 것 — 공개로 되돌리려면 반드시 _lockout.js 의 gate* 잠금을
+    //      이 분기에 함께 걸어야 한다. 잠금 없는 공개 조회 = 코드 전수 대입 허용.
+    //   ⚠️ 잠금 검사가 아니라 권한 검사이므로 R2/D1 읽기(loadOptions·getUsedFromStudents)
+    //      **앞**에 둔다. 권한 없는 요청에 저장소 비용이 나가지 않게.
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (codeQ && !isAdmin(request, env)) {
+      return Response.json({
+        valid: false,
+        error: '반 코드는 등록 신청을 접수할 때 확인됩니다.',
+      }, { status: 403 });
+    }
+
     const saved = await loadOptions(env);
     const used  = await getUsedFromStudents(env);
     // 학생 데이터에서 사용 중인 학원/반을 R2 saved에 자동 흡수 (한 번 등록되면 학생 0명이 돼도 남음)
@@ -179,7 +213,9 @@ export async function onRequest({ request, env }) {
     // 모든 반에 코드 보장 (기존 반도 첫 호출 때 코드 자동 생성·저장)
     if (ensureCodes(saved)) await saveOptions(env, saved);
 
-    // 🔑 반 코드 조회 (공개) — 등록 폼에서 코드 입력 시 학원/반 확인용. 매칭 1건만 반환(목록 비노출).
+    // 🔑 반 코드 조회 — **원장 전용**(위 403 관문을 통과한 요청만 여기 온다).
+    //    관우T가 관리자 화면에서 「이 코드가 어느 반이지?」를 확인할 때 쓴다.
+    //    매칭 1건만 반환(전체 목록은 비노출).
     if (codeQ) {
       for (const acad of saved.academies) {
         for (const cls of (saved.classes[acad] || [])) {
