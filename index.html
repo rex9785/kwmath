@@ -182,8 +182,11 @@
   .school-card p{font-size:.93rem;line-height:1.85;color:var(--muted);}
   .school-go{margin-top:20px;font-size:.87rem;font-weight:700;color:var(--wine);}
   .schools-more{margin-top:22px;font-size:.88rem;color:var(--muted2);}
+  .schools-all{display:inline-block;margin-top:16px;text-decoration:none;font-size:.88rem;font-weight:700;color:var(--wine);border:1px solid var(--line);border-radius:6px;padding:12px 22px;background:var(--card);transition:border-color .2s,color .2s;}
+  .schools-all:hover{border-color:var(--wine);color:var(--wine-deep);}
   @media(max-width:640px){
     .school-card{padding:26px 22px;}
+    .schools-all{display:block;text-align:center;}
     .school-nums{gap:24px;}
     .school-num b{font-size:1.48rem;}
   }
@@ -383,6 +386,14 @@
   @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none;}}
 
   /* ── 반응형 ── */
+  /* 노트북 폭(921~1160px): 메뉴가 7개(「학교별 내신 분석」 추가)라 기본 간격으로는 버튼과 겹친다.
+     항목을 숨기지 않고 간격·글자만 줄여 한 줄을 유지한다. 921px 미만은 아래에서 어차피 숨긴다. */
+  @media (max-width:1160px) and (min-width:921px){
+    .nav-links{gap:1.05rem;}
+    .nav-links a{font-size:.82rem;}
+    .nav-portal{padding:7px 11px;font-size:.76rem!important;}
+    .nav-cta{padding:8px 14px;font-size:.78rem!important;}
+  }
   @media (max-width:920px){
     .hero{padding-top:120px;}
     .hero-inner,.ct-grid,.video-grid,.prog-grid,.tt-grid{grid-template-columns:1fr;}
@@ -458,6 +469,7 @@
       <li><a href="#notice">공지사항</a></li>
       <li><a href="#video">샘플강의</a></li>
       <li><a href="/lectures">공개강의</a></li>
+      <li><a href="/analysis">학교별 내신 분석</a></li>
       <li><a href="/materials">자료실</a></li>
       <li class="nav-keep"><a href="/portal" class="nav-portal">포털 로그인</a></li>
       <li class="nav-keep"><a href="#contact" class="nav-cta">상담 신청</a></li>
@@ -745,7 +757,9 @@
         <div class="school-go">분석 전문 보기 →</div>
       </a>
     </div>
-    <p class="schools-more">재원생이 다니는 다른 학교 분석도 순차적으로 공개합니다.</p>
+    <p class="schools-more">단대부고 1학년 2학기 중간 범위 분석이 진행 중입니다. 재원생이 다니는 학교부터 순서대로 공개합니다.</p>
+    <!-- 아카이브 입구 — 모바일에서는 상단 메뉴가 숨겨지므로 이 버튼이 /analysis 로 가는 유일한 길이다. 지우지 말 것. -->
+    <a class="schools-all" href="/analysis">학교별 내신 분석 전체 보기 →</a>
   </div>
 </section>
 
