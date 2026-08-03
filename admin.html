@@ -4538,6 +4538,8 @@
         }
         // 위 '그날 수업 반' 카드의 집계도 즉시 반영 (전체 재조회 없이 캐시만 갱신)
         if (_qaAtt.date === date) { delete _qaAtt.byId[String(id)]; if (typeof renderTodayClassCards === 'function') renderTodayClassCards(); }
+        // 출결을 지웠으면 인강 버튼도 다시 열 수 있는 상태로 돌려놓는다(기록 없는 날은 정책B상 잠김).
+        if (typeof _mkRepaintRow === 'function') _mkRepaintRow(id, '');
       } else {
         // ── 새 기록 또는 변경 — POST ──
         // 결석·지각·병결이면 학부모 알림과 인강 열기를 **한 창에서** 같이 정한다 (2026-08-03 관우T 지시 "물 흐르듯").
@@ -4586,6 +4588,9 @@
           _qaAtt.byId[String(id)] = Object.assign({}, _qaAtt.byId[String(id)] || {}, { status: status });
           if (typeof renderTodayClassCards === 'function') renderTodayClassCards();
         }
+        // 출석·지각으로 찍었으면 인강 버튼은 「✓ 출석 · 이미 열림」 비활성으로 바뀐다.
+        //   (결석계열이면 그대로 3색 토글 — 아래 openMakeup 블록이 이어서 초록으로 칠할 수도 있다)
+        if (typeof _mkRepaintRow === 'function') _mkRepaintRow(id, status);
         // ─── 모달에서 「인강 열어주기」를 체크했으면 여기서 이어서 열어준다 ───
         //   출결 저장이 끝난 **뒤에** 부른다. 순서를 바꾸면 인강만 열리고 결석은 안 찍힌 상태가 생길 수 있다.
         //   실패해도 출결 기록은 이미 남아 있으므로, 실패 문구에 "출결은 저장됨"을 반드시 같이 적는다 —
@@ -4605,7 +4610,7 @@
               // 같은 학생 줄의 「🔒 인강 열기」 버튼 색도 바로 바꿔 준다. 버튼이 화면에 없을 수도 있어(반별 보기 등)
               //   못 찾으면 조용히 넘어간다 — 서버에는 이미 반영됐고, 목록을 다시 그리면 syncMakeupMarks가 맞춘다.
               const mkBtn = document.querySelector('.mk-btn[data-mk-sid="' + String(id).replace(/"/g, '') + '"]');
-              if (mkBtn && typeof _mkPaintBtn === 'function') _mkPaintBtn(mkBtn, 'approved');
+              if (mkBtn && typeof _mkPaintBtn === 'function') _mkPaintBtn(mkBtn, 'approved', status);
               showToast(출결토스트 + ' · 🔓 인강 열림');
             }
           } catch (e) {
@@ -5050,8 +5055,29 @@
   //   🆔 학생 지목은 studentId — 이름으로 보내면 동명이인일 때 서버가 409로 되돌린다(makeup.js:75).
   //   ※ 영상이 아직 없는 날짜도 열어둘 수 있다. makeup_grants 키가 (student_id, date) 뿐이라
   //     나중에 그 날짜 영상을 올리면 그 순간부터 바로 보인다. 버그가 아니라 설계다.
-  function _mkPaintBtn(btn, status){
+  //   ⚠️ 3번째 인자 attStatus (2026-08-03 관우T 지적 "출석한 사람한테도 인강열기 버튼이 활성화돼 있더라"):
+  //     정책B상 출석·지각한 날은 locked = ¬present ∧ ¬approved 로 **이미 열려 있다**.
+  //     그런데 이 버튼은 makeup_grants 만 보고 칠하던 탓에 출석한 학생도 회색 🔒 「인강 열기」로 떠서
+  //     "잠겨 있다"는 거짓 신호를 줬다. 눌러도 버그는 안 나지만(단순 upsert · 학생 화면 그대로),
+  //     「🎬 인강 이력」 표에 `출석 / 🔓 열림 / 직접 열어줌` 이라는 뜻 없는 행이 쌓인다.
+  //     그래서 출석·지각이면 비활성으로 못 박는다.
+  //     ※ 단, grant 가 이미 있으면(status 있음) 아래 3색을 그대로 쓴다 — 안 그러면 미리 열어줬다가
+  //       나중에 출석 처리된 날의 grant 를 되돌릴(=이력에서 지울) 길이 사라진다.
+  function _mkPaintBtn(btn, status, attStatus){
     if (!btn) return;
+    if ((attStatus === '출석' || attStatus === '지각') && !status){
+      btn.dataset.mkOpen = '';
+      btn.dataset.mkPresent = '1';
+      btn.disabled = true;
+      btn.style.background = '#F7F7F7'; btn.style.color = '#AAA'; btn.style.borderColor = '#EEE';
+      btn.style.cursor = 'default';
+      btn.textContent = '✓ 출석 · 이미 열림';
+      btn.title = attStatus + ' 기록이 있어 그날 수업영상·수업자료가 이미 열려 있습니다. 따로 열어줄 필요가 없습니다.';
+      return;
+    }
+    btn.dataset.mkPresent = '';
+    btn.disabled = false;
+    btn.style.cursor = 'pointer';
     if (status === 'approved'){
       btn.dataset.mkOpen = '1';
       btn.style.background = '#E5F5E8'; btn.style.color = '#1F7A33'; btn.style.borderColor = '#98D898';
@@ -5082,8 +5108,25 @@
     else _mkAllCache.push({ student_id: String(sid), date: date, status: status, requested_at: null, approved_at: now, approved_by: whoLabel || '원장' });
   }
 
+  // 출결을 찍은 직후 같은 줄 인강 버튼을 다시 칠한다.
+  //   출석·지각으로 바꾸면 「✓ 출석 · 이미 열림」으로 잠기고, 결석계열이나 기록 해제면 3색 토글로 돌아온다.
+  //   grant 상태는 이미 받아 둔 _mkAllCache 에서 꺼내 쓴다 — 여기서 새로 fetch 하지 않는다.
+  function _mkRepaintRow(id, attStatus){
+    const btn = document.querySelector('.mk-btn[data-mk-sid="' + String(id).replace(/"/g, '') + '"]');
+    if (!btn) return;
+    const date = qaDate();
+    const key = _mkNormSid(id);
+    let st = '';
+    if (Array.isArray(_mkAllCache)){
+      const g = _mkAllCache.find(function(x){ return _mkNormSid(x.student_id) === key && String(x.date||'') === date; });
+      if (g) st = g.status || '';
+    }
+    _mkPaintBtn(btn, st, attStatus);
+  }
+
   async function toggleMakeupForDate(sid, name, btn){
     if (!sid) return;
+    if (btn && btn.dataset.mkPresent === '1') return;   // 출석·지각한 날은 이미 열려 있다(비활성)
     const date = qaDate();
     const isOpen = !!(btn && btn.dataset.mkOpen === '1');
     const action = isOpen ? 'revoke' : 'grant';
@@ -5108,7 +5151,8 @@
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     } finally {
-      if (btn) btn.disabled = false;
+      // 비활성(출석·지각)으로 다시 칠해진 경우엔 되살리지 않는다.
+      if (btn && btn.dataset.mkPresent !== '1') btn.disabled = false;
     }
   }
 
@@ -5119,10 +5163,18 @@
     if (!btns.length) return;
     const date = qaDate();
     try {
+      // 그날 출결도 같이 본다 — 출석·지각한 날은 이미 열려 있어 버튼을 비활성으로 못 박기 위해서다.
+      //   qaLoadDayAttendance 는 같은 날짜면 캐시를 그대로 돌려줘서 요청이 늘지 않는다(force=false).
       const grants = await _mkFetchAll();     // 전 날짜분을 한 번만 받아 캐시 — 날짜가 바뀌어도 재요청 불필요
+      try { await qaLoadDayAttendance(false); } catch (e2) {}
+      const att = (_qaAtt && _qaAtt.date === date) ? (_qaAtt.byId || {}) : {};
       const map = {};
       grants.forEach(function(g){ if (g && String(g.date||'') === date) map[_mkNormSid(g.student_id)] = g.status; });
-      btns.forEach(function(b){ _mkPaintBtn(b, map[_mkNormSid(b.getAttribute('data-mk-sid'))] || ''); });
+      btns.forEach(function(b){
+        const sid = b.getAttribute('data-mk-sid');
+        const rec = att[String(sid)];
+        _mkPaintBtn(b, map[_mkNormSid(sid)] || '', rec && rec.status);
+      });
     } catch (e) {}
   }
 
