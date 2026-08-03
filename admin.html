@@ -5371,6 +5371,10 @@
   function _cliCurMonth(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
   function _cliSetOn(b){ b.style.background='#1f6f78'; b.style.color='#fff'; b.style.borderColor='#1f6f78'; b.dataset.on='1'; }
   function _cliSetOff(b){ b.style.background='#fff'; b.style.color='#666'; b.style.borderColor='#ddd'; b.dataset.on=''; }
+  // 🆔 학생 카드의 data-sid. 이름만 보내면 동명이인일 때 서버가 409로 막거나 엉뚱한 학생이 잡힌다(clinic.js:20~).
+  //   카드나 id를 못 찾으면 '' — 호출부는 예전처럼 name으로 폴백한다.
+  function _cliSid(box){ const card = box.closest('.report-card'); const v = card && card.getAttribute('data-sid'); return (v && v !== 'undefined' && v !== 'null') ? v : ''; }
+  function _cliShiftMonth(m, delta){ const p = String(m).split('-'); const d = new Date(Number(p[0]), Number(p[1]) - 1 + delta, 1); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
 
   function toggleAdminClinic(btn, name){
     const box = btn.closest('.report-card').querySelector('.cliwrap-admin');
@@ -5409,23 +5413,71 @@
     loadAdminClinicSummary(box, name);
   }
 
-  async function loadAdminClinicSummary(box, name){
+  // month를 넘기면 그 달, 안 넘기면 마지막으로 보던 달(없으면 이번 달).
+  //   ◀ ▶ 를 붙인 이유 — 이번 달만 보이면 **지난달에 잘못 저장한 기록은 화면에 뜨지도 않아 지울 수가 없다.**
+  //   (2026-08-03: 7/21 기록을 8월에 지우려 했으나 목록에 없던 건이 계기)
+  async function loadAdminClinicSummary(box, name, month){
     const sumEl = box.querySelector('.cli-sum');
     if (!sumEl) return;
+    const m = month || box.dataset.cliMonth || _cliCurMonth();
+    box.dataset.cliMonth = m;
     sumEl.textContent = '불러오는 중…';
+    const nav = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+      + '<button type="button" class="cli-mv" data-mv="-1" title="지난달" style="background:#fff;border:1.5px solid #cdd;border-radius:7px;padding:2px 10px;font-size:0.82rem;font-weight:700;color:#1f6f78;cursor:pointer;font-family:inherit;">‹</button>'
+      + '<span style="font-weight:800;color:#1f6f78;font-size:0.8rem;">' + escapeHtml(m) + '</span>'
+      + '<button type="button" class="cli-mv" data-mv="1" title="다음달" style="background:#fff;border:1.5px solid #cdd;border-radius:7px;padding:2px 10px;font-size:0.82rem;font-weight:700;color:#1f6f78;cursor:pointer;font-family:inherit;">›</button>'
+      + '</div>';
+    // 목록이 비었을 때도·오류일 때도 달 이동 버튼은 살아 있어야 한다 — 아니면 그 달에 갇힌다.
+    const bindNav = function(){
+      sumEl.querySelectorAll('.cli-mv').forEach(function(b){
+        b.addEventListener('click', function(){ loadAdminClinicSummary(box, name, _cliShiftMonth(m, Number(b.getAttribute('data-mv')))); });
+      });
+    };
     try{
-      const m = _cliCurMonth();
-      const res = await fetch('/api/clinic?name='+encodeURIComponent(name)+'&month='+m, { headers:{ 'Authorization':'Bearer '+adminToken } });
+      const sid = _cliSid(box);
+      const q = sid ? ('id='+encodeURIComponent(sid)) : ('name='+encodeURIComponent(name));
+      const res = await fetch('/api/clinic?'+q+'&month='+m, { headers:{ 'Authorization':'Bearer '+adminToken } });
       const j = await res.json();
       const rec = (j&&j.records)||{};
       const dates = Object.keys(rec).sort();
-      if (!dates.length){ sumEl.innerHTML = '<span style="color:#999;">'+m+' 클리닉 기록 없음</span>'; return; }
+      if (!dates.length){ sumEl.innerHTML = nav + '<span style="color:#999;">'+escapeHtml(m)+' 클리닉 기록 없음</span>'; bindNav(); return; }
       let c={출석:0,지각:0,결석:0,병결:0,공결:0}, achSum=0, achN=0, minSum=0;
       dates.forEach(function(d){ const e=rec[d]||{}; if(c[e.status]!==undefined)c[e.status]++; if(typeof e.achieve==='number'){achSum+=e.achieve;achN++;} if(typeof e.minutes==='number'){minSum+=e.minutes;} });
       const head = '출석 '+c.출석+(c.지각?' · 지각 '+c.지각:'')+(c.결석?' · 결석 '+c.결석:'')+(c.병결?' · 병결 '+c.병결:'')+(c.공결?' · 공결 '+c.공결:'')+(achN?' · 성취도 평균 '+Math.round(achSum/achN):'')+(minSum?' · 시간 합계 '+fmtClinicMin(minSum):'');
-      const days = dates.map(function(d){ const e=rec[d]||{}; return '<div>'+escapeHtml(d.slice(5))+' · '+escapeHtml(e.status||'-')+(typeof e.achieve==='number'?' · 성취도 '+e.achieve:'')+(typeof e.minutes==='number'?' · '+fmtClinicMin(e.minutes):'')+'</div>'; }).join('');
-      sumEl.innerHTML = '<div style="font-weight:700;color:#1f6f78;margin-bottom:4px;">'+escapeHtml(head)+'</div><div style="line-height:1.7;color:#666;">'+days+'</div>';
-    }catch(e){ sumEl.innerHTML = '<span style="color:#c0392b;">클리닉을 불러오지 못했어요.</span>'; }
+      // 줄마다 🗑 — 잘못 저장한 그날 기록을 화면에서 지울 유일한 길. 실제 삭제는 확인창을 한 번 더 거친다.
+      const days = dates.map(function(d){ const e=rec[d]||{};
+        return '<div style="display:flex;align-items:center;gap:7px;">'
+          + '<span>'+escapeHtml(d.slice(5))+' · '+escapeHtml(e.status||'-')+(typeof e.achieve==='number'?' · 성취도 '+e.achieve:'')+(typeof e.minutes==='number'?' · '+fmtClinicMin(e.minutes):'')+'</span>'
+          + '<button type="button" class="cli-del" data-date="'+escapeHtml(d)+'" title="이 날짜 클리닉 기록 삭제" style="background:#fff;border:1px solid #E4B6C0;color:#B02347;border-radius:6px;padding:1px 8px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">🗑</button>'
+          + '</div>';
+      }).join('');
+      sumEl.innerHTML = nav + '<div style="font-weight:700;color:#1f6f78;margin-bottom:4px;">'+escapeHtml(head)+'</div><div style="line-height:1.9;color:#666;">'+days+'</div>';
+      bindNav();
+      sumEl.querySelectorAll('.cli-del').forEach(function(b){
+        b.addEventListener('click', function(){ deleteAdminClinic(box, name, b.getAttribute('data-date'), b); });
+      });
+    }catch(e){ sumEl.innerHTML = nav + '<span style="color:#c0392b;">클리닉을 불러오지 못했어요.</span>'; bindNav(); }
+  }
+
+  // 🔴 클리닉 그날 기록 삭제 — 되돌릴 수 없다. 확인창을 한 번 거친다.
+  //   서버(functions/api/clinic.js DELETE)가 지운 값 전체를 감사로그에 남기므로, 무엇이 사라졌는지는 「변경이력」에서 볼 수 있다.
+  //   수업 출결(attendance)은 완전히 별개 표라 여기서 지워도 그대로 남는다 — 확인창에도 그렇게 적어 뒀다.
+  async function deleteAdminClinic(box, name, date, btnEl){
+    if (!date) return;
+    if (!confirm('[' + name + '] ' + date + ' 클리닉 기록을 지울까요?\n\n출결·성취도·시간이 모두 사라지고 되돌릴 수 없습니다.\n(수업 출결은 별개라 그대로 남습니다)')) return;
+    const old = btnEl ? btnEl.textContent : '';
+    if (btnEl){ btnEl.disabled = true; btnEl.textContent = '…'; }
+    try{
+      const sid = _cliSid(box);
+      const body = { name: name, date: date };
+      if (sid) body.id = sid;   // 🆔 서버는 id를 우선한다(동명이인 안전). 삭제는 되돌릴 수 없으니 특히 중요.
+      const res = await fetch('/api/clinic', { method:'DELETE', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+adminToken }, body: JSON.stringify(body) });
+      const j = await res.json().catch(function(){ return {}; });
+      if(!res.ok || !j.ok){ showToast('❌ '+(j.error||'삭제 실패')); if (btnEl){ btnEl.disabled=false; btnEl.textContent=old; } return; }
+      // removed:0 = 지울 게 없었다는 뜻. "지웠다"고 말하면 안 된다 — 엉뚱한 학생을 지웠나 의심하게 된다.
+      showToast(j.removed ? ('🗑 '+name+' 클리닉 '+date.slice(5)+' 삭제') : ('ℹ️ '+name+' '+date.slice(5)+' — 지울 기록이 없었어요'));
+      loadAdminClinicSummary(box, name);
+    }catch(e){ showToast('네트워크 오류: '+e.message); if (btnEl){ btnEl.disabled=false; btnEl.textContent=old; } }
   }
 
   async function saveAdminClinic(box, name, btnEl){
@@ -5436,6 +5488,7 @@
     const hRaw = (box.querySelector('.cli-h').value||'').trim();
     const mRaw = (box.querySelector('.cli-m').value||'').trim();
     const body = { name: name, date: date };
+    const _sid = _cliSid(box); if (_sid) body.id = _sid;   // 🆔 서버는 id를 우선한다(동명이인 안전)
     if (stOn) body.status = stOn.dataset.st;
     if (achOn) body.achieve = Number(achOn.dataset.ach);
     if (hRaw!=='' || mRaw!==''){
@@ -5453,7 +5506,7 @@
       showToast('✅ '+name+' 클리닉 '+date.slice(5)+' 저장');
       box.querySelectorAll('.cli-st,.cli-ach').forEach(_cliSetOff);
       box.querySelector('.cli-h').value=''; box.querySelector('.cli-m').value='';
-      loadAdminClinicSummary(box, name);
+      loadAdminClinicSummary(box, name, date.slice(0,7));   // 방금 저장한 날짜의 달로 맞춘다 — 다른 달이면 넣은 게 목록에 안 보인다
     }catch(e){ showToast('네트워크 오류: '+e.message); }
     finally{ btnEl.disabled=false; btnEl.textContent=old; }
   }
