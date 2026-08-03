@@ -72,27 +72,48 @@ function generateRandomToken() {
   return bytesToHex(bytes);
 }
 
+// ── 🔑 2026-08-03 — 폰별 토큰 색인 (§11-12) ──
+//   문제: 토큰은 `auth/tokens/{난수}.json` 으로만 저장돼서 "이 번호의 토큰을 지워라"를 할 방법이 없었다.
+//         그래서 퇴원·거부 처리를 해도 이미 나간 토큰이 계속 살아 있었다(verifyToken은 만료만 보고,
+//         슬라이딩 갱신 때문에 계속 쓰면 만료도 안 된다).
+//   해법: 발급할 때 `auth/phone-index/{폰}/{토큰}` 빈 객체를 하나 더 남긴다. 폐기할 땐 이 접두사만 훑으면 된다.
+//         요청당 추가 비용 0 — 발급(로그인)할 때 R2 쓰기 1회가 늘 뿐이다.
+function tokenKey(token) { return 'auth/tokens/' + token + '.json'; }
+function indexKey(phone, token) { return 'auth/phone-index/' + phone + '/' + token; }
+
+// 색인 쓰기는 로그인의 성패를 좌우하면 안 된다 → 실패해도 조용히 넘어간다(폐기 정확도만 조금 떨어짐).
+async function putTokenIndex(env, phone, token) {
+  if (!phone || !token) return;
+  try { await env.BUCKET.put(indexKey(phone, token), ''); } catch (_) { /* 비치명적 */ }
+}
+async function deleteTokenIndex(env, phone, token) {
+  if (!phone || !token) return;
+  try { await env.BUCKET.delete(indexKey(phone, token)); } catch (_) { /* 비치명적 */ }
+}
+
 export async function issueToken(env, phone) {
   const token = generateRandomToken();
   const expires = Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
   const payload = JSON.stringify({ phone, expires, createdAt: Date.now() });
-  await env.BUCKET.put('auth/tokens/' + token + '.json', payload, {
+  await env.BUCKET.put(tokenKey(token), payload, {
     httpMetadata: { contentType: 'application/json' },
   });
+  await putTokenIndex(env, phone, token);
   return { token, expires };
 }
 
 export async function verifyToken(env, token) {
   if (!token) return null;
-  const obj = await env.BUCKET.get('auth/tokens/' + token + '.json');
+  const obj = await env.BUCKET.get(tokenKey(token));
   if (!obj) return null;
   try {
     const payload = await obj.json();
     if (!payload || !payload.phone) return null;
     const now = Date.now();
     if (typeof payload.expires === 'number' && payload.expires < now) {
-      // 만료 → 정리
-      try { await env.BUCKET.delete('auth/tokens/' + token + '.json'); } catch(_) {}
+      // 만료 → 정리 (색인도 같이 지운다 — 안 지우면 폐기 목록에 유령이 쌓인다)
+      try { await env.BUCKET.delete(tokenKey(token)); } catch(_) {}
+      await deleteTokenIndex(env, payload.phone, token);
       return null;
     }
     // 🔄 슬라이딩 갱신 — 지금 접속했으니 만료를 다시 30일 뒤로. 하루에 한 번만 R2에 씁니다.
@@ -100,9 +121,12 @@ export async function verifyToken(env, token) {
     if (typeof payload.expires !== 'number' || (payload.expires - now) < (fullMs - TOKEN_RENEW_INTERVAL_MS)) {
       const renewed = { ...payload, expires: now + fullMs, renewedAt: now };
       try {
-        await env.BUCKET.put('auth/tokens/' + token + '.json', JSON.stringify(renewed), {
+        await env.BUCKET.put(tokenKey(token), JSON.stringify(renewed), {
           httpMetadata: { contentType: 'application/json' },
         });
+        // 📌 색인 백필 — 2026-08-03 이전에 발급된 토큰은 색인이 없다. 갱신은 하루 한 번뿐이라
+        //    여기서 같이 써두면, 계속 쓰는 옛 토큰도 하루 안에 폐기 대상으로 잡힌다.
+        await putTokenIndex(env, payload.phone, token);
         return renewed;
       } catch (_) { /* 갱신 실패해도 이번 요청은 통과 — 다음 접속 때 다시 시도합니다. */ }
     }
@@ -114,7 +138,56 @@ export async function verifyToken(env, token) {
 
 export async function revokeToken(env, token) {
   if (!token) return;
-  try { await env.BUCKET.delete('auth/tokens/' + token + '.json'); } catch(_) {}
+  // 색인을 지우려면 이 토큰이 누구 것인지 알아야 한다 → 지우기 전에 한 번 읽는다.
+  let phone = '';
+  try {
+    const obj = await env.BUCKET.get(tokenKey(token));
+    if (obj) { const p = await obj.json(); phone = (p && p.phone) || ''; }
+  } catch (_) { /* 못 읽어도 토큰 파일은 아래에서 지운다 */ }
+  try { await env.BUCKET.delete(tokenKey(token)); } catch(_) {}
+  await deleteTokenIndex(env, phone, token);
+}
+
+// ── 이 번호로 발급된 토큰 전부 폐기 (퇴원·거부·계정삭제) ──
+//   반환: 지운 개수. 색인이 없는 옛 토큰(2026-08-03 이전 발급 + 그 뒤로 한 번도 접속 안 함)은 못 잡는다.
+export async function revokeTokensForPhone(env, phone) {
+  if (!phone) return 0;
+  let count = 0;
+  try {
+    const prefix = 'auth/phone-index/' + phone + '/';
+    let cursor;
+    // 한 사람의 토큰이 1000개를 넘을 일은 없지만, 커서를 돌려 끝까지 지운다.
+    for (let page = 0; page < 5; page++) {
+      const listed = await env.BUCKET.list({ prefix, cursor, limit: 1000 });
+      for (const obj of (listed.objects || [])) {
+        const tok = obj.key.slice(prefix.length);
+        if (!tok) continue;
+        try { await env.BUCKET.delete(tokenKey(tok)); } catch (_) {}
+        try { await env.BUCKET.delete(obj.key); } catch (_) {}
+        count++;
+      }
+      if (!listed.truncated) break;
+      cursor = listed.cursor;
+    }
+  } catch (_) { /* 폐기 실패는 호출부가 감사로그에 남긴다 */ }
+  return count;
+}
+
+// ── 이 번호에 연결된 학생이 하나도 안 남았을 때만 폐기 (형제 로그인 보호) ──
+//   퇴원/거부 처리 뒤에 부른다. 형제가 아직 다니면 부모 계정은 그대로 써야 하므로 토큰을 살린다.
+//   반환: { revoked, kept, error }
+export async function revokeTokensIfUnused(env, phone) {
+  if (!phone) return { revoked: 0, kept: false };
+  try {
+    const stillUsed = await env.DB.prepare(
+      'SELECT 1 FROM students WHERE parent_phone = ? OR student_phone = ? LIMIT 1'
+    ).bind(phone, phone).first();
+    if (stillUsed) return { revoked: 0, kept: true };
+  } catch (e) {
+    // 판단을 못 했으면 지우지 않는다 — 멀쩡한 형제를 로그아웃시키는 쪽이 더 나쁘다.
+    return { revoked: 0, kept: true, error: e.message || 'lookup failed' };
+  }
+  return { revoked: await revokeTokensForPhone(env, phone), kept: false };
 }
 
 // ── Authorization 헤더에서 Bearer 토큰 추출 ──

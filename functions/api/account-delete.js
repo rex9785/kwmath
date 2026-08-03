@@ -9,7 +9,7 @@
 //       R2의 reports/{이름}/ · test-results/{이름}/ 파일 + 계정(accounts) 삭제, 토큰 폐기.
 //       반 공용 자료(class/...)는 사용자 개인정보가 아니므로 건드리지 않는다.
 // ───────────────────────────────────────────────────────────
-import { requireAuth, revokeToken } from './_auth.js';
+import { requireAuth, revokeToken, revokeTokensForPhone } from './_auth.js';
 import { safeError } from './_errors.js';
 import { snapshotArchive } from './_outcomes.js';
 import { logAudit } from './_auditlog.js';
@@ -114,7 +114,13 @@ export async function onRequest({ request, env }) {
     } catch (e) { result.errors.push('account'); }
 
     // 로그인 토큰 폐기
-    try { await revokeToken(env, auth.token); } catch (e) { /* 비치명적 */ }
+    // 🔑 2026-08-03 (§11-12) — 예전엔 **지금 이 기기의 토큰 1개만** 지웠다. 그래서 같은 번호로
+    //   다른 기기(태블릿·가족 폰)에 로그인해 둔 게 있으면 계정을 지웠는데도 **최대 30일** 그대로 열려 있었다
+    //   (verifyToken 은 만료만 보고 accounts 를 다시 안 본다). 이제 그 번호의 토큰을 전부 끊는다.
+    //   계정 자체를 지우는 경로이므로 형제 검사는 하지 않는다 — 이 번호로는 아무도 못 들어와야 맞다.
+    let 폐기된토큰수 = 0;
+    try { 폐기된토큰수 = await revokeTokensForPhone(env, phone); } catch (e) { /* 비치명적 */ }
+    try { await revokeToken(env, auth.token); } catch (e) { /* 색인이 없던 옛 토큰 대비 — 내 것은 확실히 지운다 */ }
 
     // 🛡️ 2026-07-31 — 푸시 등록도 같이 지운다.
     //   계정을 지웠는데 이 번호로 등록된 기기 토큰(R2 fcm-tokens/·push-subs/)이 남아 있으면
@@ -156,6 +162,7 @@ export async function onRequest({ request, env }) {
         삭제된파일키: 삭제된파일키,
         파일키일부만저장: result.files_deleted > 200,
         푸시등록삭제: 푸시삭제,
+        로그인토큰폐기: 폐기된토큰수 + '개 (이 번호로 로그인해 둔 모든 기기)',
         오류: result.errors,
       },
     });

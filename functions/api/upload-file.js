@@ -1,8 +1,49 @@
 // 파일을 직접 R2에 업로드 (native R2 binding, AWS SDK 불필요)
 import { logAudit, actorOf } from './_auditlog.js';
 
+// 📓 2026-08-03 (§11-11) — 여태 이 API에는 용량 제한이 **한 줄도 없었다.**
+//   숙제 사진 업로드(homework.js)에는 15MB 컷이 이미 있었는데 자료실만 무방비였다.
+//   ⚠️ 값을 바꾸려면 이 한 줄만 고치면 된다. 아래 두 군데(헤더 검사·파싱 후 검사)가 같은 값을 쓴다.
+//   ⚠️ Cloudflare Worker 는 메모리 한도가 128MB 다. formData() 가 본문을 통째로 메모리에 올리므로
+//     이 값을 128MB 근처까지 올리면 업로드 한 건이 워커를 죽여서 그 순간 다른 요청까지 같이 실패한다.
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 자료 1개 최대 50MB
+
+function 크기표시(n) {
+  const v = Number(n) || 0;
+  return v > 1024 * 1024 ? (v / (1024 * 1024)).toFixed(1) + 'MB' : Math.round(v / 1024) + 'KB';
+}
+
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
+
+  // 📓 2026-08-03 (§11-11) — 여태 이 API는 "일단 다 받아본 다음에" 비밀번호를 확인했다(formData()가 먼저였다).
+  //   그래서 인증도 안 된 요청이 던진 몇 GB짜리 본문을 서버가 통째로 메모리에 올린 뒤에야 401을 돌려줬다.
+  //   저장되는 건 없었지만(R2 put 은 인증 뒤라 데이터가 새지는 않는다) 요청·처리 비용이 나가고,
+  //   워커 메모리가 터지면 그 순간 다른 사람 업로드까지 같이 실패한다.
+  //   ⚠️ 인증을 formData() 앞으로 **완전히** 당길 수는 없다 — MathOS 로컬앱은 비밀번호를 폼 "필드"로 보내는데
+  //     그 값은 본문을 파싱해야만 보이기 때문이다. 그래서 본문을 읽기 전에 볼 수 있는 유일한 정보인
+  //     Content-Length 로 먼저 자르고, 파싱한 뒤 file.size 로 한 번 더 자른다(2중).
+  //   ⚠️ Content-Length 는 청크 전송이면 아예 없을 수 있고 거짓말도 가능하다 → 뒤의 재확인이 반드시 필요하다.
+  //   ⚠️ logAudit 은 헤더만 읽고 본문을 건드리지 않으므로(_auditlog.js) 여기서 불러도 안전하다.
+  const 신고한크기 = Number(request.headers.get('content-length') || 0);
+  if (신고한크기 > MAX_UPLOAD_BYTES) {
+    await logAudit(env, request, {
+      action: 'file.upload.denied',
+      target: '(본문 읽기 전 차단)',
+      summary: '자료 업로드 거부 — 요청이 너무 큼 ' + 크기표시(신고한크기) + ' (최대 ' + 크기표시(MAX_UPLOAD_BYTES) + ')',
+      detail: {
+        신고한크기바이트: 신고한크기,
+        신고한크기표시: 크기표시(신고한크기),
+        상한: 크기표시(MAX_UPLOAD_BYTES),
+        판정근거: 'Content-Length 헤더 — 본문을 읽기 전에 잘랐다(파일 이름·폴더·인증 정보는 본문 안이라 아직 모른다)',
+        비고: '인증 통과 여부와 무관하게 먼저 자른다. 인증을 앞으로 못 당기는 이유는 위 주석 참고.',
+        효과: 'R2에 아무것도 저장되지 않음 — 본문을 아예 읽지 않았으므로 서버 메모리도 쓰지 않았다',
+      },
+    });
+    return Response.json({
+      error: '파일이 너무 큽니다(최대 ' + 크기표시(MAX_UPLOAD_BYTES) + '). 보낸 크기: ' + 크기표시(신고한크기),
+    }, { status: 413 });
+  }
 
   const formData = await request.formData();
   const file = formData.get('file');
@@ -89,6 +130,35 @@ export async function onRequest({ request, env }) {
     return Response.json({ error: '파일이 없습니다' }, { status: 400 });
   }
 
+  // 📓 2026-08-03 (§11-11) — 위 Content-Length 검사의 2중 확인.
+  //   헤더가 없는 경우(청크 전송)·헤더를 거짓으로 보낸 경우·본문에 파일이 여러 개 실린 경우에는
+  //   헤더만으로는 못 막는다. 실제로 파싱된 파일 크기로 여기서 한 번 더 자른다.
+  //   여기까지 왔다는 건 인증은 통과했다는 뜻이다 → 관우T·조교의 실수(4GB 영상 끌어다 놓기)도 여기서 걸린다.
+  if (Number(file.size || 0) > MAX_UPLOAD_BYTES) {
+    await logAudit(env, request, {
+      ...행위자,
+      action: 'file.upload.denied',
+      target: String(folder).slice(0, 200),
+      targetName: String(file.name || '').slice(0, 60),
+      summary: '자료 업로드 거부 — 파일이 너무 큼 ' + 크기표시(file.size) + ' (최대 ' + 크기표시(MAX_UPLOAD_BYTES) + ') [' + String(file.name || '이름없음') + ']',
+      detail: {
+        요청폴더: String(folder),
+        파일: 파일정보,
+        크기표시: 크기표시(file.size),
+        상한: 크기표시(MAX_UPLOAD_BYTES),
+        판정근거: '파싱된 파일 크기(file.size) — Content-Length 헤더는 ' + (신고한크기 ? 크기표시(신고한크기) + ' 로 왔다' : '아예 안 왔다(청크 전송)'),
+        헤더가못막은이유: 신고한크기 > 0 && 신고한크기 <= MAX_UPLOAD_BYTES
+          ? '헤더 값이 상한 이하로 왔는데 실제 파일이 더 컸다 — 헤더 위조이거나 본문에 다른 항목이 함께 실린 경우'
+          : '헤더가 없어서 본문을 읽기 전에는 크기를 알 수 없었다',
+        인증경로: 인증경로,
+        효과: 'R2에 아무것도 저장되지 않음 — 자료실에 변화 없음',
+      },
+    });
+    return Response.json({
+      error: '파일이 너무 큽니다(최대 ' + 크기표시(MAX_UPLOAD_BYTES) + '). ' + (file.name || '') + ' : ' + 크기표시(file.size),
+    }, { status: 413 });
+  }
+
   const timestamp = Date.now();
   const safeFileName = file.name.replace(/[^a-zA-Z0-9가-힣.\-_]/g, '_');
   const key = `${folder}/${timestamp}_${safeFileName}`;
@@ -116,9 +186,7 @@ export async function onRequest({ request, env }) {
     throw e;
   }
 
-  const fileSize = file.size > 1024 * 1024
-    ? (file.size / (1024 * 1024)).toFixed(1) + 'MB'
-    : Math.round(file.size / 1024) + 'KB';
+  const fileSize = 크기표시(file.size);   // 2026-08-03 — 위 상한 검사와 같은 함수를 쓴다(표기가 갈리지 않게)
 
   // 📓 어느 폴더에 올렸느냐에 따라 "누가 볼 수 있는 자료가 되는지"가 완전히 달라진다(download-file.js 화이트리스트).
   //   원장이 로그만 보고도 그 결과를 알 수 있게 문장으로 적어 둔다.

@@ -28,7 +28,9 @@ import { staffScopeAcademy } from './_staff.js';
 
 // ⏱️ 언제부터 "할 시간"으로 볼 것인가 — 숫자만 고치면 기준이 바뀐다.
 //   너무 이르면 아직 안 해도 되는 일이 떠서 눈이 무시하게 되고, 너무 늦으면 까먹은 뒤에 뜬다.
-const 출결_시작후분 = 30;    // 수업 시작 +30분 (푸시 리마인드와 같은 기준으로 맞춤)
+const 출결_시작후분 = 10;    // 수업 시작 +10분 — 출석 부르고 바로 찍으신다(2026-08-03 관우T 확정).
+                             //   푸시 리마인드(admin-reminders.js)는 +30분 그대로다. 일부러 어긋나 있다 —
+                             //   저건 "폰을 울려 방해하는" 것이고 이건 "앱을 열었을 때 보이는" 것이라 기준이 달라야 한다.
 const 영상_종료후분 = 30;    // 수업 종료 +30분 — 정리하고 올릴 시간
 const 리포트_종료후분 = 120; // 수업 종료 +2시간 — 영상 분석(MathOS)까지 감안
 const 조교총평_시작후분 = 30; // 클리닉 시작 +30분 — 조교가 쓰기 시작할 시점
@@ -213,12 +215,16 @@ export async function onRequest({ request, env }) {
     const roster = students.filter((s) => (s.academy || '') === academy && (s.className || '') === className);
     if (!roster.length) continue;                       // 학생이 없는 반은 아무것도 묻지 않는다
 
-    // ① 출결 — 시작 +30분이 지났는데 그 반 오늘 출결이 0건
+    // ① 출결 — 시작 +10분이 지났는데 **아직 안 찍은 학생이 남아 있다**
+    //    ⚠️ 예전엔 cnt === 0(한 명도 안 찍음)일 때만 줄을 그렸다. 그래서 20명 중 1명만 찍어도
+    //       줄이 통째로 사라졌고, 앱을 다시 열면 19명이 남았는데도 홈이 조용했다(관우T 2026-08-03
+    //       "하루가 지금은 찾아 찾아 들어가니까 불편해"). 이제 남은 인원으로 판단하고 그 수를 내려보낸다.
     if (start !== null && now.minutes >= start + 출결_시작후분) {
       const ids = roster.map((s) => s.id).filter((v) => v !== undefined && v !== null);
       try {
         const cnt = await countChunked(env, 'SELECT COUNT(*) AS c FROM attendance WHERE date=? AND student_id IN (', ids, now.dateStr);
-        if (cnt === 0) 출결없는반.push(className);
+        const 남은 = Math.max(0, ids.length - cnt);   // 혹시 한 학생에 행이 둘이어도 음수로 안 내려간다
+        if (남은 > 0) 출결없는반.push({ academy, className, left: 남은, total: ids.length });
       } catch (_) { /* 조회 실패 반은 조용히 건너뛴다 */ }
     }
 
@@ -243,7 +249,12 @@ export async function onRequest({ request, env }) {
     }
   }
 
-  if (출결없는반.length) out.items.push({ key: 'attendance', n: 출결없는반.length, classes: 출결없는반 });
+  // 출결은 **반마다 한 줄**로 낸다. 눌렀을 때 그 반으로 바로 필터를 걸어 주려면 줄과 반이 1:1이어야 한다
+  //   (여러 반을 한 줄에 묶으면 어디로 데려갈지 정할 수 없다). n = 그 반에서 아직 안 찍은 학생 수.
+  //   academy를 같이 보내는 이유: 학원이 달라도 반 이름이 같을 수 있어 반 이름만으론 특정이 안 된다.
+  for (const t of 출결없는반) {
+    out.items.push({ key: 'attendance', n: t.left, classes: [t.className], academy: t.academy, className: t.className, total: t.total });
+  }
   if (영상없는반.length) out.items.push({ key: 'video', n: 영상없는반.length, classes: 영상없는반 });
   if (리포트없는반.length) out.items.push({ key: 'report', n: 리포트없는반.length, classes: 리포트없는반 });
 

@@ -779,12 +779,25 @@
   }
 
   // ════════ 로그아웃 ════════
-  function doLogout() {
+  async function doLogout() {
     if (!confirm('로그아웃하시겠습니까?')) return;
     // 이 폰을 이 계정의 알림 명단에서 뺀다 — 남의 폰으로 로그인한 흔적이 계속 울리던 문제(2026-07-31).
     //   ⚠️ 반드시 confirm 통과 뒤. 위에 두면 '취소'를 눌러도 알림이 꺼진다.
     //   currentPhone을 비우기 전이어야 어느 계정인지 알 수 있다.
     try { if (window.KWPush) window.KWPush.unregister(currentPhone); } catch (_) {}
+    // 🔑 2026-08-03 (§11-12) — 서버 토큰도 폐기한다.
+    //   그전까진 아래 저장소 비우기만 해서, R2의 토큰은 계속 살아 있었다(공용 PC에서 특히 위험).
+    //   ⚠️ 단, 생체인증 간편로그인을 켜둔 기기는 **폐기하지 않는다**. QUICK_KEY에 든 게 바로 이 토큰이라
+    //      지워버리면 "로그아웃해도 첫 화면에서 Face ID로 다시 들어오는" 은행앱식 동작이 깨진다.
+    //      간편로그인은 앱(KWNative)에서만 켜지므로, 공용 PC·웹 브라우저는 여기서 항상 폐기된다.
+    //   실패해도 로그아웃은 그대로 진행한다 — 이 기기의 토큰은 어차피 바로 아래에서 지운다.
+    let _keepServerToken = false;
+    try { _keepServerToken = !!(window.KWNative && KWNative.faceLockEnabled() && localStorage.getItem(QUICK_KEY)); } catch (_) {}
+    try {
+      if (currentToken && !_keepServerToken) {
+        await fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + currentToken } });
+      }
+    } catch (_) {}
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PHONE_KEY);
     sessionStorage.removeItem(TOKEN_KEY);

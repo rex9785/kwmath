@@ -5,6 +5,7 @@
 import { safeError } from './_errors.js';
 import { snapshotArchive } from './_outcomes.js';
 import { logAudit } from './_auditlog.js';
+import { revokeTokensForPhone, revokeTokensIfUnused } from './_auth.js';
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용' }, { status: 405 });
@@ -43,6 +44,15 @@ export async function onRequest({ request, env }) {
       try { const sd = await env.DB.prepare('DELETE FROM exam_scores WHERE student_id = ?').bind(id).run(); result.scores_deleted += (sd.meta && sd.meta.changes) || 0; } catch (e) { /* exam_scores 테이블 없을 수 있음 */ }
       const d = await env.DB.prepare('DELETE FROM students WHERE id = ?').bind(id).run();
       result.students_archived = (d.meta && d.meta.changes) || 0;
+      // 🔑 2026-08-03 (§11-12) — 이미 나간 로그인 토큰 폐기.
+      //   이 경로는 계정(accounts)을 지우지 않지만, 학생이 하나도 안 남은 번호는 어차피 로그인이 막힌다.
+      //   그런데 **이미 발급된 토큰**은 로그인을 다시 안 거치므로 계속 통과했다 → 여기서 끊는다.
+      //   형제가 아직 다니는 번호는 revokeTokensIfUnused가 알아서 살려둔다.
+      const 폐기 = {};
+      for (const p of [...new Set([st.parent_phone, st.student_phone].filter(Boolean))]) {
+        const r = await revokeTokensIfUnused(env, p);
+        폐기[p] = r.kept ? (r.error ? '보존(확인 실패: ' + r.error + ')' : '보존(형제 재학 중)') : r.revoked + '개 폐기';
+      }
       await logAudit(env, request, {
         action: 'student.delete.enrollment',
         target: String(id),
@@ -59,6 +69,7 @@ export async function onRequest({ request, env }) {
             학생레코드: result.students_archived,
           },
           퇴원기록보존: 'student_archive(via=admin) 1건 — 실명·전화·성적·출결·학습 전체 보존됨',
+          로그인토큰: 폐기,
         },
       });
       return Response.json({ ok: true, ...result });
@@ -139,6 +150,7 @@ export async function onRequest({ request, env }) {
 
     // 계정 — 같은 번호 쓰는 다른 학생 없을 때만 삭제 (형제 로그인 보호)
     const 삭제된계정 = [], 보존된계정 = [];
+    const 폐기된토큰 = {};
     for (const phone of phones) {
       try {
         const stillUsed = await env.DB.prepare(
@@ -148,6 +160,10 @@ export async function onRequest({ request, env }) {
         const ad = await env.DB.prepare('DELETE FROM accounts WHERE phone = ?').bind(phone).run();
         result.accounts_archived += (ad.meta && ad.meta.changes) || 0;
         if ((ad.meta && ad.meta.changes) || 0) 삭제된계정.push(phone);
+        // 🔑 2026-08-03 (§11-12) — 계정 행만 지우면 이미 나간 토큰은 그대로 살아 있었다.
+        //   (verifyToken은 만료만 보고 accounts를 다시 안 본다) → R2 토큰도 여기서 같이 끊는다.
+        //   위에서 형제 사용 여부를 이미 확인했으므로 여기선 조건 없이 폐기한다.
+        폐기된토큰[phone] = await revokeTokensForPhone(env, phone);
       } catch (e) { result.errors.push('account ' + phone); }
     }
 
@@ -171,6 +187,7 @@ export async function onRequest({ request, env }) {
         },
         R2개인파일: '삭제하지 않음(reports/{이름}/ PDF는 복원 수단으로 보존)',
         계정: { 삭제: 삭제된계정, 보존_형제사용중: 보존된계정 },
+        로그인토큰폐기: 폐기된토큰,   // { 번호: 지운 개수 } — 0이면 애초에 로그인 중이 아니었거나 옛 토큰이라 색인이 없다
         퇴원기록보존: result.outcomes_saved + '건 (student_archive, via=admin)',
         오류: result.errors,
       },

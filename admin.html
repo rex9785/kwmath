@@ -296,7 +296,13 @@
     <div id="adminMenu">
       <!-- 오늘 확인할 것 — 내용은 loadHomeSummary()가 채운다. 다 처리했으면 축하 한 줄만 남는다. -->
       <div id="todayBox" style="display:none;"></div>
-      <!-- 카드 19개 = 관우T 업무 흐름 5구획 (2026-07-09 순서 확정 → 2026-07-28 구획선·제목 추가 → 2026-07-29 카드 2개 신설).
+      <!-- 카드 21개 = 관우T 업무 흐름 5구획 (①3 ②7 ③3 ④4 ⑤4). 2026-07-09 순서 확정 → 07-28 구획선·제목 추가
+           → 07-29 카드 2개 신설 → 08-03 「📄 진단평가 보고서」 1개 신설(② 맨 뒤).
+           ⚠️ 08-03 실측: 이 주석은 08-03 직전까지 "19개"라고 적혀 있었는데 **실제로는 이미 20개**였다.
+              어딘가에서 1개가 조용히 늘었고 아무도 세지 않았다. 여기 적힌 숫자를 믿지 말고 필요하면 직접 셀 것:
+              `grep -c 'admin-car[d]" onclick' kwmath/admin.html`   ← 08-03 실행값 21
+              ⚠️ 대괄호는 오타가 아니다. 그냥 `admin-card`로 세면 **이 주석줄까지 세어 22가 나온다**(08-03에
+                 실제로 밟은 함정). `[d]`로 적으면 정규식으로는 버튼에 걸리고, 이 주석 글자에는 안 걸린다.
            기존 17개는 하나도 빼지 않았고 순서도 그대로다. 묶어서 제목만 붙였고, 아래 2개를 새로 얹었다.
              · 🩺 클리닉 — 그동안 출결 탭 안쪽 배너에만 있어서 홈에서는 존재를 알 수 없었다(관우T 지적 2026-07-29).
                ↳ 2026-08-03 후속(관우T 재지적 "클리닉이 이곳저곳 산발돼 있다"): 07-29엔 카드만 만들고 총평은
@@ -327,6 +333,12 @@
           <button type="button" class="admin-card" onclick="location.href='/admin-makeup'">🔓<b>인강 신청·해제<i class="go-out">↗</i></b><span>결석일 영상·자료 잠금 해제</span></button>
           <button type="button" class="admin-card" onclick="openSection('reports')">📋<b>리포트 조회</b><span>학생 리포트</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-surveys'">🗳️<b>설문·조사<i class="go-out">↗</i></b><span>테스트·설문 만들기·채점</span></button>
+          <!-- 2026-08-03 신설 — 그동안 이 페이지 입구는 kwnav.js(☰ 메뉴) 한 줄뿐이었다.
+               그런데 admin.html(홈)은 일부러 kwnav를 안 붙인다(카드 19개로 충분하다는 판단) → 홈에서 출발하면
+               존재를 알 수 없어 주소를 직접 쳐야 했다(관우T "링크 빠졌어"). 문구는 kwnav.js:64와 같게 맞춘다.
+               ⚠️ 바로 위 「📋 리포트 조회」와 다른 물건이다. 저건 매 수업 리포트(노션), 이건 테스트 채점 결과를
+                  분석해 A4 진단 보고서(PDF)로 뽑는 곳이다. 그래서 설문·조사 바로 뒤에 둔다(테스트→채점→보고서). -->
+          <button type="button" class="admin-card" onclick="location.href='/admin-report'">📄<b>진단평가 보고서<i class="go-out">↗</i></b><span>테스트 결과 → 분석 PDF 출력</span></button>
         </div>
       </div>
       <div class="menu-sec">
@@ -654,6 +666,10 @@
             <select id="fileFolder" onchange="togglePhoneInput()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
               <option value="class-shared">📚 수업자료·교재 (반별, 그 반 학생만)</option>
               <option value="reports">📋 학생 리포트 (학생별, 본인+학부모만)</option>
+              <!-- 2026-08-03 (§11-11) — 여태 이 선택지가 없어서, 손으로 올리는 원클릭보고서·모의고사 결과가
+                   무조건 reports/ 로 갔다. 학생 앱의 「학습 진단 결과」는 test-results/ 를 보므로 거기엔 안 떴다.
+                   MathOS 자동 업로드는 원래부터 test-results/ 로 보낸다(server.py) — 손 업로드만 갈 곳이 없었다. -->
+              <option value="test-results">📊 학습 진단 결과 (학생별, 원클릭보고서·모의고사)</option>
               <option value="staff-shared">🧑‍🏫 조교 전용 자료 (모든 조교 공용·학생 안 보임)</option>
             </select>
           </div>
@@ -685,7 +701,7 @@
             <select id="rsStudent" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
               <option value="">반을 먼저 선택하세요</option>
             </select>
-            <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">파일은 <code>reports/{학생이름}/</code> 폴더에 자동 저장됩니다</p>
+            <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">파일은 <code id="rsFolderHint">reports/{학생이름}/</code> 폴더에 자동 저장됩니다</p>
           </div>
           <div>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 선택 <span style="color:var(--primary);font-size:0.78rem;">(여러 파일 동시 선택 가능)</span></label>
@@ -712,6 +728,7 @@
           <select id="viewFolder" onchange="loadFiles()" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;background:#fff;">
             <option value="class">📚 수업자료·교재 (반별)</option>
             <option value="reports">📋 학생 리포트 (학생별)</option>
+            <option value="test-results">📊 학습 진단 결과 (학생별)</option>
             <option value="staff-shared">🧑‍🏫 조교 전용 자료 (모든 조교 공용)</option>
             <option value="materials">📢 공개 자료 (전체 공개)</option>
           </select>
@@ -1007,7 +1024,10 @@
     if (tt && Array.isArray(tt.items)) {
       for (const it of tt.items) {
         if (!it) continue;
-        if (it.key === 'attendance')             row(it.n, '✅', '출결 입력할 시간' + 반이름붙이기(it), '', "openSection('attendance')");
+        // 🔗 그냥 출결 탭을 여는 게 아니라 **그 반으로 필터를 걸어** 연다. 줄에 반 이름을 써 놓고
+        //    정작 누르면 전체 목록이 떠서 거기서 반을 또 찾아야 했다(관우T 2026-08-03 "찾아 찾아 들어간다").
+        //    숫자(배지)는 그 반에서 아직 안 찍은 학생 수 — 찍을수록 줄어들고 0이 되면 줄이 사라진다.
+        if (it.key === 'attendance')             row(it.n, '✅', '출결 입력할 시간' + 반이름붙이기(it), '', "goAttendanceClass('" + jsArg(it.academy || '') + "','" + jsArg(it.className || '') + "')");
         else if (it.key === 'clinicReviewOwner') row(it.n, '🩺', '조교 총평 확인 — 아직 안 쓴 학생', '/clinic-review');
         else if (it.key === 'clinicNoRecord')    row(it.n, '🩺', '오늘 클리닉 기록이 아직 없음 — 조교 확인', '/clinic-review');
         else if (it.key === 'video')             row(it.n, '📺', '수업 영상 업로드' + 반이름붙이기(it), '', "openSection('videos')");
@@ -2454,7 +2474,12 @@
   // ── 자료실: 폴더 선택에 따라 입력 wrapper 토글 ──
   function togglePhoneInput() {
     const folder = document.getElementById('fileFolder').value;
-    document.getElementById('reportStudentWrap').style.display = folder === 'reports' ? 'block' : 'none';
+    // 📓 2026-08-03 (§11-11) — '학생 리포트'와 '학습 진단 결과'는 고르는 방식(학원→반→학생)이 똑같다.
+    //   화면을 새로 만들지 않고 같은 wrapper를 쓰되, 저장 위치 안내 문구만 바꾼다.
+    const 학생별 = folder === 'reports' || folder === 'test-results';
+    document.getElementById('reportStudentWrap').style.display = 학생별 ? 'block' : 'none';
+    const hint = document.getElementById('rsFolderHint');
+    if (hint) hint.textContent = folder + '/{학생이름}/';
     document.getElementById('classSharedWrap').style.display = folder === 'class-shared' ? 'block' : 'none';
     // 반 공통 자료 선택 시 날짜 기본값 오늘
     if (folder === 'class-shared') {
@@ -2495,11 +2520,26 @@
     formData.append('password', adminToken);
 
     const res = await fetch('/api/upload-file', { method: 'POST', headers: { 'Authorization': 'Bearer ' + adminToken }, body: formData });
-    if (!res.ok) throw new Error('업로드 실패');
+    if (!res.ok) {
+      // 📓 2026-08-03 — 여태 이유를 안 보고 무조건 '업로드 실패'만 띄웠다.
+      //   서버는 왜 막았는지(용량 초과·허용 안 된 폴더·인증)를 error 로 정확히 내려준다. 그대로 보여준다.
+      let msg = '업로드 실패';
+      try { const j = await res.json(); if (j && j.error) msg = j.error; } catch (_) { /* JSON이 아니면 기본 문구 */ }
+      throw new Error(msg);
+    }
     const { key, fileSize } = await res.json();
 
     // 옛 materials/class 분기 — 새 구조에선 R2 키 자체로 분류되니 메타데이터 X
     return key;
+  }
+
+  // 📓 2026-08-03 (§11-11) — 서버(functions/api/upload-file.js)의 MAX_UPLOAD_BYTES 와 **같은 값**이어야 한다.
+  //   한쪽만 바꾸면 "화면은 된다는데 서버가 막는" 또는 그 반대가 된다.
+  //   ⚠️ 이건 안내용이다. 실제 차단은 서버가 한다(개발자도구로 이 줄을 지워도 서버가 413으로 막는다).
+  const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+  function 업로드크기표시(n) {
+    const v = Number(n) || 0;
+    return v > 1024 * 1024 ? (v / (1024 * 1024)).toFixed(1) + 'MB' : Math.round(v / 1024) + 'KB';
   }
 
   // ── 자료실: 여러 파일 업로드 루프 ──
@@ -2519,10 +2559,13 @@
       if (!date)         { showToast('수업 날짜를 선택해주세요.'); return; }
       const mmdd = date.slice(5).replace('-', '');
       folder = 'class/' + acad + '_' + cls + '/' + mmdd;
-    } else if (folderSel === 'reports') {
+    } else if (folderSel === 'reports' || folderSel === 'test-results') {
+      // 2026-08-03 (§11-11) — 둘 다 폴더 이름이 학생 이름이고 화면도 같다. 앞 토막만 다르다.
+      //   reports/      → 학생 앱 「수업 리포트」
+      //   test-results/ → 학생 앱 「학습 진단 결과」 (원클릭보고서·모의고사)
       const studentName = document.getElementById('rsStudent').value.trim();
       if (!studentName) { showToast('학생을 선택해주세요.'); return; }
-      folder = 'reports/' + studentName;
+      folder = folderSel + '/' + studentName;
     } else {
       folder = folderSel;
     }
@@ -2530,6 +2573,17 @@
     if (!fileInput.files.length) { showToast('파일을 선택해주세요.'); return; }
 
     const files = Array.from(fileInput.files);
+
+    // 📓 2026-08-03 (§11-11) — 올리기 **전에** 크기를 본다.
+    //   여기서 안 막으면 큰 파일을 끝까지 다 전송한 뒤에야 413을 받는다 — 기다린 시간과 요금이 그냥 날아간다.
+    //   ⚠️ 한 개라도 크면 전부 멈춘다. 일부만 올라가고 나머지가 튕기면 뭐가 올라갔는지 헷갈린다.
+    const 큰파일 = files.filter(f => f.size > MAX_UPLOAD_BYTES);
+    if (큰파일.length) {
+      showToast('파일이 너무 큽니다 (최대 ' + 업로드크기표시(MAX_UPLOAD_BYTES) + ') — '
+        + 큰파일.map(f => f.name + ' ' + 업로드크기표시(f.size)).join(', '));
+      return;
+    }
+
     const progressWrap = document.getElementById('uploadProgress');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
@@ -3633,7 +3687,8 @@
   }
 
   function toggleAdminMakeupHistory(btn, sid){
-    const card = btn.closest('.student-card');
+    // .mkhost — 반별 보기(그룹 뷰)의 학생 한 칸. 단순 목록은 .student-card 라 둘 다 받는다.
+    const card = btn.closest('.student-card, .mkhost');
     const box = card && card.querySelector('.mkwrap-admin');
     if (!box) return;
     if (box.style.display === 'block'){ box.style.display = 'none'; return; }
@@ -3734,7 +3789,8 @@
   }
 
   function reloadAdminMakeupHistory(btn, sid){
-    const card = btn.closest('.student-card');
+    // .mkhost — 반별 보기(그룹 뷰)의 학생 한 칸. 단순 목록은 .student-card 라 둘 다 받는다.
+    const card = btn.closest('.student-card, .mkhost');
     const box = card && card.querySelector('.mkwrap-admin');
     if (box) loadAdminMakeupHistory(box, sid, true);
   }
@@ -3911,11 +3967,12 @@
     list.innerHTML = keys.map((key, gi) => {
       const g = groups[key];
       const isOpen = openStudentGroups.has(key);
-      // 학생 한 명당 노출 버튼은 3개 + ⋯더보기. 나머지(학원/반·다른 반·비번·퇴원)는 접어 둔다.
+      // 학생 한 명당 노출 버튼은 4개(🔔알림·📈성적·🔓인강·🎬인강이력) + ⋯더보기.
+      //   나머지(학원/반·다른 반·비번·퇴원)는 접어 둔다.
       //   ⚠️ 기능은 하나도 없어지지 않는다 — 자리만 옮긴다. 한 줄에 8개를 늘어놓으면
       //   자주 쓰는 3개도 같이 안 보이게 되고, 🗑 퇴원처리가 오조작 한 클릭 거리에 놓인다.
       const items = isOpen ? g.students.map((s, si) => `
-        <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
+        <div class="mkhost" style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
           <div>
             <div>
               <strong style="font-size:0.92rem;">${escapeHtml(s.name||'—')}</strong>
@@ -3935,6 +3992,7 @@
               <button class="go-btn" title="이 학생에게 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔔<span class="go-txt"> 알림</span></button>
               <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">📈<span class="go-txt"> 성적</span></button>
               <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔓<span class="go-txt"> 인강</span></button>
+              <button class="go-btn" title="언제 결석했고 그날 인강이 열렸는지 — 기록만 봅니다" onclick="event.stopPropagation();toggleAdminMakeupHistory(this,'${jsArg(s.id)}')">🎬<span class="go-txt"> 인강 이력</span></button>
               <button class="go-btn" style="border-style:dashed;" title="학원/반 변경 · 다른 반 추가 · 비밀번호 초기화 · 퇴원처리" onclick="event.stopPropagation();toggleClassMore('smore-${gi}-${si}', this)">⋯ 더보기</button>
             </div>
             <div class="go-row" id="smore-${gi}-${si}" style="display:none;margin-top:6px;">
@@ -3944,6 +4002,7 @@
               ${s.studentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학생 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.studentPhone) + '\x27, \x27학생\x27)">🔑 학생 비번</button>' : ''}
               <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')">🗑 퇴원처리</button>
             </div>
+            <div class="mkwrap-admin" style="display:none;margin-top:9px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
           </div>
         </div>
       `).join('') : '';
@@ -4398,6 +4457,54 @@
     sel.innerHTML = "<option value=\"\">" + (opts.length ? "반 선택" : "이 학원에 등록된 반이 없습니다") + "</option>" + opts.map(function(c){ return "<option value=\"" + c + "\">" + c + "</option>"; }).join("");
   }
 
+  // ─── 결석·지각·병결을 한 창에서 처리 (2026-08-03 관우T 지시 "물 흐르듯 연결됐으면 좋겠어") ───
+  //   예전: confirm 하나로 학부모 푸시만 물었다. 인강은 관우T가 따로 기억해서 버튼을 찾아 눌러야 했다.
+  //   지금: 학부모 알림과 인강 열기를 한 창에서 같이 정하고 [확인] 한 번으로 끝낸다.
+  //   ⚠️ 인강 줄은 결석·병결에만 나온다. 지각은 정책B상 present(=이미 열려 있음)라 물을 이유가 없다.
+  //   ⚠️ 기본값 — 학부모 알림 ☑ / 인강 ☐. 결석이라고 무조건 열지는 않는다(2026-08-03 관우T 확정).
+  //   ⚠️ [취소]의 뜻이 예전 confirm과 다르다. 예전엔 '안 보냄(기록은 저장)'이었지만 여기선 **아무것도 안 한다**.
+  //      버튼에 그 뜻을 그대로 적어 둔 이유 — 결석을 잘못 눌렀을 때 되돌릴 유일한 길이기도 해서다.
+  function askAbsenceOptions(name, status){
+    return new Promise(function(resolve){
+      const 인강가능 = (status === '결석' || status === '병결');
+      let el = document.getElementById('absOptModal');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'absOptModal';
+        el.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9200;align-items:center;justify-content:center;padding:16px;';
+        document.body.appendChild(el);
+      }
+      el.innerHTML =
+        '<div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:340px;box-shadow:0 8px 30px rgba(0,0,0,0.25);">'
+        + '<div style="font-weight:900;font-size:1rem;color:var(--text);margin-bottom:3px;">' + escapeHtml(name) + ' — ' + escapeHtml(status) + ' 처리</div>'
+        + '<div style="font-size:0.76rem;color:var(--text-light);margin-bottom:14px;">' + escapeHtml(qaDate()) + ' 기록으로 저장됩니다.</div>'
+        + '<label style="display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:0.86rem;font-weight:700;color:var(--text);">'
+        +   '<input type="checkbox" id="absNotify" checked style="width:17px;height:17px;cursor:pointer;">🔔 학부모께 ' + escapeHtml(status) + ' 알림 보내기'
+        + '</label>'
+        + (인강가능
+            ? '<label style="display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:0.86rem;font-weight:700;color:var(--text);margin-top:8px;">'
+              + '<input type="checkbox" id="absMakeup" style="width:17px;height:17px;cursor:pointer;">🔓 이 날짜 인강 열어주기'
+              + '</label>'
+              + '<div style="font-size:0.72rem;color:var(--text-light);margin-top:6px;line-height:1.55;">그날 수업영상·수업자료가 이 학생에게 열립니다. 영상이 아직 없어도 미리 열어둘 수 있어요.</div>'
+            : '')
+        + '<div style="display:flex;gap:9px;margin-top:16px;">'
+        +   '<button type="button" id="absCancel" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:0.84rem;font-weight:800;cursor:pointer;font-family:inherit;">취소 (기록 안 함)</button>'
+        +   '<button type="button" id="absOk" style="flex:1;padding:11px;border-radius:10px;border:none;background:var(--primary);color:#fff;font-size:0.9rem;font-weight:800;cursor:pointer;font-family:inherit;">확인</button>'
+        + '</div>'
+        + '</div>';
+      el.style.display = 'flex';
+      const 닫기 = function(v){ el.style.display = 'none'; el.innerHTML = ''; resolve(v); };
+      el.querySelector('#absOk').onclick = function(){
+        const n = el.querySelector('#absNotify');
+        const m = el.querySelector('#absMakeup');
+        닫기({ notify: !!(n && n.checked), makeup: !!(m && m.checked) });
+      };
+      el.querySelector('#absCancel').onclick = function(){ 닫기(null); };
+      // 어두운 바깥을 누르면 취소. 창 안을 눌렀을 때 닫히면 안 되므로 el 자신이 대상일 때만 본다.
+      el.onclick = function(ev){ if (ev.target === el) 닫기(null); };
+    });
+  }
+
   // ──── 학생 카드 빠른 출석 체크 (토글) ────
   // 같은 버튼 다시 누르면 → DELETE (기록 해제)
   // 다른 상태 누르면 → POST (덮어쓰기)
@@ -4433,10 +4540,18 @@
         if (_qaAtt.date === date) { delete _qaAtt.byId[String(id)]; if (typeof renderTodayClassCards === 'function') renderTodayClassCards(); }
       } else {
         // ── 새 기록 또는 변경 — POST ──
-        // 결석·지각·병결이면 학부모 푸시 여부를 원장에게 물어봄 (확인=보냄 / 취소=안 보냄). 출석·공결은 학부모 푸시 없음.
+        // 결석·지각·병결이면 학부모 알림과 인강 열기를 **한 창에서** 같이 정한다 (2026-08-03 관우T 지시 "물 흐르듯").
+        //   예전엔 confirm 하나로 학부모 푸시만 물었고, 인강은 나중에 따로 기억해서 버튼을 찾아 눌러야 했다.
+        //   ⚠️ [취소]의 뜻이 예전과 다르다 — 예전엔 '푸시만 안 보냄(기록은 저장)', 지금은 **아무것도 안 함**이라
+        //      여기서 return 한다. 결석을 잘못 눌렀을 때 되돌릴 유일한 길이라 일부러 이렇게 뒀고,
+        //      모달 버튼에도 '취소 (기록 안 함)'이라고 그 뜻을 적어 뒀다.
         let notifyParent = true;
+        let openMakeup = false;
         if (status === '결석' || status === '지각' || status === '병결') {
-          notifyParent = confirm('[' + name + '] ' + status + ' 처리 — 학부모님께 ' + status + ' 알림(푸시)을 보낼까요?\n\n확인 = 보냄   ·   취소 = 안 보냄\n(어느 쪽이든 ' + status + ' 기록은 저장됩니다)');
+          const ans = await askAbsenceOptions(name, status);
+          if (!ans) return;
+          notifyParent = ans.notify;
+          openMakeup = ans.makeup;
         }
         const res = await fetch('/api/attendance', {
           method: 'POST',
@@ -4448,7 +4563,10 @@
           showToast('❌ ' + (data.error || '실패'));
           return;
         }
-        showToast('✅ ' + name + ' — ' + status + ' 기록 (' + date + ')' + ((status === '결석' || status === '지각' || status === '병결') ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : ''));
+        // 토스트 문구를 변수로 잡아 둔다. 인강까지 열면 **한 줄로 합쳐서** 다시 띄우기 위해서다 —
+        //   showToast는 요소가 하나뿐이라 연달아 부르면 앞 문구가 안 보이고 덮인다(admin.html:4090).
+        const 출결토스트 = '✅ ' + name + ' — ' + status + ' 기록 (' + date + ')' + ((status === '결석' || status === '지각' || status === '병결') ? (notifyParent ? ' · 🔔 학부모 알림 보냄' : ' · 🔕 학부모 알림 안 보냄') : '');
+        showToast(출결토스트);
         // 같은 그룹 내 다른 버튼 강조 제거 후, 누른 버튼만 강조
         if (btn) {
           const parent = btn.parentElement;
@@ -4467,6 +4585,32 @@
         if (_qaAtt.date === date) {
           _qaAtt.byId[String(id)] = Object.assign({}, _qaAtt.byId[String(id)] || {}, { status: status });
           if (typeof renderTodayClassCards === 'function') renderTodayClassCards();
+        }
+        // ─── 모달에서 「인강 열어주기」를 체크했으면 여기서 이어서 열어준다 ───
+        //   출결 저장이 끝난 **뒤에** 부른다. 순서를 바꾸면 인강만 열리고 결석은 안 찍힌 상태가 생길 수 있다.
+        //   실패해도 출결 기록은 이미 남아 있으므로, 실패 문구에 "출결은 저장됨"을 반드시 같이 적는다 —
+        //   안 그러면 관우T가 결석부터 다시 찍게 되고 그건 학부모 푸시 재발송으로 이어진다.
+        if (openMakeup) {
+          try {
+            const mres = await fetch('/api/makeup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+              body: JSON.stringify({ action: 'grant', studentId: id, date: date })
+            });
+            const mdata = await mres.json();
+            if (!mres.ok || !mdata.ok) {
+              showToast('⚠️ ' + status + '은 저장했는데 인강 열기는 실패했어요: ' + (mdata.error || '알 수 없는 오류'));
+            } else {
+              if (typeof _mkCacheSet === 'function') _mkCacheSet(id, date, 'approved');
+              // 같은 학생 줄의 「🔒 인강 열기」 버튼 색도 바로 바꿔 준다. 버튼이 화면에 없을 수도 있어(반별 보기 등)
+              //   못 찾으면 조용히 넘어간다 — 서버에는 이미 반영됐고, 목록을 다시 그리면 syncMakeupMarks가 맞춘다.
+              const mkBtn = document.querySelector('.mk-btn[data-mk-sid="' + String(id).replace(/"/g, '') + '"]');
+              if (mkBtn && typeof _mkPaintBtn === 'function') _mkPaintBtn(mkBtn, 'approved');
+              showToast(출결토스트 + ' · 🔓 인강 열림');
+            }
+          } catch (e) {
+            showToast('⚠️ ' + status + '은 저장했는데 인강 열기 중 네트워크 오류: ' + e.message);
+          }
         }
       }
     } catch (e) {
@@ -4584,6 +4728,30 @@
     const list = document.getElementById('attendanceList');
     if (list) list.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // 「오늘 확인할 것」의 출결 줄 → 그 반으로 필터된 출결 탭 (2026-08-03 관우T 지시 "물 흐르듯")
+  //   openSection이 학생 목록을 비동기로 채우기 때문에 곧바로 focusClass를 걸면 학원 드롭다운이
+  //   아직 비어 있어 조용히 실패한다. 그래서 해당 학원 option이 생길 때까지 짧게 기다린다.
+  //   기다려도 안 오면(4초) 그냥 둔다 — 전체 목록이라도 열려 있는 게 아무것도 안 되는 것보단 낫다.
+  function goAttendanceClass(academy, className){
+    openSection('attendance');
+    // 어느 반으로 걸렸는지 눈에 보여야 한다. 선택 UI(qaPicker)는 기본이 접힘이라 여기서 펴 준다.
+    const picker = document.getElementById('qaPicker');
+    if (picker) picker.style.display = 'block';
+    // 펼친 상태의 버튼 문구는 '▲ 접기'다(toggleQaPicker와 같은 규칙). 여기서 안 맞춰 주면
+    //   열려 있는데 '다른 반 찾기'라고 적혀 있어 한 번 헛누르게 된다.
+    const toggle = document.getElementById('qaPickerToggle');
+    if (toggle) toggle.textContent = '▲ 접기';
+    if (!academy) return;
+    let tries = 0;
+    (function wait(){
+      const a = document.getElementById('qaAcademy');
+      const ready = a && Array.prototype.some.call(a.options, function(o){ return o.value === academy; });
+      if (ready) { try { focusClass(academy, className); } catch (e) {} return; }
+      if (++tries > 40) return;
+      setTimeout(wait, 100);
+    })();
+  }
+
   function qaResetToday() {
     const el = document.getElementById('qaDate');
     if (el) el.value = todayStr();
@@ -4875,6 +5043,89 @@
     } catch(e){}
   }
 
+  // ─── 출결 줄에서 바로 인강 열기/잠그기 (2026-08-03 관우T 요청) ───────────────
+  //   왜 여기냐: 결석을 찍는 그 순간이 인강을 열어 줄 가장 자연스러운 타이밍이다.
+  //   여태는 결석을 찍고 → /admin-makeup 으로 따로 들어가야 했다(화면 이동 1회 + 학생 다시 찾기).
+  //   날짜는 빠른 출석 패널이 잡고 있는 날짜(qaDate)를 그대로 쓴다 — 출·지·결·숙제와 같은 기준.
+  //   🆔 학생 지목은 studentId — 이름으로 보내면 동명이인일 때 서버가 409로 되돌린다(makeup.js:75).
+  //   ※ 영상이 아직 없는 날짜도 열어둘 수 있다. makeup_grants 키가 (student_id, date) 뿐이라
+  //     나중에 그 날짜 영상을 올리면 그 순간부터 바로 보인다. 버그가 아니라 설계다.
+  function _mkPaintBtn(btn, status){
+    if (!btn) return;
+    if (status === 'approved'){
+      btn.dataset.mkOpen = '1';
+      btn.style.background = '#E5F5E8'; btn.style.color = '#1F7A33'; btn.style.borderColor = '#98D898';
+      btn.textContent = '🔓 인강 열림';
+      btn.title = '이 날짜 인강이 열려 있습니다 — 누르면 다시 잠급니다';
+    } else if (status === 'requested'){
+      btn.dataset.mkOpen = '';
+      btn.style.background = '#FFF4D6'; btn.style.color = '#B07A00'; btn.style.borderColor = '#E8C56C';
+      btn.textContent = '🙋 인강 신청됨';
+      btn.title = '학생이 신청했습니다 — 누르면 열어줍니다';
+    } else {
+      btn.dataset.mkOpen = '';
+      btn.style.background = '#fff'; btn.style.color = '#888'; btn.style.borderColor = '#ddd';
+      btn.textContent = '🔒 인강 열기';
+      btn.title = '이 날짜 수업영상·수업자료를 이 학생에게 열어줍니다 (영상이 아직 없어도 미리 열어둘 수 있어요)';
+    }
+  }
+
+  // 학생 카드 「🎬 인강 이력」과 같은 캐시를 쓴다. 여기서 열고 잠근 걸 캐시에도 반영해 둬야
+  //   바로 밑에서 인강 이력을 펼쳤을 때 방금 한 일이 빠져 보이지 않는다.
+  function _mkCacheSet(sid, date, status, whoLabel){
+    if (!Array.isArray(_mkAllCache)) return;
+    const key = _mkNormSid(sid);
+    const i = _mkAllCache.findIndex(function(g){ return _mkNormSid(g.student_id) === key && String(g.date||'') === date; });
+    if (!status){ if (i >= 0) _mkAllCache.splice(i, 1); return; }
+    const now = new Date().toISOString();
+    if (i >= 0) _mkAllCache[i] = Object.assign({}, _mkAllCache[i], { status: status, approved_at: now, approved_by: whoLabel || '원장' });
+    else _mkAllCache.push({ student_id: String(sid), date: date, status: status, requested_at: null, approved_at: now, approved_by: whoLabel || '원장' });
+  }
+
+  async function toggleMakeupForDate(sid, name, btn){
+    if (!sid) return;
+    const date = qaDate();
+    const isOpen = !!(btn && btn.dataset.mkOpen === '1');
+    const action = isOpen ? 'revoke' : 'grant';
+    const ok = confirm(isOpen
+      ? ('[' + name + '] ' + date + ' 인강을 다시 잠글까요?\n\n출석·지각 기록이 있는 날이면 원래대로 열려 있습니다.')
+      : ('[' + name + '] ' + date + ' 인강을 열어줄까요?\n\n그날 수업영상과 수업자료가 이 학생에게 열립니다.\n영상이 아직 없어도 열어둘 수 있어요 — 나중에 올리면 바로 보입니다.'));
+    if (!ok) return;
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/makeup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: action, studentId: sid, date: date })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok){ showToast('❌ ' + (data.error || '실패')); return; }
+      _mkCacheSet(sid, date, isOpen ? '' : 'approved');
+      _mkPaintBtn(btn, isOpen ? '' : 'approved');
+      showToast(isOpen
+        ? ('🔒 ' + name + ' — ' + date + ' 인강 다시 잠금')
+        : ('🔓 ' + name + ' — ' + date + ' 인강 열림'));
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // 출결 목록을 그린 뒤 버튼 색을 실제 상태로 맞춘다(출석 버튼 하이라이트 복원과 같은 자리).
+  //   출결 탭을 안 열면 버튼이 0개라 여기서 바로 빠진다 = 불필요한 API 호출 없음.
+  async function syncMakeupMarks(){
+    const btns = document.querySelectorAll('.mk-btn[data-mk-sid]');
+    if (!btns.length) return;
+    const date = qaDate();
+    try {
+      const grants = await _mkFetchAll();     // 전 날짜분을 한 번만 받아 캐시 — 날짜가 바뀌어도 재요청 불필요
+      const map = {};
+      grants.forEach(function(g){ if (g && String(g.date||'') === date) map[_mkNormSid(g.student_id)] = g.status; });
+      btns.forEach(function(b){ _mkPaintBtn(b, map[_mkNormSid(b.getAttribute('data-mk-sid'))] || ''); });
+    } catch (e) {}
+  }
+
   // 비밀번호 초기화 — admin이 분실/잊음 신고 시 사용 (일반=0000 / 데모 010-1234-1234=1234)
   async function resetPassword(phone, role) {
     if (!phone) return;
@@ -5022,6 +5273,7 @@
     setTimeout(function(){
       if (typeof syncTodayAttendanceMarks === 'function') syncTodayAttendanceMarks();
       if (typeof syncWeekStudy === 'function') syncWeekStudy();
+      if (typeof syncMakeupMarks === 'function') syncMakeupMarks();
     }, 0);
   }
 
@@ -5043,6 +5295,7 @@
         <button class="att-btn" data-s="지각" onclick="markAttendance(${s.id},'${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
         <button class="att-btn" data-s="결석" onclick="markAttendance(${s.id},'${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
         <button class="att-btn" data-s="병결" onclick="markAttendance(${s.id},'${nameEsc}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
+        <button class="mk-btn" data-mk-sid="${s.id}" title="이 날짜 수업영상·수업자료를 이 학생에게 열어줍니다 (영상이 아직 없어도 미리 열어둘 수 있어요)" onclick="toggleMakeupForDate(${s.id},'${nameEsc}',this)" style="background:#fff;color:#888;border:1px solid #ddd;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;margin-left:8px;">🔒 인강 열기</button>
         <span style="font-size:0.72rem;color:var(--text-light);margin-left:10px;margin-right:2px;">숙제:</span>
         <div class="hw-bucket" data-hw-sid="${s.id}" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
           <button class="hw-btn" data-p="0"   onclick="markHomework(${s.id},'${nameEsc}',0,this)">0</button>

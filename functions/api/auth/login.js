@@ -240,8 +240,10 @@ export async function onRequest({ request, env }) {
   }
 
   // ════════ 학생/학부모 — 기존 포털 흐름 ════════
-  // 토큰 발급
-  const { token, expires } = await issueToken(env, phone);
+  // ⚠️ 2026-08-03 (§11-12) — 토큰 발급을 아래 두 관문(좀비 계정·승인 대기) **뒤로** 옮겼다.
+  //   예전엔 여기서 먼저 발급해서, 로그인이 거절돼도 R2에 토큰 파일이 하나씩 남았다.
+  //   그 토큰은 응답에 실리지 않아 아무도 쓸 수 없었지만(=보안 구멍은 아님), 아무도 제시하지 않으니
+  //   만료 정리도 영영 안 걸려서 그냥 쓰레기로 계속 쌓였다.
 
   // 자녀(또는 본인) 학생 목록
   const students = await fetchStudentsByPhone(env, phone);
@@ -250,14 +252,13 @@ export async function onRequest({ request, env }) {
   if (!students.length) {
     // 📓 여기가 찍혔다면 계정과 학생 명단이 어긋나 있다는 뜻이다(퇴원 처리 후 계정만 남음,
     //   학생 레코드의 번호를 고치면서 계정 번호와 달라짐 등). 원장이 손봐야 하는 상태다.
-    //   ⚠️ 이 시점에 이미 토큰이 발급된 뒤다(위 issueToken) — 거절해도 R2에 토큰 파일은 남는다.
     await 로그인로그(env, request, phone, {
       action: 'login.blocked.nostudent',
       summary: '로그인 차단 — 계정은 있는데 이 번호에 연결된 학생이 하나도 없음',
       detail: {
         사유: 'students 표에서 parent_phone/student_phone 어디에도 이 번호가 없다',
         추정원인: '퇴원 처리 후 계정만 남았거나, 학생 레코드의 전화번호를 고치면서 계정 번호와 어긋났거나, 승인 전에 계정만 먼저 생김',
-        토큰: '이 요청에서 로그인 토큰은 이미 발급된 뒤라 R2에 남는다(로그인은 거절됨)',
+        토큰: '발급되지 않았다 — 2026-08-03부터 이 검사를 통과한 뒤에만 발급한다',
         효과: '"등록된 학생 정보가 없습니다" 안내. 원장이 학생 레코드의 번호를 맞춰주기 전까지 계속 못 들어온다',
       },
     });
@@ -298,6 +299,9 @@ export async function onRequest({ request, env }) {
     }
     return jsonError('학원 등록이 거부됐거나 활성 학생이 없습니다. 관우T께 문의해주세요.', 403);
   }
+
+  // ✅ 두 관문을 다 통과한 뒤에만 토큰을 발급한다(§11-12).
+  const { token, expires } = await issueToken(env, phone);
 
   await logEvent(env, request, { kind: 'login', phone, role: 'student', name: (approvedStudents[0] && approvedStudents[0].name) || '' });
   // 📓 학생·학부모 로그인 성공. 여기서 발급된 토큰으로 리포트·성적·영상·과제를 본다.

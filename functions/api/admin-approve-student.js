@@ -2,7 +2,7 @@
 // body: { studentId (D1 id), action: 'approve'|'reject' }
 //   approve: 승인 상태→'승인' + 동명이인 alias 자동 부여 + 학부모/학생 계정 생성(초기 0000)
 //   reject : 학생 레코드 삭제
-import { normalizePhone, findAccountByPhone, createAccount } from './_auth.js';
+import { normalizePhone, findAccountByPhone, createAccount, revokeTokensIfUnused } from './_auth.js';
 import { getStudentById, setApprovalStatus, deleteStudent } from './_db.js';
 import { safeError } from './_errors.js';
 import { sendPushToUsers } from './_push.js';
@@ -60,6 +60,17 @@ export async function onRequest(context) {
     if (action === 'reject') {
       const d = await deleteStudent(env, studentId);
       if (!d.ok) return safeError(d.error || 'deleteStudent failed', env, { message: '거부 처리에 실패했습니다.' });
+      // 🔑 2026-08-03 (§11-12) — 이미 나간 로그인 토큰 폐기.
+      //   보통 '거부'는 승인 전(계정도 토큰도 없음)이라 0개지만, **한 번 승인했다가 거부로 되돌리는 경우**엔
+      //   계정과 토큰이 이미 있다. verifyToken은 만료만 보므로 그 토큰이 계속 통과하던 상태였다.
+      //   형제가 아직 다니는 번호는 revokeTokensIfUnused가 살려둔다.
+      const 폐기 = {};
+      for (const p of [...new Set([normalizePhone(parentPhone), normalizePhone(studentPhone)].filter(Boolean))]) {
+        try {
+          const r = await revokeTokensIfUnused(env, p);
+          폐기[p] = r.kept ? (r.error ? '보존(확인 실패: ' + r.error + ')' : '보존(형제 재학 중)') : r.revoked + '개 폐기';
+        } catch (e) { 폐기[p] = '실패: ' + (e.message || 'error'); }
+      }
       // ⚠️ '거부'는 사실상 **영구 삭제**다(퇴원 아카이브로도 안 감). 신청서 내용이 통째로 사라지므로
       //    누가 언제 어떤 신청을 지웠는지 + 지워진 내용 전체를 남긴다. 문의가 오면 이게 유일한 근거다.
       await logAudit(env, request, {
@@ -67,7 +78,7 @@ export async function onRequest(context) {
         target: String(studentId),
         targetName: name,
         summary: '[' + name + '] 등록 신청 거부 → 학생 레코드 영구 삭제 (복구 불가)',
-        detail: { studentId, 지워진학생: d.before || null, 삭제행수: d.removed },
+        detail: { studentId, 지워진학생: d.before || null, 삭제행수: d.removed, 로그인토큰: 폐기 },
       });
       return Response.json({ ok: true, action: 'reject', name, studentId: String(studentId),
         message: '[' + name + '] 등록 신청이 거부되었습니다.' });
