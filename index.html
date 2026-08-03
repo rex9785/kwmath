@@ -194,6 +194,35 @@
     .school-num b{font-size:1.48rem;}
   }
 
+  /* CONSULTING — 입시 컨설팅 ──────────────────────────────────────
+     ⚠️ ANALYSIS 의 .school-card / .school-nums 를 재사용하지 않는다.
+        재사용하면 두 섹션이 쌍둥이로 보인다(2026-08-03 관우T 확정: "내신분석 ≠ 입시컨설팅").
+        학교 분석은 여러 학교를 나열하는 목록이라 카드가 맞고,
+        컨설팅은 한 사람의 before → after 라서 사다리로 간다.
+        `/consulting` 허브의 .ladder 와 같은 형태로 맞춰 둔 것이니 함께 고친다. */
+  .crep{margin-top:52px;display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--wine);padding:36px 40px;transition:box-shadow .2s,transform .2s;}
+  .crep:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(33,25,20,.07);}
+  .crep-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:24px;}
+  .crep-who{font-family:var(--serif);font-weight:700;font-size:1.2rem;color:var(--ink);letter-spacing:-.01em;}
+  .crep-tag{font-size:.72rem;font-weight:700;color:#fff;background:var(--wine);border-radius:3px;padding:4px 10px;}
+  .crep-lad{display:flex;align-items:flex-start;gap:26px;flex-wrap:wrap;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .crep-cell{flex:1 1 230px;}
+  .crep-cell .cap{font-size:.77rem;font-weight:700;color:var(--muted);margin-bottom:8px;line-height:1.5;}
+  .crep-cell b{display:block;font-family:var(--serif);font-weight:900;font-size:2.1rem;line-height:1;letter-spacing:-.03em;color:var(--muted2);}
+  .crep-cell b small{font-size:.95rem;font-weight:700;}
+  .crep-cell.to b{color:var(--wine);}
+  .crep-cell i{display:block;font-style:normal;font-size:.79rem;color:var(--muted);margin-top:9px;line-height:1.6;}
+  .crep-arrow{flex:0 0 auto;align-self:center;font-family:var(--serif);font-weight:900;font-size:1.35rem;color:var(--wine);opacity:.45;}
+  .crep p{margin-top:24px;font-size:.93rem;line-height:1.85;color:var(--muted);}
+  .crep-go{margin-top:22px;font-size:.87rem;font-weight:700;color:var(--wine);}
+  @media(max-width:640px){
+    .crep{padding:28px 24px;}
+    .crep-lad{flex-direction:column;gap:4px;}
+    .crep-cell{flex:1 1 auto;width:100%;}
+    .crep-cell b{font-size:1.8rem;}
+    .crep-arrow{align-self:flex-start;transform:rotate(90deg);transform-origin:left center;margin:2px 0 10px 8px;}
+  }
+
   /* ── PROGRAM ── */
   .program{background:var(--beige);}
   .prog-grid{margin-top:60px;display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
@@ -783,38 +812,10 @@
   </div>
 </section>
 
-<!-- CONSULTING: 입시 컨설팅 — 카드는 /consulting-sample(리포트 전문), 아래 버튼은 /consulting(허브)로 간다.
-     새 리포트를 공개하면 이 카드 하나를 복사해 넣고 consulting.html·sitemap.xml도 같이 손본다. -->
-<section id="consulting" style="background:var(--beige);">
-  <div class="section-inner">
-    <div class="eyebrow"><span class="no">07</span>CONSULTING</div>
-    <h2 class="section-title" data-rv>수학만 가르치고<br>끝내지 않습니다</h2>
-    <p class="section-desc" data-rv>재원생에게는 개인별 대입 전략 리포트를 따로 비용 없이 만들어 드립니다. 성적표 원본을 학기별로 판독해 내신을 직접 계산하고, 지망 대학 환산표에 그 성적을 실제로 넣어 지금 위치를 숫자로 보여 드립니다. 실제로 써 드린 리포트를 이름과 학교만 가리고 전문 공개해 두었습니다.</p>
-    <div class="schools" data-rv>
-      <a class="school-card" href="/consulting-sample">
-        <div class="school-top">
-          <span class="school-name">간호학과 지망 · 고2 여학생</span>
-          <span class="school-tag">전문 공개</span>
-        </div>
-        <div class="school-nums">
-          <div class="school-num"><b>17</b><i>개 섹션<br>진단부터 지원 조합까지</i></div>
-          <div class="school-num"><b>4.25</b><i>옛 9등급 환산<br>5등급제 2.48의 실제 위치</i></div>
-          <div class="school-num"><b>26.75%</b><i>도달 상한선<br>남은 41단위를 다 잘 봤을 때</i></div>
-        </div>
-        <p>5등급제 성적표의 2.48을 그대로 읽으면 상위권으로 보이지만, 옛 9등급으로 환산하면 4.25등급입니다. 이 차이를 먼저 확정하고 남은 학기를 전부 상위 10%로 마쳐도 어디서 멈추는지 계산한 뒤에 전략을 짰습니다. 지망 대학 두 곳의 환산표에 현재 성적을 직접 넣어 97.76점과 92.84점을 산출했습니다.</p>
-        <div class="school-go">리포트 전문 보기 →</div>
-      </a>
-    </div>
-    <p class="schools-more">공개본은 학생 이름·학교명·소재지만 가린 사본입니다. 성적과 계산 과정, 전략은 원본 그대로입니다.</p>
-    <!-- 아카이브 입구 — 모바일에서는 상단 메뉴가 숨겨지므로 이 버튼이 /consulting 으로 가는 유일한 길이다. 지우지 말 것. -->
-    <a class="schools-all" href="/consulting">입시 컨설팅 자세히 보기 →</a>
-  </div>
-</section>
-
 <!-- REVIEWS -->
-<section id="reviews">
+<section id="reviews" style="background:var(--beige);">
   <div class="section-inner">
-    <div class="eyebrow"><span class="no">08</span>REVIEWS</div>
+    <div class="eyebrow"><span class="no">07</span>REVIEWS</div>
     <h2 class="section-title" data-rv>수강생들의 이야기</h2>
     <p class="section-desc" data-rv>이관우 선생님과 함께 성장한 학생들의 이야기를 들어보세요.</p>
     <div class="pull" data-rv>
@@ -913,6 +914,52 @@
       }).catch(() => {});
     })();
   </script>
+</section>
+
+<!-- CONSULTING: 입시 컨설팅 ─────────────────────────────────────────
+     카드는 /consulting-sample(리포트 전문), 아래 버튼은 /consulting(허브)로 간다.
+     새 리포트를 공개하면 이 블록 하나를 복사해 넣고 consulting.html·sitemap.xml도 같이 손본다.
+
+     ⚠️ 위치를 ANALYSIS(§06) 바로 밑으로 되돌리지 말 것.
+        두 섹션이 붙어 있으면 아무리 모양을 바꿔도 같은 서비스로 읽힌다.
+        2026-08-03 관우T 확정으로 REVIEWS 를 사이에 끼워 떼어 놓았다.
+     ⚠️ .school-card 를 쓰지 않는다. 이유는 위 CSS 주석 참고. -->
+<section id="consulting">
+  <div class="section-inner">
+    <div class="eyebrow"><span class="no">08</span>CONSULTING</div>
+    <h2 class="section-title" data-rv>수학만 가르치고<br>끝내지 않습니다</h2>
+    <p class="section-desc" data-rv>재원생에게는 개인별 대입 전략 리포트를 따로 비용 없이 만들어 드립니다. 성적표 원본을 학기별로 판독해 내신을 직접 계산하고, 지망 대학 환산표에 그 성적을 실제로 넣어 지금 위치를 숫자로 보여 드립니다. 실제로 써 드린 리포트를 이름과 학교만 가리고 전문 공개해 두었습니다.</p>
+    <!-- ⚠️ data-rv 는 반드시 이 바깥 div 에 둔다. <a class="crep"> 자체에 붙이면
+         .rv.on{transform:none} 이 .crep:hover{transform:translateY(-2px)} 보다
+         스타일시트 뒤쪽(416행)에 있어서 같은 우선순위끼리 뒤가 이겨 hover 가 죽는다.
+         위 .schools / .school-card 도 같은 이유로 부모에 붙어 있다. -->
+    <div data-rv>
+    <a class="crep" href="/consulting-sample">
+      <div class="crep-top">
+        <span class="crep-who">간호학과 지망 · 고2 여학생</span>
+        <span class="crep-tag">리포트 전문 공개</span>
+      </div>
+      <div class="crep-lad">
+        <div class="crep-cell">
+          <div class="cap">확정된 3개 학기 · 67단위를 다시 계산한 지금 위치</div>
+          <b>37.00<small>%</small></b>
+          <i>5등급제 성적표에는 2.48로 찍혀 있습니다. 옛 9등급으로 환산하면 4.25등급입니다.</i>
+        </div>
+        <div class="crep-arrow">→</div>
+        <div class="crep-cell to">
+          <div class="cap">남은 두 학기를 전 과목 상위 10%로 마쳤을 때</div>
+          <b>26.8<small>%</small></b>
+          <i>여기가 상한선입니다. 이 숫자를 먼저 확정하고 나서 전략을 짰습니다.</i>
+        </div>
+      </div>
+      <p>"열심히 하면 오른다"는 컨설팅이 아니라고 봅니다. 남은 학기를 전부 상위 10%로 마쳐도 어디서 멈추는지 먼저 계산해 보여 드린 뒤에, 그러면 무게추를 어디로 옮겨야 하는지를 적었습니다. 지망 대학 두 곳의 환산표에 현재 성적을 직접 넣어 97.76점과 92.84점을 산출했고, 두 학교가 요구하는 관리 방향이 서로 반대라는 결론이 나왔습니다.</p>
+      <div class="crep-go">리포트 전문 보기 →</div>
+    </a>
+    </div>
+    <p class="schools-more">공개본은 학생 이름·학교명·소재지만 가린 사본입니다. 성적과 계산 과정, 전략은 원본 그대로입니다.</p>
+    <!-- 아카이브 입구 — 모바일에서는 상단 메뉴가 숨겨지므로 이 버튼이 /consulting 으로 가는 유일한 길이다. 지우지 말 것. -->
+    <a class="schools-all" href="/consulting">입시 컨설팅 자세히 보기 →</a>
+  </div>
 </section>
 
 <!-- CLIPS -->
