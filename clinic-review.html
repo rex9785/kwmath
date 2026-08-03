@@ -16,6 +16,15 @@
   .topbar-title{font-size:0.95rem;font-weight:900;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
   .topbar-btn{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;}
   .page{max-width:640px;margin:0 auto;padding:20px 16px 110px;}
+  /* 🩺 클리닉 탭바 (2026-08-03 신설) — 관우T 지적 "클리닉이 이곳저곳 산발돼 있다".
+     명단(clinic-roster)과 총평(clinic-review)은 파일이 분리돼 있어 실제로는 페이지 이동이지만,
+     탭의 위치·크기·모양을 두 파일에 똑같이 넣어 체감상 「한 화면의 두 탭」이 되게 했다.
+     ⚠️ 이 CSS 블록은 clinic-roster.html에도 글자 그대로 들어간다 — 한쪽만 고치면 탭이 어긋나 보인다. */
+  .clitabs{display:flex;gap:4px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:12px;}
+  .clitabs a{flex:1;text-align:center;padding:9px 6px;border-radius:9px;font-size:0.85rem;font-weight:800;color:var(--muted);text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px;}
+  .clitabs a.on{background:var(--clinic-light);color:var(--clinic);}
+  .clitabs .tb{display:inline-block;background:var(--clinic);color:#fff;border-radius:999px;min-width:18px;padding:0 5px;font-size:0.68rem;font-weight:800;line-height:18px;font-style:normal;}
+  .clitabs .tb:empty{display:none;}   /* 못 셌거나 0이면 빈 동그라미가 남지 않게 */
 
   .datebar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin-bottom:12px;gap:6px;}
   .datebar button{background:none;border:none;font-size:1.2rem;color:var(--primary);cursor:pointer;padding:2px 8px;font-family:inherit;}
@@ -122,7 +131,7 @@
 <body>
 
 <div class="topbar">
-  <div class="topbar-title"><span>🩺 클리닉 총평</span></div>
+  <div class="topbar-title"><span>🩺 클리닉</span></div>
   <div class="kwnav kwnav--light" id="kwnav">
     <a class="kwnav-home" id="kwnavHome" href="/staff-home">🏠 홈</a>
     <div class="kwnav-mw">
@@ -144,6 +153,13 @@
 </div>
 
 <div class="page">
+  <!-- 명단 ↔ 총평 탭. clinic-roster.html에 같은 자리·같은 모양으로 들어간다(순서도 바꾸지 말 것).
+       총평 탭에는 배지를 안 붙인다 — 이미 이 화면에서 대상자를 다 보고 있으니 숫자가 군더더기다. -->
+  <nav class="clitabs" aria-label="클리닉 화면 전환">
+    <a href="/clinic-roster">🩺 명단</a>
+    <a href="/clinic-review" class="on" aria-current="page">📝 총평</a>
+  </nav>
+
   <div class="datebar">
     <button onclick="shiftDate(-1)">‹</button>
     <input type="date" id="datePick" onchange="onDateChange()">

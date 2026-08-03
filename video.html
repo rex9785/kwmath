@@ -59,6 +59,10 @@
   .state-box{text-align:center;padding:48px 24px;color:var(--text-light);}
   .state-box .state-icon{font-size:2.4rem;margin-bottom:12px;}
   .state-box p{font-size:0.9rem;line-height:1.8;}
+
+  .more-btn{display:block;width:100%;background:#fff;border:1.5px solid var(--border);color:var(--text-light);border-radius:12px;padding:14px;font-size:0.86rem;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;line-height:1.5;}
+  .more-btn:hover{border-color:var(--primary);color:var(--primary);}
+  .more-btn .hint{display:block;font-size:0.74rem;font-weight:500;color:var(--primary);margin-top:5px;}
   @media(max-width:480px){.student-bar{flex-direction:column;align-items:flex-start;}.student-bar select{width:100%;}}
 </style>
 <!-- 로그인돼 있으면 이 화면으로 곧장 들어와도 알림 등록을 보충한다 (session-keep.js의 KWPush.ensure) -->
@@ -110,6 +114,8 @@
   let currentToken = '';
   let currentStudents = [];
   let selectedStudent = null;
+  let allVideos = [];              // 서버가 내려준 영상 전부 (§11-8 전에는 최신 10편에서 잘려 왔다)
+  const 처음보여줄수 = 12;          // 화면에 바로 펼치는 편수 — 나머지는 「더 보기」로 접는다
 
   function $(id){ return document.getElementById(id); }
   function escapeHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -180,7 +186,33 @@
         $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">📭</div><p>등록된 수업 영상이 없습니다.</p></div>';
         return;
       }
-      $('videoList').innerHTML = data.videos.map((v, i) => {
+      allVideos = Array.isArray(data.videos) ? data.videos : [];
+      renderVideoList(false);
+    } catch (e) {
+      $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>불러오지 못했습니다.</p></div>';
+    }
+  }
+
+  // 📌 §11-8 — 서버가 이제 영상을 전부 내려준다(예전엔 최신 10편에서 잘렸다).
+  //   화면은 최근 것만 펼치고 나머지는 접어 둔다. 접힌 쪽에 인강 신청이 가능한 영상이 있으면
+  //   버튼에 그 사실을 적어 준다 — 결석한 지 오래된 날 영상이 목록에서 잘려 나가
+  //   **신청 버튼조차 못 보던 것**이 원래 문제였다.
+  function renderVideoList(showAll){
+    const 보일것 = showAll ? allVideos : allVideos.slice(0, 처음보여줄수);
+    let html = 보일것.map((v, i) => videoCardHtml(v, i)).join('');
+    const 남은수 = allVideos.length - 보일것.length;
+    if (남은수 > 0) {
+      const 신청가능 = allVideos.slice(보일것.length)
+        .filter(v => v.lockReason === 'absent' && !v.requested).length;
+      html += `<button type="button" class="more-btn" onclick="showAllVideos()">이전 수업 영상 ${남은수}편 더 보기`
+        + (신청가능 ? `<span class="hint">🔒 인강을 신청할 수 있는 영상 ${신청가능}편이 여기 있어요</span>` : '')
+        + `</button>`;
+    }
+    $('videoList').innerHTML = html;
+  }
+  function showAllVideos(){ renderVideoList(true); }
+
+  function videoCardHtml(v, i){
         const dateStr = v.date ? v.date.replace(/-/g, '.') : '';
         const latestBadge = i === 0 ? '<span class="latest-badge">최신</span>' : '';
         let playButton, note;
@@ -218,10 +250,6 @@
             ${note}
           </div>
         </div>`;
-      }).join('');
-    } catch (e) {
-      $('videoList').innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><p>불러오지 못했습니다.</p></div>';
-    }
   }
 
   async function logView(code, name){
@@ -243,7 +271,12 @@
     try {
       const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
       const data = await res.json();
-      if (!res.ok || !data.youtube_url) { alert('영상을 불러오지 못했습니다: ' + (data.error || res.status)); return; }
+      // 2026-08-03 (§11-9 ⓒ) — 대체된 옛 코드면 서버가 이유를 문장으로 보내준다(data.replaced).
+      //   그럴 땐 '영상을 불러오지 못했습니다:' 를 앞에 붙이지 말고 그 문장을 그대로 보여준다.
+      if (!res.ok || !data.youtube_url) {
+        alert(data.replaced ? data.error : '영상을 불러오지 못했습니다: ' + (data.error || res.status));
+        return;
+      }
       fetch('/api/video-access', {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),

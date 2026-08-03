@@ -30,18 +30,59 @@ export async function onRequest({ request, env }) {
     try {
       const obj = await env.BUCKET.get(`video-codes/${code}.json`);
       if (!obj) {
+        // 🔴 2026-08-03 (§11-9 ⓒ) — "없는 코드"라고 바로 자르지 않고 **대체 표식**을 먼저 본다.
+        //   같은 학원·반·수업날짜로 새 영상이 올라오면 옛 코드는 자동 삭제된다(2026-07-30 확정 규칙).
+        //   그 순간 save-video-code.js 가 video-replaced/{코드}.json 에 표식을 남긴다.
+        //   표식이 있으면 **오타가 아니라 대체다** — 학생 화면에도 로그에도 그렇게 말해 준다.
+        //   (여태 이 자리의 로그는 "잘못 적었거나 / 지워졌거나"라고 추측만 하고 있었다.)
+        let 표식 = null, 표식오류 = null;
+        try {
+          const mk = await env.BUCKET.get(`video-replaced/${code}.json`);
+          if (mk) 표식 = await mk.json();
+        } catch (e) { 표식오류 = String((e && e.message) || e).slice(0, 200); }
+
         await logAudit(env, request, {
           action: 'video.access.fail',
           target: code,
-          summary: '수업코드 [' + code + '] 조회 실패 — 그런 코드의 영상이 없음',
-          detail: {
-            입력한코드: code, R2키: 'video-codes/' + code + '.json',
-            해석: '학생이 코드를 잘못 옮겨 적었거나, 그 영상이 이미 지워졌다. '
-              + '같은 반·같은 날짜로 영상을 다시 올리면 옛 코드는 자동으로 삭제되므로, '
-              + '학생이 받아둔 종이 코드가 하루 만에 무효가 됐을 수 있다(같은 시간대 video.code.overwrite · video.delete 기록 확인).',
-            효과: '학생이 영상을 못 봄',
-          },
+          summary: 표식
+            ? '수업코드 [' + code + '] 조회 실패 — 새 영상으로 대체된 옛 코드 (' + (표식.title || '제목없음') + ')'
+            : '수업코드 [' + code + '] 조회 실패 — 그런 코드의 영상이 없음',
+          detail: 표식
+            ? {
+                입력한코드: code, R2키: 'video-codes/' + code + '.json',
+                판정: '✅ 오타가 아니다 — 이 코드는 자동 대체로 삭제됐다(대체 표식 확인됨)',
+                대체된시각: 표식.replaced_at || '(기록 없음)',
+                대체한새코드: 표식.replaced_by || '(기록 없음)',
+                지워진영상: {
+                  제목: 표식.title || '', 날짜: 표식.date || '',
+                  학원: 표식.school || '', 반: 표식.class_name || '',
+                  삭제전열람횟수: 표식.access_count || 0,
+                },
+                해석: '같은 학원·반·수업날짜로 새 영상이 올라와 옛 코드가 자동 삭제됐다(2026-07-30 확정 규칙). '
+                  + '학생이 화면을 오래 열어두고 있었을 가능성이 크다 — 새로고침하면 새 영상이 보인다.',
+                효과: '학생 화면에 대체 안내가 나갔다(예전엔 「유효하지 않은 코드입니다.」 한 줄뿐이었다)',
+              }
+            : {
+                입력한코드: code, R2키: 'video-codes/' + code + '.json',
+                대체표식: 표식오류
+                  ? '🔴 확인 실패 — ' + 표식오류
+                  : '없음 (video-replaced/' + code + '.json 이 없다)',
+                해석: '대체 표식이 없다. ⓐ 코드를 잘못 옮겨 적었거나 ⓑ 영상 관리 화면에서 원장이 직접 삭제했거나 '
+                  + 'ⓒ 표식을 남기기 시작한 2026-08-03 이전에 대체된 코드다'
+                  + '(같은 시간대 video.code.overwrite · video.delete 기록 확인).',
+                효과: '학생이 영상을 못 봄',
+              },
         });
+
+        if (표식) {
+          return Response.json({
+            error: '이 수업 영상은 새로 올라온 영상으로 바뀌었어요.\n화면을 새로고침하면 새 영상이 보입니다.',
+            replaced: true,
+            replaced_at: 표식.replaced_at || '',
+            title: 표식.title || '',
+            date:  표식.date || '',
+          }, { status: 404 });
+        }
         return Response.json({ error: '유효하지 않은 코드입니다.' }, { status: 404 });
       }
 
@@ -155,20 +196,44 @@ export async function onRequest({ request, env }) {
     try {
       const obj = await env.BUCKET.get(R2키);
       if (!obj) {
+        // 🔴 2026-08-03 (§11-9 ⓒ) — 여기가 실제로 제일 자주 걸리는 자리다.
+        //   공개 영상의 재생 버튼은 유튜브 주소가 **이미 박힌 링크**라 서버를 안 거친다.
+        //   그래서 화면을 열어둔 채 영상이 대체되면, 학생은 **옛 주소를 그대로 열고**
+        //   이 기록 요청만 조용히 404가 난다(학생은 아무 에러도 못 본다).
+        //   → 대체 표식을 확인해 "이 학생은 대체 전 옛 영상을 봤다"를 추측이 아니라 확정으로 남긴다.
+        let 표식 = null;
+        try {
+          const mk = await env.BUCKET.get(`video-replaced/${code}.json`);
+          if (mk) 표식 = await mk.json();
+        } catch (_) { /* 표식 확인 실패해도 로그는 남긴다 */ }
+
         await logAudit(env, request, {
           ...행위자,
           action: 'video.access.fail',
           target: code,
-          summary: '영상 열람기록 저장 실패 — 코드 [' + code + ']의 영상이 없음 (' + (name || '익명') + ')',
+          summary: '영상 열람기록 저장 실패 — 코드 [' + code + ']의 영상이 '
+            + (표식 ? '새 영상으로 대체됨' : '없음') + ' (' + (name || '익명') + ')',
           detail: {
             코드: code, R2키: 'video-codes/' + code + '.json',
-            누가: { 이름: name || '(안 보냄)', 구분: role || '(로그인 안 함 또는 이름 불일치)', 로그인번호: loginPhone || '(없음)' },
+            누가: { 이름: name || '(안 보냄)', 학생번호: studentId, 구분: role || '(로그인 안 함 또는 이름 불일치)', 로그인번호: loginPhone || '(없음)' },
             열람경로: 경로설명,
-            해석: '영상 주소는 받아갔는데 기록을 남기려는 순간 파일이 없었다 — 그 사이 삭제됐거나 재업로드로 대체됐다',
+            대체표식: 표식
+              ? {
+                  판정: '✅ 대체됨 — 이 학생은 대체 전 옛 영상을 보고 있었다',
+                  대체된시각: 표식.replaced_at || '(기록 없음)',
+                  대체한새코드: 표식.replaced_by || '(기록 없음)',
+                  옛영상: { 제목: 표식.title || '', 날짜: 표식.date || '', 학원: 표식.school || '', 반: 표식.class_name || '' },
+                }
+              : '없음 — 원장이 직접 삭제했거나, 표식을 남기기 시작한 2026-08-03 이전 건이다',
+            해석: 표식
+              ? '학생이 화면을 열어둔 사이 같은 학원·반·날짜로 새 영상이 올라와 옛 코드가 자동 삭제됐다. '
+                + '공개 영상은 재생 링크에 주소가 박혀 있어 학생 화면에는 에러가 안 뜬다 — '
+                + '⚠️ URL을 고치려고 재업로드하셨다면 이 학생은 **고치기 전 주소**를 본 것이다.'
+              : '영상 주소는 받아갔는데 기록을 남기려는 순간 파일이 없었다 — 그 사이 삭제됐거나 재업로드로 대체됐다',
             효과: '학생은 영상을 봤을 수 있지만 열람 기록에는 안 남는다',
           },
         });
-        return Response.json({ error: '코드 없음' }, { status: 404 });
+        return Response.json({ error: '코드 없음', replaced: !!표식 }, { status: 404 });
       }
 
       let data = await obj.json();

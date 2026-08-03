@@ -79,6 +79,10 @@
   .cal-cell.off{background:#EDEDED;}.cal-cell.off .s{color:var(--off);}
 
   .cal-cell .hw{position:absolute;top:2px;right:3px;font-size:0.55rem;font-weight:800;color:var(--primary);background:#fff;border:1px solid var(--primary);border-radius:6px;padding:0 4px;line-height:1.2;}
+  /* 🎬 인강 표시 — 좌상단. 숙제 배지(.hw)는 우상단이라 겹치지 않는다. */
+  .cal-cell .mk{position:absolute;top:2px;left:3px;font-size:0.6rem;line-height:1.2;}
+  .cal-cell.mk-can{cursor:pointer;}
+  .cal-cell.mk-can:active{transform:scale(0.95);}
   .cal-cell.hw-0{box-shadow:inset 0 -3px 0 #c0392b;}
   .cal-cell.hw-25{box-shadow:inset 0 -3px 0 #e67e22;}
   .cal-cell.hw-50{box-shadow:inset 0 -3px 0 #f1c40f;}
@@ -161,6 +165,10 @@
         <span id="legendHint" style="width:100%;text-align:center;color:var(--text-light);font-size:0.7rem;margin-top:4px;">하단 색띠 = 숙제 완료율 (빨강 0% → 초록 100%)</span>
       </div>
     </div>
+
+    <!-- 🎬 이 달 인강 — "언제 못 왔고, 그날 영상이 열렸나"를 글로도 남긴다.
+         캘린더 배지만으로는 지난 달을 훑기 어렵고, 학부모가 보기에도 이 목록이 분명하다. -->
+    <div id="mkPanel" style="display:none;background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:14px;"></div>
   </div>
 </div>
 
@@ -175,6 +183,13 @@
   let viewMonth = new Date(); viewMonth.setDate(1);
   let allRecords = {};
   let mode = 'class';   // 'class'(수업 출결) | 'clinic'(클리닉)
+
+  // 🎬 인강 — 결석·병결·공결인 날은 그날 수업영상·수업자료가 잠긴다(2026-07-21 정책B).
+  //   신청하면 requested, 선생님이 승인하면 approved 가 되어 열린다.
+  //   ⚠️ BLOCK_ST 는 서버 _makeup.js 의 BLOCK_STATUS 와 같은 목록이어야 한다. 여기만 고치면 화면과 실제가 어긋난다.
+  let grants = {};                                    // { 'YYYY-MM-DD': 'requested' | 'approved' }
+  const BLOCK_ST = { '결석': 1, '병결': 1, '공결': 1 };
+  function isDateStr(d){ return /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')); }
 
   function setMode(md){
     if (mode === md) return;
@@ -243,11 +258,44 @@
       });
       const data = await res.json();
       allRecords = (data && data.records) || {};
-      renderMonth();
     } catch (e) {
       allRecords = {};
-      renderMonth();
     }
+    await loadGrants();
+    renderMonth();
+  }
+
+  // 인강 신청/해제 현황. 클리닉엔 인강이 없다(잠금 판정은 수업 출결만 본다).
+  //   ?name= 은 서버(_auth.requireStudentAccess)가 받아 준다 — 자녀가 둘이어도 고른 아이 것만 온다.
+  async function loadGrants() {
+    grants = {};
+    if (mode === 'clinic') return;
+    try {
+      const res = await fetch('/api/makeup?name=' + encodeURIComponent(selected.name), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const j = await res.json();
+      const arr = (j && Array.isArray(j.grants)) ? j.grants : [];
+      arr.forEach(function(g){ if (g && isDateStr(g.date)) grants[g.date] = g.status; });
+    } catch (e) { /* 인강을 못 불러와도 출결 달력은 그대로 보여준다 */ }
+  }
+
+  // 잠긴 날짜를 눌러 인강 신청. 승인은 선생님이 한다(여기서 바로 열리지 않는다).
+  async function askMakeup(date) {
+    if (!selected || !isDateStr(date)) return;
+    if (!confirm(date + ' 인강을 신청할까요?\n선생님이 승인하면 그날 수업영상과 수업자료가 열립니다.')) return;
+    try {
+      const res = await fetch('/api/makeup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ name: selected.name, date: date })
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) { alert((j && j.error) || '신청에 실패했습니다.'); return; }
+      grants[date] = j.status || 'requested';
+      renderMonth();
+      alert(j.status === 'approved' ? '이미 열려 있는 날짜입니다.' : '인강을 신청했습니다. 승인되면 영상이 열립니다.');
+    } catch (e) { alert('신청에 실패했습니다.'); }
   }
 
   function prevMonth() { viewMonth.setMonth(viewMonth.getMonth() - 1); renderMonth(); }
@@ -324,14 +372,74 @@
       const badge = (band !== null) ? '<div class="hw">' + band + '</div>' : '';
       const mn = isClinic ? recMinutes(r) : null;
       const minLine = (mn !== null && mn > 0) ? '<div class="s" style="color:var(--clinic);font-weight:800;">' + fmtMin(mn) + '</div>' : '';
-      html += '<div class="cal-cell ' + cc + bandCls + isToday + '">' + badge + '<div class="d">' + d + '</div>' + (status ? '<div class="s">' + status + '</div>' : '') + minLine + '</div>';
+
+      // 🎬 인강 배지 — 못 온 날(결석·병결·공결)과, 이미 신청/해제된 날에만 붙인다.
+      //   기록 없는 날까지 🔒 를 붙이면 수업 없는 날에도 자물쇠가 깔려 달력이 자물쇠밭이 된다.
+      let mkBadge = '', mkCls = '', mkTap = '';
+      if (!isClinic) {
+        const gst = grants[ds];
+        if (BLOCK_ST[status] || gst) {
+          if (gst === 'approved')       mkBadge = '<div class="mk" title="인강 열림">🔓</div>';
+          else if (gst === 'requested') mkBadge = '<div class="mk" title="인강 신청함 · 승인 대기">🙋</div>';
+          else {
+            mkBadge = '<div class="mk" title="인강 잠김 — 눌러서 신청">🔒</div>';
+            mkCls = ' mk-can';
+            mkTap = ' onclick="askMakeup(\'' + ds + '\')"';
+          }
+        }
+      }
+
+      html += '<div class="cal-cell ' + cc + bandCls + isToday + mkCls + '"' + mkTap + '>' + badge + mkBadge + '<div class="d">' + d + '</div>' + (status ? '<div class="s">' + status + '</div>' : '') + minLine + '</div>';
     }
     document.getElementById('calGrid').innerHTML = html;
+    renderMakeupPanel(monthStr, isClinic);
 
     const hint = document.getElementById('legendHint');
     if (hint) hint.textContent = isClinic
       ? '하단 색띠·우상단 배지 = 클리닉 성취도 (빨강 0 → 초록 100) · 셀 안 시간 = 클리닉 시간'
-      : '하단 색띠 = 숙제 완료율 (빨강 0% → 초록 100%)';
+      : '하단 색띠 = 숙제 완료율 (빨강 0% → 초록 100%) · 좌상단 🔒 잠김 · 🙋 신청함 · 🔓 인강 열림';
+  }
+
+  // 🎬 이 달 인강 — 못 온 날과 그날 영상이 열렸는지를 목록으로 남긴다.
+  //   「열림」은 선생님이 열어줬다는 뜻이다. 실제로 봤는지까지는 여기서 세지 않는다.
+  function renderMakeupPanel(monthStr, isClinic) {
+    const el = document.getElementById('mkPanel');
+    if (!el) return;
+    if (isClinic) { el.style.display = 'none'; return; }
+
+    const dates = [];
+    for (const [date, r] of Object.entries(allRecords)) {
+      if (!date.startsWith(monthStr)) continue;
+      if (BLOCK_ST[recStatus(r)]) dates.push(date);
+    }
+    // 출결이 아직 안 들어온 날인데 인강만 열린 경우도 빠뜨리지 않는다.
+    Object.keys(grants).forEach(function(d){
+      if (!d.startsWith(monthStr) || dates.indexOf(d) >= 0) return;
+      dates.push(d);
+    });
+    if (!dates.length) { el.style.display = 'none'; return; }
+    dates.sort();
+
+    const 열림 = dates.filter(function(d){ return grants[d] === 'approved'; }).length;
+    const rows = dates.map(function(d){
+      const st = recStatus(allRecords[d]) || '기록 없음';
+      const g = grants[d];
+      let mark;
+      if (g === 'approved')       mark = '<span style="color:var(--att);font-weight:700;">🔓 인강 열림</span>';
+      else if (g === 'requested') mark = '<span style="color:var(--late);font-weight:700;">🙋 신청함 · 승인 대기</span>';
+      else                        mark = '<span onclick="askMakeup(\'' + d + '\')" style="color:var(--abs);font-weight:700;cursor:pointer;text-decoration:underline;">🔒 잠김 — 신청하기</span>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--hairline);font-size:0.83rem;">' +
+        '<span><b>' + esc(d.slice(5).replace('-', '/')) + '</b> <span style="color:var(--text-light);font-size:0.76rem;">' + esc(st) + '</span></span>' +
+        mark +
+      '</div>';
+    }).join('');
+
+    el.style.display = 'block';
+    el.innerHTML =
+      '<div style="font-weight:800;font-size:0.9rem;color:var(--primary);">🎬 이 달 인강</div>' +
+      '<div style="font-size:0.75rem;color:var(--text-light);margin:3px 0 6px;line-height:1.6;">' +
+        '못 온 날 ' + dates.length + '일 중 <b>' + 열림 + '일</b> 열림 · 잠긴 날짜를 누르면 인강을 신청합니다.' +
+      '</div>' + rows;
   }
 
   loadMe();

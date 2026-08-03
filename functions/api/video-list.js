@@ -12,21 +12,39 @@ import { safeError } from './_errors.js';
 //   같은 열람이 양쪽에 있으면 한 줄로 친다(같은 이름·같은 구분이 5분 안이면 같은 열람 —
 //   video-access.js 의 중복 판정 규칙과 똑같이 맞춰 뒀다).
 
-const 감사조회건수 = 3000;          // 최근 열람기록을 D1에서 몇 줄까지 끌어올지
+const 감사조회건수 = 3000;          // 실제 열람(시청·수업코드)을 D1에서 몇 줄까지 끌어올지
+const 목록열람건수 = 1500;          // 「목록만 열었다」는 상한을 따로 둔다 — 이게 실제 열람 기록을 밀어내면 안 된다
 const 중복시간 = 5 * 60 * 1000;     // 이 시간 안의 같은 사람 = 같은 열람 (video-access.js 와 동일)
+
+// 같은 열람이 두 경로로 잡히면 "더 센 쪽"이 이긴다 — 목록만 연 것보다 실제로 본 것이 진실에 가깝다.
+//   (안 그러면 목록을 열고 바로 영상을 본 사람이 「목록열람」으로만 남아 시청자 수가 줄어든다.)
+const via강도 = { watch: 3, code: 2, open: 1 };
+function 센via(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return (via강도[b] || 0) > (via강도[a] || 0) ? b : a;
+}
 
 // 감사로그에서 영상코드별 열람기록을 끌어온다.
 //   실패해도 영상 목록 자체는 떠야 하므로 조용히 null 을 돌려주고, 부르는 쪽이 옛 방식으로 되돌아간다.
 async function 감사열람기록(env) {
   try {
-    const { results } = await env.DB.prepare(
+    const 실제열람 = env.DB.prepare(
       'SELECT ts, actor, actor_role, actor_name, target, '
       + "CASE WHEN json_valid(detail) THEN json_extract(detail, '$.열람경로코드') ELSE NULL END AS via, "
       + "CASE WHEN json_valid(detail) THEN json_extract(detail, '$.누가.학생번호') ELSE NULL END AS student_id "
       + "FROM audit_log WHERE action = 'video.access.log' ORDER BY id DESC LIMIT ?"
-    ).bind(감사조회건수).all();
+    ).bind(감사조회건수);
+    // 📓 2026-08-03(§11-8) — 「목록 열람」은 이제 영상 파일(R2)에 안 쓰고 감사로그에만 남는다.
+    //   여기서 같이 끌어와야 관우T 화면에 계속 보인다. detail 모양이 달라 학생번호 경로도 다르다.
+    const 목록열람 = env.DB.prepare(
+      "SELECT ts, actor, actor_role, actor_name, target, 'open' AS via, "
+      + "CASE WHEN json_valid(detail) THEN json_extract(detail, '$.학생.학생ID') ELSE NULL END AS student_id "
+      + "FROM audit_log WHERE action = 'video.list.open' ORDER BY id DESC LIMIT ?"
+    ).bind(목록열람건수);
+    const [실제, 목록] = await env.DB.batch([실제열람, 목록열람]);
     const byCode = new Map();
-    for (const r of results || []) {
+    for (const r of [].concat((실제 && 실제.results) || [], (목록 && 목록.results) || [])) {
       const code = String(r.target || '').toUpperCase();
       if (!code) continue;
       // 'anon' · 'unknown' · 'admin-key' 는 화면에서 '비로그인'으로 보여주므로 null 로 눕힌다.
@@ -61,7 +79,7 @@ function 열람기록합치기(r2로그, 감사로그) {
       && Math.abs(new Date(k.time).getTime() - new Date(e.time).getTime()) <= 중복시간
     );
     if (같은열람) {
-      if (!같은열람.via && e.via) 같은열람.via = e.via;
+      같은열람.via = 센via(같은열람.via, e.via);   // 시청 > 수업코드 > 목록열람
       if (같은열람.student_id == null && e.student_id != null) 같은열람.student_id = e.student_id;
       if (!같은열람.phone && e.phone) 같은열람.phone = e.phone;
       continue;

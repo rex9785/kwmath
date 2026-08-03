@@ -299,6 +299,13 @@
       <!-- 카드 19개 = 관우T 업무 흐름 5구획 (2026-07-09 순서 확정 → 2026-07-28 구획선·제목 추가 → 2026-07-29 카드 2개 신설).
            기존 17개는 하나도 빼지 않았고 순서도 그대로다. 묶어서 제목만 붙였고, 아래 2개를 새로 얹었다.
              · 🩺 클리닉 — 그동안 출결 탭 안쪽 배너에만 있어서 홈에서는 존재를 알 수 없었다(관우T 지적 2026-07-29).
+               ↳ 2026-08-03 후속(관우T 재지적 "클리닉이 이곳저곳 산발돼 있다"): 07-29엔 카드만 만들고 총평은
+                 clinic-roster 안 ☰ 메뉴에 맡겼는데, ☰는 숨은 메뉴라 "카드 1장으로 커버된다"는 가정이 틀렸다.
+                 → ① clinic-roster/clinic-review 두 화면에 공통 탭바(🩺명단 | 📝총평)를 넣어 한 화면처럼 만들고
+                    ② 출결 탭 배너 2줄을 1줄로 합쳤고 ③ 이 카드에 「발송 안 한 총평」 배지를 달았다.
+                 원장 클리닉 진입로는 이제 「이 카드」 + 「출결 탭 지름길 1줄」 + 「반별 출결 안내문 안 인라인 링크
+                 (renderAttendance 쪽, '오늘 클리닉: ○○반 — …클리닉 명단에서 따로 기록해요')」 셋이다.
+                 앞의 둘은 진입 메뉴, 셋째는 그 문장을 읽다가 바로 누르는 맥락 링크라 성격이 다르다. 더 늘리지 말 것.
              · 🏫 학원·반 관리 — 학생 목록 안 접힌 패널이라 3단계 깊이였다. 카드로 1클릭.
            ↗ 표시 = 별도 페이지로 나가는 카드(돌아올 땐 기기 뒤로가기). 표시 없으면 이 화면 안에서 열린다. -->
       <div class="menu-sec">
@@ -315,7 +322,7 @@
           <!-- "숙제"가 세 가지 다른 일을 가리켜 헷갈렸다 → 이름으로 구분한다.
                여기 = 오늘 숙제를 몇 % 해왔나(이행률) / 과제 제출함 = 학생이 올린 사진 / 리포트의 "다음 숙제" = 다음 시간까지 해올 것. -->
           <button type="button" class="admin-card" onclick="openSection('attendance')">📅<b>출결·숙제 이행률</b><span>출석 체크 · 숙제 몇 % 했나</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/clinic-roster'">🩺<b>클리닉<i class="go-out">↗</i></b><span>필수 명단 · 총평 검토</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/clinic-roster'">🩺<b>클리닉<i class="cbadge" id="bdgClinic"></i><i class="go-out">↗</i></b><span>명단 · 총평 (안에서 탭 전환)</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-homework'">📸<b>과제 제출함<i class="cbadge" id="bdgHomework"></i><i class="go-out">↗</i></b><span>학생이 올린 숙제 사진</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-makeup'">🔓<b>인강 신청·해제<i class="go-out">↗</i></b><span>결석일 영상·자료 잠금 해제</span></button>
           <button type="button" class="admin-card" onclick="openSection('reports')">📋<b>리포트 조회</b><span>학생 리포트</span></button>
@@ -618,12 +625,13 @@
           <div id="qaSummary" style="margin-top:10px;font-size:0.82rem;color:var(--text-light);"></div>
         </div>
       </div>
+      <!-- 🩺 클리닉 지름길 — 2026-08-03에 배너 2줄(명단·총평)을 1줄로 합쳤다.
+           왜: 관우T 지적 "클리닉이 이곳저곳 산발돼 있다". 진입로가 여기 2개 + 홈 카드 + ☰까지 흩어져
+           같은 기능이 여러 이름으로 보였다. 이제 클리닉 진입은 「홈 카드」와 「이 줄」 둘뿐이고,
+           명단↔총평 전환은 clinic-roster/clinic-review 안의 공통 탭바가 맡는다.
+           이 줄을 남긴 이유: 출결을 찍다가 바로 넘어가는 동선이라 지우면 홈까지 나갔다 와야 한다. -->
       <a href="/clinic-roster" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;background:linear-gradient(135deg,#fff 0%,#E3F1F2 100%);border:1.5px solid #1f6f78;border-radius:12px;padding:12px 16px;margin-bottom:16px;">
-        <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;">📋 클리닉 명단 — 오늘 대상 전원 · 뺄 사람만 고르기</span>
-        <span style="color:#1f6f78;font-weight:700;">보기 →</span>
-      </a>
-      <a href="/clinic-review" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;background:linear-gradient(135deg,#fff 0%,#E3F1F2 100%);border:1.5px solid #1f6f78;border-radius:12px;padding:12px 16px;margin-bottom:16px;">
-        <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;">🩺 클리닉 총평 — 조교 코멘트 검토·학부모 발송</span>
+        <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;">🩺 클리닉 열기 — 명단 · 총평<i class="cbadge" id="bdgClinicBanner" style="background:#1f6f78;"></i></span>
         <span style="color:#1f6f78;font-weight:700;">열기 →</span>
       </a>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
@@ -907,7 +915,7 @@
     const H = { 'Authorization': 'Bearer ' + adminToken };
     const grab = (u) => fetch(u, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    const [inq, qna, stf, hw, att, stu, rev] = await Promise.allSettled([
+    const [inq, qna, stf, hw, att, stu, rev, cli, tt] = await Promise.allSettled([
       grab('/api/inquiry?admin=1'),
       grab('/api/qna?count=1'),
       grab('/api/staff-approve'),
@@ -915,6 +923,10 @@
       grab('/api/attendance?all=1'),   // ⚠️ 살펴볼 학생 판정용 — 새 API를 안 만든다(원칙 ①)
       grab('/api/students'),           // 같은 판정을 재원생으로만 한정하려고 (숫자 ↔ 목록 일치)
       grab('/api/reviews?admin=1'),    // 검토할 후기 — 본문이 텍스트뿐이라 가볍다(최대 100건)
+      grab('/api/clinic-review'),      // 클리닉 총평 검토 대기 — date 없이 부르면 서버가 오늘(KST)로 처리
+      // ⏰ 시간 기반 줄 (2026-08-03 신설) — 위 7개가 "남이 나를 기다리는 밀린 건수"라면,
+      //    이건 "지금 내가 할 시간이 된 일"이다. 수업 시간표(🕘)를 기준으로 서버가 판단한다.
+      grab('/api/today-tasks'),
     ]).then(rs => rs.map(r => (r.status === 'fulfilled' ? r.value : null)));
 
     const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
@@ -962,11 +974,22 @@
       nRev = rev.reviews.filter(r => reviewMatchesFilter(r, 'wait')).length;
     }
 
+    // ⑧ 클리닉 총평 검토 대기 — 조교가 초안을 써 올렸는데 내가 아직 학부모께 발송을 안 한 건수.
+    //    조교앱(staff-home)의 배지는 "조교가 아직 안 쓴 학생" 수라서 세는 대상이 다르다.
+    //    여기는 원장 화면이라 "내 손에 걸려 있는 것"만 센다 — 안 그러면 내가 할 수 없는 일이 숫자로 남는다.
+    //    status는 서버 clinicReviewRow가 항상 채운다(없으면 'draft'). 'sent'가 아니면 아직 내 차례.
+    let nCli = null;
+    if (cli && Array.isArray(cli.reviews)) {
+      nCli = cli.reviews.filter(r => r && r.status !== 'sent').length;
+    }
+
     setBadge('bdgInquiry', nInq);
     setBadge('bdgQna', nQna);
     setBadge('bdgStaff', nStf);
     setBadge('bdgHomework', nHwNew);
     setBadge('bdgReviews', nRev);
+    setBadge('bdgClinic', nCli);
+    setBadge('bdgClinicBanner', nCli);   // 출결 탭 안 지름길 줄에도 같은 숫자
 
     const rows = [];
     //   href = 다른 페이지로 이동 / js = 이 페이지 안에서 처리(탭 전환 등). 둘 중 하나만 쓴다.
@@ -976,11 +999,28 @@
       rows.push('<button type="button" class="today-row" onclick="' + onclick + '">'
         + icon + ' <span>' + text + '</span><span class="n">' + n + '</span><span class="go">›</span></button>');
     };
+    // ⏰ 시간 기반 줄 (2026-08-03) — "지금 할 시간이 된 일"이라 밀린 건수보다 **위**에 둔다.
+    //    서버(/api/today-tasks)가 수업 시간표(🕘)로 판단해 items로 준다. 못 받으면(tt=null) 조용히 없는 셈.
+    //    순서는 하루가 흐르는 순서 그대로: 출결(수업 중) → 조교 총평(클리닉 후) → 영상 → 리포트.
+    const 반이름붙이기 = (it) => (Array.isArray(it.classes) && it.classes.length)
+      ? ' — ' + escapeHtml(it.classes.join(', ')) : '';
+    if (tt && Array.isArray(tt.items)) {
+      for (const it of tt.items) {
+        if (!it) continue;
+        if (it.key === 'attendance')             row(it.n, '✅', '출결 입력할 시간' + 반이름붙이기(it), '', "openSection('attendance')");
+        else if (it.key === 'clinicReviewOwner') row(it.n, '🩺', '조교 총평 확인 — 아직 안 쓴 학생', '/clinic-review');
+        else if (it.key === 'clinicNoRecord')    row(it.n, '🩺', '오늘 클리닉 기록이 아직 없음 — 조교 확인', '/clinic-review');
+        else if (it.key === 'video')             row(it.n, '📺', '수업 영상 업로드' + 반이름붙이기(it), '', "openSection('videos')");
+        else if (it.key === 'report')            row(it.n, '📋', '오늘 리포트 만들 시간' + 반이름붙이기(it), '', "openSection('reports')");
+      }
+    }
+
     row(nInq, '📩', '새 상담 문의', '/admin-inquiries');
     row(nQna, '💬', '답변 안 한 질문', '/admin-qna');
     row(nStf, '🧑‍🏫', '조교 승인 대기', '/admin-staff');
     row(nHwNew, '📸', '확인 안 한 과제 제출', '/admin-homework');
     row(nHw, '📸', '마감된 채로 열려 있는 과제', '/admin-homework');
+    row(nCli, '🩺', '발송 안 한 클리닉 총평', '/clinic-review');
     row(nRisk, '⚠️', '살펴볼 학생 (출결·숙제 꺾임)', '', 'openRiskStudents()');
     row(nRev, '💬', '검토할 수강 후기', '', "openSection('reviews')");
 
@@ -990,9 +1030,24 @@
       box.innerHTML = title + '<div class="today-list">' + rows.join('') + '</div>';
     } else {
       box.className = '';
-      box.innerHTML = title + '<div class="today-none">밀린 게 없습니다. 👍</div>';
+      box.innerHTML = title + '<div class="today-none">' + 빈박스안내(tt) + '</div>';
     }
     box.style.display = 'block';
+  }
+
+  // 빈 박스가 **왜** 비었는지 한 줄로 말해 준다 (2026-08-03).
+  //   그냥 "밀린 게 없습니다"만 뜨면, 정말 없는 건지 / 시간표를 안 넣어서 판단조차 못 하는 건지
+  //   구분이 안 된다. 조용한 0이 제일 위험하다 — 몇 주 동안 아무 일도 안 하고 멀쩡해 보인다.
+  function 빈박스안내(tt) {
+    const d = (tt && tt.diag) || {};
+    if (d.noSchedules) {
+      return '밀린 게 없습니다. 👍<br><span style="font-weight:600;">🕘 반별 수업시간을 넣으면 출결·영상·리포트 할 일도 여기 뜹니다 — 홈 [🏫 학원·반 관리]</span>';
+    }
+    if (d.nextClass) {
+      return '밀린 게 없습니다. 👍 · 다음 수업 ' + escapeHtml(d.nextClass.className || '') + ' ' + escapeHtml(d.nextClass.start || '');
+    }
+    if (d.classesToday === 0) return '밀린 게 없습니다. 👍 · 오늘은 수업이 없는 날입니다.';
+    return '밀린 게 없습니다. 👍';
   }
 
   // 배지 채우기 — null(못 셈)이나 0이면 비워둔다(.cbadge:empty가 숨김).
@@ -3553,6 +3608,137 @@
     card.classList.toggle('expanded');
   }
 
+  // ══ 🎬 인강 이력 (학생 카드) ══════════════════════════════════════
+  //   "이 학생, 언제 결석했고 그날 인강은 열렸나."  — 2026-08-03 관우T 요청.
+  //   ⚠️ 판정 기준은 「열어준 것까지만」이다(관우T 확정). 실제로 영상을 재생했는지는
+  //      여기서 세지 않는다. 재생 로그(video.access.log)를 붙이면 "열어줬는데 안 봤다"까지
+  //      알 수 있지만 그건 다른 질문이고 화면이 무거워진다.
+  //   ⚠️ 새 API를 만들지 않는다(원칙 ①). 이미 있는 둘만 쓴다:
+  //        /api/attendance?id=<sid>   — 그 학생 전체 출결
+  //        /api/makeup?all=1          — 전체 인강 신청/해제 (한 번만 받아 캐시)
+  //      카드마다 따로 부르면 학생 수만큼 호출된다. 그래서 _mkAllCache 에 담아 돌려 쓴다.
+  let _mkAllCache = null;
+  //  D1이 숫자를 REAL 로 묶어 student_id 가 "24.0" 으로 저장된 행이 섞여 있다.
+  //  서버 _makeup.js 의 normSid 와 같은 규칙으로 맞춰야 이력이 통째로 비어 보이지 않는다.
+  function _mkNormSid(v){ return String(v == null ? '' : v).trim().replace(/\.0+$/, ''); }
+  function _mkWhen(t){ return t ? String(t).slice(0, 16).replace('T', ' ') : ''; }
+
+  async function _mkFetchAll(force){
+    if (_mkAllCache && !force) return _mkAllCache;
+    const res = await fetch('/api/makeup?all=1', { headers: { 'Authorization': 'Bearer ' + adminToken } });
+    if (!res.ok) throw new Error('makeup list ' + res.status);
+    const j = await res.json();
+    _mkAllCache = Array.isArray(j) ? j : [];
+    return _mkAllCache;
+  }
+
+  function toggleAdminMakeupHistory(btn, sid){
+    const card = btn.closest('.student-card');
+    const box = card && card.querySelector('.mkwrap-admin');
+    if (!box) return;
+    if (box.style.display === 'block'){ box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    if (box.dataset.built === '1') return;
+    box.dataset.built = '1';
+    loadAdminMakeupHistory(box, sid);
+  }
+
+  async function loadAdminMakeupHistory(box, sid, force){
+    box.innerHTML = '<div style="font-size:0.8rem;color:#999;">불러오는 중…</div>';
+    try {
+      const [att, grants] = await Promise.all([
+        fetch('/api/attendance?id=' + encodeURIComponent(sid), { headers: { 'Authorization': 'Bearer ' + adminToken } }).then(r => r.json()),
+        _mkFetchAll(force),
+      ]);
+      const records = (att && att.records) || {};
+      const key = _mkNormSid(sid);
+      const mine = {};
+      grants.forEach(function(g){ if (_mkNormSid(g.student_id) === key) mine[g.date] = g; });
+
+      // 결석계열 = 그날 수업영상·수업자료가 잠기는 상태 (서버 _makeup.js BLOCK_STATUS 와 같은 목록)
+      const BLOCK = { '결석': 1, '병결': 1, '공결': 1 };
+      const stOf = function(d){ const r = records[d]; return (typeof r === 'string') ? r : ((r && r.status) || ''); };
+      const rows = [];
+      Object.keys(records).forEach(function(d){
+        if (!BLOCK[stOf(d)]) return;
+        rows.push({ date: d, status: stOf(d), g: mine[d] || null });
+      });
+      // 출결 기록은 없는데 인강만 열린 날도 빼지 않는다.
+      //   (출결을 아직 안 넣은 날 미리 열어준 경우 — 이게 빠지면 "열어준 기록이 사라졌다"가 된다)
+      Object.keys(mine).forEach(function(d){
+        if (BLOCK[stOf(d)]) return;                       // 위에서 이미 담김
+        rows.push({ date: d, status: stOf(d) || '(출결 기록 없음)', g: mine[d] });
+      });
+      rows.sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+
+      const 결석수 = rows.filter(function(x){ return BLOCK[x.status]; }).length;
+      const 열림   = rows.filter(function(x){ return x.g && x.g.status === 'approved'; }).length;
+      const 대기   = rows.filter(function(x){ return x.g && x.g.status === 'requested'; }).length;
+      const 안열림 = rows.filter(function(x){ return !x.g; }).length;
+
+      const 새로고침 = '<button type="button" class="del-btn" style="padding:3px 9px;font-size:0.72rem;border-color:var(--border);color:var(--text-light);" onclick="event.stopPropagation();reloadAdminMakeupHistory(this,\'' + jsArg(sid) + '\')">↻ 새로고침</button>';
+      const head =
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:7px;">' +
+          '<span style="font-weight:800;font-size:0.8rem;color:var(--primary);">🎬 인강 이력</span>' + 새로고침 +
+        '</div>';
+
+      if (!rows.length){
+        box.innerHTML = head + '<div style="font-size:0.8rem;color:#999;">결석·병결·공결 기록도, 인강 해제 기록도 없습니다.</div>';
+        return;
+      }
+
+      const 요약 =
+        '<div style="font-size:0.78rem;color:var(--text-light);margin-bottom:8px;line-height:1.7;">' +
+          '결석계열 <b>' + 결석수 + '일</b>' +
+          ' · <b style="color:#2a7a2a;">열림 ' + 열림 + '</b>' +
+          ' · <b style="color:#b8860b;">승인 대기 ' + 대기 + '</b>' +
+          ' · <b style="color:#c0392b;">안 열림 ' + 안열림 + '</b>' +
+          '<br><span style="color:#999;font-size:0.73rem;">「열림」은 열어줬다는 뜻입니다. 실제로 봤는지까지는 세지 않습니다.</span>' +
+        '</div>';
+
+      const body = rows.map(function(x){
+        const g = x.g;
+        let 상태, 색;
+        if (g && g.status === 'approved')       { 상태 = '🔓 열림';            색 = '#2a7a2a'; }
+        else if (g && g.status === 'requested') { 상태 = '🙋 신청 · 승인 대기'; 색 = '#b8860b'; }
+        else                                    { 상태 = '🔒 안 열림';          색 = '#c0392b'; }
+
+        // 경로 — 관우T가 직접 뚫어줬는지, 학생이 신청해서 열렸는지 둘 다 남긴다.
+        let 경로;
+        if (g && g.status === 'approved'){
+          경로 = g.requested_at
+            ? ('학생 신청(' + escapeHtml(_mkWhen(g.requested_at)) + ') → 승인 ' + escapeHtml(g.approved_by || '?') + (g.approved_at ? ' (' + escapeHtml(_mkWhen(g.approved_at)) + ')' : ''))
+            : ('직접 열어줌 · ' + escapeHtml(g.approved_by || '?') + (g.approved_at ? ' (' + escapeHtml(_mkWhen(g.approved_at)) + ')' : ''));
+        } else if (g && g.status === 'requested'){
+          경로 = '학생이 신청' + (g.requested_at ? ' (' + escapeHtml(_mkWhen(g.requested_at)) + ')' : '') + ' — 아직 승인 안 함';
+        } else {
+          경로 = '—';
+        }
+
+        return '<tr style="border-top:1px solid var(--border);">' +
+          '<td style="padding:5px 6px 5px 0;white-space:nowrap;font-weight:700;">' + escapeHtml(x.date) + '</td>' +
+          '<td style="padding:5px 8px 5px 0;white-space:nowrap;">' + escapeHtml(x.status) + '</td>' +
+          '<td style="padding:5px 8px 5px 0;white-space:nowrap;color:' + 색 + ';font-weight:700;">' + 상태 + '</td>' +
+          '<td style="padding:5px 0;color:var(--text-light);font-size:0.75rem;">' + 경로 + '</td>' +
+        '</tr>';
+      }).join('');
+
+      box.innerHTML = head + 요약 +
+        '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.78rem;">' +
+          '<tr style="color:#999;font-size:0.72rem;text-align:left;"><th style="padding-bottom:3px;">날짜</th><th>출결</th><th>인강</th><th>누가 · 언제</th></tr>' +
+          body +
+        '</table></div>';
+    } catch (e) {
+      box.innerHTML = '<div style="font-size:0.8rem;color:#c0392b;">인강 이력을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</div>';
+    }
+  }
+
+  function reloadAdminMakeupHistory(btn, sid){
+    const card = btn.closest('.student-card');
+    const box = card && card.querySelector('.mkwrap-admin');
+    if (box) loadAdminMakeupHistory(box, sid, true);
+  }
+
   // ══ 맥락 내 액션 (축 B) ═══════════════════════════════════════
   //   "찾아 들어가지 말고, 보고 있는 자리에서 바로."
   //   학생을 보고 있는 화면에서 그 학생 그대로, 반을 보고 있는 자리에서 그 반 그대로
@@ -3673,8 +3859,10 @@
           <button class="go-btn" title="이 학생에게 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔔<span class="go-txt"> 알림</span></button>
           <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">📈<span class="go-txt"> 성적</span></button>
           <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔓<span class="go-txt"> 인강</span></button>
+          <button class="go-btn" title="언제 결석했고 그날 인강이 열렸는지 — 기록만 봅니다" onclick="event.stopPropagation();toggleAdminMakeupHistory(this,'${jsArg(s.id)}')">🎬<span class="go-txt"> 인강 이력</span></button>
           <button class="go-btn" title="이 학생이 속한 반의 리포트 (리포트는 반 단위로 올라옵니다)" onclick="event.stopPropagation();openReportsForClass('${jsArg(s.academy)}','${jsArg(s.className)}')">📋<span class="go-txt"> 리포트</span></button>
         </div>
+        <div class="mkwrap-admin" style="display:none;margin-top:10px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
         <!-- 관리 액션은 카드 헤더에서 여기로 내렸다(2026-07-30).
              자주 안 쓰는데 늘 보이면 자주 쓰는 버튼까지 안 보이게 되고, 🗑 퇴원처리가 오조작 한 클릭 거리에 있었다.
              기능은 그대로 — 카드를 펼치면 전부 여기 있다. -->
@@ -4022,8 +4210,11 @@
   }
   function renderAccessLog(log, source){
     if (!log || !log.length) return '<div style="font-size:0.8rem;color:var(--text-light);">아직 접근 기록이 없습니다.</div>';
-    const cntP = log.filter(l => l && l.role === "parent").length;
-    const cntS = log.filter(l => l && l.role === "student").length;
+    // 「목록열람」은 앱에서 영상 목록 화면만 연 것 — 실제로 본 것과 섞어 세면 시청자 수가 부풀려진다.
+    const 실제열람 = log.filter(l => l && l.via !== "open");
+    const 목록열람 = log.filter(l => l && l.via === "open");
+    const cntP = 실제열람.filter(l => l.role === "parent").length;
+    const cntS = 실제열람.filter(l => l.role === "student").length;
     // 같은 이름이 둘 이상이면(동명이인) 학생번호를 같이 보여줘야 누가 봤는지 갈린다.
     const dupName = {};
     log.forEach(l => {
@@ -4034,7 +4225,8 @@
     });
     const 합쳐표시 = source === "r2+audit"
       ? '<span style="font-weight:400;"> · 변경이력과 합쳐 표시</span>' : "";
-    const summary = `<div style="font-size:0.78rem;color:var(--text-light);margin-bottom:6px;font-weight:700;">학부모 ${cntP}명 · 학생 ${cntS}명 · 전체 ${log.length}건${합쳐표시}</div>`;
+    const 목록표시 = 목록열람.length ? ` · 목록만 연 것 ${목록열람.length}건` : "";
+    const summary = `<div style="font-size:0.78rem;color:var(--text-light);margin-bottom:6px;font-weight:700;">실제 열람 ${실제열람.length}건 (학부모 ${cntP} · 학생 ${cntS})${목록표시}${합쳐표시}</div>`;
     const rows = log.slice().reverse().map(l => {
       const t = l && l.time ? new Date(l.time) : null;
       const when = t ? (t.getMonth()+1) + "/" + t.getDate() + " " + String(t.getHours()).padStart(2,"0") + ":" + String(t.getMinutes()).padStart(2,"0") : "";

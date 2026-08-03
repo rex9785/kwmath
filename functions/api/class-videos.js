@@ -131,71 +131,74 @@ export async function onRequest({ request, env }) {
       return Response.json({ error: '등록된 수업 영상이 없습니다. 선생님께 문의해주세요.' }, { status: 404 });
     }
 
-    // 접근 로그 (최신 영상에만)
-    const latestCode = videos[0].code;
+    // 📌 학생 화면에 몇 편을 내려줄지 — 예전엔 최신 10편에서 잘랐다(§11-8 전).
+    //   그 바람에 11편째부터는 안내 한 줄 없이 사라졌고, **결석으로 잠긴 영상의 「인강 신청하기」 버튼까지
+    //   같이 잘려** 오래 전 결석은 학생이 신청조차 못 했다. 이제 전부 내려주고 앱이 접어서 보여준다.
+    //   상한 200은 응답 크기 안전장치일 뿐이다(한 반 영상이 200편을 넘으면 오래된 쪽부터 잘린다).
+    const 응답상한 = 200;
+    const 보낼영상 = videos.slice(0, 응답상한);
+
+    // 접근 로그 — 「목록 열람」은 **영상 파일(R2)에 안 쓰고 감사로그(D1)에만** 남긴다 (2026-08-03 §11-8).
+    //   예전엔 목록만 열어도 최신 영상 1편의 access_log 에 줄이 들어갔다. 세 가지가 잘못됐다.
+    //     ① 실제로는 안 본 사람이 그 영상 열람자로 집계돼 명단이 부풀려졌다.
+    //     ② 여기서 R2 파일을 **조건 없이** 통째로 덮어써, 그 사이 video-access.js 가 적은 진짜 시청 기록을
+    //        조용히 지울 수 있었다(video-access.js 는 조건부 쓰기로 막았는데 이 파일이 남은 구멍이었다).
+    //     ③ access_count 를 log.length 로 덮어써, 상한 300줄로 잘라도 안 줄도록 만든 누적 횟수를 되돌렸다.
+    //   화면에서는 그대로 보인다 — video-list.js 가 이 감사기록을 열람자 명단과 합쳐 「목록열람」으로 표시한다.
+    //   ※ 학생이 실제로 영상을 보면 그 영상에 /api/video-access 가 따로 기록한다(이 파일과 무관).
+    const 최신영상 = videos[0];
+    const latestCode = 최신영상.code;
     if (latestCode) {
       try {
-        const logObj = await env.BUCKET.get(`video-codes/${latestCode}.json`);
-        if (logObj) {
-          const logData = await logObj.json();
-          const log = logData.access_log || [];
-          // 덮어쓰기 전 값 — 이미 읽어온 파일에서 공짜로 얻는다(조회를 늘리지 않음).
-          const 전열람횟수 = logData.access_count || 0;
-          const 전기록수   = log.length;
-          const now = Date.now();
-          const recent = log.find(l =>
-            l.name === name &&
-            (l.role || null) === (role || null) &&
-            now - new Date(l.time).getTime() < 5 * 60 * 1000
-          );
-          if (!recent) {
-            log.push({ name, role, phone, via: 'open', time: new Date().toISOString() });
-            logData.access_log   = log;
-            logData.access_count = log.length;
-            await env.BUCKET.put(`video-codes/${latestCode}.json`, JSON.stringify(logData), {
-              httpMetadata: { contentType: 'application/json' },
-            });
-
-            // 📓 2026-07-31 — 여태 이 열람 기록은 영상 파일 안에만 있었다. 그 영상이 지워지면
-            //   (직접 삭제·재업로드 자동 대체) 누가 봤는지가 통째로 같이 사라졌다. 이제 따로 남긴다.
-            //   ⚠️ 일부러 "기록이 실제로 늘어난 때"에만 남긴다 — 위 5분 중복방지 덕에 같은 사람이
-            //     화면을 계속 새로고침해도 로그가 폭주하지 않는다(단순 재방문은 access_events 쪽에 남는다).
-            await logAudit(env, request, {
-              ...행위자,
-              action: 'video.list.open',
-              target: String(latestCode), targetName: logData.title || '',
-              summary: '수업영상 목록 열람 — [' + (name || '이름없음') + ']'
-                + (role === 'parent' ? '(학부모)' : role === 'student' ? '(학생)' : '')
-                + ' ' + videos.length + '편 중 최신 [' + latestCode + '] ' + (logData.title || '제목없음')
-                + (결석잠금.length ? ' · 결석으로 잠긴 영상 ' + 결석잠금.length + '편' : ''),
-              detail: {
-                학생: { 학생ID: access.student.id, 이름: name, 학원: academy, 반: className || '(빈칸)' },
-                누가열었나: role === 'parent' ? '학부모' : role === 'student' ? '학생' : (role || '알 수 없음'),
-                로그인번호: phone || '(없음)',
-                볼수있는영상수: videos.length,
-                화면에보낸영상수: Math.min(videos.length, 10),
-                목록: videos.slice(0, 30).map(v => ({
-                  코드: v.code || '', 날짜: v.date || '', 제목: v.title || '', 반: v.class_name || '',
-                  잠김: v.locked ? (v.lockReason === 'absent' ? '결석으로 잠김' : '수업코드 입력 필요') : '바로 재생됨',
-                })),
-                결석으로잠긴영상수: 결석잠금.length,
-                결석으로잠긴영상: 결석잠금.length ? 결석잠금.slice(0, 30) : '(없음)',
-                결석잠금판정실패: 잠금판정실패
-                  ? '결석 잠금 판정이 실패해 잠금을 못 걸었다(결석한 날 영상도 그대로 열렸을 수 있음): ' + 잠금판정실패
-                  : '(정상 판정)',
-                열람기록: {
-                  기록남긴영상: latestCode,
-                  열람횟수: { 전: 전열람횟수, 후: logData.access_count },
-                  기록건수: { 전: 전기록수, 후: log.length },
-                  비고: '열람 기록은 목록에서 가장 최신 영상 1편에만 쌓인다 — 학생이 옛날 영상을 봐도 그 영상에는 안 남는다',
-                },
-                목록잘림: videos.length > 10
-                  ? '학생 화면에는 최신 10편만 나간다 — 그보다 오래된 ' + (videos.length - 10) + '편은 앱에서 안 보인다'
-                  : '(전부 보임)',
-                효과: '관우T가 보는 [' + latestCode + '] 영상의 열람자 명단에 한 줄 추가됨',
+        // 5분 중복방지 — 예전엔 R2 파일 안 기록으로 판단했다. 이제 감사로그에서 직접 본다.
+        //   같은 사람이 화면을 새로고침해도 로그가 폭주하지 않게 한다.
+        let 직전기록 = null;
+        try {
+          const 기준시각 = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+          직전기록 = await env.DB.prepare(
+            "SELECT id FROM audit_log WHERE action = 'video.list.open' AND target = ? "
+            + 'AND actor_name = ? AND actor_role = ? AND ts >= ? ORDER BY id DESC LIMIT 1'
+          ).bind(String(latestCode), name || '', role || 'unknown', 기준시각).first();
+        } catch (_) {
+          직전기록 = null;   // 중복 판정을 못 해도 기록은 남긴다 — 빠뜨리는 것보다 한 줄 더 남는 게 낫다
+        }
+        if (!직전기록) {
+          await logAudit(env, request, {
+            ...행위자,
+            action: 'video.list.open',
+            target: String(latestCode), targetName: 최신영상.title || '',
+            summary: '수업영상 목록 열람 — [' + (name || '이름없음') + ']'
+              + (role === 'parent' ? '(학부모)' : role === 'student' ? '(학생)' : '')
+              + ' ' + videos.length + '편 중 최신 [' + latestCode + '] ' + (최신영상.title || '제목없음')
+              + (결석잠금.length ? ' · 결석으로 잠긴 영상 ' + 결석잠금.length + '편' : ''),
+            detail: {
+              학생: { 학생ID: access.student.id, 이름: name, 학원: academy, 반: className || '(빈칸)' },
+              누가열었나: role === 'parent' ? '학부모' : role === 'student' ? '학생' : (role || '알 수 없음'),
+              로그인번호: phone || '(없음)',
+              볼수있는영상수: videos.length,
+              화면에보낸영상수: 보낼영상.length,
+              목록: videos.slice(0, 30).map(v => ({
+                코드: v.code || '', 날짜: v.date || '', 제목: v.title || '', 반: v.class_name || '',
+                잠김: v.locked ? (v.lockReason === 'absent' ? '결석으로 잠김' : '수업코드 입력 필요') : '바로 재생됨',
+              })),
+              결석으로잠긴영상수: 결석잠금.length,
+              결석으로잠긴영상: 결석잠금.length ? 결석잠금.slice(0, 30) : '(없음)',
+              결석잠금판정실패: 잠금판정실패
+                ? '결석 잠금 판정이 실패해 잠금을 못 걸었다(결석한 날 영상도 그대로 열렸을 수 있음): ' + 잠금판정실패
+                : '(정상 판정)',
+              열람기록: {
+                기록위치: '영상 파일(R2)에는 안 쓴다 — 이 감사기록이 「목록 열람」의 유일한 기록이다',
+                붙는영상: latestCode,
+                비고: '관리자 화면은 이 기록을 열람자 명단과 합쳐 「목록열람」으로 따로 세어 보여준다. '
+                  + '실제 시청·수업코드 입력은 /api/video-access 가 그 영상에 따로 남긴다.',
               },
-            });
-          }
+              목록잘림: videos.length > 보낼영상.length
+                ? '영상이 ' + videos.length + '편이라 오래된 ' + (videos.length - 보낼영상.length)
+                  + '편은 응답에서 잘렸다(상한 ' + 응답상한 + '편)'
+                : '(전부 보냄 — 앱이 최근 것부터 펼치고 나머지는 「더 보기」로 접는다)',
+              효과: '관우T가 보는 [' + latestCode + '] 영상의 열람자 명단에 「목록열람」 한 줄로 표시됨 (영상 파일은 안 건드림)',
+            },
+          });
         }
       } catch (e) {
         // 예전엔 여기서 통째로 삼켰다("로그 실패해도 영상은 제공"). 영상 제공은 그대로 두되, 실패 사실은 남긴다.
@@ -219,7 +222,8 @@ export async function onRequest({ request, env }) {
       student:    name,
       school:     academy,   // 응답 키는 기존 호환성 위해 school 유지 (실제 값은 학원)
       class_name: className,
-      videos:     videos.slice(0, 10),
+      videos:       보낼영상,          // 전부(상한 200) — 앱이 최근 것부터 펼치고 나머지는 「더 보기」로 접는다
+      videos_total: videos.length,     // 잘렸는지 앱이 알 수 있게
     });
 
   } catch (e) {
