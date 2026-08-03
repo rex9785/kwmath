@@ -36,6 +36,48 @@ function generateKey() {
   return key;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 📓 2026-08-03 (§11-13) — 앞문(가입)을 뒷문(셀프수정 me-update.js)과 같은 규칙으로 막는다.
+//   그전까지 이 API가 살균한 건 이름·학교·유입경로 4칸뿐이었고, 나머지는 body에서 꺼낸
+//   그대로 createStudent로 넘어갔다. 그래서 두 가지가 새어 들어왔다.
+//   (a) **길이 상한이 아예 없었다** — 감사로그는 칸마다 잘라 담지만(입력요약) D1은 안 자른다.
+//       특이사항에 1MB를 넣어도 그대로 저장됐다.
+//   (b) **고정 선택지에 폼에 없는 값이 들어갈 수 있었다** — 학년 "고4", 등급 "S등급" 같은 값도
+//       통과했다. 그러면 학생이 나중에 me.html에서 저장을 누를 때 me-update.js가 그 값을
+//       거부해서, **가입은 되는데 수정은 안 되는 학생**이 생긴다.
+//   ⚠️ 아래 7개 목록은 me-update.js 21~27행 · register.html의 <option value>와 **글자 그대로**
+//      같아야 한다. 한쪽만 고치면 앞문/뒷문이 다시 갈라진다(폼에 선택지를 추가할 땐 3곳 모두).
+//   ⚠️ 저장형 XSS는 지금 확인한 범위에서는 0건이다(모든 렌더 사이트가 escape 중). 그래도 세척은
+//      한다 — inquiry.js·surveys.js가 이미 같은 이유로 "이중 방어"를 걸어 뒀고, 나중에 escape를
+//      빠뜨린 렌더 한 곳만 생겨도 바로 실물이 되기 때문이다.
+// ═══════════════════════════════════════════════════════════════════════════
+const GRADES = ['중2', '중3', '고1', '고2', '고3', 'N수'];
+const RELATIONS = ['어머니', '아버지', '기타'];
+const LEVELS = ['잘 모름', '1등급', '2등급', '3등급', '4등급', '5등급 이하'];
+const MOCK_GRADES = ['1등급','2등급','3등급','4등급','5등급','6등급','7등급','8등급','9등급','미응시','모름'];
+const ADVANCE = ['중3 과정','공통수학1','공통수학2','대수','미적분1','미적분2','확률과통계','기하','심화/실전','모름'];
+const GOALS = ['수능', '내신', '기초다지기', '선행'];
+const DAYS = ['월', '화', '수', '목', '금', '토', '일', '협의'];
+
+// 목록 순서로 정렬 + 중복 제거 + 목록 밖 값 버리기 (me-update.js normDays/normGoals와 동일 규약)
+function normDays(arr) {
+  const set = new Set((Array.isArray(arr) ? arr : []).map(String));
+  return DAYS.filter((d) => set.has(d));
+}
+function normGoals(arr) {
+  const set = new Set((Array.isArray(arr) ? arr : []).map(String));
+  return GOALS.filter((g) => set.has(g));
+}
+
+// 자유입력 세척 — inquiry.js·surveys.js와 동일 규약.
+//   ⚠️ 위 safeName·safeSchool은 [<>"'] 로 **따옴표까지** 지운다 — 그 두 값은 admin 화면의
+//      onclick="..." 속성 안으로 들어가기 때문이다. 반면 취약단원·희망대학·특이사항은 속성에
+//      안 들어가고 textContent로만 그려지므로 [<>] 만 지운다. 따옴표를 지우면
+//      「'수학의 정석' 3단원」 같은 정상 입력이 뭉개진다.
+function clean(v) {
+  return String(v == null ? '' : v).replace(/[<>]/g, '').trim();
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   if (request.method !== 'POST') return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
@@ -184,8 +226,83 @@ export async function onRequest(context) {
     }
   }
 
-  const goalsArray = Array.isArray(goals) ? goals : (goals ? [goals] : []);
-  const daysArray  = Array.isArray(availableDays) ? availableDays : [];
+  // ── 고정 선택지 검증 (§11-13, 2026-08-03) ──────────────────────────────────
+  //   register.html의 <option value>와 1:1이라 **정상적인 폼 제출은 여기서 안 걸린다**.
+  //   걸리는 건 폼을 거치지 않고 API를 직접 호출한 경우다.
+  //   빈 값 허용 여부:
+  //     · 학년·모의수학·내신수학·선행진도 → 위에서 이미 "미입력"으로 막았다(빈 값 불허).
+  //     · 관계·모의국어·모의영어 → register.html에 빈 선택지("")가 있다 → 빈 값 그대로 통과.
+  //     · 현재수준(level) → 폼엔 빈 선택지가 없지만, 빈 값이면 아래에서 '잘 모름'으로 채운다.
+  const 선택지 = [
+    ['grade', '학년', grade, GRADES, false],
+    ['parentRelation', '학부모와의 관계', parentRelation, RELATIONS, true],
+    ['level', '현재 수학 수준', level, LEVELS, true],
+    ['mathMockGrade', '모의고사 수학 등급', mathMockGrade, MOCK_GRADES, false],
+    ['korMockGrade', '모의고사 국어 등급', korMockGrade, MOCK_GRADES, true],
+    ['engMockGrade', '모의고사 영어 등급', engMockGrade, MOCK_GRADES, true],
+    ['schoolMathGrade', '내신 수학 등급', schoolMathGrade, MOCK_GRADES, false],
+    ['advanceProgress', '선행 진도', advanceProgress, ADVANCE, false],
+  ];
+  const 고른값 = {};
+  for (const [키, 라벨, 원값, 목록, 빈값허용] of 선택지) {
+    const v = String(원값 == null ? '' : 원값).trim();
+    if (!v) {
+      if (빈값허용) { 고른값[키] = ''; continue; }
+      await 거부(라벨 + ' 미선택');
+      return Response.json({ error: 라벨 + '을(를) 선택해주세요.' }, { status: 400 });
+    }
+    if (!목록.includes(v)) {
+      await 거부(라벨 + ' 값이 선택지에 없음 — 입력값 "' + v.slice(0, 40) + '"');
+      return Response.json({ error:라벨 + ' 값이 올바르지 않습니다. 목록에서 선택해주세요.' }, { status: 400 });
+    }
+    고른값[키] = v;
+  }
+
+  // ── 자유입력 세척 + 길이 (§11-13) ─────────────────────────────────────────
+  //   길이 초과는 **자르지 않고 되돌려 보낸다** — me-update.js와 같은 규약이다.
+  //   조용히 자르면 신청자는 다 저장된 줄 알고, 뒤 절반은 아무 데도 안 남는다.
+  const safeWeakness  = clean(weakness);
+  const safeDreamUniv = clean(dreamUniv);
+  const safeNotes     = clean(notes);
+  if (!safeWeakness) {
+    await 거부('취약 단원이 세척 후 빈 값 — 금지문자(< >)만 들어왔다');
+    return Response.json({ error: '취약 단원에 사용할 수 없는 문자만 입력되었습니다.' }, { status: 400 });
+  }
+  if (!safeDreamUniv) {
+    await 거부('희망 대학/계열이 세척 후 빈 값 — 금지문자(< >)만 들어왔다');
+    return Response.json({ error: '희망 대학/계열에 사용할 수 없는 문자만 입력되었습니다.' }, { status: 400 });
+  }
+  if (safeWeakness.length > 500) {
+    await 거부('취약 단원 500자 초과 — ' + safeWeakness.length + '자');
+    return Response.json({ error: '취약 단원은 500자 이내로 입력해주세요.' }, { status: 400 });
+  }
+  if (safeDreamUniv.length > 100) {
+    await 거부('희망 대학/계열 100자 초과 — ' + safeDreamUniv.length + '자');
+    return Response.json({ error: '희망 대학/계열은 100자 이내로 입력해주세요.' }, { status: 400 });
+  }
+  // 특이사항은 me-update.js에 선례가 없다(셀프수정 대상이 아니다) → 여기서 새로 정한다.
+  //   register.html 안내가 "자유롭게 적어주세요"라 취약단원보다 넉넉히 1000자.
+  if (safeNotes.length > 1000) {
+    await 거부('특이사항 1000자 초과 — ' + safeNotes.length + '자');
+    return Response.json({ error: '특이사항은 1000자 이내로 입력해주세요.' }, { status: 400 });
+  }
+
+  // 체크박스 2종 — 목록 밖 값은 버리고 목록 순서로 정렬한다(me-update.js와 동일).
+  //   ⚠️ 등원요일은 위에서 "1개 이상"을 이미 막았지만, 목록 밖 값만 보내면 세척 후 0개가 된다 → 다시 막는다.
+  //   ⚠️ 수강목적은 register.html이 0개 제출을 허용한다(필수 아님) → 0개를 막지 않는다.
+  //      me-update.js는 "1개 이상"을 요구하지만 그건 **학생이 그 칸을 고쳤을 때만** 도는 검사라 서로 안 부딪힌다.
+  const goalsArray = normGoals(Array.isArray(goals) ? goals : (goals ? [goals] : []));
+  const daysArray  = normDays(availableDays);
+  if (daysArray.length === 0) {
+    await 거부('등원 가능 요일이 세척 후 0개 — 목록에 없는 값만 들어왔다');
+    return Response.json({ error: '등원 가능 요일을 하나 이상 선택해주세요.' }, { status: 400 });
+  }
+
+  // 전화번호 — 정상 형식이면 normalizePhone이 010-1234-5678로 맞춰 준다.
+  //   맞춰지지 않는 값(자릿수가 다른 번호 등)은 예전처럼 원문을 살리되, 세척하고 20자로 자른다.
+  const safeStudentPhone = normalizePhone(studentPhone) || clean(studentPhone).slice(0, 20);
+  const safeParentPhone  = normalizePhone(parentPhone)  || clean(parentPhone).slice(0, 20);
+
   const personalKey = generateKey();
 
   // 유입경로(필수, 2026-07-24) — 이름과 동일 살균(저장형 XSS 방지)
@@ -215,20 +332,27 @@ export async function onRequest(context) {
     });
   }
 
+  // 📓 여기 들어가는 값은 **전부 위에서 검증·세척을 통과한 것**이다(§11-13).
+  //   body에서 꺼낸 원본을 그대로 쓰는 칸은 mathMockScore 하나뿐이고, 그건
+  //   (a) 위에서 0~100 범위를 확인했고 (b) _db.js가 Number()로 바꿔 넣는다(빈 값이면 null).
   const r = await createStudent(env, {
-    name: safeName, school: safeSchool, grade,
+    name: safeName, school: safeSchool, grade: 고른값.grade,
     parentPhone4: phone4,
-    studentPhone: normalizePhone(studentPhone) || studentPhone || '',
-    parentPhone:  normalizePhone(parentPhone)  || parentPhone  || '',
-    parentRelation,
+    studentPhone: safeStudentPhone,
+    parentPhone:  safeParentPhone,
+    parentRelation: 고른값.parentRelation,
     goals: goalsArray,
-    level: level || '잘 모름',
+    level: 고른값.level || '잘 모름',
     academy: resolvedClass.academy,
     className: resolvedClass.className,
-    mathMockGrade, mathMockScore, korMockGrade, engMockGrade,
-    schoolMathGrade, advanceProgress,
+    mathMockGrade: 고른값.mathMockGrade,
+    mathMockScore,
+    korMockGrade: 고른값.korMockGrade,
+    engMockGrade: 고른값.engMockGrade,
+    schoolMathGrade: 고른값.schoolMathGrade,
+    advanceProgress: 고른값.advanceProgress,
     availableDays: daysArray,
-    weakness, dreamUniv, notes,
+    weakness: safeWeakness, dreamUniv: safeDreamUniv, notes: safeNotes,
     referral: safeReferral, referralDetail: safeReferralDetail,
     personalKey,
     approvalStatus: '대기중',
@@ -285,7 +409,7 @@ export async function onRequest(context) {
   });
 
   // 원장(관우T) 앱으로 "새 회원가입 · 승인 대기중" 즉시 푸시 (best-effort, 실패해도 등록은 성공)
-  notifyAdminNewSignup(context, env, { name: safeName, grade, className: resolvedClass.className });
+  notifyAdminNewSignup(context, env, { name: safeName, grade: 고른값.grade, className: resolvedClass.className });
 
   return Response.json({
     ok: true,
