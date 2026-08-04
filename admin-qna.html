@@ -9,7 +9,9 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
-  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ai:#1f6f78; --ai-light:#E3F1F2; }
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
+  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#241318; --muted:#8A7B75; --border:#E9E1D9; --bg:#F7F5F2; --ai:#1f6f78; --ai-light:#E3F1F2;  --hairline:#F1EAE2; --serif:'Noto Serif KR',serif; --primary-mid:#A83040;}
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
   .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
@@ -158,6 +160,152 @@
   .kwnav-pop a.kwnav-logout:hover{ background:#FBE6E6; color:#b3261e; }
   .kwnav--light .kwnav-home{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
   .kwnav--light .kwnav-toggle{ background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.28); color:#fff; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     2026-08-04 관리자 콘솔 정렬 — 디자인가이드_조교관리자.md
+     기능이 한눈에 · 바로 처리. 기존 규칙·DOM·JS는 그대로 두고 여기서만 덮어쓴다.
+     되돌리려면 이 블록만 지우면 됩니다.
+     ══════════════════════════════════════════════════════════════════════ */
+  body{ font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+        letter-spacing:-0.01em; word-break:keep-all; overflow-wrap:break-word; }
+
+  /* 본문 폭·여백 — 상단 바를 화면 끝까지 붙이기 위해 좌우 패딩을 통일 */
+  .wrap, .page, .dash-body{ padding-left:16px !important; padding-right:16px !important; }
+  .wrap, .page{ max-width:900px; }
+
+  /* ── 상단 바 ① : <div class="wrap"><div class="top"> 패턴 ───────────── */
+  .wrap > .top:first-child, body > .top{
+    display:flex; align-items:center; gap:12px;
+    background:var(--primary); color:#fff;
+    position:sticky; top:0; z-index:30;
+    margin:0 -16px 18px; padding:max(12px,env(safe-area-inset-top,12px)) 16px 11px; }
+  .wrap > .top:first-child > div:first-child, body > .top > div:first-child{
+    flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .wrap > .top:first-child h1, body > .top h1, body > .top .title{
+    font-size:1rem; font-weight:800; margin:0; color:#fff; letter-spacing:-0.02em;
+    display:inline-flex; align-items:center; gap:7px; white-space:nowrap; }
+  .wrap > .top:first-child h1 svg, body > .top .title svg{ opacity:.85; }
+  .wrap > .top:first-child .sub, body > .top .sub{
+    font-size:0.76rem; color:rgba(255,255,255,0.66); margin:0 !important; font-weight:500;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .wrap > .top:first-child .kwnav, body > .top .kwnav{ margin-left:auto; flex:0 0 auto; }
+  .wrap > .top:first-child .back, .wrap > .top:first-child > button,
+  body > .top .back, body > .top > button{
+    margin-left:auto; flex:0 0 auto; color:#fff; background:rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.28); border-radius:9px; padding:7px 12px;
+    font-size:0.78rem; font-weight:700; text-decoration:none; cursor:pointer; font-family:inherit; }
+
+  /* ── 상단 바 ② : <header><div class="headInner"> 패턴 ───────────────── */
+  header{ position:sticky; top:0; z-index:30; background:var(--primary) !important;
+          border-bottom:none !important; padding:max(12px,env(safe-area-inset-top,12px)) 0 11px !important; }
+  header h1{ color:#fff; font-size:1rem; font-weight:800; margin:0; letter-spacing:-0.02em;
+             display:inline-flex; align-items:center; gap:7px; }
+  header .headInner{ gap:10px; max-width:900px; }
+  header button{ background:rgba(255,255,255,0.14) !important; border:1px solid rgba(255,255,255,0.28) !important;
+                 color:#fff !important; border-radius:9px; padding:7px 12px; font-size:0.78rem; font-weight:700;
+                 cursor:pointer; font-family:inherit; }
+  header button.primary{ background:#fff !important; color:var(--primary) !important; border-color:#fff !important; }
+  header .count{ background:rgba(255,255,255,0.18); color:#fff; border-radius:999px; padding:2px 9px;
+                 font-size:0.78rem; font-weight:800; font-family:var(--serif); }
+  /* header 바로 뒤에 붙은 네비 줄(admin-surveys)도 같은 바로 합친다 */
+  header + div[style*="flex-end"]{ background:var(--primary) !important; border-bottom:none !important;
+        position:sticky; top:0; z-index:29; padding:0 14px 9px !important; margin-top:-1px; }
+
+  /* ── 상단 바 ③ : .topbar 패턴 (이미 와인) ─────────────────────────── */
+  .topbar{ position:sticky; top:0; z-index:30; padding:max(12px,env(safe-area-inset-top,12px)) 16px 12px; }
+  .topbar-title{ font-size:1rem; font-weight:800; letter-spacing:-0.02em;
+                 display:inline-flex; align-items:center; gap:7px; }
+  .topbar-title svg{ opacity:.85; }
+
+  /* ── 상단 바 ④ : .wrap 첫 자식이 .kwnav 인 패턴 (makeup·notify·stats) ─ */
+  .wrap > .kwnav:first-child{
+    background:var(--primary); position:sticky; top:0; z-index:30;
+    margin:0 -16px 16px; padding:max(11px,env(safe-area-inset-top,11px)) 16px 10px;
+    justify-content:flex-end; }
+  /* 이 패턴에서 제목은 바 아래 크림 배경에 온다 */
+  .wrap > .kwnav:first-child ~ h1{ font-size:1.12rem; font-weight:800; color:var(--primary);
+    margin:0 0 5px; letter-spacing:-0.02em; display:flex; align-items:center; gap:8px; }
+  .wrap > .kwnav:first-child ~ .sub{ font-size:0.82rem; line-height:1.55; margin:0 0 16px; }
+  /* stats: kwnav 바 다음의 .top 은 평범한 제목 줄로 (와인 바 중복 방지) */
+  .wrap > .kwnav:first-child + .top{
+    background:transparent; position:static; margin:0 0 16px; padding:0;
+    display:flex; align-items:flex-end; gap:12px; }
+  .wrap > .kwnav:first-child + .top h1{ color:var(--primary); font-size:1.12rem; font-weight:800; margin:0;
+    display:inline-flex; align-items:center; gap:8px; }
+  .wrap > .kwnav:first-child + .top .sub{ color:var(--text-light,var(--muted)); font-size:0.8rem; margin:4px 0 0 !important; }
+  .wrap > .kwnav:first-child + .top > button{ margin-left:auto; background:#fff; color:var(--primary);
+    border:1.5px solid var(--primary); border-radius:9px; padding:7px 13px; font-size:0.8rem; font-weight:700; }
+
+  /* 와인 바 안의 공유 네비는 반투명 흰색으로 */
+  .wrap > .top:first-child .kwnav-home, .wrap > .top:first-child .kwnav-toggle,
+  body > .top .kwnav-home, body > .top .kwnav-toggle,
+  header .kwnav-home, header .kwnav-toggle,
+  header + div[style*="flex-end"] .kwnav-home, header + div[style*="flex-end"] .kwnav-toggle,
+  .wrap > .kwnav:first-child .kwnav-home, .wrap > .kwnav:first-child .kwnav-toggle,
+  .topbar .kwnav-home, .topbar .kwnav-toggle{
+    background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.28); color:#fff; padding:7px 12px; }
+  .wrap > .top:first-child .kwnav-home:hover, body > .top .kwnav-home:hover, header .kwnav-home:hover,
+  .wrap > .kwnav:first-child .kwnav-home:hover, .topbar .kwnav-home:hover,
+  .wrap > .top:first-child .kwnav-toggle:hover, body > .top .kwnav-toggle:hover, header .kwnav-toggle:hover,
+  .wrap > .kwnav:first-child .kwnav-toggle:hover, .topbar .kwnav-toggle:hover{ background:rgba(255,255,255,0.24); }
+
+  /* ── 카드·면 ── */
+  .card, .msg, .note, .box, .cfg, .intro, .summary, .state-box, .grid-card, .batch, .detail{
+    border-color:var(--border,var(--line)) !important; box-shadow:0 1px 3px rgba(70,20,35,.04) !important; }
+
+  /* ── 숫자는 세리프 — 처리할 개수가 먼저 보이게 ── */
+  .count, .cnt, .big, .num, .avg, .score-big, .stat .v, .summary .v, .pill, .badge, .cbadge,
+  .b-cnt, .nft-count, .bar-val, .cmin, .sm{ font-family:var(--serif); }
+
+  /* ── 입력 — 터치 타깃 · 포커스 와인 링 ── */
+  input, select, textarea, button{ font-family:inherit; }
+  input[type=text], input[type=password], input[type=number], input[type=date], input[type=month],
+  input[type=tel], input[type=search], select, textarea, .search, .login-input{
+    border:1.5px solid var(--border,var(--line)); border-radius:10px; outline:none;
+    transition:border-color .12s, box-shadow .12s; }
+  input[type=text]:focus, input[type=password]:focus, input[type=number]:focus, input[type=date]:focus,
+  input[type=month]:focus, input[type=tel]:focus, input[type=search]:focus, select:focus, textarea:focus,
+  .search:focus, .login-input:focus{ border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+
+  /* ── 버튼 — 아이콘+라벨 한 줄, 눌린 상태 확실히 ── */
+  .mini, .ghost, .btn-primary, .b-pri, .b-sec, .save, .aisave, .bp-save, .bp-all, .listbtn,
+  .pushbtn, .b-reopen, .b-done, .b-del, .b-ghost, .restore, .del, .up, .hide, .act, .dl, .jump{
+    display:inline-flex !important; align-items:center; justify-content:center; gap:6px;
+    flex-wrap:nowrap !important; white-space:nowrap; border-radius:9px; font-family:inherit; }
+  .tab-btn, .tabs button, .mtab, .seg button, .chip, .nft-btn, .bp-mode, .modeTabs button{
+    border-radius:9px; font-family:inherit; white-space:nowrap; }
+  .tab-btn.active, .tabs .on, .mtab.on, .seg .on, .chip.on, .nft-btn.on, .bp-mode.on{
+    box-shadow:0 1px 4px rgba(134,38,51,.22); }
+
+  /* ── 텍스트 라벨은 flex로 만들지 않는다 (문장이 조각나 gap이 끼어든다) ── */
+  .sechead, .paynote, .section-label, .panel-title, .menu-sec-t, .cardHead, .stHead, .section-title{
+    display:block !important; }
+  .badge, .pill, .cbadge, .tag{ display:inline-flex !important; align-items:center; gap:5px; white-space:nowrap; }
+
+  /* ── 표 ── */
+  table{ border-collapse:collapse; }
+  th{ font-weight:700; color:var(--text-light,var(--muted)); font-size:0.78rem; }
+  td, th{ border-color:var(--hairline,var(--border)) !important; }
+  td.num, td.n, .num{ text-align:right; font-family:var(--serif); }
+
+  /* ── 반응형 (반드시 마지막) — 위 블록과 동일 특이도라 소스 순서로 이겨야 한다 ── */
+  @media (max-width:640px){
+    .wrap > .top:first-child, body > .top{ flex-wrap:wrap; gap:8px 10px; align-items:flex-start; }
+    .wrap > .top:first-child > div:first-child, body > .top > div:first-child{ flex:1 1 100%; }
+    .wrap > .top:first-child .kwnav, body > .top .kwnav{ margin-left:0; }
+    .wrap > .top:first-child .sub, body > .top .sub{ white-space:normal; overflow:visible; text-overflow:clip; }
+    header .headInner{ flex-wrap:wrap; }
+  }
+
+  /* 빈 배지·개수 칩은 다시 숨긴다 — 위 !important 규칙에 눌려 있던 원본 동작 복원 */
+  .badge:empty, .pill:empty, .cbadge:empty, .tag:empty, .bdg:empty, .b-cnt:empty, .cnt:empty, .count:empty{
+    display:none !important; }
+
+  /* .pushbtn 라벨은 JS가 textContent로 넣어 SVG를 못 쓴다 → 아이콘을 CSS로 붙인다 */
+  .pushbtn::before{ content:''; width:15px; height:15px; flex:0 0 auto; background:currentColor;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209a6%206%200%200%201%2012%200c0%205%202%206%202%206H4s2-1%202-6%22%2F%3E%3Cpath%20d%3D%22M10.3%2019a2%202%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209a6%206%200%200%201%2012%200c0%205%202%206%202%206H4s2-1%202-6%22%2F%3E%3Cpath%20d%3D%22M10.3%2019a2%202%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat; }
+  .count{ display:inline-flex; align-items:center; gap:6px; }
 </style>
 <!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
 <script src="/session-keep.js?v=1"></script>
@@ -165,7 +313,7 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div><h1>💬 질문 관리</h1><div class="sub" id="subTitle">학생 질문에 선생님·조교가 답변 (관리자 전용)</div></div>
+    <div><h1><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>질문 관리</h1><div class="sub" id="subTitle">학생 질문에 선생님·조교가 답변 (관리자 전용)</div></div>
     <div class="kwnav" id="kwnav">
       <a class="kwnav-home" id="kwnavHome" href="/staff-home">🏠 홈</a>
       <div class="kwnav-mw">
@@ -185,7 +333,7 @@
       </div>
     </div>
   </div>
-  <button id="pushBtn" class="pushbtn" style="display:none;" onclick="togglePush()">🔔 새 질문 알림 받기</button>
+  <button id="pushBtn" class="pushbtn" style="display:none;" onclick="togglePush()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg>새 질문 알림 받기</button>
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -350,7 +498,7 @@
   async function preloadVapidKey(){ try{ var r=await fetch('/api/push-vapid-public'); var d=await r.json(); if(d&&d.publicKey) _vapidKey=d.publicKey; }catch(_){} }
   // iOS는 '홈 화면에 추가'한 PWA(standalone)에서만, 그리고 iOS 16.4+ 에서만 푸시 지원
   function showIOSPushModal(){
-    $('pushHelpTitle').textContent='🔔 아이폰·아이패드 알림 켜는 법';
+    $('pushHelpTitle').textContent='아이폰·아이패드 알림 켜는 법';
     if(!isStandalone()){
       $('pushHelpBody').innerHTML='아이폰·아이패드는 <b>홈 화면에 앱을 추가한 뒤</b> 그 아이콘으로 열어야 알림을 받을 수 있어요:'
         +'<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
@@ -378,28 +526,28 @@
     var btn=$('pushBtn'); if(!btn) return;
     if(isInApp()){
       btn.style.display='block';
-      if(_appPushDone){ btn.textContent='🔔 새 질문 알림 켜짐'; btn.className='pushbtn on'; }
-      else { btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; if(!_appPushTried){ _appPushTried=true; appPushRegister(ADMIN_PUSH_USER); } }
+      if(_appPushDone){ btn.textContent='새 질문 알림 켜짐'; btn.className='pushbtn on'; }
+      else { btn.textContent='새 질문 알림 받기'; btn.className='pushbtn'; if(!_appPushTried){ _appPushTried=true; appPushRegister(ADMIN_PUSH_USER); } }
       return;
     }
     if(!pushSupported()){ btn.style.display='none'; return; }
     btn.style.display='block';
     // 차단 → 탭하면 복구 안내 모달 (이제 버튼 클릭 가능)
-    if(Notification.permission==='denied'){ btn.textContent='🔔 알림 차단됨 — 탭해서 푸는 법 보기'; btn.className='pushbtn blocked'; return; }
+    if(Notification.permission==='denied'){ btn.textContent='알림 차단됨 — 탭해서 푸는 법 보기'; btn.className='pushbtn blocked'; return; }
     try{
       var reg=await navigator.serviceWorker.ready;
       var sub=await reg.pushManager.getSubscription();
-      if(sub && Notification.permission==='granted'){ btn.textContent='🔔 새 질문 알림 켜짐 (탭하면 끄기)'; btn.className='pushbtn on'; }
-      else if(sub){ btn.textContent='🔔 알림 재설정 필요 — 탭해서 다시 켜기'; btn.className='pushbtn warn'; }  // 구독은 있는데 권한이 빠진 desync(폰이 권한 회수)
-      else{ btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; }
-    }catch(_){ btn.textContent='🔔 새 질문 알림 받기'; btn.className='pushbtn'; }
+      if(sub && Notification.permission==='granted'){ btn.textContent='새 질문 알림 켜짐 (탭하면 끄기)'; btn.className='pushbtn on'; }
+      else if(sub){ btn.textContent='알림 재설정 필요 — 탭해서 다시 켜기'; btn.className='pushbtn warn'; }  // 구독은 있는데 권한이 빠진 desync(폰이 권한 회수)
+      else{ btn.textContent='새 질문 알림 받기'; btn.className='pushbtn'; }
+    }catch(_){ btn.textContent='새 질문 알림 받기'; btn.className='pushbtn'; }
   }
 
   // ════════ 알림 안내 모달 (권한창 전 안내 / 차단 복구) ════════
   function closePushHelp(){ var m=$('pushHelpModal'); if(m) m.classList.remove('show'); }
 
   function showPushExplainModal(){
-    $('pushHelpTitle').textContent='🔔 알림을 켤게요';
+    $('pushHelpTitle').textContent='알림을 켤게요';
     $('pushHelpBody').innerHTML='잠시 후 <b>"알림을 보내도록 허용하시겠어요?"</b> 창이 떠요.<br><b>"허용"</b>을 눌러야 새 질문 알림을 받을 수 있어요.';
     $('pushHelpCancel').style.display='';
     var ok=$('pushHelpOk'); ok.textContent='허용하러 가기'; ok.onclick=function(){ closePushHelp(); proceedPush(); };
@@ -407,7 +555,7 @@
   }
 
   function showPushBlockedModal(){
-    $('pushHelpTitle').textContent='🔔 알림이 막혀 있어요';
+    $('pushHelpTitle').textContent='알림이 막혀 있어요';
     $('pushHelpBody').innerHTML='휴대폰이 이 앱의 알림을 막아둔 상태예요. 아래대로 한 번만 풀어주세요:'
       +'<ol style="margin:12px 0 0;padding-left:20px;line-height:1.95;font-size:0.82rem;">'
       +'<li>휴대폰 <b>설정</b> 앱 열기</li>'
@@ -482,7 +630,7 @@
       }
       var sRes=await fetch('/api/push-subscribe',{ method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ userId:ADMIN_PUSH_USER, subscription:sub.toJSON() }) });
       if(!sRes.ok){ showToast('구독 저장 실패. 잠시 후 다시 시도해주세요.'); return; }
-      showToast('🔔 이제 새 질문이 오면 알림이 와요!');
+      showToast('이제 새 질문이 오면 알림이 와요!');
     }catch(e){ showToast('알림 설정 오류: '+((e&&e.message)||'')); }
     finally{ _pushBusy=false; if(btn){ btn.disabled=false; btn.style.opacity=''; } refreshPushBtn(); }
   }
@@ -508,11 +656,11 @@
     var pending = rows.filter(function(q){ return q.status==='pending'; }).length;
     var head =
       '<div class="bar">'+
-        '<div class="count">📊 AI 사용량·한도</div>'+
+        '<div class="count"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>AI 사용량·한도</div>'+
         '<div class="tabs">'+
           '<button onclick="setTab(\'pending\')">미답변 <span class="n">'+pending+'</span></button>'+
           '<button onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
-          (staffMode()?'':'<button class="active" onclick="setTab(\'usage\')">📊 사용량</button>')+
+          (staffMode()?'':'<button class="active" onclick="setTab(\'usage\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>사용량</button>')+
         '</div>'+
       '</div>';
     $('content').innerHTML = head + '<div class="msg">불러오는 중…</div>';
@@ -584,7 +732,7 @@
       var r = await api('/api/qna?usage=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dailyRequestLimit: v }) });
       var d = await r.json();
       if(!r.ok){ showToast(d.error||'저장 실패'); return; }
-      showToast('✅ 일일 한도를 저장했어요.');
+      showToast('일일 한도를 저장했어요.');
       renderUsage();
     }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
   }
@@ -597,7 +745,7 @@
       var r = await api('/api/qna?usage=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dailyTokenLimit: v }) });
       var d = await r.json();
       if(!r.ok){ showToast(d.error||'저장 실패'); return; }
-      showToast('✅ 토큰 예산을 저장했어요.');
+      showToast('토큰 예산을 저장했어요.');
       renderUsage();
     }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
   }
@@ -611,7 +759,7 @@
         '<div class="tabs">'+
           '<button class="'+(tab==='pending'?'active':'')+'" onclick="setTab(\'pending\')">미답변 <span class="n">'+pending.length+'</span></button>'+
           '<button class="'+(tab==='all'?'active':'')+'" onclick="setTab(\'all\')">전체 <span class="n">'+rows.length+'</span></button>'+
-          (staffMode()?'':'<button class="'+(tab==='usage'?'active':'')+'" onclick="setTab(\'usage\')">📊 사용량</button>')+
+          (staffMode()?'':'<button class="'+(tab==='usage'?'active':'')+'" onclick="setTab(\'usage\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>사용량</button>')+
         '</div>'+
       '</div>';
 
@@ -704,7 +852,7 @@
       });
       var data = await r.json();
       if(!r.ok){ showToast(data.error||'등록 실패'); if(btn){btn.disabled=false;btn.textContent='답변 등록';} return; }
-      showToast('✅ 답변이 등록됐어요.');
+      showToast('답변이 등록됐어요.');
       boot();
     }catch(e){ if(String(e.message)!=='401') showToast('네트워크 오류'); }
   }

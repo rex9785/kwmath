@@ -5,40 +5,80 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>조교 홈 · 이관우 수학연구소</title>
 <style>
-  :root{ --primary:#862633; --primary-light:#F9ECED; --ink:#1E1E1E; --muted:#777; --border:#EDE0E1; --bg:#FAF7F7; --ai:#1f6f78; --ai-light:#E3F1F2; }
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
+  :root{ --primary:#862633; --primary-light:#F9ECED; --primary-mid:#A83040; --primary-dark:#6B1E28;
+         --ink:#241318; --muted:#8A7B75; --border:#E9E1D9; --hairline:#F1EAE2; --bg:#F7F5F2;
+         --ai:#1f6f78; --ai-light:#E3F1F2; --serif:'Noto Serif KR',serif; }
   *{ box-sizing:border-box; }
-  body{ margin:0; font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--ink); }
-  .wrap{ max-width:780px; margin:0 auto; padding:max(18px,env(safe-area-inset-top,18px)) 16px 60px; }
-  .top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:4px; }
-  h1{ font-size:1.35rem; margin:6px 0 2px; }
-  .sub{ color:var(--muted); font-size:0.84rem; margin-bottom:20px; }
-  .back{ color:var(--primary); text-decoration:none; font-size:0.84rem; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; }
-  .sec{ font-size:0.76rem; font-weight:800; color:var(--muted); margin:22px 2px 10px; letter-spacing:.02em; }
-  .sec:first-of-type{ margin-top:4px; }
-  .menu{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:13px; }
-  .mcard{ display:block; text-decoration:none; background:#fff; border:1.5px solid var(--border); border-radius:16px; padding:20px 14px; text-align:center; color:var(--ink); box-shadow:0 2px 10px rgba(134,38,51,0.05); transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease; }
-  .mcard:hover{ border-color:var(--primary); transform:translateY(-3px); box-shadow:0 6px 16px rgba(134,38,51,0.10); }
-  .mcard:active{ transform:translateY(-1px); }
-  .mcard .ic{ font-size:2.1rem; line-height:1; }
-  .mcard .t{ font-weight:800; font-size:1.02rem; margin-top:9px; }
-  .mcard .d{ font-size:0.75rem; color:var(--muted); margin-top:4px; line-height:1.35; }
-  .mcard.cli:hover{ border-color:var(--ai); box-shadow:0 6px 16px rgba(31,111,120,0.12); }
-  .mcard.cli .t{ color:var(--ai); }
+  body{ margin:0; font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+        letter-spacing:-0.01em; background:var(--bg); color:var(--ink); word-break:keep-all; }
 
-  /* ── 오늘 할 일 (2026-07-29 신설) ──
-     예전 조교 홈은 링크 9개뿐이라, 오늘 뭘 해야 하는지는 카드를 눌러 들어가 봐야 알았다.
-     이제 밀린 것만 위에 뜨고, 줄을 누르면 바로 그 화면으로 간다. 없으면 "다 하셨어요" 한 줄. */
-  #todo{ border:1.5px solid var(--border); border-radius:16px; padding:14px 16px; margin-bottom:22px; background:#fff; box-shadow:0 2px 10px rgba(134,38,51,0.05); }
-  #todo.has{ border-color:var(--primary); background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%); }
-  .todo-t{ font-size:0.78rem; font-weight:800; color:var(--primary); margin-bottom:9px; }
-  .todo-t em{ font-style:normal; font-weight:600; color:var(--muted); font-size:0.73rem; margin-left:6px; }
-  .todo-list{ display:flex; flex-direction:column; gap:7px; }
-  .todo-row{ display:flex; align-items:center; gap:9px; width:100%; background:#fff; border:1.5px solid var(--border); border-radius:11px; padding:10px 12px; font-family:inherit; font-size:0.88rem; font-weight:700; color:var(--ink); text-align:left; cursor:pointer; }
-  .todo-row .n{ margin-left:auto; background:var(--primary); color:#fff; border-radius:999px; min-width:22px; padding:1px 7px; text-align:center; font-size:0.78rem; font-weight:800; }
-  .todo-row .go{ color:var(--muted); font-weight:700; font-size:0.82rem; }
-  .todo-none{ font-size:0.86rem; font-weight:600; color:var(--muted); }
+  /* ── 상단 고정 바 — 콘솔이므로 제목·날짜·로그아웃만 한 줄에 (스크롤해도 위치 고정) ── */
+  .hdr{ background:var(--primary); color:#fff; position:sticky; top:0; z-index:30;
+        padding:max(13px,env(safe-area-inset-top,13px)) 16px 12px; }
+  .hdrIn{ max-width:860px; margin:0 auto; display:flex; align-items:center; gap:11px; }
+  h1{ font-size:1rem; font-weight:800; margin:0; letter-spacing:-0.02em; display:flex; align-items:center; gap:7px; }
+  h1 svg{ opacity:.85; }
+  .hdrDate{ font-size:0.78rem; font-weight:600; color:rgba(255,255,255,0.68); }
+  .back{ margin-left:auto; color:#fff; background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.28);
+         border-radius:9px; padding:7px 12px; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .back:hover{ background:rgba(255,255,255,0.24); }
+  .wrap{ max-width:860px; margin:0 auto; padding:18px 16px 60px; }
+  /* 2026-08-04 — 여기 있던 .sub{display:none} 규칙을 지웠다.
+     재디자인 때 「필요한 메뉴를 눌러 들어가세요」 안내줄을 없애면서 CSS로만 가리고 마크업은 남겨뒀는데,
+     그러면 화면엔 안 보여도 스크린리더는 그대로 읽고, 나중에 이 줄을 왜 안 보이나 찾느라 시간을 쓴다.
+     → 마크업(옛 92행)에서 <div class="sub">를 지우고 이 규칙도 같이 뺐다. 이 파일에 .sub 는 이제 없다.
+     ※ staff-students / staff-reports / staff-materials / staff-worklog 의 .sub 는 실제로 보이는
+        부제 줄이다(예: 「담당 학원 학생만 보여요」). 그쪽은 건드리지 말 것. */
+
+  /* ── 지금 할 일 — 콘솔의 1순위. 줄을 누르면 그 화면으로 바로 간다. ──
+     예전엔 링크 카드 9개뿐이라 "오늘 뭐가 남았나"를 들어가 봐야 알았다. */
+  #todo{ border:1px solid var(--border); border-radius:16px; padding:0; margin-bottom:22px; background:#fff;
+         box-shadow:0 2px 10px rgba(70,20,35,.05); overflow:hidden; }
+  #todo.has{ border-color:#DEBEC4; }
+  .todo-t{ display:flex; align-items:center; gap:7px; font-size:0.8rem; font-weight:800; color:var(--primary);
+           padding:13px 16px; border-bottom:1px solid var(--hairline); background:#FFFCFC; }
+  #todo.has .todo-t{ background:var(--primary-light); }
+  .todo-t::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--primary); flex:0 0 auto; }
+  .todo-t em{ font-style:normal; font-weight:600; color:var(--muted); font-size:0.75rem; margin-left:auto; }
+  .todo-list{ display:flex; flex-direction:column; }
+  .todo-row{ display:flex; align-items:center; gap:11px; width:100%; min-height:58px; background:#fff; border:none;
+             border-top:1px solid var(--hairline); padding:12px 16px; font-family:inherit; font-size:0.92rem;
+             font-weight:700; color:var(--ink); text-align:left; cursor:pointer; }
+  .todo-row:first-child{ border-top:none; }
+  .todo-row:hover{ background:#FFFAFB; }
+  .todo-row:active{ background:var(--primary-light); }
+  .todo-row > svg{ flex:0 0 auto; color:var(--primary); }
+  .todo-row > span:first-of-type{ flex:1; min-width:0; line-height:1.4; }
+  .todo-row .n{ margin-left:auto; background:var(--primary); color:#fff; border-radius:999px; min-width:26px;
+                padding:3px 9px; text-align:center; font-size:0.84rem; font-weight:800; font-family:var(--serif); flex:0 0 auto; }
+  .todo-row .go{ color:#C9B8AC; font-weight:700; font-size:1rem; flex:0 0 auto; }
+  .todo-none{ display:flex; align-items:center; gap:8px; font-size:0.88rem; font-weight:600; color:var(--muted); padding:16px; }
+  .todo-none svg{ color:#1F7A33; flex:0 0 auto; }
+
+  /* ── 메뉴 — 가로 배치 카드(아이콘 칩 + 제목 + 설명). 중앙정렬 큰 카드보다 한 화면에 더 들어오고 훑기 쉽다. ── */
+  .sec{ display:flex; align-items:center; gap:9px; font-size:0.75rem; font-weight:800; color:var(--muted);
+        margin:24px 2px 10px; letter-spacing:.06em; }
+  .sec::after{ content:''; flex:1; height:1px; background:var(--border); }
+  .sec:first-of-type{ margin-top:2px; }
+  .menu{ display:grid; grid-template-columns:repeat(auto-fill,minmax(188px,1fr)); gap:10px; }
+  .mcard{ display:flex; align-items:center; gap:12px; text-decoration:none; background:#fff; border:1px solid var(--border);
+          border-radius:14px; padding:14px 15px; text-align:left; color:var(--ink);
+          transition:border-color .12s ease, box-shadow .12s ease; }
+  .mcard:hover{ border-color:var(--primary); box-shadow:0 3px 12px rgba(134,38,51,0.10); }
+  .mcard:active{ background:#FFFAFB; }
+  .mcard .ic{ display:flex; align-items:center; justify-content:center; width:40px; height:40px; flex:0 0 auto;
+              background:var(--primary-light); border-radius:12px; color:var(--primary); }
+  .mcard .tx{ min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .mcard .t{ display:flex; align-items:center; gap:6px; font-weight:800; font-size:0.95rem; letter-spacing:-0.01em; }
+  .mcard .d{ display:block; font-size:0.75rem; color:var(--muted); line-height:1.4; }
+  .mcard.cli .ic{ background:var(--ai-light); color:var(--ai); }
+  .mcard.cli:hover{ border-color:var(--ai); box-shadow:0 3px 12px rgba(31,111,120,0.12); }
+  .mcard.cli .t{ color:var(--ai); }
   /* 카드 배지 — 0이거나 못 셌으면 아예 안 보인다(:empty). */
-  .bdg{ display:inline-block; background:var(--primary); color:#fff; border-radius:999px; min-width:20px; padding:0 7px; margin-left:5px; font-size:0.72rem; font-weight:800; line-height:20px; text-align:center; vertical-align:middle; }
+  .bdg{ display:inline-block; background:var(--primary); color:#fff; border-radius:999px; min-width:20px; padding:0 7px;
+        font-size:0.72rem; font-weight:800; line-height:19px; text-align:center; font-family:var(--serif); font-style:normal; }
   .bdg:empty{ display:none; }
   .mcard.cli .bdg{ background:var(--ai); }
 </style>
@@ -46,34 +86,36 @@
 <script src="/session-keep.js?v=1"></script>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <div><h1>👋 조교 콘솔</h1><div class="sub">필요한 메뉴를 눌러 들어가세요</div></div>
+<div class="hdr">
+  <div class="hdrIn">
+    <h1><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="2.5"></rect><path d="M7 10l2.5 2L7 14M12.5 14.5h4"></path></svg>조교 콘솔</h1>
+    <span class="hdrDate" id="hdrDate"></span>
     <button class="back" onclick="logout()">로그아웃</button>
   </div>
-
-  <!-- 오늘 할 일 — 내용은 loadTodo()가 채운다. 다 했으면 축하 한 줄만 남는다. -->
+</div>
+<div class="wrap">
+  <!-- 지금 할 일 — 내용은 loadTodo()가 채운다. 다 했으면 축하 한 줄만 남는다. -->
   <div id="todo" style="display:none;"></div>
 
   <div class="sec">수업 · 학생</div>
   <div class="menu">
-    <a class="mcard" href="/staff-students"><div class="ic">🎓</div><div class="t">학생</div><div class="d">담당 학원 학생 정보</div></a>
-    <a class="mcard" href="/admin-scores"><div class="ic">📈</div><div class="t">성적</div><div class="d">반 평균 · 개인 추이 · 입력</div></a>
-    <a class="mcard" href="/staff-reports"><div class="ic">📋</div><div class="t">리포트</div><div class="d">수업 리포트 작성</div></a>
-    <a class="mcard" href="/staff-materials"><div class="ic">📚</div><div class="t">수업자료</div><div class="d">반별 수업자료</div></a>
+      <a class="mcard" href="/staff-students"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg></span><span class="tx"><span class="t">학생</span><span class="d">담당 학원 학생 정보</span></span></a>
+      <a class="mcard" href="/admin-scores"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg></span><span class="tx"><span class="t">성적</span><span class="d">반 평균 · 개인 추이 · 입력</span></span></a>
+      <a class="mcard" href="/staff-reports"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="15" height="17" rx="2"></rect><path d="M8.5 11h7M8.5 15h5"></path></svg></span><span class="tx"><span class="t">리포트</span><span class="d">수업 리포트 작성</span></span></a>
+      <a class="mcard" href="/staff-materials"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></svg></span><span class="tx"><span class="t">수업자료</span><span class="d">반별 수업자료</span></span></a>
   </div>
 
   <div class="sec">클리닉</div>
   <div class="menu">
-    <a class="mcard cli" href="/clinic-roster"><div class="ic">🩺</div><div class="t">클리닉 명단</div><div class="d">오늘 클리닉 대상</div></a>
-    <a class="mcard cli" href="/clinic-review"><div class="ic">📝</div><div class="t">클리닉 총평<i class="bdg" id="bdgReview"></i></div><div class="d">총평 작성·저장</div></a>
+      <a class="mcard cli" href="/clinic-roster"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg></span><span class="tx"><span class="t">클리닉 명단</span><span class="d">오늘 클리닉 대상</span></span></a>
+      <a class="mcard cli" href="/clinic-review"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg></span><span class="tx"><span class="t">클리닉 총평<i class="bdg" id="bdgReview"></i></span><span class="d">총평 작성·저장</span></span></a>
   </div>
 
   <div class="sec">소통 · 기록</div>
   <div class="menu">
-    <a class="mcard" href="/admin-qna"><div class="ic">💬</div><div class="t">질문 답변<i class="bdg" id="bdgQna"></i></div><div class="d">학생·학부모 질문</div></a>
-    <a class="mcard" href="/admin-surveys"><div class="ic">🧪</div><div class="t">테스트</div><div class="d">테스트·퀴즈 관리</div></a>
-    <a class="mcard" href="/staff-worklog"><div class="ic">🗓️</div><div class="t">근무기록</div><div class="d">근무·급여 기록</div></a>
+      <a class="mcard" href="/admin-qna"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg></span><span class="tx"><span class="t">질문 답변<i class="bdg" id="bdgQna"></i></span><span class="d">학생·학부모 질문</span></span></a>
+      <a class="mcard" href="/admin-surveys"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6.5L4.6 17A2 2 0 0 0 6.3 20h11.4a2 2 0 0 0 1.7-3L15 9.5V3"></path><path d="M8 3h8M6.6 14h10.8"></path></svg></span><span class="tx"><span class="t">테스트</span><span class="d">테스트 관리</span></span></a>
+      <a class="mcard" href="/staff-worklog"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg></span><span class="tx"><span class="t">근무기록</span><span class="d">근무·급여 기록</span></span></a>
   </div>
 </div>
 <script>
@@ -86,6 +128,13 @@
   //   왜: 조교 홈이 링크 9개뿐이라 "오늘 뭐가 남았나"를 알려면 하나씩 들어가 봐야 했다.
   //   원칙: ① 새 API 없이 기존 조회 2개만 ② 하나 실패해도 나머지는 뜸 ③ 0건은 줄을 안 그림.
   //   두 조회 모두 서버가 조교의 학원으로 자동 스코프하므로, 여기 숫자는 '내 학원 것'만이다.
+  // 할 일 줄 아이콘 (라인 SVG — 이모지 대신)
+  var SI = {
+    clinic: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>',
+    review: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>',
+    qna:    '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>',
+    ok:     '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 5 5 10-11"></path></svg>'
+  };
   function todoBadge(id, n){
     var el = document.getElementById(id);
     if (el) el.textContent = (n && n > 0) ? String(n > 99 ? '99+' : n) : '';
@@ -149,22 +198,24 @@
       //   ① 시간 됐고 안 쓴 학생 있음 → "클리닉 총평 쓸 시간"
       //   ② 시간 됐는데 기록 자체가 0건 → 총평 이전에 출결부터
       //   ③ 시간표에 클리닉 블록이 없거나 아직 시간 전 → 예전처럼 쌓인 것만
-      if (총평시간)      row(총평시간.n, '🩺', '클리닉 총평 쓸 시간 — 아직 안 쓴 학생', '/clinic-review');
-      else if (기록없음) row(기록없음.n, '🩺', '클리닉 총평 쓸 시간 — 출결부터 찍어 주세요', '/clinic-roster');
-      else               row(nRev, '📝', '오늘 클리닉 총평 안 쓴 학생', '/clinic-review');
-      row(nQna, '💬', '답변 안 한 질문', '/admin-qna');
+      if (총평시간)      row(총평시간.n, SI.clinic, '클리닉 총평 쓸 시간 — 아직 안 쓴 학생', '/clinic-review');
+      else if (기록없음) row(기록없음.n, SI.clinic, '클리닉 총평 쓸 시간 — 출결부터 찍어 주세요', '/clinic-roster');
+      else               row(nRev, SI.review, '오늘 클리닉 총평 안 쓴 학생', '/clinic-review');
+      row(nQna, SI.qna, '답변 안 한 질문', '/admin-qna');
 
-      var title = '<div class="todo-t">오늘 할 일<em>' + kstTodayLabel() + '</em></div>';
+      var title = '<div class="todo-t">지금 할 일<em>' + kstTodayLabel() + '</em></div>';
       if (rows.length) {
         box.className = 'has';
         box.innerHTML = title + '<div class="todo-list">' + rows.join('') + '</div>';
       } else {
         box.className = '';
-        box.innerHTML = title + '<div class="todo-none">지금 밀린 게 없습니다. 👍</div>';
+        box.innerHTML = title + '<div class="todo-none">' + SI.ok + '지금 밀린 게 없습니다.</div>';
       }
       box.style.display = 'block';
     }).catch(function(){ /* 요약 실패는 메뉴를 막지 않는다 */ });
   }
+  // 상단 바 날짜 — 콘솔에서 "오늘"을 항상 보이게 (kstTodayLabel 재사용)
+  try{ var hd = document.getElementById('hdrDate'); if(hd) hd.textContent = kstTodayLabel(); }catch(_){}
   loadTodo();
 </script>
 </body>

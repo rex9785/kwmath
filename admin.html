@@ -37,12 +37,14 @@
   }catch(_){}
 })();</script>
 <style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
   :root{
     --primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;
-    --text:#1E1E1E;--text-light:#666;--bg:#FFF;--bg2:#FAF7F8;--border:#EDE0E3;
-  }
+    --text:#241318;--text-light:#8A7B75;--bg:#FFF;--bg2:#F7F5F2;--border:#E9E1D9;
+   --hairline:#F1EAE2; --serif:'Noto Serif KR',serif;}
   body{font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--bg2);min-height:100vh;}
 
   /* ── 로그인 화면 ── */
@@ -233,7 +235,7 @@
 <!-- 로그인 화면 -->
 <div id="loginScreen">
   <div class="login-card">
-    <div class="login-logo">🔐</div>
+    <div class="login-logo"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg></div>
     <div class="login-title">관리자 로그인</div>
     <div class="login-sub">LKW math LAB 관리자 전용 페이지입니다.</div>
     <input class="login-input" id="pwInput" type="password" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key==='Enter')doLogin()">
@@ -245,7 +247,7 @@
 <!-- 대시보드 -->
 <div id="dashboard">
   <div class="topbar">
-    <div class="topbar-title">📐 LKW math LAB 관리자</div>
+    <div class="topbar-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="2.5"></rect><path d="M7 10l2.5 2L7 14M12.5 14.5h4"></path></svg>LKW math LAB 관리자</div>
     <div class="topbar-right">
       <a href="/" class="topbar-link">← 홈페이지 보기</a>
       <button class="logout-btn" onclick="doLogout()">로그아웃</button>
@@ -292,7 +294,197 @@
       /* 카드 배지 — 숫자가 0이거나 아직 못 셌으면 렌더 자체를 안 한다(빈 동그라미 방지). */
       .cbadge{display:inline-block;background:var(--primary);color:#fff;border-radius:999px;min-width:19px;padding:0 6px;margin-left:5px;font-style:normal;font-size:0.7rem;font-weight:800;line-height:19px;text-align:center;vertical-align:middle;}
       .cbadge:empty{display:none;}   /* 못 셌거나 0이면 아예 안 보임 — 빈 동그라미가 남지 않게 */
-    </style>
+    
+  /* ══════════════════════════════════════════════════════════════════════
+     2026-08-04 관리자 콘솔 정렬 — 디자인가이드_조교관리자.md
+     기능이 한눈에 · 바로 처리. 기존 규칙·DOM·JS는 그대로 두고 여기서만 덮어쓴다.
+     되돌리려면 이 블록만 지우면 됩니다.
+     ══════════════════════════════════════════════════════════════════════ */
+  body{ font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+        letter-spacing:-0.01em; word-break:keep-all; overflow-wrap:break-word; }
+
+  /* 본문 폭·여백 — 상단 바를 화면 끝까지 붙이기 위해 좌우 패딩을 통일 */
+  .wrap, .page, .dash-body{ padding-left:16px !important; padding-right:16px !important; }
+  .wrap, .page{ max-width:900px; }
+
+  /* ── 상단 바 ① : <div class="wrap"><div class="top"> 패턴 ───────────── */
+  .wrap > .top:first-child, body > .top{
+    display:flex; align-items:center; gap:12px;
+    background:var(--primary); color:#fff;
+    position:sticky; top:0; z-index:30;
+    margin:0 -16px 18px; padding:max(12px,env(safe-area-inset-top,12px)) 16px 11px; }
+  .wrap > .top:first-child > div:first-child, body > .top > div:first-child{
+    flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .wrap > .top:first-child h1, body > .top h1, body > .top .title{
+    font-size:1rem; font-weight:800; margin:0; color:#fff; letter-spacing:-0.02em;
+    display:inline-flex; align-items:center; gap:7px; white-space:nowrap; }
+  .wrap > .top:first-child h1 svg, body > .top .title svg{ opacity:.85; }
+  .wrap > .top:first-child .sub, body > .top .sub{
+    font-size:0.76rem; color:rgba(255,255,255,0.66); margin:0 !important; font-weight:500;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .wrap > .top:first-child .kwnav, body > .top .kwnav{ margin-left:auto; flex:0 0 auto; }
+  .wrap > .top:first-child .back, .wrap > .top:first-child > button,
+  body > .top .back, body > .top > button{
+    margin-left:auto; flex:0 0 auto; color:#fff; background:rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.28); border-radius:9px; padding:7px 12px;
+    font-size:0.78rem; font-weight:700; text-decoration:none; cursor:pointer; font-family:inherit; }
+
+  /* ── 상단 바 ② : <header><div class="headInner"> 패턴 ───────────────── */
+  header{ position:sticky; top:0; z-index:30; background:var(--primary) !important;
+          border-bottom:none !important; padding:max(12px,env(safe-area-inset-top,12px)) 0 11px !important; }
+  header h1{ color:#fff; font-size:1rem; font-weight:800; margin:0; letter-spacing:-0.02em;
+             display:inline-flex; align-items:center; gap:7px; }
+  header .headInner{ gap:10px; max-width:900px; }
+  header button{ background:rgba(255,255,255,0.14) !important; border:1px solid rgba(255,255,255,0.28) !important;
+                 color:#fff !important; border-radius:9px; padding:7px 12px; font-size:0.78rem; font-weight:700;
+                 cursor:pointer; font-family:inherit; }
+  header button.primary{ background:#fff !important; color:var(--primary) !important; border-color:#fff !important; }
+  header .count{ background:rgba(255,255,255,0.18); color:#fff; border-radius:999px; padding:2px 9px;
+                 font-size:0.78rem; font-weight:800; font-family:var(--serif); }
+  /* header 바로 뒤에 붙은 네비 줄(admin-surveys)도 같은 바로 합친다 */
+  header + div[style*="flex-end"]{ background:var(--primary) !important; border-bottom:none !important;
+        position:sticky; top:0; z-index:29; padding:0 14px 9px !important; margin-top:-1px; }
+
+  /* ── 상단 바 ③ : .topbar 패턴 (이미 와인) ─────────────────────────── */
+  .topbar{ position:sticky; top:0; z-index:30; padding:max(12px,env(safe-area-inset-top,12px)) 16px 12px; }
+  .topbar-title{ font-size:1rem; font-weight:800; letter-spacing:-0.02em;
+                 display:inline-flex; align-items:center; gap:7px; }
+  .topbar-title svg{ opacity:.85; }
+
+  /* ── 상단 바 ④ : .wrap 첫 자식이 .kwnav 인 패턴 (makeup·notify·stats) ─ */
+  .wrap > .kwnav:first-child{
+    background:var(--primary); position:sticky; top:0; z-index:30;
+    margin:0 -16px 16px; padding:max(11px,env(safe-area-inset-top,11px)) 16px 10px;
+    justify-content:flex-end; }
+  /* 이 패턴에서 제목은 바 아래 크림 배경에 온다 */
+  .wrap > .kwnav:first-child ~ h1{ font-size:1.12rem; font-weight:800; color:var(--primary);
+    margin:0 0 5px; letter-spacing:-0.02em; display:flex; align-items:center; gap:8px; }
+  .wrap > .kwnav:first-child ~ .sub{ font-size:0.82rem; line-height:1.55; margin:0 0 16px; }
+  /* stats: kwnav 바 다음의 .top 은 평범한 제목 줄로 (와인 바 중복 방지) */
+  .wrap > .kwnav:first-child + .top{
+    background:transparent; position:static; margin:0 0 16px; padding:0;
+    display:flex; align-items:flex-end; gap:12px; }
+  .wrap > .kwnav:first-child + .top h1{ color:var(--primary); font-size:1.12rem; font-weight:800; margin:0;
+    display:inline-flex; align-items:center; gap:8px; }
+  .wrap > .kwnav:first-child + .top .sub{ color:var(--text-light,var(--muted)); font-size:0.8rem; margin:4px 0 0 !important; }
+  .wrap > .kwnav:first-child + .top > button{ margin-left:auto; background:#fff; color:var(--primary);
+    border:1.5px solid var(--primary); border-radius:9px; padding:7px 13px; font-size:0.8rem; font-weight:700; }
+
+  /* 와인 바 안의 공유 네비는 반투명 흰색으로 */
+  .wrap > .top:first-child .kwnav-home, .wrap > .top:first-child .kwnav-toggle,
+  body > .top .kwnav-home, body > .top .kwnav-toggle,
+  header .kwnav-home, header .kwnav-toggle,
+  header + div[style*="flex-end"] .kwnav-home, header + div[style*="flex-end"] .kwnav-toggle,
+  .wrap > .kwnav:first-child .kwnav-home, .wrap > .kwnav:first-child .kwnav-toggle,
+  .topbar .kwnav-home, .topbar .kwnav-toggle{
+    background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.28); color:#fff; padding:7px 12px; }
+  .wrap > .top:first-child .kwnav-home:hover, body > .top .kwnav-home:hover, header .kwnav-home:hover,
+  .wrap > .kwnav:first-child .kwnav-home:hover, .topbar .kwnav-home:hover,
+  .wrap > .top:first-child .kwnav-toggle:hover, body > .top .kwnav-toggle:hover, header .kwnav-toggle:hover,
+  .wrap > .kwnav:first-child .kwnav-toggle:hover, .topbar .kwnav-toggle:hover{ background:rgba(255,255,255,0.24); }
+
+  /* ── 카드·면 ── */
+  .card, .msg, .note, .box, .cfg, .intro, .summary, .state-box, .grid-card, .batch, .detail{
+    border-color:var(--border,var(--line)) !important; box-shadow:0 1px 3px rgba(70,20,35,.04) !important; }
+
+  /* ── 숫자는 세리프 — 처리할 개수가 먼저 보이게 ── */
+  .count, .cnt, .big, .num, .avg, .score-big, .stat .v, .summary .v, .pill, .badge, .cbadge,
+  .b-cnt, .nft-count, .bar-val, .cmin, .sm{ font-family:var(--serif); }
+
+  /* ── 입력 — 터치 타깃 · 포커스 와인 링 ── */
+  input, select, textarea, button{ font-family:inherit; }
+  input[type=text], input[type=password], input[type=number], input[type=date], input[type=month],
+  input[type=tel], input[type=search], select, textarea, .search, .login-input{
+    border:1.5px solid var(--border,var(--line)); border-radius:10px; outline:none;
+    transition:border-color .12s, box-shadow .12s; }
+  input[type=text]:focus, input[type=password]:focus, input[type=number]:focus, input[type=date]:focus,
+  input[type=month]:focus, input[type=tel]:focus, input[type=search]:focus, select:focus, textarea:focus,
+  .search:focus, .login-input:focus{ border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+
+  /* ── 버튼 — 아이콘+라벨 한 줄, 눌린 상태 확실히 ── */
+  .mini, .ghost, .btn-primary, .b-pri, .b-sec, .save, .aisave, .bp-save, .bp-all, .listbtn,
+  .pushbtn, .b-reopen, .b-done, .b-del, .b-ghost, .restore, .del, .up, .hide, .act, .dl, .jump{
+    display:inline-flex !important; align-items:center; justify-content:center; gap:6px;
+    flex-wrap:nowrap !important; white-space:nowrap; border-radius:9px; font-family:inherit; }
+  .tab-btn, .tabs button, .mtab, .seg button, .chip, .nft-btn, .bp-mode, .modeTabs button{
+    border-radius:9px; font-family:inherit; white-space:nowrap; }
+  .tab-btn.active, .tabs .on, .mtab.on, .seg .on, .chip.on, .nft-btn.on, .bp-mode.on{
+    box-shadow:0 1px 4px rgba(134,38,51,.22); }
+
+  /* ── 텍스트 라벨은 flex로 만들지 않는다 (문장이 조각나 gap이 끼어든다) ── */
+  .sechead, .paynote, .section-label, .panel-title, .menu-sec-t, .cardHead, .stHead, .section-title{
+    display:block !important; }
+  .badge, .pill, .cbadge, .tag{ display:inline-flex !important; align-items:center; gap:5px; white-space:nowrap; }
+
+  /* ── 표 ── */
+  table{ border-collapse:collapse; }
+  th{ font-weight:700; color:var(--text-light,var(--muted)); font-size:0.78rem; }
+  td, th{ border-color:var(--hairline,var(--border)) !important; }
+  td.num, td.n, .num{ text-align:right; font-family:var(--serif); }
+
+  /* ── 반응형 (반드시 마지막) — 위 블록과 동일 특이도라 소스 순서로 이겨야 한다 ── */
+  @media (max-width:640px){
+    .wrap > .top:first-child, body > .top{ flex-wrap:wrap; gap:8px 10px; align-items:flex-start; }
+    .wrap > .top:first-child > div:first-child, body > .top > div:first-child{ flex:1 1 100%; }
+    .wrap > .top:first-child .kwnav, body > .top .kwnav{ margin-left:0; }
+    .wrap > .top:first-child .sub, body > .top .sub{ white-space:normal; overflow:visible; text-overflow:clip; }
+    header .headInner{ flex-wrap:wrap; }
+  }
+
+  /* ── 관리자 홈 ── */
+  .login-card{ border-radius:16px; }
+  .login-logo{ color:var(--primary); display:flex; justify-content:center; margin-bottom:10px; }
+  /* 카드: 아이콘 칩 + 제목 + 설명 (grid로 세로 2줄, 아이콘은 왼쪽 세로 병합) */
+  .admin-card{ display:grid !important; grid-template-columns:auto 1fr; grid-template-areas:"ic t" "ic d";
+    column-gap:12px; row-gap:2px; align-items:center; font-size:1rem !important;
+    border-width:1px !important; border-radius:14px !important; padding:14px 15px !important;
+    box-shadow:0 1px 3px rgba(70,20,35,.04) !important; transition:border-color .12s, box-shadow .12s !important; }
+  .admin-card:hover{ border-color:var(--primary) !important; box-shadow:0 3px 12px rgba(134,38,51,.10) !important; }
+  .admin-card:active{ transform:none !important; background:#FFFAFB; }
+  .ac-ic{ grid-area:ic; display:flex; align-items:center; justify-content:center; width:40px; height:40px;
+    background:var(--primary-light); border-radius:12px; color:var(--primary); }
+  .admin-card b{ grid-area:t; margin-top:0 !important; font-size:0.93rem !important; word-break:keep-all !important; }
+  .admin-card span{ grid-area:d; font-size:0.73rem !important; word-break:keep-all !important; }
+  .menu-sec-t{ letter-spacing:.04em; }
+  /* 오늘 확인할 것 — 그라데이션 대신 단색 + 줄 높이 확보 */
+  #todayBox{ border-width:1px !important; box-shadow:0 2px 10px rgba(70,20,35,.05) !important; padding:0 !important; overflow:hidden; }
+  #todayBox.has-todo{ background:#fff !important; border-color:#DEBEC4 !important; }
+  .today-t{ padding:13px 16px; margin:0 !important; border-bottom:1px solid var(--hairline); background:#FFFCFC;
+    display:flex; align-items:center; gap:7px; }
+  #todayBox.has-todo .today-t{ background:var(--primary-light); }
+  .today-t::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--primary); flex:0 0 auto; }
+  .today-t em{ margin-left:auto !important; }
+  .today-list{ gap:0 !important; }
+  .today-row{ min-height:56px; border:none !important; border-top:1px solid var(--hairline) !important;
+    border-radius:0 !important; padding:12px 16px !important; font-size:0.9rem !important; }
+  .today-row:first-child{ border-top:none !important; }
+  .today-row:hover{ background:#FFFAFB; }
+  .today-row:active{ transform:none !important; background:var(--primary-light); }
+  .today-row > svg{ flex:0 0 auto; color:var(--primary); }
+  .today-row .n{ min-width:26px; padding:3px 9px !important; font-size:0.84rem !important; font-family:var(--serif); }
+  .today-none{ padding:16px; display:flex; align-items:center; gap:8px; }
+  .today-none svg{ color:#1F7A33; }
+  @media (max-width:480px){ .admin-card{ padding:12px !important; column-gap:10px; }
+    .ac-ic{ width:34px; height:34px; border-radius:10px; } .ac-ic svg{ width:17px; height:17px; } }
+
+  /* .ac-ic 도 span 이라 .admin-card span 규칙에 잡혀 설명 영역과 겹쳤다 → 특이도를 올려 고정 */
+  .admin-card > .ac-ic{ grid-area:ic !important; width:40px; height:40px; }
+  .admin-card > span:not(.ac-ic){ grid-area:d; }
+  .admin-card > b{ grid-area:t; }
+  /* 상단 바 — 제목·링크 줄바꿈 금지 */
+  .topbar{ flex-wrap:nowrap; gap:10px; }
+  .topbar-title{ white-space:nowrap; flex:0 0 auto; }
+  .topbar-right{ display:flex; align-items:center; gap:8px; flex:0 0 auto; white-space:nowrap; }
+  .topbar-link, .logout-btn{ white-space:nowrap; }
+  @media (max-width:560px){
+    .topbar{ flex-wrap:wrap; }
+    .topbar-title{ font-size:0.94rem; }
+  }
+
+  /* 빈 배지·개수 칩은 다시 숨긴다 — 위 !important 규칙에 눌려 있던 원본 동작 복원 */
+  .badge:empty, .pill:empty, .cbadge:empty, .tag:empty, .bdg:empty, .b-cnt:empty, .cnt:empty, .count:empty{
+    display:none !important; }
+</style>
     <div id="adminMenu">
       <!-- 오늘 확인할 것 — 내용은 loadHomeSummary()가 채운다. 다 처리했으면 축하 한 줄만 남는다. -->
       <div id="todayBox" style="display:none;"></div>
@@ -317,9 +509,9 @@
       <div class="menu-sec">
         <div class="menu-sec-t">① 응대 <i>문의·질문·알림</i></div>
         <div class="admin-grid">
-          <button type="button" class="admin-card" onclick="location.href='/admin-inquiries'">📩<b>상담 문의함<i class="cbadge" id="bdgInquiry"></i><i class="go-out">↗</i></b><span>홈페이지 수업 문의</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-qna'">💬<b>질문 관리<i class="cbadge" id="bdgQna"></i><i class="go-out">↗</i></b><span>학생 질문·문의 답변</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-notify'">🔔<b>알림 보내기<i class="go-out">↗</i></b><span>학원·반·학생에 알림 발송</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-inquiries'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5V18a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4.5"></path><path d="M3.5 13.5 6 5.5h12l2.5 8"></path><path d="M8.5 13.5h7l-1 2.5h-5z"></path></svg></span><b>상담 문의함<i class="cbadge" id="bdgInquiry"></i><i class="go-out">↗</i></b><span>홈페이지 수업 문의</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-qna'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg></span><b>질문 관리<i class="cbadge" id="bdgQna"></i><i class="go-out">↗</i></b><span>학생 질문·문의 답변</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-notify'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg></span><b>알림 보내기<i class="go-out">↗</i></b><span>학원·반·학생에 알림 발송</span></button>
         </div>
       </div>
       <div class="menu-sec">
@@ -328,46 +520,46 @@
           <!-- 2026-08-04 관우T "테스트 수업때 많이쓰니까 관리자 페이지에서 위치도 좀 앞으로 옮겨놔"
                → 아래 두 장을 ② 구획 맨 앞으로 올렸다(전에는 5·6번째). 둘의 붙은 순서는 유지 = 테스트 → 채점 → 보고서.
                이름도 「설문·조사」에서 「테스트·설문」으로 바꿨다. 메인은 테스트, 설문은 수업 첫날·마지막날에만 쓴다. -->
-          <button type="button" class="admin-card" onclick="location.href='/admin-surveys'">📝<b>테스트·설문<i class="go-out">↗</i></b><span>출제 · 자동 채점 · 결과 보기</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-surveys'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="15" height="17" rx="2"></rect><path d="M8.5 11h7M8.5 15h5"></path></svg></span><b>테스트·설문<i class="go-out">↗</i></b><span>출제 · 자동 채점 · 결과 보기</span></button>
           <!-- 2026-08-03 신설 — 그동안 이 페이지 입구는 kwnav.js(☰ 메뉴) 한 줄뿐이었다.
                그런데 admin.html(홈)은 일부러 kwnav를 안 붙인다(카드 19개로 충분하다는 판단) → 홈에서 출발하면
                존재를 알 수 없어 주소를 직접 쳐야 했다(관우T "링크 빠졌어"). 문구는 kwnav.js와 같게 맞춘다.
                ⚠️ 아래 「📋 리포트 조회」와 다른 물건이다. 저건 매 수업 리포트(노션), 이건 테스트 채점 결과를
                   분석해 A4 진단 보고서(PDF)로 뽑는 곳이다. 그래서 「테스트·설문」 바로 뒤에 붙여 둔다. -->
-          <button type="button" class="admin-card" onclick="location.href='/admin-report'">📄<b>진단평가 보고서<i class="go-out">↗</i></b><span>테스트 결과 → 분석 PDF 출력</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-report'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"></path><path d="M13.5 3v5.5H19"></path></svg></span><b>진단평가 보고서<i class="go-out">↗</i></b><span>테스트 결과 → 분석 PDF 출력</span></button>
           <!-- "숙제"가 세 가지 다른 일을 가리켜 헷갈렸다 → 이름으로 구분한다.
                여기 = 오늘 숙제를 몇 % 해왔나(이행률) / 과제 제출함 = 학생이 올린 사진 / 리포트의 "다음 숙제" = 다음 시간까지 해올 것. -->
-          <button type="button" class="admin-card" onclick="openSection('attendance')">📅<b>출결·숙제 이행률</b><span>출석 체크 · 숙제 몇 % 했나</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/clinic-roster'">🩺<b>클리닉<i class="cbadge" id="bdgClinic"></i><i class="go-out">↗</i></b><span>명단 · 총평 (안에서 탭 전환)</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-homework'">📸<b>과제 제출함<i class="cbadge" id="bdgHomework"></i><i class="go-out">↗</i></b><span>학생이 올린 숙제 사진</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-makeup'">🔓<b>인강 신청·해제<i class="go-out">↗</i></b><span>결석일 영상·자료 잠금 해제</span></button>
-          <button type="button" class="admin-card" onclick="openSection('reports')">📋<b>리포트 조회</b><span>학생 리포트</span></button>
+          <button type="button" class="admin-card" onclick="openSection('attendance')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg></span><b>출결·숙제 이행률</b><span>출석 체크 · 숙제 몇 % 했나</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/clinic-roster'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg></span><b>클리닉<i class="cbadge" id="bdgClinic"></i><i class="go-out">↗</i></b><span>명단 · 총평 (안에서 탭 전환)</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-homework'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h2L9 4.5h6l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.4"></circle></svg></span><b>과제 제출함<i class="cbadge" id="bdgHomework"></i><i class="go-out">↗</i></b><span>학생이 올린 숙제 사진</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-makeup'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg></span><b>인강 신청·해제<i class="go-out">↗</i></b><span>결석일 영상·자료 잠금 해제</span></button>
+          <button type="button" class="admin-card" onclick="openSection('reports')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg></span><b>리포트 조회</b><span>학생 리포트</span></button>
         </div>
       </div>
       <div class="menu-sec">
         <div class="menu-sec-t">③ 학생·성적 <i>명단·반 배정·점수</i></div>
         <div class="admin-grid">
-          <button type="button" class="admin-card" onclick="openSection('students')">👨‍🎓<b>학생 목록</b><span>등록·승인·반 변경</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-scores'">📈<b>성적 관리<i class="go-out">↗</i></b><span>시험 성적·추이</span></button>
-          <button type="button" class="admin-card" onclick="openClassManager()">🏫<b>학원·반 관리</b><span>학원·반 추가·이름변경·삭제</span></button>
+          <button type="button" class="admin-card" onclick="openSection('students')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg></span><b>학생 목록</b><span>등록·승인·반 변경</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-scores'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span><b>성적 관리<i class="go-out">↗</i></b><span>시험 성적·추이</span></button>
+          <button type="button" class="admin-card" onclick="openClassManager()"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20.5V9.5L12 4l8 5.5v11"></path><path d="M2.5 20.5h19M9.5 20.5v-6h5v6"></path></svg></span><b>학원·반 관리</b><span>학원·반 추가·이름변경·삭제</span></button>
         </div>
       </div>
       <div class="menu-sec">
         <div class="menu-sec-t">④ 콘텐츠 <i>공지·자료·영상</i></div>
         <div class="admin-grid">
-          <button type="button" class="admin-card" onclick="openSection('notices')">📢<b>공지사항 관리</b><span>공지 작성·수정</span></button>
-          <button type="button" class="admin-card" onclick="openSection('files')">📁<b>자료실 관리</b><span>파일 업로드·삭제</span></button>
-          <button type="button" class="admin-card" onclick="openSection('videos')">📺<b>영상 관리</b><span>수업 영상</span></button>
-          <button type="button" class="admin-card" onclick="openSection('reviews')">💬<b>수강 후기<i class="cbadge" id="bdgReviews"></i></b><span>앱 공개·홈페이지 대표 선정</span></button>
+          <button type="button" class="admin-card" onclick="openSection('notices')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"></path><path d="M17.5 9a4 4 0 0 1 0 6"></path></svg></span><b>공지사항 관리</b><span>공지 작성·수정</span></button>
+          <button type="button" class="admin-card" onclick="openSection('files')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></svg></span><b>자료실 관리</b><span>파일 업로드·삭제</span></button>
+          <button type="button" class="admin-card" onclick="openSection('videos')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect><path d="M15.5 10.5 21 7.5v9l-5.5-3"></path></svg></span><b>영상 관리</b><span>수업 영상</span></button>
+          <button type="button" class="admin-card" onclick="openSection('reviews')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg></span><b>수강 후기<i class="cbadge" id="bdgReviews"></i></b><span>앱 공개·홈페이지 대표 선정</span></button>
         </div>
       </div>
       <div class="menu-sec">
         <div class="menu-sec-t">⑤ 모니터링·설정 <i>랭킹·통계·운영진·앱</i></div>
         <div class="admin-grid">
-          <button type="button" class="admin-card" onclick="location.href='/admin-study'">🏆<b>공부 랭킹<i class="go-out">↗</i></b><span>반별 공부시간 순위(실명)</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-stats'">📊<b>방문 통계<i class="go-out">↗</i></b><span>사이트 방문자 수</span></button>
-          <button type="button" class="admin-card" onclick="location.href='/admin-staff'">🧑‍🏫<b>운영진 관리<i class="cbadge" id="bdgStaff"></i><i class="go-out">↗</i></b><span>조교 가입 승인·거부</span></button>
-          <button type="button" class="admin-card" onclick="openSection('appversion')">📲<b>앱 강제업데이트</b><span>구버전 차단 최소버전</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-study'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"></path><path d="M8 5.5H5.5v1a3 3 0 0 0 2.6 3M16 5.5h2.5v1a3 3 0 0 1-2.6 3"></path><path d="M12 13v3.5M9 20.5h6l-.7-4h-4.6z"></path></svg></span><b>공부 랭킹<i class="go-out">↗</i></b><span>반별 공부시간 순위(실명)</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-stats'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg></span><b>방문 통계<i class="go-out">↗</i></b><span>사이트 방문자 수</span></button>
+          <button type="button" class="admin-card" onclick="location.href='/admin-staff'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c1-3.2 3.4-4.6 6-4.6s5 1.4 6 4.6"></path><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M18 20c-.3-1.5-.8-2.7-1.5-3.6"></path></svg></span><b>운영진 관리<i class="cbadge" id="bdgStaff"></i><i class="go-out">↗</i></b><span>조교 가입 승인·거부</span></button>
+          <button type="button" class="admin-card" onclick="openSection('appversion')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M12 16.5V8m-3 3 3-3 3 3"></path></svg></span><b>앱 강제업데이트</b><span>구버전 차단 최소버전</span></button>
         </div>
       </div>
     </div>
@@ -1030,22 +1222,22 @@
         // 🔗 그냥 출결 탭을 여는 게 아니라 **그 반으로 필터를 걸어** 연다. 줄에 반 이름을 써 놓고
         //    정작 누르면 전체 목록이 떠서 거기서 반을 또 찾아야 했다(관우T 2026-08-03 "찾아 찾아 들어간다").
         //    숫자(배지)는 그 반에서 아직 안 찍은 학생 수 — 찍을수록 줄어들고 0이 되면 줄이 사라진다.
-        if (it.key === 'attendance')             row(it.n, '✅', '출결 입력할 시간' + 반이름붙이기(it), '', "goAttendanceClass('" + jsArg(it.academy || '') + "','" + jsArg(it.className || '') + "')");
-        else if (it.key === 'clinicReviewOwner') row(it.n, '🩺', '조교 총평 확인 — 아직 안 쓴 학생', '/clinic-review');
-        else if (it.key === 'clinicNoRecord')    row(it.n, '🩺', '오늘 클리닉 기록이 아직 없음 — 조교 확인', '/clinic-review');
-        else if (it.key === 'video')             row(it.n, '📺', '수업 영상 업로드' + 반이름붙이기(it), '', "openSection('videos')");
-        else if (it.key === 'report')            row(it.n, '📋', '오늘 리포트 만들 시간' + 반이름붙이기(it), '', "openSection('reports')");
+        if (it.key === 'attendance')             row(it.n, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 5 5 10-11"></path></svg>', '출결 입력할 시간' + 반이름붙이기(it), '', "goAttendanceClass('" + jsArg(it.academy || '') + "','" + jsArg(it.className || '') + "')");
+        else if (it.key === 'clinicReviewOwner') row(it.n, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>', '조교 총평 확인 — 아직 안 쓴 학생', '/clinic-review');
+        else if (it.key === 'clinicNoRecord')    row(it.n, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>', '오늘 클리닉 기록이 아직 없음 — 조교 확인', '/clinic-review');
+        else if (it.key === 'video')             row(it.n, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect><path d="M15.5 10.5 21 7.5v9l-5.5-3"></path></svg>', '수업 영상 업로드' + 반이름붙이기(it), '', "openSection('videos')");
+        else if (it.key === 'report')            row(it.n, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>', '오늘 리포트 만들 시간' + 반이름붙이기(it), '', "openSection('reports')");
       }
     }
 
-    row(nInq, '📩', '새 상담 문의', '/admin-inquiries');
-    row(nQna, '💬', '답변 안 한 질문', '/admin-qna');
-    row(nStf, '🧑‍🏫', '조교 승인 대기', '/admin-staff');
-    row(nHwNew, '📸', '확인 안 한 과제 제출', '/admin-homework');
-    row(nHw, '📸', '마감된 채로 열려 있는 과제', '/admin-homework');
-    row(nCli, '🩺', '발송 안 한 클리닉 총평', '/clinic-review');
-    row(nRisk, '⚠️', '살펴볼 학생 (출결·숙제 꺾임)', '', 'openRiskStudents()');
-    row(nRev, '💬', '검토할 수강 후기', '', "openSection('reviews')");
+    row(nInq, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5V18a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4.5"></path><path d="M3.5 13.5 6 5.5h12l2.5 8"></path><path d="M8.5 13.5h7l-1 2.5h-5z"></path></svg>', '새 상담 문의', '/admin-inquiries');
+    row(nQna, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>', '답변 안 한 질문', '/admin-qna');
+    row(nStf, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c1-3.2 3.4-4.6 6-4.6s5 1.4 6 4.6"></path><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M18 20c-.3-1.5-.8-2.7-1.5-3.6"></path></svg>', '조교 승인 대기', '/admin-staff');
+    row(nHwNew, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h2L9 4.5h6l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.4"></circle></svg>', '확인 안 한 과제 제출', '/admin-homework');
+    row(nHw, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h2L9 4.5h6l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.4"></circle></svg>', '마감된 채로 열려 있는 과제', '/admin-homework');
+    row(nCli, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>', '발송 안 한 클리닉 총평', '/clinic-review');
+    row(nRisk, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>', '살펴볼 학생 (출결·숙제 꺾임)', '', 'openRiskStudents()');
+    row(nRev, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>', '검토할 수강 후기', '', "openSection('reviews')");
 
     const title = '<div class="today-t">오늘 확인할 것<em>' + kstTodayLabel() + '</em></div>';
     if (rows.length) {

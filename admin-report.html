@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>진단평가 보고서 생성기 · 이관우 수학연구소</title>
 <style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
 :root{
   --wine:#862633; --wine-deep:#511F26; --wine-lite:#7E3540;
   --cream:#F3EDE4; --cream2:#E7DDD1; --ink:#211914; --gray:#71675E; --gray2:#9C9086;
   --ok:#2E7D52; --bad:#B0413E; --card:#FFFFFF;
-}
+ --serif:'Noto Serif KR',serif; --hairline:#F1EAE2;}
 *{box-sizing:border-box; margin:0; padding:0;}
 body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:var(--cream); color:var(--ink); font-size:14px; line-height:1.5;}
 
@@ -95,6 +97,22 @@ td.oxO{color:var(--ok); font-weight:800;} td.oxX{color:var(--bad); font-weight:8
   .page:last-child{page-break-after:auto;}
 }
 @page{size:A4; margin:0;}
+
+  /* 2026-08-04 · 보고서 인쇄 디자인은 그대로. 화면 UI(탭·버튼·입력)만 정렬 */
+  body{ font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',-apple-system,sans-serif; letter-spacing:-0.01em; word-break:keep-all; }
+  #homebar a{ border-radius:9px !important; font-weight:700 !important; }
+  .mtab{ border-radius:9px; font-family:inherit; white-space:nowrap; }
+  .mtab.on{ box-shadow:0 1px 4px rgba(134,38,51,.22); }
+  input[type=text], input[type=number], input[type=date], select, textarea{
+    border-radius:10px; outline:none; transition:border-color .12s, box-shadow .12s; }
+  input[type=text]:focus, input[type=number]:focus, input[type=date]:focus, select:focus, textarea:focus{
+    border-color:var(--wine); box-shadow:0 0 0 3px rgba(134,38,51,.12); }
+  .ghost{ display:inline-flex !important; align-items:center; gap:6px; white-space:nowrap; border-radius:9px; }
+
+  /* 빈 배지·개수 칩은 다시 숨긴다 — 위 !important 규칙에 눌려 있던 원본 동작 복원 */
+  .badge:empty, .pill:empty, .cbadge:empty, .tag:empty, .bdg:empty, .b-cnt:empty, .cnt:empty, .count:empty{
+    display:none !important; }
+  #homebar a{ white-space:nowrap; }
 </style>
 <!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
 <script src="/session-keep.js?v=1"></script>
