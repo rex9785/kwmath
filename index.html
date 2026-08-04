@@ -194,14 +194,11 @@
     .school-num b{font-size:1.48rem;}
   }
 
-  /* ⛔ 임시 숨김 스위치 — 입시 컨설팅 (2026-08-04 관우T 지시: "잠깐 안 보이게 해봐, 나중에 말하면 다시 열어")
-     ▶ 다시 열 때 할 일: 바로 아래 `.kw-off-consulting` 규칙 한 줄을 지운다. 그게 전부다.
-       HTML(메뉴 2곳 · §08 섹션)은 지우지 않고 그대로 살려 두었으므로 이 한 줄이 유일한 스위치다.
-     ※ 범위는 홈페이지(index.html)뿐이다 — 2026-08-04 관우T 확정 "홈페이지만".
-       /consulting · /consulting-sample 페이지 자체, lectures.html 메뉴 링크, sitemap.xml 은
-       일부러 그대로 두었다. 주소를 직접 치거나 검색으로 들어오면 여전히 열린다.
-     ※ 배경 교대: §07 REVIEWS(베이지) 다음이 §09 VIDEO(다크)가 되어 색이 겹치지 않는다. 확인함. */
-  #consulting, li.kw-off-consulting{display:none !important;}
+  /* ✅ 2026-08-04 — 「입시 컨설팅」 임시 숨김은 같은 날 관우T 지시("공개해도 돼 똑같이")로 해제됐다.
+        숨김 규칙(#consulting · li.kw-off-consulting 의 display:none)은 지웠다.
+        `kw-off-consulting` 클래스만 메뉴 <li> 2곳에 남아 있는데, 매칭되는 규칙이 없어 아무 일도 하지 않는다.
+        다시 가려야 할 일이 생기면 아래 한 줄을 되살리면 된다(그때만 주석을 풀 것):
+        #consulting, li.kw-off-consulting{display:none !important;}   */
 
   /* CONSULTING — 입시 컨설팅 ──────────────────────────────────────
      ⚠️ ANALYSIS 의 .school-card / .school-nums 를 재사용하지 않는다.
