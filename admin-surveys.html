@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>설문·조사 · 이관우 수학연구소</title>
+<title>테스트·설문 · 이관우 수학연구소</title>
 <style>
   :root{ --primary:#862633; --primary-light:#F9ECED; --primary-mid:#A83040;
          --text:#2A2320; --text-light:#8a847e; --line:#ece7e3; --bg:#faf8f6; }
@@ -82,6 +82,9 @@
   math-field[read-only]{ border:none; padding:0 2px; font-size:1.05rem; background:transparent; width:auto; display:inline-block; vertical-align:middle; box-shadow:none; }
   .qhint{ font-size:0.76rem; color:var(--text-light); margin-top:5px; }
   .badge.quiz{ background:#EDE7F6; color:#5E35B1; }
+  /* 2026-08-04 — 예전엔 테스트에만 배지가 붙어 「배지 없음 = 설문」이었다. 이름을 「테스트·설문」으로 바꾼 뒤
+     목록에서 둘이 나란히 놓이므로, 설문에도 배지를 붙여 성격이 한눈에 보이게 한다. */
+  .badge.srv{ background:#F1F3F4; color:#5F6368; }
   .ok{ color:#137333; font-weight:700; font-size:0.76rem; }
   .no{ color:#C5221F; font-weight:700; font-size:0.76rem; }
   .scoreItem{ display:flex; justify-content:space-between; font-size:0.86rem; padding:6px 0; border-bottom:1px solid var(--line); }
@@ -139,8 +142,8 @@
 <header>
   <div class="headInner">
     <button id="backBtn" class="hidden">← 뒤로</button>
-    <h1 id="hTitle">설문·조사 / 테스트</h1>
-    <button id="newBtn" class="primary">+ 새 설문/새 테스트</button>
+    <h1 id="hTitle">테스트·설문</h1>
+    <button id="newBtn" class="primary">+ 새로 만들기</button>
   </div>
 </header>
 <!-- 상단 통합 네비: 홈(역할별) + 메뉴 드롭다운 (조교·원장 공통) -->
@@ -249,9 +252,11 @@
   }
   function setMode(mode){
     // mode: list | build | results
-    if(mode === 'list'){ hTitle.textContent = isStaff ? '테스트' : '설문·조사 / 테스트'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
-    if(mode === 'build'){ hTitle.textContent = isStaff ? (draft && draft.id ? '테스트 수정' : '새 테스트') : (draft && draft.id ? '설문 수정' : '새 설문'); backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.remove('hidden'); }
-    if(mode === 'results'){ hTitle.textContent = isStaff ? '테스트 결과' : '설문 결과'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.add('hidden'); }
+    // 제목 표기 — 목록처럼 둘이 섞이는 자리는 '테스트·설문' 고정, 한 건을 열고 있을 땐 그 건의 성격대로 부른다.
+    //   조교는 테스트만 다루므로(설문 탭 잠금) 그대로 '테스트'.
+    if(mode === 'list'){ hTitle.textContent = isStaff ? '테스트' : '테스트·설문'; backBtn.classList.add('hidden'); newBtn.classList.remove('hidden'); builderBar.classList.add('hidden'); }
+    if(mode === 'build'){ var 무엇 = (isStaff || (draft && draft.quiz)) ? '테스트' : '설문'; hTitle.textContent = (draft && draft.id) ? (무엇 + ' 수정') : ('새 ' + 무엇); backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.remove('hidden'); }
+    if(mode === 'results'){ hTitle.textContent = isStaff ? '테스트 결과' : '결과 보기'; backBtn.classList.remove('hidden'); newBtn.classList.add('hidden'); builderBar.classList.add('hidden'); }
   }
 
   // ─────────────── 목록 ───────────────
@@ -274,8 +279,8 @@
   function renderList(items){
     if(!items.length){
       viewEl.innerHTML = isStaff
-        ? '<div class="state">아직 만든 테스트가 없어요.<br>오른쪽 위 <b>+ 새 테스트</b> 버튼으로 첫 테스트를 만들어 보세요.</div>'
-        : '<div class="state">아직 만든 설문·조사나 테스트가 없어요.<br>오른쪽 위 <b>+ 새 설문/새 테스트</b> 버튼으로 첫 항목을 만들어 보세요.</div>';
+        ? '<div class="state">아직 만든 테스트가 없어요.<br>오른쪽 위 <b>+ 새로 만들기</b> 버튼으로 첫 테스트를 만들어 보세요.</div>'
+        : '<div class="state">아직 만든 테스트·설문이 없어요.<br>오른쪽 위 <b>+ 새로 만들기</b> 버튼으로 첫 항목을 만들어 보세요.</div>';
       return;
     }
     viewEl.innerHTML = '';
@@ -288,7 +293,7 @@
       h += '<div class="sub"><span class="badge aud">' + esc(AUD_LABEL[s.audience]||'전체') + '</span> ';
       (s.audAcademy||[]).forEach(function(a){ if(a) h += '<span class="badge tgt">🏫 ' + esc(a) + '</span> '; });
       (s.audClass||[]).forEach(function(c){ if(c){ var pi = c.indexOf('|'); h += '<span class="badge tgt">' + esc(pi >= 0 ? (c.slice(0,pi) + ' › ' + c.slice(pi+1)) : c) + '</span> '; } });
-      if(s.quiz) h += '<span class="badge quiz">테스트</span> ';
+      h += s.quiz ? '<span class="badge quiz">테스트</span> ' : '<span class="badge srv">설문</span> ';
       if(s.anonymous) h += '<span class="badge anon">익명</span> ';
       h += '· 질문 ' + (s.questions?s.questions.length:0) + '개 · 응답 <b>' + (s.responseCount||0) + '</b>명';
       if(s.createdAt) h += ' · ' + esc(fmt(s.createdAt));
@@ -308,7 +313,7 @@
       if(st) st.addEventListener('click', function(){
         var next = (s.status === 'open') ? 'closed' : 'open';
         api('PATCH', '?id=' + s.id, { status: next }).then(function(r){
-          if(r.ok){ toast(next==='open'?'설문을 공개했어요':'설문을 종료했어요'); loadList(); } else toast('변경 실패');
+          if(r.ok){ var 무엇 = (s.quiz ? '테스트' : '설문'); toast(next==='open' ? (무엇+'을 공개했어요') : (무엇+'을 종료했어요')); loadList(); } else toast('변경 실패');
         }).catch(function(){ toast('변경 실패'); });
       });
       card.querySelector('[data-act="del"]').addEventListener('click', function(){ askDelete(s); });
@@ -395,7 +400,9 @@
 
   function startNew(){
     // 상태 기본값 = 초안 (관우T 2026-07-09 확정: "초안 있는 게 낫겠다 — 미리 만들어두고 공개하게")
-    draft = { title:'', description:'', audience:'all', audAcademy:[], audClass:[], anonymous:false, quiz:isStaff ? true : false, useTwin:true, status:'draft', questions:[ newQuestion('short') ] };
+    // 2026-08-04 관우T "메인이 테스트다" → 새로 만들 때 기본 모드를 테스트로 바꿨다(전에는 원장만 설문으로 시작).
+    //   설문은 수업 첫날·마지막날에만 쓰므로, 그때만 위쪽 「설문」 탭을 누르시면 된다.
+    draft = { title:'', description:'', audience:'all', audAcademy:[], audClass:[], anonymous:false, quiz:true, useTwin:true, status:'draft', questions:[ newQuestion('short') ] };
     if(PRESET.acad){
       draft.audAcademy = [PRESET.acad];
       if(PRESET.cls) draft.audClass = [PRESET.acad + '|' + PRESET.cls];
@@ -420,12 +427,13 @@
 
     var head = document.createElement('div'); head.className = 'card';
     head.innerHTML =
+      // 2026-08-04 — 메인은 테스트다(설문은 수업 첫날·마지막날에만). 그래서 테스트 탭을 왼쪽에 둔다.
       '<div class="modeTabs" id="modeTabs">' +
-        '<button type="button" class="modeTab" id="tabSurvey">설문</button>' +
         '<button type="button" class="modeTab" id="tabQuiz">테스트</button>' +
+        '<button type="button" class="modeTab" id="tabSurvey">설문</button>' +
       '</div>' +
-      '<label class="fld">설문 제목</label>' +
-      '<input type="text" id="fTitle" placeholder="예: 3월 수업 만족도 조사">' +
+      '<label class="fld" id="fTitleLbl">제목</label>' +
+      '<input type="text" id="fTitle" placeholder="예: 2학기 중간 대비 1차 테스트">' +
       '<label class="fld">설명 (선택)</label>' +
       '<textarea id="fDesc" placeholder="응답자에게 보여줄 안내문"></textarea>' +
       '<div class="inline">' +
@@ -543,6 +551,13 @@
     var ts = document.getElementById('tabSurvey'), tq = document.getElementById('tabQuiz');
     if(ts) ts.classList.toggle('on', !draft.quiz);
     if(tq) tq.classList.toggle('on', !!draft.quiz);
+    // 제목 라벨·예시도 모드에 맞춰 부른다(표기 규칙: 항목 하나하나는 성격대로, 섞이는 자리만 '테스트·설문').
+    var 무엇 = (isStaff || draft.quiz) ? '테스트' : '설문';
+    if(hTitle) hTitle.textContent = draft.id ? (무엇 + ' 수정') : ('새 ' + 무엇);   // 탭을 바꾸면 상단 제목도 따라간다
+    var tl = document.getElementById('fTitleLbl');
+    if(tl) tl.textContent = draft.quiz ? '테스트 제목' : '설문 제목';
+    var ti = document.getElementById('fTitle');
+    if(ti) ti.placeholder = draft.quiz ? '예: 2학기 중간 대비 1차 테스트' : '예: 3월 수업 만족도 조사';
     var aud = document.getElementById('fAud');
     if(aud){
       if(draft.quiz){ draft.audience = 'student'; aud.value = 'student'; aud.disabled = true; }  // 테스트는 학생만 응답
@@ -859,7 +874,7 @@
 
   function saveBuilder(){
     syncFromForm();
-    if(!draft.title.trim()){ toast('설문 제목을 입력해 주세요'); return; }
+    if(!draft.title.trim()){ toast((draft.quiz ? '테스트' : '설문') + ' 제목을 입력해 주세요'); return; }
     // 질문 정리 — 라벨 빈 것/선택지 빈 것 제거
     var qs = draft.questions.map(function(q){
       var o = { id:q.id, type:q.type, label:(q.label||'').trim(), required:!!q.required };
@@ -921,7 +936,7 @@
     th += '<span class="badge ' + survey.status + '">' + (survey.status==='open'?'진행중':survey.status==='closed'?'종료':'초안') + '</span></div>';
     th += '<div class="rsummary">응답 <b>' + responses.length + '</b>명';
     if(survey.quiz) th += ' · <span class="badge quiz">테스트</span>';
-    if(survey.anonymous) th += ' · 익명 설문';
+    if(survey.anonymous) th += (survey.quiz ? ' · 익명 테스트' : ' · 익명 설문');
     // 테스트: 평균 점수
     if(survey.quiz && responses.length){
       var maxS = null, sumS = 0, cntS = 0;

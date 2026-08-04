@@ -55,7 +55,7 @@ export async function upsertTestScore(env, opts) {
     //   ("분명 시험 봤는데 성적표에 없어요"의 원인이 이름 오타인지 익명 설정인지 알 수 없었다.)
     //   → 스킵 사유를 돌려줘서 부르는 쪽이 로그로 남기게 한다. 흐름은 예전과 동일(그냥 반환).
     if (!TEST_KINDS.has(kind)) return { ok: false, skipped: '테스트 종류 미지정(일반 퀴즈) — 성적표 반영 대상 아님' };
-    if (survey.anonymous) return { ok: false, skipped: '익명 설문 — 누구 점수인지 특정 불가' };
+    if (survey.anonymous) return { ok: false, skipped: '익명 테스트 — 누구 점수인지 특정 불가' };
     const score = Number(opts.score), maxScore = Number(opts.maxScore);
     if (!Number.isFinite(maxScore) || maxScore <= 0) return { ok: false, skipped: '채점 가능한 문항이 없음(만점 0) — 환산 불가' };
     if (!Number.isFinite(score)) return { ok: false, skipped: '점수가 숫자가 아님' };

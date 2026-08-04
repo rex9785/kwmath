@@ -982,7 +982,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
         (s.audAcademy||[]).forEach(function(a){ if(kw.academies.indexOf(a)<0) kw.academies.push(a); });
         (s.audClass||[]).forEach(function(p){ var ix=p.indexOf('|'); if(ix>0){ var a=p.slice(0,ix); if(kw.academies.indexOf(a)<0) kw.academies.push(a); } });
       });
-      if(!kw.quizzes.length){ status("테스트(자동 채점 설문)가 아직 없습니다.",true); return; }
+      if(!kw.quizzes.length){ status("불러올 테스트가 아직 없습니다. (테스트·설문에서 먼저 테스트를 만들어 주세요)",true); return; }
       $("kwFilters").style.display="flex";
       fillSel($("kwAcad"), kw.academies, "전체 학원", "");
       refreshFilters();
@@ -1082,7 +1082,7 @@ function unitAvgOf(exam){ var m={}; exam.unitOrder.forEach(function(u){ var s=0,
     var sv=kw.detail.survey, r=(kw.detail.responses||[])[i];
     if(!r || !kw.exam) return;
     var b=buildOX(sv,r);
-    if(b.pending && !confirm("서술형 미채점 "+b.pending+"건은 X로 계산됩니다.\n(설문/테스트 관리 결과 화면에서 O·X 판정 후 다시 불러오면 반영)\n계속할까요?")) return;
+    if(b.pending && !confirm("서술형 미채점 "+b.pending+"건은 X로 계산됩니다.\n(「테스트·설문」 결과 화면에서 O·X 판정 후 다시 불러오면 반영)\n계속할까요?")) return;
     var key="kw_"+sv.id;
     EXAMS[key]=kw.exam;
     var sel=$("examSel"), has=false;

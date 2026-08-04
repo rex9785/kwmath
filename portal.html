@@ -273,10 +273,10 @@
         <a id="surveyBanner" href="/surveys" style="display:none;align-items:center;gap:12px;text-decoration:none;color:inherit;padding:14px 16px;">
           <span style="flex-shrink:0;width:38px;height:38px;border-radius:11px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg></span>
           <span style="flex:1;min-width:0;">
-            <span style="display:block;font-weight:700;font-size:13.5px;color:var(--text);" id="surveyBannerTitle">진행 중인 설문이 있어요</span>
-            <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;" id="surveyBannerSub">눌러서 응답하기</span>
+            <span style="display:block;font-weight:700;font-size:13.5px;color:var(--text);" id="surveyBannerTitle">진행 중인 테스트·설문이 있어요</span>
+            <span style="display:block;font-size:11.5px;color:var(--text-light);margin-top:2px;" id="surveyBannerSub">눌러서 응시하기</span>
           </span>
-          <span style="flex-shrink:0;font-size:12px;font-weight:700;background:var(--primary);color:#fff;border-radius:999px;padding:7px 14px;white-space:nowrap;">응답</span>
+          <span id="surveyBannerPill" style="flex-shrink:0;font-size:12px;font-weight:700;background:var(--primary);color:#fff;border-radius:999px;padding:7px 14px;white-space:nowrap;">응시</span>
         </a>
 
         <!-- 미제출 과제 행 — /homework 목록에서 '미제출'로 뜨는 것과 정확히 같은 기준(활성 과제 · 내 사진 0장). -->
@@ -314,7 +314,7 @@
       </div>
     </div>
 
-    <!-- 설문·조사 배너: 6c에서 '확인이 필요해요' 액션 존 안으로 이전됨 (id=surveyBanner) -->
+    <!-- 테스트·설문 배너: 6c에서 '확인이 필요해요' 액션 존 안으로 이전됨 (id=surveyBanner) -->
 
 
     <!-- 학원 공지/안내 박스 -->
@@ -325,16 +325,16 @@
       <div id="noticeList"></div>
     </div>
 
-    <!-- 설문 안내 팝업 (로그인 후 열린 설문이 있으면 1회 노출) -->
+    <!-- 테스트·설문 안내 팝업 (로그인 후 열린 항목이 있으면 1회 노출) -->
     <div id="surveyPopup" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.45);
          align-items:center;justify-content:center;padding:24px;">
       <div style="background:#fff;border-radius:20px;max-width:340px;width:100%;padding:24px 22px 20px;
            box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center;">
         <div style="line-height:1;margin-bottom:12px;color:var(--primary);"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="4" rx="1"/><rect x="4.5" y="4.5" width="15" height="17" rx="2"/><path d="M8.5 11h7M8.5 15h5"/></svg></div>
-        <div id="surveyPopupTitle" style="font-weight:800;font-size:1.08rem;color:var(--primary);margin-bottom:6px;">새 설문이 있어요</div>
-        <div id="surveyPopupSub" style="font-size:0.88rem;color:#6b5d57;line-height:1.55;margin-bottom:18px;">응답해 주시면 큰 도움이 돼요.</div>
+        <div id="surveyPopupTitle" style="font-weight:800;font-size:1.08rem;color:var(--primary);margin-bottom:6px;">새 테스트·설문이 있어요</div>
+        <div id="surveyPopupSub" style="font-size:0.88rem;color:#6b5d57;line-height:1.55;margin-bottom:18px;">지금 바로 응시할 수 있어요.</div>
         <a id="surveyPopupGo" href="/surveys" style="display:block;background:var(--primary);color:#fff;text-decoration:none;
-           font-weight:800;font-size:0.95rem;padding:13px;border-radius:12px;margin-bottom:9px;">응답하러 가기</a>
+           font-weight:800;font-size:0.95rem;padding:13px;border-radius:12px;margin-bottom:9px;">응시하러 가기</a>
         <button type="button" onclick="dismissSurveyPopup()" style="background:none;border:none;color:#999;
            font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;padding:6px;">나중에</button>
       </div>
@@ -387,7 +387,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9B8AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;flex-shrink:0;"><path d="m9 5 7 7-7 7"/></svg>
     </a>
 
-    <!-- 설문·조사: 상시 카드 제거. 열린 설문이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). -->
+    <!-- 테스트·설문: 상시 카드/메뉴 자리 없음(의도된 설계). 열린 항목이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). 재부활 금지. -->
     <!-- [주의] 질문방: 심사 중 숨김. QNA_ENABLED=true 면 JS가 display 해제해 노출. id·href·data-feat 유지 -->
     <a href="/qna" class="feat-btn feat-wide" data-feat="qna" id="qnaFeatBtn" style="display:none;margin-bottom:24px;">
       <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"/></svg></span>
@@ -1848,7 +1848,7 @@
       el.style.display = 'inline-block';
     } catch (e) { /* silent */ }
   }
-  // ─── 설문·조사 안내 (열린 설문 있을 때만 팝업+배너) ───
+  // ─── 테스트·설문 안내 (열린 항목 있을 때만 팝업+배너) ───
   let _surveyAlertDone = false;
   async function loadSurveyAlert() {
     try {
@@ -1860,24 +1860,28 @@
       if (!res.ok) return;
       const data = await res.json();
       if (!data || !data.ok || !Array.isArray(data.surveys)) return;
-      const open = data.surveys.filter(s => !s.answered);   // 아직 응답 안 한 열린 설문
+      const open = data.surveys.filter(s => !s.answered);   // 아직 안 한 열린 테스트·설문
       const banner = document.getElementById('surveyBanner');
 
       if (!open.length) { if (banner) banner.style.display = 'none'; return; }
 
-      // 얇은 배너 — 열린 설문이 있는 동안 상시
+      // 얇은 배너 — 열린 항목이 있는 동안 상시
+      // 표기 규칙(2026-08-04 관우T): 섞여 나오는 자리는 '테스트·설문'으로 고정,
+      // 하나뿐이면 그 항목의 quiz 플래그대로 '테스트'/'설문'이라 부른다.
       if (banner) {
         const t = document.getElementById('surveyBannerTitle');
         const sub = document.getElementById('surveyBannerSub');
+        const pill = document.getElementById('surveyBannerPill');
         const anyQuiz = open.some(s => s.quiz);
         if (t) t.textContent = open.length > 1
-          ? ('응답할 ' + (anyQuiz ? '테스트·설문' : '설문') + '이 ' + open.length + '개 있어요')
-          : ('“' + (open[0].title || '설문') + '”' + (open[0].quiz ? ' 테스트' : '') + ' 응답을 기다리고 있어요');
-        if (sub) sub.textContent = '눌러서 ' + (anyQuiz ? '풀어보기' : '응답하기');
+          ? ('진행 중인 테스트·설문이 ' + open.length + '개 있어요')
+          : ('“' + (open[0].title || '제목 없음') + '” ' + (open[0].quiz ? '테스트가' : '설문이') + ' 기다리고 있어요');
+        if (sub) sub.textContent = '눌러서 ' + (anyQuiz ? '응시하기' : '응답하기');
+        if (pill) pill.textContent = anyQuiz ? '응시' : '응답';
         banner.style.display = 'flex';
       }
 
-      // 팝업 — 아직 안 본(=dismiss 안 한) 새 설문이 있을 때 1회
+      // 팝업 — 아직 안 본(=dismiss 안 한) 새 테스트·설문이 있을 때 1회
       let dismissed = [];
       try { dismissed = JSON.parse(localStorage.getItem('kwmath_survey_dismissed') || '[]') || []; } catch(_) {}
       const fresh = open.filter(s => dismissed.indexOf(s.id) < 0);
@@ -1888,11 +1892,11 @@
         const ps = document.getElementById('surveyPopupSub');
         const go = document.getElementById('surveyPopupGo');
         if (pt) pt.textContent = fresh.length > 1
-          ? ('새 ' + (anyQuiz ? '테스트·설문' : '설문') + '이 ' + fresh.length + '개 있어요')
-          : ('“' + (fresh[0].title || '설문') + '”' + (anyQuiz ? ' 테스트' : ''));
-        if (ps) ps.textContent = anyQuiz ? '지금 풀면 바로 채점돼서 점수를 볼 수 있어요.' : '응답해 주시면 큰 도움이 돼요.';
-        if (go) go.textContent = anyQuiz ? '테스트 풀러 가기' : '응답하러 가기';
-        // 다음부터 이 설문들로는 다시 안 뜨게 기억
+          ? ('새 테스트·설문이 ' + fresh.length + '개 있어요')
+          : ('“' + (fresh[0].title || '제목 없음') + '” ' + (fresh[0].quiz ? '테스트' : '설문'));
+        if (ps) ps.textContent = anyQuiz ? '지금 응시하면 바로 채점돼서 점수를 볼 수 있어요.' : '응답해 주시면 큰 도움이 돼요.';
+        if (go) go.textContent = anyQuiz ? '응시하러 가기' : '응답하러 가기';
+        // 다음부터 이 항목들로는 다시 안 뜨게 기억
         try { localStorage.setItem('kwmath_survey_dismissed', JSON.stringify(open.map(s => s.id))); } catch(_) {}
         const pop = document.getElementById('surveyPopup');
         if (pop) pop.style.display = 'flex';
@@ -2030,7 +2034,7 @@
   }
 
   // ════════ 6c: 확인이 필요해요 액션 존 ════════
-  //   여기 들어오는 줄은 "누르면 끝나는 일"만. 그래서 미제출 과제·새 리포트·설문 셋뿐이다.
+  //   여기 들어오는 줄은 "누르면 끝나는 일"만. 그래서 미제출 과제·새 리포트·테스트·설문 셋뿐이다.
   //   ⚠️ 공지 줄(actionNoticeRow)은 2026-07-23 관우T 지시로 뺀 것 — 아래 #noticeBox 한 곳에서만 보여준다. 되살리지 않는다.
   const KW_ACTION_ROWS = ['surveyBanner','actionHwRow','actionReportRow'];
   function refreshActionZone(){

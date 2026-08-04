@@ -490,7 +490,7 @@ function audienceMatchesStudents(s, students) {
 // 새 응답 → 원장 앱 푸시 (best-effort, 절대 throw 안 함)
 function notifyAdmin(context, env, survey, who) {
   try {
-    const title = (survey.title || '설문').toString().slice(0, 30);
+    const title = (survey.title || (survey.quiz ? '테스트' : '설문')).toString().slice(0, 30);
     const scoreTxt = (survey.quiz && typeof survey.maxScore === 'number')
       ? (' · ' + survey.score + '/' + survey.maxScore + '점') : '';
     const p = sendPushToUsers(env, ADMIN_PUSH_USERS, {
@@ -1340,7 +1340,7 @@ export async function onRequest(context) {
               targetName: resp.respondent_name || '',
               summary: '[' + (resp.respondent_name || '이름없음') + '] 재제출 허용 부여 — '
                 + (s.quiz === 1 ? '테스트' : '설문') + ' [' + (s.title || id) + ']'
-                + (s.status === 'closed' ? ' (종료된 설문이지만 이 학생만 다시 제출 가능)' : '')
+                + (s.status === 'closed' ? ' (종료됐지만 이 학생만 다시 제출 가능)' : '')
                 + (granted ? '' : ' ※ 저장 실패'),
               detail: {
                 설문id: id, 제목: s.title || '', 설문상태: s.status || '',
@@ -1709,7 +1709,7 @@ export async function onRequest(context) {
           target: 'survey/' + id,
           targetName: (access.student && access.student.name) || '',
           summary: '[' + ((access.student && access.student.name) || access.phone) + '] '
-            + (s.quiz === 1 ? '테스트' : '설문') + ' [' + (s.title || id) + '] 중복 제출 차단 — 이미 제출한 설문(409)',
+            + (s.quiz === 1 ? '테스트' : '설문') + ' [' + (s.title || id) + '] 중복 제출 차단 — 이미 제출함(409)',
           detail: {
             설문id: id, 제목: s.title || '', 퀴즈: s.quiz === 1,
             학생id: (access.student && access.student.id) || null,
@@ -1777,7 +1777,7 @@ export async function onRequest(context) {
         summary: '[' + (name || access.phone) + '] ' + (isQuiz ? '테스트' : '설문') + ' [' + (s.title || id) + '] 응답 제출'
           + (isQuiz && graded ? (' — ' + graded.score + '/' + graded.maxScore + '점') : '')
           + (wasResubmit ? ' (재제출 허용분)' : '')
-          + (s.anonymous === 1 ? ' · 익명설문' : ''),
+          + (s.anonymous === 1 ? ' · 익명' : ''),
         detail: {
           설문id: id, 제목: s.title || '', 퀴즈: isQuiz, 익명: s.anonymous === 1,
           응답id: (ins.meta && ins.meta.last_row_id) || null,
