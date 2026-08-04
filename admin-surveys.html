@@ -90,6 +90,9 @@
                padding:12px 14px calc(env(safe-area-inset-bottom) + 12px); }
   .builderBarInner{ max-width:760px; margin:0 auto; display:flex; gap:9px; }
   .builderBar button{ flex:1; border:none; border-radius:10px; padding:12px; font-size:0.95rem; font-weight:700; cursor:pointer; }
+  /* 🛡️ 2026-08-04 — 수식 키패드가 떠 있는 동안 하단바(취소·저장)를 잠근다. iOS 유령클릭 방지.
+     🚫 이 규칙과 스크립트 하단 kbLock 폴링을 지우면 「정답 입력하다 취소가 눌려 초안이 날아감」이 재발한다. */
+  .builderBar.kbLock{ visibility:hidden; pointer-events:none; }
   .addQ{ border:1px dashed var(--primary); background:var(--primary-light); color:var(--primary);
          border-radius:10px; padding:11px; width:100%; font-size:0.9rem; font-weight:600; cursor:pointer; margin-top:4px; }
   /* 결과 */
@@ -1512,8 +1515,47 @@
   }
   newBtn.addEventListener('click', startNew);
   backBtn.addEventListener('click', function(){ draft = null; loadList(); });
-  document.getElementById('cancelBuild').addEventListener('click', function(){ draft = null; loadList(); });
-  document.getElementById('saveBuild').addEventListener('click', saveBuilder);
+  // ───────── 🛡️ 2026-08-04 아이폰 유령클릭 차단 (surveys.html 과 같은 사고의 관리자쪽 판) ─────────
+  //  MathLive 수식 키패드는 position:fixed 로 화면 아래를 덮고, 열릴 때 body 에 padding-bottom(≈300px)을 준다.
+  //  그래서 sticky 하단바(.builderBar)가 키패드 '맨 아랫줄' 바로 밑에 겹쳐 깔린다. iOS 는 터치가 끝나는 시점의
+  //  좌표로 click 을 다시 쏘므로, 정답을 수식으로 넣다가 키패드가 닫히는 순간 그 자리의 「취소」·「저장」이 눌린다.
+  //  「취소」가 눌리면 만들던 설문·테스트가 통째로 날아간다 → 반드시 막아야 한다.
+  //   ① 무장(arm): 그 버튼 위에서 눌리기 시작한 클릭만 받는다(유령클릭엔 pointerdown 이 없다).
+  //   ② 잠금(kbLock): 키패드가 떠 있는 동안 + 닫힌 뒤 0.7초까지 하단바를 안 보이게·안 눌리게 한다.
+  //      MathLive 이벤트 대신 0.2초 폴링 — 이벤트가 안 오는 기기에서 하단바가 영영 숨는 사고를 막기 위해서다.
+  //  🚫 지우면 사고 재발. 학생쪽 같은 코드는 surveys.html 하단에 있다.
+  var kbArmedEl = null;
+  document.addEventListener('pointerdown', function(ev){ kbArmedEl = ev.target; }, true);
+  function guardedClick(btn, fn){
+    btn.addEventListener('click', function(ev){
+      if(ev.detail === 0){ fn(); return; }                                  // 키보드 Enter·보조기기
+      var ok = !!(kbArmedEl && (kbArmedEl === btn || btn.contains(kbArmedEl)));
+      if(!ok || builderBar.classList.contains('kbLock')){ ev.preventDefault(); return; }
+      kbArmedEl = null;
+      fn();
+    });
+  }
+  guardedClick(document.getElementById('cancelBuild'), function(){ draft = null; loadList(); });
+  guardedClick(document.getElementById('saveBuild'), saveBuilder);
+  (function(){
+    var wasOpen = false, unlockAt = 0;
+    function kbOpenNow(){
+      try{
+        var mvk = window.mathVirtualKeyboard;
+        if(!mvk) return false;
+        if(typeof mvk.visible === 'boolean') return mvk.visible;
+        return !!(mvk.boundingRect && mvk.boundingRect.height > 0);
+      }catch(e){ return false; }
+    }
+    setInterval(function(){
+      var now = Date.now();
+      if(kbOpenNow()){ wasOpen = true; unlockAt = 0; kbArmedEl = null; builderBar.classList.add('kbLock'); return; }
+      if(wasOpen){ wasOpen = false; unlockAt = now + 700; }
+      if(unlockAt && now < unlockAt){ kbArmedEl = null; builderBar.classList.add('kbLock'); return; }
+      unlockAt = 0;
+      builderBar.classList.remove('kbLock');
+    }, 200);
+  })();
 
   // ?acad=&cls=&new=1 로 넘어왔으면 그 반을 대상으로 새 테스트 빌더를 바로 연다.
   if(PRESET.isNew && PRESET.acad) startNew();

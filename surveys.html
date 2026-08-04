@@ -74,6 +74,12 @@
   .submitBar button{ width:100%; border:none; border-radius:12px; padding:14px; font-size:1rem; font-weight:700;
                      cursor:pointer; background:var(--primary); color:#fff; }
   .submitBar button:disabled{ opacity:0.5; }
+  /* 🛡️ 2026-08-04 — 수식 키패드가 떠 있는 동안 제출바를 잠근다.
+     MathLive 가상키패드는 position:fixed 로 화면 맨 아래를 덮고, 열릴 때 body 에 padding-bottom(≈300px)을 준다.
+     그 결과 sticky 제출바가 키패드 '맨 아랫줄' 바로 밑에 겹쳐 깔린다 → 아이폰에서 키패드 버튼을 눌러
+     키패드가 사라지는 순간, 그 자리에 새로 올라온 「응답 제출」로 클릭이 떨어져(iOS 유령클릭) 그냥 제출된다.
+     🚫 이 규칙과 아래 kbLock 스크립트를 지우면 그 사고가 그대로 재발한다. */
+  .submitBar.kbLock{ visibility:hidden; pointer-events:none; }
   .toast{ position:fixed; left:50%; bottom:80px; transform:translateX(-50%); background:#241318; color:#fff;
           padding:11px 18px; border-radius:10px; font-size:0.88rem; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50; }
   .toast.show{ opacity:0.95; }
@@ -453,8 +459,51 @@
     window.scrollTo(0,0);
   }
 
+  // ───────── 🛡️ 2026-08-04 아이폰 「수식 키패드 누르면 저절로 제출」 사고 차단 ─────────
+  //  증상(관우T 신고): 아이폰에서 수식 키패드를 켜고 입력하다 키패드 쪽 버튼을 누르면 그대로 「응답 제출」이 눌린다.
+  //  원인: MathLive 가상키패드는 position:fixed(z-index 105)로 화면 아래를 덮고, 열릴 때 body 에
+  //       padding-bottom(≈300px)을 준다. 그래서 sticky 제출바(bottom:0)가 화면 맨 아래 = 키패드 '맨 아랫줄'
+  //       바로 밑에 겹쳐 깔린다. iOS 는 터치가 끝나는 시점의 좌표로 click 을 다시 쏘기 때문에,
+  //       키패드가 닫히거나 높이가 바뀌는 순간 그 자리에 새로 올라온 제출 버튼이 클릭을 맞는다(유령클릭).
+  //  피해: 서버가 재제출을 409('이미 응답한 설문')로 막으므로, 한 번 잘못 나가면 학생은 시험을 다시 못 본다.
+  //       (되돌리려면 원장이 admin-surveys 에서 그 응답을 삭제해야 한다.)
+  //  🚫 아래 두 겹을 지우면 그 사고가 그대로 재발한다.
+  //   ① 무장(arm): 「응답 제출」은 **그 버튼 위에서 눌리기 시작한** 클릭만 받는다. 유령클릭엔 pointerdown 이 없다.
+  //   ② 잠금(kbLock): 키패드가 떠 있는 동안 + 닫힌 뒤 0.7초까지 제출바를 안 보이게·안 눌리게 한다.
+  //      MathLive 이벤트에 기대지 않고 0.2초 폴링으로 판단한다 — 이벤트가 안 오는 기기에서 제출바가
+  //      영영 숨는 사고(더 나쁨)를 원천 차단하기 위해서다. 폴링은 항상 '지금 안 떠 있으면 푼다'로 자가복구한다.
+  var submitArmed = false;
+  document.addEventListener('pointerdown', function(ev){
+    var t = ev.target;
+    submitArmed = !!(t && (t === submitBtn || (submitBtn.contains && submitBtn.contains(t))));
+  }, true);
+  submitBtn.addEventListener('click', function(ev){
+    if(ev.detail === 0){ submit(); return; }                 // 키보드 Enter·보조기기 = pointerdown 없이 오는 정상 클릭
+    if(!submitArmed || submitBar.classList.contains('kbLock')){ ev.preventDefault(); return; }
+    submitArmed = false;
+    submit();
+  });
+  function kbOpenNow(){
+    try{
+      var mvk = window.mathVirtualKeyboard;
+      if(!mvk) return false;
+      if(typeof mvk.visible === 'boolean') return mvk.visible;
+      return !!(mvk.boundingRect && mvk.boundingRect.height > 0);
+    }catch(e){ return false; }
+  }
+  (function(){
+    var wasOpen = false, unlockAt = 0;
+    setInterval(function(){
+      var now = Date.now();
+      if(kbOpenNow()){ wasOpen = true; unlockAt = 0; submitArmed = false; submitBar.classList.add('kbLock'); return; }
+      if(wasOpen){ wasOpen = false; unlockAt = now + 700; }
+      if(unlockAt && now < unlockAt){ submitArmed = false; submitBar.classList.add('kbLock'); return; }
+      unlockAt = 0;
+      submitBar.classList.remove('kbLock');
+    }, 200);
+  })();
+
   backBtn.addEventListener('click', loadList);
-  submitBtn.addEventListener('click', submit);
   loadList();
 </script>
 <!-- 학생 상단 네비: 홈(포털) + 메뉴 드롭다운 -->
