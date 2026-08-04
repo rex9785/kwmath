@@ -1555,11 +1555,18 @@ const FAQ_DATA = [
 <style>
   .kwap-ovl{position:fixed;inset:0;z-index:100000;background:rgba(20,8,10,0.62);display:none;align-items:center;justify-content:center;padding:20px;}
   .kwap-ovl.show{display:flex;}
-  .kwap-card{width:340px;max-width:92vw;background:#fff;border-radius:6px;overflow:hidden;position:relative;box-shadow:0 18px 50px rgba(0,0,0,0.4);}
+  /* 2026-08-04 max-height + auto: 팝업에 강좌명·시간 줄을 더하면서 카드가 길어졌다.
+     작은 폰(세로 660px대)에서 아래쪽 「닫기」가 잘리지 않도록 넘치면 카드 안에서 스크롤되게 한다. */
+  .kwap-card{width:340px;max-width:92vw;max-height:calc(100vh - 40px);background:#fff;border-radius:6px;overflow:hidden auto;position:relative;box-shadow:0 18px 50px rgba(0,0,0,0.4);}
   .kwap-x{position:absolute;top:8px;right:8px;z-index:5;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,0.85);color:#211914;font-size:22px;line-height:1;cursor:pointer;}
   .kwap-card>img{width:100%;display:block;}
   .kwap-cta{padding:14px 16px 16px;}
-  .kwap-sub{font-size:12px;color:#71675E;text-align:center;margin-bottom:10px;}
+  .kwap-sub{font-size:12px;color:#71675E;text-align:center;margin-bottom:6px;}
+  .kwap-title{font-size:15px;font-weight:800;color:#211914;text-align:center;line-height:1.35;margin-bottom:5px;}
+  .kwap-meta{font-size:12.5px;color:#71675E;text-align:center;margin-bottom:12px;letter-spacing:-0.2px;}
+  .kwap-links{display:flex;justify-content:center;gap:16px;margin-top:11px;}
+  .kwap-links a{font-size:12.5px;font-weight:700;color:#862633;text-decoration:none;border-bottom:1px solid rgba(134,38,51,0.35);padding-bottom:1px;}
+  .kwap-links a:hover{color:#511F26;border-bottom-color:#511F26;}
   .kwap-apply{display:block;width:100%;border:none;background:#862633;color:#fff;font-size:16px;font-weight:700;padding:14px;border-radius:6px;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;}
   .kwap-apply:hover{background:#511F26;color:#fff;}
   .kwap-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
@@ -1573,9 +1580,18 @@ const FAQ_DATA = [
     <img src="수강신청_포스터.jpg" alt="이관우 수학 · 수강신청 안내 — 관점을 바꾸는 수학, 우상향으로 가는 실력">
     <div class="kwap-cta">
       <div class="kwap-sub">반포 세정학원 · 고1 2학기 내신 · 동덕여고</div>
+      <div class="kwap-title">동덕여고 1학년 공통수학2<br>중간고사 내신 완성반</div>
+      <div class="kwap-meta">화목 P6:00-10:00 · 8/20(목) 개강 · 11+1회</div>
       <!-- 2026-08-04 여름방학 → 2학기 내신으로 교체. co=고1 · ct=내신 · th=동덕여고 (세정 홈페이지에서 실제 이동 확인).
-           옛 링크의 #이관우 앵커는 세정 페이지에 그런 id가 없어(DOM 확인) 아무 동작도 안 하므로 뺐다. -->
+           옛 링크의 #이관우 앵커는 세정 페이지에 그런 id가 없어(DOM 확인) 아무 동작도 안 하므로 뺐다.
+           세정은 강좌 상세·수강예약에 고유 URL이 없다(상세보기=순수 JS 아코디언이라 주소 안 바뀜, &id=6128도 무시.
+           수강예약=href javascript:void(0) + data-id로 공용 #drawer를 여는 구조). 그래서 상세는 우리 쪽
+           dongduk.html · syllabus.html로 보여주고, 세정으로는 신청만 보낸다. -->
       <a class="kwap-apply" href="https://banpo.sejungedu.com/schedule/timetable?co=%EA%B3%A01&amp;ct=%EB%82%B4%EC%8B%A0&amp;th=%EB%8F%99%EB%8D%95%EC%97%AC%EA%B3%A0" target="_blank" rel="noopener">수강신청하기 →</a>
+      <div class="kwap-links">
+        <a href="dongduk.html">동덕여고 출제 분석</a>
+        <a href="syllabus.html">강의계획서 11회</a>
+      </div>
       <div class="kwap-foot">
         <label><input type="checkbox" id="kwapDnd"> 오늘 하루 보지 않기</label>
         <button id="kwapClose">닫기</button>
