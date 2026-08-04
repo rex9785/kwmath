@@ -90,13 +90,20 @@
                padding:12px 14px calc(env(safe-area-inset-bottom) + 12px); }
   .builderBarInner{ max-width:760px; margin:0 auto; display:flex; gap:9px; }
   .builderBar button{ flex:1; border:none; border-radius:10px; padding:12px; font-size:0.95rem; font-weight:700; cursor:pointer; }
-  /* 🛡️ 2026-08-04 — 수식 키패드가 떠 있는 동안 하단바(취소·저장)를 잠근다. iOS 유령클릭 방지.
+  /* 🛡️ 2026-08-04 — 수식 키패드가 떠 있는 동안 하단바(취소·저장)를 잠근다. 유령클릭 방지(아이폰·갤럭시 공통).
      🚫 이 규칙과 스크립트 하단 kbLock 폴링을 지우면 「정답 입력하다 취소가 눌려 초안이 날아감」이 재발한다. */
   .builderBar.kbLock{ visibility:hidden; pointer-events:none; }
   .addQ{ border:1px dashed var(--primary); background:var(--primary-light); color:var(--primary);
          border-radius:10px; padding:11px; width:100%; font-size:0.9rem; font-weight:600; cursor:pointer; margin-top:4px; }
   /* 결과 */
   .rsummary{ font-size:0.9rem; color:#4a423d; margin-bottom:12px; }
+  /* 🎯 오답률 순위 — 기본은 제목줄만 보이는 접힘 상태(2026-08-04 관우T 지시). 펼치면 전 문항. */
+  .wrank > summary{ cursor:pointer; list-style:none; display:flex; align-items:center; gap:7px; }
+  .wrank > summary::-webkit-details-marker{ display:none; }   /* 사파리 기본 삼각형 숨김 */
+  .wrank > summary::marker{ content:''; }
+  .wrank .wrank-tog{ margin-left:auto; font-size:0.82rem; font-weight:700; color:var(--primary); white-space:nowrap; }
+  .wrank[open] .wrank-open{ display:none; }
+  .wrank:not([open]) .wrank-close{ display:none; }
   .qres{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px; margin-bottom:11px; }
   .qres h4{ margin:0 0 9px; font-size:0.95rem; }
   .bar{ margin:6px 0; }
@@ -934,37 +941,46 @@
       viewEl.appendChild(e); return;
     }
 
-    // ── 🎯 오답률 Top 5 (테스트 전용) — 자동채점 문항(객관식·단답·수식)만 · 미제출=오답 · 분모=전체 응시 인원 ──
-    //    서술형은 수동 O/X·채점대기가 섞여 오답률 개념이 애매해 제외(2026-07-29 관우T).
+    // ── 🎯 오답률 순위 (테스트 전용) — 자동채점 문항(객관식·단답·수식)만 · 미제출=오답 · 분모=전체 응시 인원 ──
+    //    서술형은 수동 O/X·채점대기가 섞여 오답률 개념이 애매해 제외(2026-07-29 관우T · 2026-08-04 재확인).
+    //    2026-08-04 관우T 지시로 「Top 5」 → 「전 문항」. 다 맞힌 문항(오답률 0%)도 맨 아래에 흐리게 남긴다.
+    //    문항이 많으면 결과 화면이 밀리므로 기본은 제목줄만 보이는 접힘(<details class="wrank">), 펼치면 전부.
     if(survey.quiz){
-      var wstat = qs.filter(function(q){
+      var wstat = qs.map(function(q, i){ return { q:q, i:i }; })
+        .filter(function(o){
+          var q = o.q;
           return q.correct!=null && (q.type==='single'||q.type==='multi'||q.type==='dropdown'||q.type==='short'||q.type==='math');
-        }).map(function(q, i){
-          var ok = 0;
-          responses.forEach(function(r){ if(isRight(q, r.answers[q.id])===true) ok++; });
+        }).map(function(o){
+          var q = o.q, ok = 0;
+          responses.forEach(function(r){ if(isRight(q, (r.answers||{})[q.id])===true) ok++; });
           var wrong = responses.length - ok;
-          return { label:(q.label||('문항 '+(i+1))), wrong:wrong, rate: responses.length?Math.round(wrong/responses.length*100):0, idx:i };
-        }).filter(function(s){ return s.wrong>0; });   // 다 맞힌 문항(오답 0)은 표시 안 함
+          // 라벨의 「문항 N」은 원본 문항 순서(o.i)로 만든다 — 서술형이 섞여 있어도 번호가 밀리지 않게.
+          return { label:(q.label||('문항 '+(o.i+1))), wrong:wrong, rate: responses.length?Math.round(wrong/responses.length*100):0, idx:o.i };
+        });
       wstat.sort(function(a,b){ return (b.rate-a.rate) || (b.wrong-a.wrong) || (a.idx-b.idx); });
-      var top5 = wstat.slice(0,5);
-      if(top5.length){
+      if(wstat.length){
+        var wrongQn = wstat.filter(function(s){ return s.wrong>0; }).length;
         var wc = document.createElement('div'); wc.className='card';
-        var wh = '<div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">'
-               + '<span style="font-size:1.02rem;font-weight:800;color:var(--text);">🎯 오답률 Top 5</span>'
-               + '<span class="badge quiz">테스트</span></div>'
-               + '<div class="rsummary" style="margin-bottom:13px;font-size:0.82rem;color:var(--text-light);">가장 많이 틀린 문항이에요 · 미제출도 오답으로 셈 (분모 ' + responses.length + '명)</div>';
-        top5.forEach(function(s, i){
-          wh += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">'
-              +   '<span style="flex:0 0 22px;height:22px;border-radius:7px;background:' + (i===0?'var(--danger,#C5221F)':'var(--primary)') + ';color:#fff;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;">' + (i+1) + '</span>'
+        var wh = '<details class="wrank"><summary>'
+               + '<span style="font-size:1.02rem;font-weight:800;color:var(--text);">🎯 오답률 순위</span>'
+               + '<span class="badge quiz">테스트</span>'
+               + '<span class="wrank-tog"><span class="wrank-open">전 ' + wstat.length + '문항 보기 ▾</span><span class="wrank-close">접기 ▴</span></span>'
+               + '</summary>'
+               + '<div class="rsummary" style="margin:11px 0 13px;font-size:0.82rem;color:var(--text-light);">많이 틀린 순 · 미제출도 오답으로 셈 (분모 ' + responses.length + '명) · 틀린 사람이 있는 문항 ' + wrongQn + '개</div>';
+        wstat.forEach(function(s, i){
+          var zero = (s.wrong === 0);
+          wh += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;' + (zero?'opacity:0.5;':'') + '">'
+              +   '<span style="flex:0 0 22px;height:22px;border-radius:7px;background:' + (zero?'var(--text-light,#8a807a)':(i===0?'var(--danger,#C5221F)':'var(--primary)')) + ';color:#fff;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;">' + (i+1) + '</span>'
               +   '<div style="flex:1;min-width:0;">'
               +     '<div style="display:flex;justify-content:space-between;gap:8px;font-size:0.86rem;margin-bottom:4px;">'
               +       '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;">' + esc(s.label) + '</span>'
-              +       '<span style="flex:0 0 auto;font-weight:800;color:#C5221F;">' + s.rate + '%<span style="color:var(--text-light);font-weight:600;font-size:0.8rem;"> (' + s.wrong + '/' + responses.length + ')</span></span>'
+              +       '<span style="flex:0 0 auto;font-weight:800;color:' + (zero?'var(--text-light)':'#C5221F') + ';">' + s.rate + '%<span style="color:var(--text-light);font-weight:600;font-size:0.8rem;"> (' + s.wrong + '/' + responses.length + ')</span></span>'
               +     '</div>'
               +     '<div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;"><div style="width:' + s.rate + '%;height:100%;border-radius:6px;background:linear-gradient(90deg,#E8746F,#C5221F);"></div></div>'
               +   '</div>'
               + '</div>';
         });
+        wh += '</details>';
         wc.innerHTML = wh;
         viewEl.appendChild(wc);
       }
@@ -1515,10 +1531,11 @@
   }
   newBtn.addEventListener('click', startNew);
   backBtn.addEventListener('click', function(){ draft = null; loadList(); });
-  // ───────── 🛡️ 2026-08-04 아이폰 유령클릭 차단 (surveys.html 과 같은 사고의 관리자쪽 판) ─────────
+  // ───────── 🛡️ 2026-08-04 유령클릭 차단 · 아이폰·갤럭시 공통 (surveys.html 과 같은 사고의 관리자쪽 판) ─────────
   //  MathLive 수식 키패드는 position:fixed 로 화면 아래를 덮고, 열릴 때 body 에 padding-bottom(≈300px)을 준다.
-  //  그래서 sticky 하단바(.builderBar)가 키패드 '맨 아랫줄' 바로 밑에 겹쳐 깔린다. iOS 는 터치가 끝나는 시점의
-  //  좌표로 click 을 다시 쏘므로, 정답을 수식으로 넣다가 키패드가 닫히는 순간 그 자리의 「취소」·「저장」이 눌린다.
+  //  그래서 sticky 하단바(.builderBar)가 키패드 '맨 아랫줄' 바로 밑에 겹쳐 깔린다. 모바일 브라우저는 터치가 끝나는
+  //  시점의 좌표로 click 을 다시 쏘므로, 정답을 수식으로 넣다가 키패드가 닫히는 순간 그 자리의 「취소」·「저장」이 눌린다.
+  //  📱 iOS 전용 문제가 아니다 — 관우T가 갤럭시에서도 확인. 「안드로이드엔 불필요」로 걷어내지 말 것.
   //  「취소」가 눌리면 만들던 설문·테스트가 통째로 날아간다 → 반드시 막아야 한다.
   //   ① 무장(arm): 그 버튼 위에서 눌리기 시작한 클릭만 받는다(유령클릭엔 pointerdown 이 없다).
   //   ② 잠금(kbLock): 키패드가 떠 있는 동안 + 닫힌 뒤 0.7초까지 하단바를 안 보이게·안 눌리게 한다.
