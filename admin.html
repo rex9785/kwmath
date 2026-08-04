@@ -513,6 +513,43 @@
     -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m4.5%2012.5%205%205%2010-11%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
     mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m4.5%2012.5%205%205%2010-11%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat; }
   h3{ display:flex; align-items:center; gap:7px; }
+
+  /* ── 구획별 색 구분 (2026-08-05) ──
+     칩 21개가 전부 같은 와인이라 화면이 균일해져 "어디 있더라"가 매번 생겼다.
+     구획 제목과 그 안 카드의 칩을 같은 색으로 묶어, 눈이 먼저 묶음을 잡고 그 안에서 카드를 찾게 한다.
+     색은 전부 기존 팔레트 계열(와인·청록·딥그린·골드브라운) + 중성 슬레이트. 5색을 넘기지 않는다. */
+  .menu-sec-t{ font-size:0.86rem; letter-spacing:0; }
+  .menu-sec-t::after{ opacity:.55; }
+  .sec1 .menu-sec-t{ color:#862633; }
+  .sec1 .menu-sec-t::after{ background:#862633; opacity:.22; }
+  .sec1 .admin-card > .ac-ic{ background:#F9ECED !important; color:#862633 !important; }
+  .sec1 .admin-card:hover{ border-color:#862633 !important; }
+  .sec1 .admin-card > .ac-ic svg{ stroke-width:2; }
+  .sec1 .cbadge{ background:#862633; }
+  .sec2 .menu-sec-t{ color:#1F6F78; }
+  .sec2 .menu-sec-t::after{ background:#1F6F78; opacity:.22; }
+  .sec2 .admin-card > .ac-ic{ background:#E3F1F2 !important; color:#1F6F78 !important; }
+  .sec2 .admin-card:hover{ border-color:#1F6F78 !important; }
+  .sec2 .admin-card > .ac-ic svg{ stroke-width:2; }
+  .sec2 .cbadge{ background:#1F6F78; }
+  .sec3 .menu-sec-t{ color:#2F6F4F; }
+  .sec3 .menu-sec-t::after{ background:#2F6F4F; opacity:.22; }
+  .sec3 .admin-card > .ac-ic{ background:#E6F2EB !important; color:#2F6F4F !important; }
+  .sec3 .admin-card:hover{ border-color:#2F6F4F !important; }
+  .sec3 .admin-card > .ac-ic svg{ stroke-width:2; }
+  .sec3 .cbadge{ background:#2F6F4F; }
+  .sec4 .menu-sec-t{ color:#A8863D; }
+  .sec4 .menu-sec-t::after{ background:#A8863D; opacity:.22; }
+  .sec4 .admin-card > .ac-ic{ background:#F8F1DE !important; color:#A8863D !important; }
+  .sec4 .admin-card:hover{ border-color:#A8863D !important; }
+  .sec4 .admin-card > .ac-ic svg{ stroke-width:2; }
+  .sec4 .cbadge{ background:#A8863D; }
+  .sec5 .menu-sec-t{ color:#55606E; }
+  .sec5 .menu-sec-t::after{ background:#55606E; opacity:.22; }
+  .sec5 .admin-card > .ac-ic{ background:#ECEEF1 !important; color:#55606E !important; }
+  .sec5 .admin-card:hover{ border-color:#55606E !important; }
+  .sec5 .admin-card > .ac-ic svg{ stroke-width:2; }
+  .sec5 .cbadge{ background:#55606E; }
 </style>
     <div id="adminMenu">
       <!-- 오늘 확인할 것 — 내용은 loadHomeSummary()가 채운다. 다 처리했으면 축하 한 줄만 남는다. -->
@@ -535,7 +572,7 @@
                  앞의 둘은 진입 메뉴, 셋째는 그 문장을 읽다가 바로 누르는 맥락 링크라 성격이 다르다. 더 늘리지 말 것.
              · 🏫 학원·반 관리 — 학생 목록 안 접힌 패널이라 3단계 깊이였다. 카드로 1클릭.
            ↗ 표시 = 별도 페이지로 나가는 카드(돌아올 땐 기기 뒤로가기). 표시 없으면 이 화면 안에서 열린다. -->
-      <div class="menu-sec">
+      <div class="menu-sec sec1">
         <div class="menu-sec-t">① 응대 <i>문의·질문·알림</i></div>
         <div class="admin-grid">
           <button type="button" class="admin-card" onclick="location.href='/admin-inquiries'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5V18a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4.5"></path><path d="M3.5 13.5 6 5.5h12l2.5 8"></path><path d="M8.5 13.5h7l-1 2.5h-5z"></path></svg></span><b>상담 문의함<i class="cbadge" id="bdgInquiry"></i><i class="go-out">↗</i></b><span>홈페이지 수업 문의</span></button>
@@ -543,7 +580,7 @@
           <button type="button" class="admin-card" onclick="location.href='/admin-notify'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg></span><b>알림 보내기<i class="go-out">↗</i></b><span>학원·반·학생에 알림 발송</span></button>
         </div>
       </div>
-      <div class="menu-sec">
+      <div class="menu-sec sec2">
         <div class="menu-sec-t">② 수업 운영 <i>테스트·출결·숙제·클리닉·리포트</i></div>
         <div class="admin-grid">
           <!-- 2026-08-04 관우T "테스트 수업때 많이쓰니까 관리자 페이지에서 위치도 좀 앞으로 옮겨놔"
@@ -565,7 +602,7 @@
           <button type="button" class="admin-card" onclick="openSection('reports')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg></span><b>리포트 조회</b><span>학생 리포트</span></button>
         </div>
       </div>
-      <div class="menu-sec">
+      <div class="menu-sec sec3">
         <div class="menu-sec-t">③ 학생·성적 <i>명단·반 배정·점수</i></div>
         <div class="admin-grid">
           <button type="button" class="admin-card" onclick="openSection('students')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg></span><b>학생 목록</b><span>등록·승인·반 변경</span></button>
@@ -573,7 +610,7 @@
           <button type="button" class="admin-card" onclick="openClassManager()"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20.5V9.5L12 4l8 5.5v11"></path><path d="M2.5 20.5h19M9.5 20.5v-6h5v6"></path></svg></span><b>학원·반 관리</b><span>학원·반 추가·이름변경·삭제</span></button>
         </div>
       </div>
-      <div class="menu-sec">
+      <div class="menu-sec sec4">
         <div class="menu-sec-t">④ 콘텐츠 <i>공지·자료·영상</i></div>
         <div class="admin-grid">
           <button type="button" class="admin-card" onclick="openSection('notices')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"></path><path d="M17.5 9a4 4 0 0 1 0 6"></path></svg></span><b>공지사항 관리</b><span>공지 작성·수정</span></button>
@@ -582,7 +619,7 @@
           <button type="button" class="admin-card" onclick="openSection('reviews')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg></span><b>수강 후기<i class="cbadge" id="bdgReviews"></i></b><span>앱 공개·홈페이지 대표 선정</span></button>
         </div>
       </div>
-      <div class="menu-sec">
+      <div class="menu-sec sec5">
         <div class="menu-sec-t">⑤ 모니터링·설정 <i>랭킹·통계·운영진·앱</i></div>
         <div class="admin-grid">
           <button type="button" class="admin-card" onclick="location.href='/admin-study'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"></path><path d="M8 5.5H5.5v1a3 3 0 0 0 2.6 3M16 5.5h2.5v1a3 3 0 0 1-2.6 3"></path><path d="M12 13v3.5M9 20.5h6l-.7-4h-4.6z"></path></svg></span><b>공부 랭킹<i class="go-out">↗</i></b><span>반별 공부시간 순위(실명)</span></button>
