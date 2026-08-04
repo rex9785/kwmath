@@ -219,15 +219,15 @@
       <div class="kwnav-mw">
         <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
         <div class="kwnav-pop" id="kwnavPop" role="menu">
-          <a role="menuitem" href="/admin-qna" data-p="/admin-qna">💬 질문 답변</a>
-          <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
-          <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
-          <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
-          <a role="menuitem" href="/admin-scores" data-p="/admin-scores">📈 성적</a>
-          <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
-          <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
-          <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
-          <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog">🗓️ 근무기록</a>
+          <a role="menuitem" href="/admin-qna" data-p="/admin-qna"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>질문 답변</a>
+          <a role="menuitem" href="/staff-students" data-p="/staff-students"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>학생</a>
+          <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>클리닉 명단</a>
+          <a role="menuitem" href="/clinic-review" data-p="/clinic-review"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>클리닉 총평</a>
+          <a role="menuitem" href="/admin-scores" data-p="/admin-scores"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>성적</a>
+          <a role="menuitem" href="/staff-reports" data-p="/staff-reports"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>리포트</a>
+          <a role="menuitem" href="/staff-materials" data-p="/staff-materials"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"></path></svg>수업자료</a>
+          <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>테스트</a>
+          <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>근무기록</a>
           <a role="menuitem" href="#" class="kwnav-logout" id="kwnavLogout">🚪 로그아웃</a>
         </div>
       </div>
@@ -468,14 +468,14 @@
     var canBack = !!($('acadSel') && $('acadSel').value && $('clsSel') && $('clsSel').value);
     var who = '<div class="card" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">'+
       '<b style="font-size:0.95rem;">👤 '+esc(curName||'학생')+'</b>'+
-      (canBack? '<button class="mini ghost" onclick="backToClass()">📊 반 평균 보기</button>' : '')+'</div>';
+      (canBack? '<button class="mini ghost" onclick="backToClass()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>반 평균 보기</button>' : '')+'</div>';
 
     var data = curScores.filter(function(s){ return s.examType===tab; });
     var hasGrade = data.some(function(s){ return s.grade!=null; });
     var seg = hasGrade ? ('<span class="seg"><button class="'+(metric==='raw'?'on':'')+'" onclick="setMetric(\'raw\')">원점수</button>'+
       '<button class="'+(metric==='grade'?'on':'')+'" onclick="setMetric(\'grade\')">등급</button></span>') : '';
     var chart = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">'+
-      '<b style="font-size:0.92rem;">📊 '+esc(tab)+' 추이</b>'+seg+'</div>'+
+      '<b style="font-size:0.92rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>'+esc(tab)+' 추이</b>'+seg+'</div>'+
       '<div style="overflow-x:auto;">'+chartSVG(data, metric, tabColor(tab))+'</div></div>';
 
     var rows = data.map(function(s){
@@ -486,7 +486,7 @@
       return '<tr><td>'+when+'</td><td class="score-big">'+esc(fmtScore(s))+'</td>'+
         '<td style="white-space:nowrap;text-align:right;">'+btns+'</td></tr>';
     }).join('');
-    var table = '<div class="card"><b style="font-size:0.92rem;">📋 '+esc(tab)+' 목록</b>'+
+    var table = '<div class="card"><b style="font-size:0.92rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>'+esc(tab)+' 목록</b>'+
       (data.length? '<table style="margin-top:8px;"><tr><th>시기</th><th>'+(isTest?'점수':'점수(등급)')+'</th><th></th></tr>'+rows+'</table>'+
         '<div class="muted" style="margin-top:8px;font-size:0.76rem;">'+(isTest?'100점 만점 환산 점수입니다.':'표기: 원점수(등급) — 예) 80(2)')+'</div>'
         : '<div class="muted" style="margin-top:8px;">아직 입력된 '+esc(tab)+' 성적이 없어요.</div>')+'</div>';
@@ -502,7 +502,7 @@
 
   function formCard(){
     var y=new Date().getFullYear();
-    return '<div class="card"><b style="font-size:0.92rem;" id="formTitle">➕ '+tab+' 성적 추가</b>'+
+    return '<div class="card"><b style="font-size:0.92rem;" id="formTitle"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>'+tab+' 성적 추가</b>'+
       '<div class="row" style="margin-top:10px;">'+
         '<div><label class="fl">학년 <span style="color:#c0392b;">*</span></label><select id="fGrade" onchange="syncLabels()"><option value="">선택</option><option>고1</option><option>고2</option><option>고3</option><option>중3</option></select></div>'+
         '<div><label class="fl">연도</label><input type="number" id="fYear" value="'+y+'" min="2000" max="2100"></div>'+
@@ -608,7 +608,7 @@
   function renderClassPanel(){
     var acad=$('acadSel').value, cls=$('clsSel').value;
     var head='<div class="card" style="padding:13px 16px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">'+
-      '<b style="font-size:0.95rem;">📊 '+esc(cls)+' 반 평균</b>'+
+      '<b style="font-size:0.95rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>'+esc(cls)+' 반 평균</b>'+
       '<span class="muted" style="font-size:0.8rem;">'+esc(acad)+' · 명단 '+classRoster.length+'명</span></div>';
     if(!classRoster.length){ $('panel').innerHTML=head+'<div class="msg">이 반에 등록된 학생이 없습니다.</div>'; return; }
 
@@ -660,7 +660,7 @@
       return { label:c.label, gradeLevel:c.gradeLevel, rawScore:(m==='raw'?a:null), grade:(m==='grade'?a:null) };
     });
     var chart='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">'+
-      '<b style="font-size:0.92rem;">📈 '+esc(classTab)+' 반 평균 추이</b>'+seg+'</div>'+
+      '<b style="font-size:0.92rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>'+esc(classTab)+' 반 평균 추이</b>'+seg+'</div>'+
       '<div style="overflow-x:auto;">'+chartSVG(pts, m, tabColor(classTab))+'</div>'+
       (m==='grade'?'<div class="muted" style="margin-top:6px;font-size:0.76rem;">등급은 <b>1이 가장 좋습니다</b> — 선이 아래로 갈수록 좋아진 거예요.</div>':'')+'</div>';
 
@@ -695,7 +695,7 @@
       (missing?' 빠진 사람이 많은 회차는 평균을 그대로 믿지 마세요.':'')+
       ' 학생 이름을 누르면 그 학생 개인 추이로 넘어갑니다.</div>';
 
-    var table='<div class="card"><b style="font-size:0.92rem;">📋 '+esc(classTab)+' 학생별</b>'+
+    var table='<div class="card"><b style="font-size:0.92rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>'+esc(classTab)+' 학생별</b>'+
       '<div class="ctable-wrap"><table class="ctable">'+thead+body+avgRow+'</table></div>'+note+'</div>';
 
     $('panel').innerHTML = head + tabsHTML(types, classTab, 'switchClassTab') + chart + table;

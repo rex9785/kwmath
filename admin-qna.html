@@ -306,6 +306,12 @@
     -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209a6%206%200%200%201%2012%200c0%205%202%206%202%206H4s2-1%202-6%22%2F%3E%3Cpath%20d%3D%22M10.3%2019a2%202%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
     mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209a6%206%200%200%201%2012%200c0%205%202%206%202%206H4s2-1%202-6%22%2F%3E%3Cpath%20d%3D%22M10.3%2019a2%202%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat; }
   .count{ display:inline-flex; align-items:center; gap:6px; }
+
+  /* #pushHelpTitle 은 JS가 textContent로 다시 쓰는 자리 → 아이콘을 CSS로 (인라인 SVG는 지워짐) */
+  #pushHelpTitle{ display:flex; align-items:center; gap:7px; }
+  #pushHelpTitle::before{ content:''; width:17px; height:17px; flex:0 0 auto; background:currentColor;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209a6%206%200%200%201%2012%200c0%205%202%206%202%206H4s2-1%202-6%22%2F%3E%3Cpath%20d%3D%22M10.3%2019a2%202%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%209a6%206%200%200%201%2012%200c0%205%202%206%202%206H4s2-1%202-6%22%2F%3E%3Cpath%20d%3D%22M10.3%2019a2%202%200%200%200%203.4%200%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat; }
 </style>
 <!-- 🔄 2026-07-29 원장·조교 로그인 유지(슬라이딩 갱신) 수신부 -->
 <script src="/session-keep.js?v=1"></script>
@@ -319,15 +325,15 @@
       <div class="kwnav-mw">
         <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
         <div class="kwnav-pop" id="kwnavPop" role="menu">
-          <a role="menuitem" href="/admin-qna" data-p="/admin-qna">💬 질문 답변</a>
-          <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
-          <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
-          <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
-          <a role="menuitem" href="/admin-scores" data-p="/admin-scores">📈 성적</a>
-          <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
-          <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
-          <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
-          <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog">🗓️ 근무기록</a>
+          <a role="menuitem" href="/admin-qna" data-p="/admin-qna"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>질문 답변</a>
+          <a role="menuitem" href="/staff-students" data-p="/staff-students"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>학생</a>
+          <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>클리닉 명단</a>
+          <a role="menuitem" href="/clinic-review" data-p="/clinic-review"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>클리닉 총평</a>
+          <a role="menuitem" href="/admin-scores" data-p="/admin-scores"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>성적</a>
+          <a role="menuitem" href="/staff-reports" data-p="/staff-reports"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>리포트</a>
+          <a role="menuitem" href="/staff-materials" data-p="/staff-materials"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"></path></svg>수업자료</a>
+          <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>테스트</a>
+          <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>근무기록</a>
           <a role="menuitem" href="#" class="kwnav-logout" id="kwnavLogout">🚪 로그아웃</a>
         </div>
       </div>
@@ -341,7 +347,7 @@
 <!-- 알림(푸시) 안내 모달: 권한창 전 안내 / 차단됨 복구 안내 공용 -->
 <div class="modal-bg" id="pushHelpModal">
   <div class="modal-card">
-    <h2 id="pushHelpTitle">🔔 알림</h2>
+    <h2 id="pushHelpTitle">알림</h2>
     <div class="modal-sub" id="pushHelpBody"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="pushHelpCancel" onclick="closePushHelp()">닫기</button>
@@ -778,10 +784,10 @@
     // (예전 글은 author_role이 비어 있어 학생으로 표시됨 — 신규 글부터 정확)
     var roleBadge = (q.authorRole==='parent')
       ? '<span class="badge b-parent">👪 학부모</span>'
-      : '<span class="badge b-student">🎓 학생</span>';
-    var kindBadge = isInq ? '<span class="badge b-inq">📩 문의</span>' : '';
-    var modeBadge = isInq ? '' : (q.mode==='ai' ? '<span class="badge b-ai">🤖 AI</span>' : '<span class="badge b-teacher">🧑‍🏫 선생님요청</span>');
-    var privBadge = (q.isPrivate && !isInq) ? '<span class="badge b-priv">🔒 비밀</span>' : '';
+      : '<span class="badge b-student"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>학생</span>';
+    var kindBadge = isInq ? '<span class="badge b-inq"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3.5 13.5V18a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4.5"></path><path d="M3.5 13.5 6 5.5h12l2.5 8"></path><path d="M8.5 13.5h7l-1 2.5h-5z"></path></svg>문의</span>' : '';
+    var modeBadge = isInq ? '' : (q.mode==='ai' ? '<span class="badge b-ai">🤖 AI</span>' : '<span class="badge b-teacher"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c1-3.2 3.4-4.6 6-4.6s5 1.4 6 4.6"></path><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M18 20c-.3-1.5-.8-2.7-1.5-3.6"></path></svg>선생님요청</span>');
+    var privBadge = (q.isPrivate && !isInq) ? '<span class="badge b-priv"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>비밀</span>' : '';
     var statBadge = q.status==='pending' ? '<span class="badge b-pending">미답변</span>' : '<span class="badge b-done">답변완료</span>';
     var titleHtml = q.title ? '<div class="qtitle">'+esc(q.title)+'</div>' : '';
     var imgs = (q.images && q.images.length) ? q.images : (q.image ? [q.image] : []);
@@ -803,7 +809,7 @@
     var composer =
       '<div class="composer" id="comp_'+q.id+'" style="'+(composerOpen?'':'display:none;')+'">'+
         '<textarea id="ans_'+q.id+'" oninput="updatePreview('+q.id+')" placeholder="답변을 입력하세요. (학생에게 그대로 보여요)">'+esc(q.answeredBy && q.answeredBy!=='AI' ? q.answer : '')+'</textarea>'+
-        '<div class="mathrow"><button type="button" class="mathbtn" onclick="openMath('+q.id+')">➕ 수식</button>'+
+        '<div class="mathrow"><button type="button" class="mathbtn" onclick="openMath('+q.id+')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>수식</button>'+
           '<span class="mathrow-hint"><code>$…$</code>로 직접 써도 학생 화면엔 수식으로 보여요.</span></div>'+
         '<div class="apreview" id="pv_'+q.id+'" style="display:none;"></div>'+
         '<div class="crow">'+
@@ -819,7 +825,7 @@
         '</div>'+
       '</div>';
     var editLink = (!composerOpen)
-      ? '<span class="editlink" onclick="openComp('+q.id+')">✏️ 답변 수정 / 다시 답변</span>'
+      ? '<span class="editlink" onclick="openComp('+q.id+')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>답변 수정 / 다시 답변</span>'
       : '';
 
     return '<div class="card'+(q.status==='pending'?' pending':'')+'">'+

@@ -312,8 +312,8 @@
           (q?(' <span class="muted">/ 전체 '+(showHidden?hc:(rows.length-hc))+'</span>'):'')+'</div>'+
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
           '<button class="viewtoggle'+(showHidden?' on':'')+'" onclick="toggleHiddenView()">'+
-            (showHidden ? '← 목록으로' : ('🗂 숨김 보기'+(hc?(' ('+hc+')'):'')))+'</button>'+
-          '<div class="search"><input id="q" type="text" placeholder="이름·학교 검색" value="'+esc(q)+'" oninput="onSearch(this.value)"><span class="ic">🔍</span></div>'+
+            (showHidden ? '← 목록으로' : ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3" y="7" width="8" height="6.5" rx="1.5"></rect><rect x="13" y="7" width="8" height="6.5" rx="1.5"></rect><rect x="8" y="15" width="8" height="6" rx="1.5"></rect></svg>숨김 보기'+(hc?(' ('+hc+')'):'')))+'</button>'+
+          '<div class="search"><input id="q" type="text" placeholder="이름·학교 검색" value="'+esc(q)+'" oninput="onSearch(this.value)"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg></span></div>'+
         '</div>'+
       '</div>';
 
@@ -380,7 +380,7 @@
         return '<div class="sub2">'+type+'</div><table class="stbl"><thead><tr><th>학년</th><th>시기</th><th>원점수(등급)</th><th>날짜</th></tr></thead><tbody>'+trs+'</tbody></table>';
       }).join('');
     }
-    return '<div class="grp"><h4 class="s-score">📈 성적 <span class="cnt">('+scores.length+'개)</span></h4>'+inner+'</div>';
+    return '<div class="grp"><h4 class="s-score"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>성적 <span class="cnt">('+scores.length+'개)</span></h4>'+inner+'</div>';
   }
   function attSection(o){
     var att = jp(o.attendance_json);
@@ -393,7 +393,7 @@
       }).join('');
       inner = '<table class="stbl"><thead><tr><th>날짜</th><th>출결</th><th>숙제</th><th>비고</th><th>방식</th></tr></thead><tbody>'+trs+'</tbody></table>';
     }
-    return '<div class="grp"><h4 class="s-att">📅 출결 <span class="cnt">('+att.length+'회)</span></h4>'+inner+'</div>';
+    return '<div class="grp"><h4 class="s-att"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>출결 <span class="cnt">('+att.length+'회)</span></h4>'+inner+'</div>';
   }
   function studySection(o){
     var st = jp(o.study_json);
@@ -406,7 +406,7 @@
       inner = '<div class="muted" style="font-size:0.8rem;margin-bottom:4px;">총 '+st.length+'회 · '+hrs(o.study_minutes)+'</div>'+
               '<table class="stbl"><thead><tr><th>날짜</th><th>공부시간</th></tr></thead><tbody>'+trs+'</tbody></table>';
     }
-    return '<div class="grp"><h4 class="s-study">📚 학습 <span class="cnt">('+st.length+'회)</span></h4>'+inner+'</div>';
+    return '<div class="grp"><h4 class="s-study"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"></path></svg>학습 <span class="cnt">('+st.length+'회)</span></h4>'+inner+'</div>';
   }
 
   function toggle(i){ openIdx = (openIdx===i? null : i); render(); }

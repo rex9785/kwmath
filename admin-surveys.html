@@ -302,15 +302,15 @@
     <div class="kwnav-mw">
       <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
       <div class="kwnav-pop" id="kwnavPop" role="menu">
-        <a role="menuitem" href="/admin-qna" data-p="/admin-qna">💬 질문 답변</a>
-        <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
-        <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
-        <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
-        <a role="menuitem" href="/admin-scores" data-p="/admin-scores">📈 성적</a>
-        <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
-        <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
-        <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
-        <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog">🗓️ 근무기록</a>
+        <a role="menuitem" href="/admin-qna" data-p="/admin-qna"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>질문 답변</a>
+        <a role="menuitem" href="/staff-students" data-p="/staff-students"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>학생</a>
+        <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>클리닉 명단</a>
+        <a role="menuitem" href="/clinic-review" data-p="/clinic-review"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>클리닉 총평</a>
+        <a role="menuitem" href="/admin-scores" data-p="/admin-scores"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>성적</a>
+        <a role="menuitem" href="/staff-reports" data-p="/staff-reports"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>리포트</a>
+        <a role="menuitem" href="/staff-materials" data-p="/staff-materials"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"></path></svg>수업자료</a>
+        <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>테스트</a>
+        <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>근무기록</a>
         <a role="menuitem" href="#" class="kwnav-logout" id="kwnavLogout">🚪 로그아웃</a>
       </div>
     </div>
@@ -440,7 +440,7 @@
       h += '<span class="badge ' + s.status + '">' + (s.status==='open'?'진행중':s.status==='closed'?'종료':'초안') + '</span></div>';
       if(s.description) h += '<div class="desc">' + esc(s.description) + '</div>';
       h += '<div class="sub"><span class="badge aud">' + esc(AUD_LABEL[s.audience]||'전체') + '</span> ';
-      (s.audAcademy||[]).forEach(function(a){ if(a) h += '<span class="badge tgt">🏫 ' + esc(a) + '</span> '; });
+      (s.audAcademy||[]).forEach(function(a){ if(a) h += '<span class="badge tgt"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20.5V9.5L12 4l8 5.5v11"></path><path d="M2.5 20.5h19M9.5 20.5v-6h5v6"></path></svg>' + esc(a) + '</span> '; });
       (s.audClass||[]).forEach(function(c){ if(c){ var pi = c.indexOf('|'); h += '<span class="badge tgt">' + esc(pi >= 0 ? (c.slice(0,pi) + ' › ' + c.slice(pi+1)) : c) + '</span> '; } });
       h += s.quiz ? '<span class="badge quiz">테스트</span> ' : '<span class="badge srv">설문</span> ';
       if(s.anonymous) h += '<span class="badge anon">익명</span> ';
@@ -666,7 +666,7 @@
       academies.forEach(function(ac){
         var acChk = selA.indexOf(ac) >= 0 ? ' checked' : '';
         h += '<div style="margin-bottom:8px;">'
-          + '<label class="chk" style="font-weight:700;color:var(--text);"><input type="checkbox" class="fTargetAcademy" value="' + escAttr(ac) + '"' + acChk + '> 🏫 ' + esc(ac) + '</label>';
+          + '<label class="chk" style="font-weight:700;color:var(--text);"><input type="checkbox" class="fTargetAcademy" value="' + escAttr(ac) + '"' + acChk + '> <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20.5V9.5L12 4l8 5.5v11"></path><path d="M2.5 20.5h19M9.5 20.5v-6h5v6"></path></svg>' + esc(ac) + '</label>';
         var cls = classes[ac] || [];
         if(cls.length){
           h += '<div style="padding-left:20px;display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;">';
@@ -1126,7 +1126,7 @@
         var wrongQn = wstat.filter(function(s){ return s.wrong>0; }).length;
         var wc = document.createElement('div'); wc.className='card';
         var wh = '<details class="wrank"><summary>'
-               + '<span style="font-size:1.02rem;font-weight:800;color:var(--text);">🎯 오답률 순위</span>'
+               + '<span style="font-size:1.02rem;font-weight:800;color:var(--text);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4"></circle></svg>오답률 순위</span>'
                + '<span class="badge quiz">테스트</span>'
                + '<span class="wrank-tog"><span class="wrank-open">전 ' + wstat.length + '문항 보기 ▾</span><span class="wrank-close">접기 ▴</span></span>'
                + '</summary>'
@@ -1325,9 +1325,9 @@
       responses.forEach(function(r, i){ if(pendingCount(r) > 0) pendList.push({ r:r, i:i }); });
       var gc = document.createElement('div'); gc.className = 'qres';
       if(!pendList.length){
-        gc.innerHTML = '<h4>✍️ 채점 대기</h4><div class="sub" style="color:#137333;font-weight:700;">서술형 채점이 모두 끝났어요 🎉</div>';
+        gc.innerHTML = '<h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>채점 대기</h4><div class="sub" style="color:#137333;font-weight:700;">서술형 채점이 모두 끝났어요 🎉</div>';
       } else {
-        var gh = '<h4>✍️ 채점 대기 <span style="color:#B26A00;">' + pendList.length + '명</span></h4>'
+        var gh = '<h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>채점 대기 <span style="color:#B26A00;">' + pendList.length + '명</span></h4>'
           + '<div class="sub" style="margin:-4px 0 8px;">O·X를 누르면 바로 저장돼요 (O=배점 합산 · X=0점 · 같은 버튼 다시 누르면 취소). 채점이 끝난 학생은 이 목록에서 빠져요.</div>';
         pendList.forEach(function(p){
           gh += '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
@@ -1378,7 +1378,7 @@
       function editForm(r){
         var inp = 'width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:0.85rem;font-family:inherit;background:#fff;';
         var s = '<div data-editwrap="' + r.id + '">'
-          + '<div style="font-weight:800;color:var(--primary);margin:4px 0 8px;">✏️ 답 수정 — 저장하면 즉시 재채점돼요'
+          + '<div style="font-weight:800;color:var(--primary);margin:4px 0 8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>답 수정 — 저장하면 즉시 재채점돼요'
           + (survey.testKind ? ' (성적표에도 반영)' : '') + '</div>';
         qs.forEach(function(q){
           var a = r.answers[q.id];
@@ -1423,8 +1423,8 @@
       // 펼침 하단 액션 — ✏️답 수정 · 🔄재제출 허용(응답 삭제)
       function actionBar(r){
         return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
-          + '<button data-editstart="' + r.id + '" class="b-ghost" style="font-size:0.82rem;">✏️ 답 수정</button>'
-          + '<button data-resub="' + r.id + '" class="b-ghost" style="font-size:0.82rem;color:#C5221F;border-color:#C5221F;">🔄 재제출 허용 (응답 삭제)</button></div>';
+          + '<button data-editstart="' + r.id + '" class="b-ghost" style="font-size:0.82rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>답 수정</button>'
+          + '<button data-resub="' + r.id + '" class="b-ghost" style="font-size:0.82rem;color:#C5221F;border-color:#C5221F;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>재제출 허용 (응답 삭제)</button></div>';
       }
       var sc = document.createElement('div'); sc.className = 'qres';
       var sch = '<h4>' + (survey.quiz ? '응답자별 점수' : '응답자별 답변') + ' <span class="sub" style="font-weight:400;">— 이름을 누르면 답안이 펼쳐져요 · 답 수정과 재제출 허용도 여기서</span></h4>';

@@ -412,7 +412,7 @@
     box-shadow:0 1px 4px rgba(134,38,51,.22); }
 
   /* ── 텍스트 라벨은 flex로 만들지 않는다 (문장이 조각나 gap이 끼어든다) ── */
-  .sechead, .paynote, .section-label, .panel-title, .menu-sec-t, .cardHead, .stHead, .section-title{
+  .sechead, .paynote, .section-label, .menu-sec-t, .cardHead, .stHead, .section-title{
     display:block !important; }
   .badge, .pill, .cbadge, .tag{ display:inline-flex !important; align-items:center; gap:5px; white-space:nowrap; }
 
@@ -484,6 +484,35 @@
   /* 빈 배지·개수 칩은 다시 숨긴다 — 위 !important 규칙에 눌려 있던 원본 동작 복원 */
   .badge:empty, .pill:empty, .cbadge:empty, .tag:empty, .bdg:empty, .b-cnt:empty, .cnt:empty, .count:empty{
     display:none !important; }
+
+  /* 아이콘 칩 — 원본 .admin-card span 규칙(display:block)에 눌려 아이콘이 좌상단에 붙던 것 교정.
+     연한 분홍 배경은 눈에 안 들어와서 와인 채움 + 흰 아이콘으로 대비를 올렸다. */
+  .admin-card > .ac-ic{
+    display:flex !important; align-items:center !important; justify-content:center !important;
+    width:40px !important; height:40px !important; flex:0 0 auto;
+    background:var(--primary) !important; color:#fff !important; border-radius:11px !important; }
+  .admin-card > .ac-ic svg{ width:22px; height:22px; stroke-width:1.85; display:block; }
+  @media (max-width:480px){
+    .admin-card > .ac-ic{ width:36px !important; height:36px !important; border-radius:10px !important; }
+    .admin-card > .ac-ic svg{ width:20px; height:20px; }
+  }
+  /* 할 일 줄 아이콘도 또렷하게 */
+  .today-row > svg{ width:19px; height:19px; stroke-width:1.9; color:var(--primary); }
+
+  /* 아이콘이 들어간 탭·버튼·라벨 정렬 */
+  .tab-btn, .edit-btn, .save-btn, .del-btn, .submit-btn, .pw-btn{
+    display:inline-flex !important; align-items:center; justify-content:center; gap:6px; white-space:nowrap; }
+  /* .panel-title 은 div(전체폭 flex 행)와 p(텍스트) 두 형태가 있다 → display 를 강제하지 않고 정렬만 준다 */
+  .panel-title{ align-items:center; gap:7px; }
+  p.panel-title{ display:flex; }
+  .tab-panel label{ display:flex; align-items:center; gap:6px; }
+  .today-row > span:first-of-type{ flex:1 1 auto; min-width:0; line-height:1.4; }
+
+  /* #bulkApproveBtn 라벨은 JS가 textContent로 다시 써서 SVG가 지워진다 → 아이콘을 CSS로 */
+  #bulkApproveBtn::before{ content:''; width:14px; height:14px; flex:0 0 auto; background:currentColor;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m4.5%2012.5%205%205%2010-11%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m4.5%2012.5%205%205%2010-11%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat; }
+  h3{ display:flex; align-items:center; gap:7px; }
 </style>
     <div id="adminMenu">
       <!-- 오늘 확인할 것 — 내용은 loadHomeSummary()가 채운다. 다 처리했으면 축하 한 줄만 남는다. -->
@@ -567,31 +596,31 @@
 
     <!-- 탭 바 (카드 메뉴로 대체 — 숨김, switchTab 재사용용으로 유지) -->
     <div class="tabs" style="display:none;">
-      <button class="tab-btn active" onclick="switchTab('notices', this)">📢 공지사항 관리</button>
-      <button class="tab-btn" onclick="switchTab('reports', this)">📋 리포트 조회</button>
-      <button class="tab-btn" onclick="switchTab('students', this)">👨‍🎓 학생 목록</button>
-      <button class="tab-btn" onclick="switchTab('attendance', this)">📅 출결/숙제</button>
-      <button class="tab-btn" onclick="switchTab('files', this)">📁 자료실 관리</button>
-      <button class="tab-btn" onclick="switchTab('videos', this)">📺 영상 관리</button>
+      <button class="tab-btn active" onclick="switchTab('notices', this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"></path><path d="M17.5 9a4 4 0 0 1 0 6"></path></svg>공지사항 관리</button>
+      <button class="tab-btn" onclick="switchTab('reports', this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>리포트 조회</button>
+      <button class="tab-btn" onclick="switchTab('students', this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>학생 목록</button>
+      <button class="tab-btn" onclick="switchTab('attendance', this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>출결/숙제</button>
+      <button class="tab-btn" onclick="switchTab('files', this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></svg>자료실 관리</button>
+      <button class="tab-btn" onclick="switchTab('videos', this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect><path d="M15.5 10.5 21 7.5v9l-5.5-3"></path></svg>영상 관리</button>
     </div>
 
     <!-- 앱 강제업데이트(최소버전) 탭 -->
     <div class="tab-panel" id="tab-appversion">
       <div class="notice-form">
-        <h3>📲 앱 강제업데이트 — 최소 요구 버전</h3>
+        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M12 16.5V8m-3 3 3-3 3 3"></path></svg>앱 강제업데이트 — 최소 요구 버전</h3>
         <p style="font-size:0.82rem;color:var(--text-light);line-height:1.65;margin:-2px 0 12px;">
           앱(아이폰·안드로이드)에서 <b>설치된 버전이 아래 값보다 낮으면</b> 업데이트 화면이 떠서 못 쓰게 막아요.
           웹 브라우저로 쓰는 분들은 영향 없어요.<br>
-          ⚠️ <b style="color:#c0392b;">심사 중인 버전보다 높이지 마세요.</b> 더 높이면 심사위원도 막혀서 앱이 반려돼요.
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg><b style="color:#c0392b;">심사 중인 버전보다 높이지 마세요.</b> 더 높이면 심사위원도 막혀서 앱이 반려돼요.
           (현재 심사 버전: iOS <b>1.0.2</b> · 안드 <b>2.0.1</b> → 이 값과 같거나 낮게.)
         </p>
         <div class="form-row-inline">
           <div class="form-row">
-            <label>🍎 iOS 최소 버전</label>
+            <label><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 8.5c-1.2-1.6-3.2-2-4.6-1-1.6 1.1-2 3.6-1 6 .8 2 2.4 4 3.8 4 .7 0 1.2-.4 1.8-.4s1.1.4 1.8.4c1.4 0 3-2 3.8-4"></path><path d="M12.5 6.5c.8-.9.9-2.2.6-3-1 .1-2.1.8-2.6 1.7"></path></svg>iOS 최소 버전</label>
             <input id="minVerIos" type="text" inputmode="decimal" placeholder="예: 1.0.2" autocomplete="off">
           </div>
           <div class="form-row">
-            <label>🤖 안드로이드 최소 버전</label>
+            <label><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="5" y="9" width="14" height="9.5" rx="2.5"></rect><path d="M8.5 9 7 6M15.5 9 17 6"></path><circle cx="9.5" cy="13" r=".9" fill="currentColor" stroke="none"></circle><circle cx="14.5" cy="13" r=".9" fill="currentColor" stroke="none"></circle></svg>안드로이드 최소 버전</label>
             <input id="minVerAos" type="text" inputmode="decimal" placeholder="예: 2.0.1" autocomplete="off">
           </div>
         </div>
@@ -606,7 +635,7 @@
          작성자에게는 대기/승인 상태를 어떤 형태로도 알리지 않는다("자기가 거절당했다는거를 모르게").
          → 그래서 이 화면에도 「거절」 버튼을 두지 않는다. 안 쓸 후기는 그냥 놔두면 된다. -->
     <div class="tab-panel" id="tab-reviews">
-      <p class="panel-title">💬 수강 후기 관리</p>
+      <p class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>수강 후기 관리</p>
       <div style="font-size:0.82rem;color:var(--text-light);line-height:1.75;margin-bottom:16px;background:#faf7f8;border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
         후기는 쓰는 즉시 <b>쓴 사람 본인에게만</b> 앱에 보여요. 다른 사람에겐 안 보입니다.<br>
         · <b>앱에 공개</b>를 켜면 → 앱 「둘러보기」에서 <b>모든 학생·학부모</b>가 봅니다.<br>
@@ -620,7 +649,7 @@
         <button class="nft-btn" data-filter="app" onclick="filterAdminReviews('app', this)">앱에 공개중 <span class="nft-count" id="rvc-app">0</span></button>
         <button class="nft-btn" data-filter="main" onclick="filterAdminReviews('main', this)">홈페이지 대표 <span class="nft-count" id="rvc-main">0</span></button>
         <button class="nft-btn" data-filter="all" onclick="filterAdminReviews('all', this)">전체 <span class="nft-count" id="rvc-all">0</span></button>
-        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:auto;" onclick="loadAdminReviews()">🔄 새로고침</button>
+        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:auto;" onclick="loadAdminReviews()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>새로고침</button>
       </div>
       <div id="adminReviewMsg" style="font-size:0.82rem;margin:6px 0 10px;min-height:18px;"></div>
       <div class="notice-list" id="adminReviewList">
@@ -651,7 +680,7 @@
           <textarea id="newContent" placeholder="공지 내용을 입력하세요 (선택사항)"></textarea>
         </div>
         <div class="form-row">
-          <label>📷 사진 (선택 · 여러 장 가능)</label>
+          <label><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h2L9 4.5h6l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.4"></circle></svg>사진 (선택 · 여러 장 가능)</label>
           <input id="newImages" type="file" accept="image/*" multiple onchange="previewNoticeImages(this)">
           <div id="newImagesPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
           <small style="color:#888;display:block;margin-top:4px;">앱 출시 안내처럼 사진을 올리면 홈페이지·포털 공지에 함께 표시됩니다.</small>
@@ -682,7 +711,7 @@
           </div>
         </div>
         <div class="form-row">
-          <label>🔔 푸쉬 발송</label>
+          <label><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg>푸쉬 발송</label>
           <div class="push-mode-group">
             <label class="push-mode-opt">
               <input type="radio" name="newPushMode" value="none" onchange="updatePushModeUI()">
@@ -701,7 +730,7 @@
           </div>
         </div>
         <button class="submit-btn" onclick="addNotice()">등록하기 →</button>
-        <button class="submit-btn" onclick="flushScheduledNotices(true)" style="background:#666;margin-top:8px;">🔔 예약 푸쉬 지금 발송 체크</button>
+        <button class="submit-btn" onclick="flushScheduledNotices(true)" style="background:#666;margin-top:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg>예약 푸쉬 지금 발송 체크</button>
       </div>
 
       <p class="panel-title">현재 공지사항</p>
@@ -720,11 +749,11 @@
     <!-- 리포트 조회 탭 -->
     <div class="tab-panel" id="tab-reports">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-        <p class="panel-title" style="margin-bottom:0;">📋 반별 수업 리포트</p>
+        <p class="panel-title" style="margin-bottom:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>반별 수업 리포트</p>
         <div style="display:flex;gap:8px;align-items:center;">
           <input id="reportSearchInput" type="text" placeholder="학생 이름/내용 검색..." oninput="filterReportGroups()"
             style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:200px;">
-          <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="loadAllReports()">🔄 새로고침</button>
+          <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="loadAllReports()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>새로고침</button>
         </div>
       </div>
       <div style="font-size:0.82rem;color:var(--text-light);margin-bottom:14px;line-height:1.6;">
@@ -741,13 +770,13 @@
       </div>
       <div id="studentsActivePane">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-        <p class="panel-title" style="margin-bottom:0;">👨‍🎓 등록 학생 목록</p>
+        <p class="panel-title" style="margin-bottom:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>등록 학생 목록</p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="renderStudentsView()"
             style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
           <!-- ⚠️ 살펴볼 학생만 — 해당자가 0명이면 JS가 숨긴다(syncRiskFilterBtn). 늘 떠 있는 0은 눈이 무시한다. -->
           <button type="button" id="riskFilterBtn" class="edit-btn" onclick="toggleRiskOnly()" style="white-space:nowrap;display:none;"></button>
-          <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;">📋 반별로 보기</button>
+          <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>반별로 보기</button>
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
       </div>
@@ -765,7 +794,7 @@
             <span id="pendingSelectedCount" style="font-size:0.78rem;color:#666;">0명 선택</span>
             <button id="bulkApproveBtn" class="del-btn" onclick="bulkApprovePending()" disabled
               style="border-color:#2a7a2a;color:#2a7a2a;background:#E5F5E8;font-weight:700;opacity:0.4;cursor:not-allowed;">
-              ✅ 선택 일괄 승인
+              선택 일괄 승인
             </button>
           </div>
         </div>
@@ -775,12 +804,12 @@
       <!-- 반 관리 패널 (접기/펼치기) -->
       <div style="background:#f7f9fc;border:1.5px solid #d8e0ec;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleClassManager()">
-          <strong style="color:#3949AB;font-size:0.92rem;">🏫 학원·반 관리</strong>
+          <strong style="color:#3949AB;font-size:0.92rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20.5V9.5L12 4l8 5.5v11"></path><path d="M2.5 20.5h19M9.5 20.5v-6h5v6"></path></svg>학원·반 관리</strong>
           <span id="classManagerToggle" style="color:#3949AB;font-size:0.88rem;font-weight:700;">▶ 펼치기</span>
         </div>
         <div id="classManagerBody" style="display:none;margin-top:12px;border-top:1px solid #d8e0ec;padding-top:12px;">
-          <div style="font-size:0.78rem;color:#666;margin-bottom:10px;">➕ 버튼으로 학원·반을 바로 추가할 수 있어요. 학생 0명인 반/학원만 삭제됩니다. (학생을 새 반에 넣는 건 [➕ 다른 반] / [시즌 전환] 모달을 쓰세요.)</div>
-          <button onclick="addAcademyPrompt()" style="background:#3949AB;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:0.84rem;font-weight:700;cursor:pointer;margin-bottom:10px;">➕ 새 학원 추가</button>
+          <div style="font-size:0.78rem;color:#666;margin-bottom:10px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>버튼으로 학원·반을 바로 추가할 수 있어요. 학생 0명인 반/학원만 삭제됩니다. (학생을 새 반에 넣는 건 [➕ 다른 반] / [시즌 전환] 모달을 쓰세요.)</div>
+          <button onclick="addAcademyPrompt()" style="background:#3949AB;color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:0.84rem;font-weight:700;cursor:pointer;margin-bottom:10px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>새 학원 추가</button>
           <div id="classManagerList"><div class="empty">불러오는 중...</div></div>
         </div>
       </div>
@@ -792,7 +821,7 @@
           <span>전체 선택</span>
         </label>
         <span style="color:#854F0B;font-size:0.82rem;">선택: <b id="bulkSelectedCount">0</b>명</span>
-        <button class="edit-btn" onclick="openSeasonTransitionModal()" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap;margin-left:auto;">🔄 시즌 전환 · 일괄 이동</button>
+        <button class="edit-btn" onclick="openSeasonTransitionModal()" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap;margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>시즌 전환 · 일괄 이동</button>
         <button class="edit-btn" onclick="clearBulkSelection()" style="white-space:nowrap;">선택 해제</button>
       </div>
       <div id="studentList"><div class="empty">불러오는 중...</div></div>
@@ -806,13 +835,13 @@
     <div class="tab-panel" id="tab-attendance">
       <div class="card" style="padding:14px 18px;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,var(--primary-light) 100%);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-          <strong style="color:var(--primary);font-size:0.95rem;">🚀 <span id="qaDateLabel"></span> 수업 반</strong>
-          <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="refreshQuickAttendanceSummary()">🔄 현황 새로고침</button>
+          <strong style="color:var(--primary);font-size:0.95rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M13.5 2.5 5 13.5h5l-1.5 8L18 10.5h-5z"></path></svg><span id="qaDateLabel"></span> 수업 반</strong>
+          <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="refreshQuickAttendanceSummary()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>현황 새로고침</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <input type="date" id="qaDate" onchange="onQaDateChange()" title="이 날짜로 출·지·결·숙제가 기록됩니다" style="padding:8px 12px;border:1.5px solid var(--primary);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;color:var(--primary);font-weight:700;">
           <button class="del-btn" style="border-color:var(--border);color:var(--text-light);padding:6px 10px;" onclick="qaResetToday()" title="오늘 날짜로">오늘</button>
-          <button class="del-btn" id="qaPickerToggle" style="border-color:var(--border);color:var(--text-light);padding:6px 10px;" onclick="toggleQaPicker()">🔍 다른 반 찾기</button>
+          <button class="del-btn" id="qaPickerToggle" style="border-color:var(--border);color:var(--text-light);padding:6px 10px;" onclick="toggleQaPicker()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>다른 반 찾기</button>
         </div>
         <!-- 그날 수업 반 카드 — 요일 스케줄(반 관리에서 설정)로 자동 표시 -->
         <div id="todayClassCards" style="margin-top:12px;"><div style="font-size:0.82rem;color:var(--text-light);">불러오는 중...</div></div>
@@ -825,7 +854,7 @@
             <select id="qaClass" onchange="updateQaSummary()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;">
               <option value="">반 선택</option>
             </select>
-            <button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance('출석')">👥 반 전원 출석</button>
+            <button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance('출석')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c1-3.2 3.4-4.6 6-4.6s5 1.4 6 4.6"></path><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M18 20c-.3-1.5-.8-2.7-1.5-3.6"></path></svg>반 전원 출석</button>
             <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;" onclick="bulkClassAttendance('결석')">반 전원 결석</button>
             <button class="del-btn" style="border-color:var(--border);color:var(--text-light);" onclick="clearQaSelection()">선택 해제</button>
           </div>
@@ -838,11 +867,11 @@
            명단↔총평 전환은 clinic-roster/clinic-review 안의 공통 탭바가 맡는다.
            이 줄을 남긴 이유: 출결을 찍다가 바로 넘어가는 동선이라 지우면 홈까지 나갔다 와야 한다. -->
       <a href="/clinic-roster" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;background:linear-gradient(135deg,#fff 0%,#E3F1F2 100%);border:1.5px solid #1f6f78;border-radius:12px;padding:12px 16px;margin-bottom:16px;">
-        <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;">🩺 클리닉 열기 — 명단 · 총평<i class="cbadge" id="bdgClinicBanner" style="background:#1f6f78;"></i></span>
+        <span style="color:#1f6f78;font-weight:800;font-size:0.92rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>클리닉 열기 — 명단 · 총평<i class="cbadge" id="bdgClinicBanner" style="background:#1f6f78;"></i></span>
         <span style="color:#1f6f78;font-weight:700;">열기 →</span>
       </a>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-        <p class="panel-title" style="margin-bottom:0;">📅 학생별 출결 · 숙제 체크</p>
+        <p class="panel-title" style="margin-bottom:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>학생별 출결 · 숙제 체크</p>
         <input id="attStudentSearch" type="text" placeholder="이름 검색..." oninput="renderAttendanceList()"
           style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
       </div>
@@ -851,7 +880,7 @@
 
     <!-- 자료실 관리 탭 -->
     <div class="tab-panel" id="tab-files">
-      <p class="panel-title">📁 자료실 파일 관리</p>
+      <p class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></svg>자료실 파일 관리</p>
 
       <div class="card" style="margin-bottom:20px;">
         <h3 style="font-size:1rem;margin-bottom:16px;">+ 파일 업로드</h3>
@@ -914,7 +943,7 @@
             </div>
             <p id="progressText" style="font-size:0.82rem;color:var(--text-light);margin-top:6px;text-align:center;">업로드 중...</p>
           </div>
-          <button onclick="uploadFile()" style="background:var(--primary);color:#fff;border:none;padding:11px;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;">📤 업로드</button>
+          <button onclick="uploadFile()" style="background:var(--primary);color:#fff;border:none;padding:11px;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 16V4"></path><path d="m7.5 8.5 4.5-4.5 4.5 4.5"></path><path d="M4.5 14v4.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V14"></path></svg>업로드</button>
         </div>
       </div>
 
@@ -941,9 +970,9 @@
 
     <!-- 📺 영상 관리 탭 -->
     <div class="tab-panel" id="tab-videos">
-      <div class="panel-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">📺 영상 관리
-        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="loadVideos()">🔄 새로고침</button>
-        <button id="videoSelectModeBtn" class="del-btn" style="border-color:#555;color:#555;" onclick="toggleVideoSelectMode()">☑ 선택 모드</button>
+      <div class="panel-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect><path d="M15.5 10.5 21 7.5v9l-5.5-3"></path></svg>영상 관리
+        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="loadVideos()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>새로고침</button>
+        <button id="videoSelectModeBtn" class="del-btn" style="border-color:#555;color:#555;" onclick="toggleVideoSelectMode()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="m8.5 12.5 2.5 2.5 5-5.5"></path></svg>선택 모드</button>
         <span id="videoCountLabel" style="font-size:0.8rem;color:var(--text-light);font-weight:600;"></span>
       </div>
       <div style="font-size:0.83rem;color:var(--text-light);margin-bottom:12px;line-height:1.6;">
@@ -969,9 +998,9 @@
         <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="videoSelectAll()">전체 선택</button>
         <button class="del-btn" style="border-color:var(--text-light);color:var(--text-light);" onclick="videoSelectNone()">선택 해제</button>
         <span style="flex:1;"></span>
-        <button class="del-btn" style="border-color:#2ecc71;color:#2ecc71;" onclick="bulkLockVideos(false)">🔓 일괄 공개</button>
-        <button class="del-btn" style="border-color:#B07A00;color:#B07A00;" onclick="bulkLockVideos(true)">🔒 일괄 잠그기</button>
-        <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="bulkDeleteVideos()">🗑 일괄 삭제</button>
+        <button class="del-btn" style="border-color:#2ecc71;color:#2ecc71;" onclick="bulkLockVideos(false)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>일괄 공개</button>
+        <button class="del-btn" style="border-color:#B07A00;color:#B07A00;" onclick="bulkLockVideos(true)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>일괄 잠그기</button>
+        <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="bulkDeleteVideos()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>일괄 삭제</button>
       </div>
       <div id="videoList"><div class="empty">불러오는 중...</div></div>
     </div>
@@ -984,7 +1013,7 @@
 <!-- 학원/반 수정 모달 -->
 <div class="ec-modal-bg" id="editClassModal">
   <div class="ec-modal">
-    <h3>📝 학원/반 수정</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>학원/반 수정</h3>
     <div class="ec-sub"><b id="ecmName"></b> 학생의 학원/반을 변경합니다.<br>변경 후엔 옛 반의 영상/자료가 학생에게 안 보이게 돼요.</div>
     <label>학원</label>
     <select id="ecmAcademy" onchange="ecmUpdateClassOptions()"></select>
@@ -1000,7 +1029,7 @@
 <!-- 시즌 전환 · 일괄 이동 모달 -->
 <div class="ec-modal-bg" id="seasonTransitionModal">
   <div class="ec-modal" style="max-width:480px;">
-    <h3>🔄 시즌 전환 · 일괄 이동</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>시즌 전환 · 일괄 이동</h3>
     <div class="ec-sub">
       선택한 <b id="stmCount">0</b>명을 새 반으로 이동합니다.
       <div id="stmSelectedPreview" style="margin-top:8px;padding:8px 10px;background:#f9f3f5;border-radius:8px;font-size:0.78rem;color:#666;max-height:80px;overflow-y:auto;"></div>
@@ -1031,7 +1060,7 @@
 <!-- 다른 반 추가 등록 모달 -->
 <div class="ec-modal-bg" id="addEnrollmentModal">
   <div class="ec-modal">
-    <h3>➕ 다른 반에 추가 등록</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>다른 반에 추가 등록</h3>
     <div class="ec-sub"><b id="aemName"></b> 학생을 새 반에 추가 등록합니다.<br>학생 정보(학교/학년/학부모 휴대폰 등)는 그대로 복사돼요. 같은 학생이지만 별도 enrollment record로 생성됩니다.</div>
     <div style="background:#f9f3f5;padding:8px 12px;border-radius:8px;font-size:0.8rem;margin-bottom:10px;color:#666;">현재: <span id="aemCurrentClass" style="font-weight:700;color:var(--primary);"></span></div>
     <label>새 학원</label>
@@ -1386,7 +1415,7 @@
     const tip = '살펴볼 학생 — ' + r.join(' · ') + ' / ' + RISK_CRITERIA_TEXT();
     return '<span title="' + escapeAttr(tip) + '" style="background:#FBE9E7;color:#B3261E;'
       + 'border:1px solid #F2C4BE;padding:2px 8px;border-radius:20px;font-size:0.68rem;'
-      + 'font-weight:700;margin-left:6px;white-space:nowrap;">⚠️ ' + escapeHtml(r[0])
+      + 'font-weight:700;margin-left:6px;white-space:nowrap;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>' + escapeHtml(r[0])
       + (r.length > 1 ? ' +' + (r.length - 1) : '') + '</span>';
   }
 
@@ -1742,7 +1771,7 @@
       +   '<div style="display:flex;gap:6px;margin-top:10px;">'
       +     '<input id="rvmemo-' + escapeAttr(r.id) + '" type="text" value="' + escapeAttr(r.memo || '') + '" placeholder="처리 메모 (나만 봅니다)" '
       +       'style="flex:1;padding:7px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:0.8rem;font-family:inherit;outline:none;">'
-      +     '<button type="button" onclick="saveReviewMemo(\'' + id + '\', this)" style="background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:7px 12px;border-radius:8px;font-size:0.8rem;font-family:inherit;cursor:pointer;">💾</button>'
+      +     '<button type="button" onclick="saveReviewMemo(\'' + id + '\', this)" style="background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:7px 12px;border-radius:8px;font-size:0.8rem;font-family:inherit;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M5 4.5h11L19.5 8v11.5H5z"></path><path d="M8.5 4.5v5h7M8.5 19.5v-5h7v5"></path></svg></button>'
       +   '</div>'
       + '</div>';
   }
@@ -1886,7 +1915,7 @@
         ${schedInfo}
         ${preview}
       </div>
-      <button class="edit-btn" onclick="startEditNotice('${n.id}')">✏️ 수정</button>
+      <button class="edit-btn" onclick="startEditNotice('${n.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>수정</button>
       <button class="del-btn" onclick="deleteNotice('${n.id}')">삭제</button>
     </div>`;
   }
@@ -1908,7 +1937,7 @@
       <textarea id="ne-content-${pageId}" placeholder="내용 (선택)">${escapeHtml(n.content||'')}</textarea>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="cancel-btn" onclick="cancelEditNotice('${pageId}')">취소</button>
-        <button class="save-btn" onclick="saveEditNotice('${pageId}')">💾 저장</button>
+        <button class="save-btn" onclick="saveEditNotice('${pageId}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M5 4.5h11L19.5 8v11.5H5z"></path><path d="M8.5 4.5v5h7M8.5 19.5v-5h7v5"></path></svg>저장</button>
       </div>
     </div>`;
     document.getElementById('ne-title-' + pageId).focus();
@@ -2214,7 +2243,7 @@
             <span style="font-size:0.78rem;color:var(--text-light);font-weight:600;margin-left:8px;">${g.reports.length}건</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            <button class="edit-btn" title="이 반 학생 전원의 같은 날짜 리포트를 한 화면에서 한꺼번에 고칩니다. 학생 수만큼 ✏️를 반복할 필요가 없습니다." onclick="event.stopPropagation();openBulkReport(${gi},'${jsArg(g.school)}','${jsArg(g.class_name)}')">📝 반 전체 일괄 수정</button>
+            <button class="edit-btn" title="이 반 학생 전원의 같은 날짜 리포트를 한 화면에서 한꺼번에 고칩니다. 학생 수만큼 ✏️를 반복할 필요가 없습니다." onclick="event.stopPropagation();openBulkReport(${gi},'${jsArg(g.school)}','${jsArg(g.class_name)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>반 전체 일괄 수정</button>
             <span style="font-size:0.85rem;color:var(--text-light);transition:transform .25s;display:inline-block;${isOpen?'transform:rotate(180deg);':''}">▾</span>
           </div>
         </div>
@@ -2262,9 +2291,9 @@
           <span style="font-size:0.82rem;color:var(--text-light);">${escapeHtml(dateStr)}</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <button class="edit-btn" onclick="event.stopPropagation();startEditReport('${r.id}')">✏️ 수정</button>
-          <button class="edit-btn" onclick="event.stopPropagation();shareReport('${r.id}')" title="이 리포트를 반 전체나 고른 학생들에게 복사합니다. 같은 학생·같은 날짜 리포트가 이미 있으면 새로 쌓지 않고 그 내용으로 덮어씁니다(= 일괄 수정). 알림은 안 갑니다.">📤 반 전체에 주기 / 일괄 수정</button>
-          <button class="del-btn" onclick="event.stopPropagation();deleteReport('${r.id}')">🗑 삭제</button>
+          <button class="edit-btn" onclick="event.stopPropagation();startEditReport('${r.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>수정</button>
+          <button class="edit-btn" onclick="event.stopPropagation();shareReport('${r.id}')" title="이 리포트를 반 전체나 고른 학생들에게 복사합니다. 같은 학생·같은 날짜 리포트가 이미 있으면 새로 쌓지 않고 그 내용으로 덮어씁니다(= 일괄 수정). 알림은 안 갑니다."><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 3.5v10"></path><path d="m8 7.5 4-4 4 4"></path><path d="M4.5 14v4.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V14"></path></svg>반 전체에 주기 / 일괄 수정</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteReport('${r.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>삭제</button>
           <span style="font-size:0.85rem;color:var(--text-light);margin-left:4px;display:inline-block;transition:transform .25s;${isOpen?'transform:rotate(180deg);':''}">▾</span>
         </div>
       </div>
@@ -2302,7 +2331,7 @@
       <textarea id="re-notes-${id}" placeholder="특이사항" style="min-height:50px;">${escapeHtml(r.notes||'')}</textarea>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
         <button class="cancel-btn" onclick="cancelEditReport('${id}')">취소</button>
-        <button class="save-btn" onclick="saveEditReport('${id}')">💾 저장</button>
+        <button class="save-btn" onclick="saveEditReport('${id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M5 4.5h11L19.5 8v11.5H5z"></path><path d="M8.5 4.5v5h7M8.5 19.5v-5h7v5"></path></svg>저장</button>
       </div>
     </div>`;
   }
@@ -2368,10 +2397,10 @@
     //   (그 맵은 세정학원 반이 비어 있어, 전입 학생이 있는 반을 못 고르는 문제가 있음.)
     const acadOpts = [...new Set((allStudents||[]).filter(s=>s.academy).map(s=>s.academy))].sort((a,b)=>a.localeCompare(b));
     el.outerHTML = `<div class="notice-edit" id="rr-${id}" style="background:#fff;">
-      <div style="font-size:0.85rem;font-weight:700;margin-bottom:8px;">📤 이 리포트를 반 전체에 주기 / 일괄 수정
+      <div style="font-size:0.85rem;font-weight:700;margin-bottom:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 3.5v10"></path><path d="m8 7.5 4-4 4 4"></path><path d="M4.5 14v4.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V14"></path></svg>이 리포트를 반 전체에 주기 / 일괄 수정
         <span style="color:var(--text-light);font-weight:500;">— ${escapeHtml(r.studentName||'')} · ${escapeHtml((r.date||'').replace(/-/g,'.'))} · 알림 없이 복사</span></div>
       <div style="font-size:0.78rem;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5;">
-        ⚠️ 받는 학생에게 <b>같은 날짜 리포트가 이미 있으면 덮어씁니다</b>(새로 쌓이지 않음).
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>받는 학생에게 <b>같은 날짜 리포트가 이미 있으면 덮어씁니다</b>(새로 쌓이지 않음).
         그래서 반 전체를 골라 보내면 <b>그 반 리포트를 한꺼번에 고치는 것</b>과 같습니다.
       </div>
       <div class="notice-edit-row">
@@ -2384,7 +2413,7 @@
       <div id="sh-msg-${id}" style="font-size:0.8rem;color:var(--text-light);margin-top:4px;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
         <button class="cancel-btn" onclick="cancelEditReport('${id}')">취소</button>
-        <button class="save-btn" onclick="doShareReport('${id}')">📤 복사</button>
+        <button class="save-btn" onclick="doShareReport('${id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 3.5v10"></path><path d="m8 7.5 4-4 4 4"></path><path d="M4.5 14v4.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V14"></path></svg>복사</button>
       </div>
     </div>`;
   }
@@ -2546,17 +2575,17 @@
     const CB = 'style="width:auto;margin:0;padding:0;flex-shrink:0;"';
     host.innerHTML = `<div style="border-top:1px solid var(--border);background:var(--bg2);padding:14px 22px 18px;">
       <div class="notice-edit">
-      <div style="font-weight:800;font-size:0.9rem;">📝 반 전체 리포트 일괄 수정</div>
+      <div style="font-weight:800;font-size:0.9rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>반 전체 리포트 일괄 수정</div>
       <div style="font-size:0.8rem;color:var(--text-light);margin:3px 0 10px;line-height:1.55;">
         <b>${escapeHtml(b.academy)} · ${escapeHtml(b.className)}</b> — 아래 내용 <b>한 벌</b>을 선택한 학생 전원에게 저장합니다.
         같은 날짜 리포트가 <b>이미 있으면 덮어쓰고</b>(새로 쌓이지 않음), 없으면 새로 만듭니다.
       </div>
 
       ${dupNames.length ? `<div style="font-size:0.78rem;color:#B02347;background:#FBE5E9;border:1px solid #F2A8B5;border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5;">
-        ⚠️ <b>동명이인</b>(${escapeHtml(dupNames.join(', '))})이 있습니다. 리포트는 <b>이름</b>으로 저장되므로 같은 이름 학생 모두가 같은 내용으로 저장됩니다.</div>` : ''}
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg><b>동명이인</b>(${escapeHtml(dupNames.join(', '))})이 있습니다. 리포트는 <b>이름</b>으로 저장되므로 같은 이름 학생 모두가 같은 내용으로 저장됩니다.</div>` : ''}
 
       ${b.mixed ? `<div style="font-size:0.78rem;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5;">
-        ⚠️ 이 날짜 리포트가 <b>학생마다 내용이 다릅니다</b>. 저장하면 선택한 학생 전부가 아래 내용으로 <b>통일</b>됩니다(개인별 코멘트는 사라짐).</div>` : ''}
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>이 날짜 리포트가 <b>학생마다 내용이 다릅니다</b>. 저장하면 선택한 학생 전부가 아래 내용으로 <b>통일</b>됩니다(개인별 코멘트는 사라짐).</div>` : ''}
 
       <label style="font-size:0.78rem;color:var(--text-light);font-weight:700;">수업 날짜</label>
       <div class="notice-edit-row">
@@ -2598,7 +2627,7 @@
       <div id="bulkRepMsg" style="font-size:0.8rem;color:var(--text-light);margin-top:8px;min-height:1em;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
         <button class="cancel-btn" onclick="closeBulkReport()">닫기</button>
-        <button class="save-btn" id="bulkRepSaveBtn" onclick="bulkRepSave()">💾 선택한 학생 전원 저장</button>
+        <button class="save-btn" id="bulkRepSaveBtn" onclick="bulkRepSave()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M5 4.5h11L19.5 8v11.5H5z"></path><path d="M8.5 4.5v5h7M8.5 19.5v-5h7v5"></path></svg>선택한 학생 전원 저장</button>
       </div>
       </div>
     </div>`;
@@ -2929,8 +2958,8 @@
           <div style="font-size:0.78rem;color:var(--text-light);">${f.sizeLabel || f.size || ''} ${f.lastModified ? '· '+new Date(f.lastModified).toLocaleDateString('ko-KR') : ''}</div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button onclick="downloadFile('${f.key}')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">⬇ 다운</button>
-          <button onclick="deleteFile('${f.key}')" style="background:#fff;color:#c0392b;border:1.5px solid #c0392b;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">🗑</button>
+          <button onclick="downloadFile('${f.key}')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 3.5v10"></path><path d="m8 9.5 4 4 4-4"></path><path d="M4.5 14v4.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V14"></path></svg>다운</button>
+          <button onclick="deleteFile('${f.key}')" style="background:#fff;color:#c0392b;border:1.5px solid #c0392b;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg></button>
         </div>
       </div>
     `).join('');
@@ -3129,8 +3158,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <strong style="color:#3949AB;">${esc(acad)} <span style="font-size:0.78rem;color:#888;font-weight:normal;">(학생 ${acadStudents}명)</span></strong>
           <div style="display:flex;gap:6px;">
-            <button onclick="addClassPrompt('${esc(acad).replace(/'/g,'\\x27')}')" style="background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;">➕ 반 추가</button>
-            <button class="del-btn" ${canDeleteAcad ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteAcademy('${esc(acad).replace(/'/g,'\\x27')}')" title="${canDeleteAcad ? '학원 삭제' : '학생 있어서 삭제 불가'}">🗑 학원 삭제</button>
+            <button onclick="addClassPrompt('${esc(acad).replace(/'/g,'\\x27')}')" style="background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>반 추가</button>
+            <button class="del-btn" ${canDeleteAcad ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteAcademy('${esc(acad).replace(/'/g,'\\x27')}')" title="${canDeleteAcad ? '학원 삭제' : '학생 있어서 삭제 불가'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>학원 삭제</button>
           </div>
         </div>`;
       if (!classes.length) {
@@ -3148,11 +3177,11 @@
             : 'background:#f0f1f4;color:#999;';
           html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f9fafc;border-radius:6px;font-size:0.85rem;">
             <span>${esc(cls)}
-              <span onclick="copyClassCode('${esc(code).replace(/'/g,'\\x27')}')" title="탭하면 복사" style="display:inline-block;margin-left:6px;background:#E8EAF6;color:#283593;font-weight:800;font-size:0.78rem;letter-spacing:1px;padding:1px 7px;border-radius:5px;cursor:pointer;font-family:monospace;">🔑 ${esc(code)}</span>
+              <span onclick="copyClassCode('${esc(code).replace(/'/g,'\\x27')}')" title="탭하면 복사" style="display:inline-block;margin-left:6px;background:#E8EAF6;color:#283593;font-weight:800;font-size:0.78rem;letter-spacing:1px;padding:1px 7px;border-radius:5px;cursor:pointer;font-family:monospace;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>${esc(code)}</span>
               <span onclick="openScheduleModal('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="수업 요일·시간 설정" style="display:inline-block;margin-left:6px;${schedStyle}font-weight:700;font-size:0.78rem;padding:1px 7px;border-radius:5px;cursor:pointer;">🕘 ${esc(schedLabel)}</span>
               <span style="color:#888;font-size:0.78rem;margin-left:6px;">학생 ${cnt}명</span>
             </span>
-            <button class="del-btn" ${canDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${canDelete ? '반 삭제' : '학생 있어서 삭제 불가'}" style="padding:4px 10px;font-size:0.78rem;">🗑 삭제</button>
+            <button class="del-btn" ${canDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${canDelete ? '반 삭제' : '학생 있어서 삭제 불가'}" style="padding:4px 10px;font-size:0.78rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>삭제</button>
           </div>`;
         }
         html += '</div>';
@@ -3198,7 +3227,7 @@
           '<input type="time" id="schedEnd" style="flex:1;padding:7px;border:1.5px solid #d8e0ec;border-radius:7px;font-size:0.9rem;">' +
         '</div>' +
         '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:700;color:#444;margin-bottom:8px;cursor:pointer;">' +
-          '<input type="checkbox" id="clinOn" onchange="document.getElementById(\'clinBox\').style.display=this.checked?\'block\':\'none\'" style="width:16px;height:16px;cursor:pointer;">🩺 클리닉 시간 추가</label>' +
+          '<input type="checkbox" id="clinOn" onchange="document.getElementById(\'clinBox\').style.display=this.checked?\'block\':\'none\'" style="width:16px;height:16px;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>클리닉 시간 추가</label>' +
         '<div id="clinBox" style="display:none;background:#f7f9fc;border:1px solid #e0e6ef;border-radius:8px;padding:10px;margin-bottom:14px;">' +
           '<div style="display:flex;justify-content:space-between;margin-bottom:10px;">' + clinDayBoxes + '</div>' +
           '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -3576,7 +3605,7 @@
         + '<ul style="margin:4px 0 0 18px;padding:0;font-size:.82rem;line-height:1.6;">' + members + '</ul></div>';
     }).join('');
     panel.innerHTML =
-      '<div style="font-weight:700;color:#B02347;margin-bottom:6px;">⚠️ 동명이인 점검 — 같은 이름 ' + groups.length + '건</div>'
+      '<div style="font-weight:700;color:#B02347;margin-bottom:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>동명이인 점검 — 같은 이름 ' + groups.length + '건</div>'
       + '<div style="font-size:.8rem;color:#7a1a30;line-height:1.6;margin-bottom:8px;">'
       + '리포트·매쓰플랫 alias는 <b>이름</b>으로 매칭됩니다. 같은 이름이 둘 이상이면 기록이 엉뚱한 학생에게 붙을 수 있어요. '
       + '이름 뒤에 숫자(예: 홍길동1·홍길동2)를 붙여 구분해주세요.</div>'
@@ -3619,7 +3648,7 @@
       );
       const dupCount = sameNameOthers.length;
       const dupBadge = dupCount > 0
-        ? `<span style="margin-left:6px;font-size:0.7rem;background:#FBE5E9;color:#B02347;padding:1px 7px;border-radius:6px;font-weight:700;">⚠️ 동명이인 ${dupCount}명</span>`
+        ? `<span style="margin-left:6px;font-size:0.7rem;background:#FBE5E9;color:#B02347;padding:1px 7px;border-radius:6px;font-weight:700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>동명이인 ${dupCount}명</span>`
         : '';
       // 예측되는 alias 번호 — 본인 alias도 카운트에 포함 (이미 수동 입력된 경우 그 번호 유지)
       const aliasRegex = new RegExp('^' + (s.name||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$');
@@ -3635,7 +3664,7 @@
       }
       const dupNotice = dupCount > 0
         ? `<div style="margin-top:8px;padding:8px 10px;background:#FBE5E9;border-left:3px solid #B02347;color:#B02347;font-size:0.78rem;line-height:1.65;border-radius:4px;">
-             ⚠️ 같은 이름 학생 <b>${dupCount}명</b> 이미 등록됨. 승인 시 매쓰플랫 alias <b>[${esc(s.name||'')}${predictedNum}]</b> 자동 부여됩니다.
+             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>같은 이름 학생 <b>${dupCount}명</b> 이미 등록됨. 승인 시 매쓰플랫 alias <b>[${esc(s.name||'')}${predictedNum}]</b> 자동 부여됩니다.
              <br><span style="font-size:0.72rem;opacity:0.85;">매쓰플랫 명단에도 학생을 같은 이름(${esc(s.name||'')}1·${esc(s.name||'')}2 ...)으로 등록해주세요.</span>
            </div>`
         : '';
@@ -3673,20 +3702,20 @@
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
             <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;background:#E5F5E8;font-weight:700;"
-              onclick="event.stopPropagation();approveStudent('${s.id}','${nameEsc}')">✅ 승인</button>
+              onclick="event.stopPropagation();approveStudent('${s.id}','${nameEsc}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="m4.5 12.5 5 5 10-11"></path></svg>승인</button>
             <button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;font-weight:700;"
-              onclick="event.stopPropagation();rejectStudent('${s.id}','${nameEsc}')">❌ 거부</button>
+              onclick="event.stopPropagation();rejectStudent('${s.id}','${nameEsc}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"></path></svg>거부</button>
           </div>
         </div>
         <div class="student-card-details" style="font-size:0.83rem;color:#555;line-height:1.7;">
           ${dupNotice}
           ${detailParts.length ? detailParts.join(' · ') : ''}
           ${phoneParts.length ? '<br>'+phoneParts.join(' · ') : ''}
-          ${mockParts.length ? '<br>📊 '+mockParts.join(' · ') : ''}
-          ${s.dreamUniv ? '<br>🎓 '+esc(s.dreamUniv) : ''}
-          ${s.weakness ? '<br>🎯 취약: '+esc(s.weakness) : ''}
-          ${s.availableDays && s.availableDays.length ? '<br>📅 등원 가능: '+esc(s.availableDays.join(', ')) : ''}
-          ${s.referral ? '<br>💡 알게 된 계기: '+esc(s.referral)+(s.referralDetail ? ' — '+esc(s.referralDetail) : '') : ''}
+          ${mockParts.length ? '<br><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>'+mockParts.join(' · ') : ''}
+          ${s.dreamUniv ? '<br><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>'+esc(s.dreamUniv) : ''}
+          ${s.weakness ? '<br><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4"></circle></svg>취약: '+esc(s.weakness) : ''}
+          ${s.availableDays && s.availableDays.length ? '<br><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>등원 가능: '+esc(s.availableDays.join(', ')) : ''}
+          ${s.referral ? '<br><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M9.5 17.5h5M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9V17.5h7V13.9A6 6 0 0 0 12 3z"></path></svg>알게 된 계기: '+esc(s.referral)+(s.referralDetail ? ' — '+esc(s.referralDetail) : '') : ''}
           ${s.notes ? '<br><span style="background:#FFE8A8;color:#854F0B;padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">'+esc(s.notes)+'</span>' : ''}
         </div>
       </div>`;
@@ -3727,7 +3756,7 @@
         btn.disabled = true;
         btn.style.opacity = '0.4';
         btn.style.cursor = 'not-allowed';
-        btn.textContent = '✅ 선택 일괄 승인';
+        btn.textContent = '선택 일괄 승인';
       }
     }
     if (selectAll) {
@@ -3929,7 +3958,7 @@
       const 새로고침 = '<button type="button" class="del-btn" style="padding:3px 9px;font-size:0.72rem;border-color:var(--border);color:var(--text-light);" onclick="event.stopPropagation();reloadAdminMakeupHistory(this,\'' + jsArg(sid) + '\')">↻ 새로고침</button>';
       const head =
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:7px;">' +
-          '<span style="font-weight:800;font-size:0.8rem;color:var(--primary);">🎬 인강 이력</span>' + 새로고침 +
+          '<span style="font-weight:800;font-size:0.8rem;color:var(--primary);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M8 5v14M16 5v14M3.5 12h17"></path></svg>인강 이력</span>' + 새로고침 +
         '</div>';
 
       if (!rows.length){
@@ -4097,21 +4126,21 @@
         ${s.grade ? '<span>학년: <b>' + escapeHtml(s.grade) + '</b></span>&nbsp;&nbsp;' : ''}
         ${s.goals && s.goals.length ? '<span>목적: ' + escapeHtml(s.goals.join(', ')) + '</span>&nbsp;&nbsp;' : ''}
         ${s.advanceProgress ? '<span>선행: <b>' + escapeHtml(s.advanceProgress) + '</b></span>&nbsp;&nbsp;' : ''}
-        ${s.studentPhone ? '<br><span>📱 학생: ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)">🔑 비번 초기화</button></span>&nbsp;&nbsp;' : ''}
-        ${s.parentPhone ? '<span>👪 학부모(' + escapeHtml(s.parentRelation || '') + '): <b>' + escapeHtml(s.parentPhone) + '</b> <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 비번 초기화</button></span>' : (s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>' : '')}
-        ${mathInfo.length ? '<br><span style="color:var(--primary);font-weight:600;">📊 ' + mathInfo.join(' · ') + '</span>' : ''}
-        ${s.weakness ? '<br><span>🎯 취약: ' + escapeHtml(s.weakness) + '</span>' : ''}
-        ${s.dreamUniv ? '&nbsp;&nbsp;<span>🎓 ' + escapeHtml(s.dreamUniv) + '</span>' : ''}
-        ${s.availableDays && s.availableDays.length ? '<br><span>📅 등원 가능: ' + escapeHtml(s.availableDays.join(', ')) + '</span>' : ''}
-        ${s.mathPlatName ? '<br><span style="color:#888;font-size:0.74rem;">📋 매쓰플랫: <b style="color:#666;">' + escapeHtml(s.mathPlatName) + '</b></span>' : ''}
+        ${s.studentPhone ? '<br><span>📱 학생: ' + escapeHtml(s.studentPhone) + ' <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.studentPhone) + '\x27, \x27학생\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>비번 초기화</button></span>&nbsp;&nbsp;' : ''}
+        ${s.parentPhone ? '<span>👪 학부모(' + escapeHtml(s.parentRelation || '') + '): <b>' + escapeHtml(s.parentPhone) + '</b> <button class="pw-btn" onclick="event.stopPropagation();resetPassword(\x27' + escapeAttr(s.parentPhone) + '\x27, \x27학부모\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>비번 초기화</button></span>' : (s.parentPhone4 ? '<span>학부모 끝자리: <b>' + escapeHtml(s.parentPhone4) + '</b></span>' : '')}
+        ${mathInfo.length ? '<br><span style="color:var(--primary);font-weight:600;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg>' + mathInfo.join(' · ') + '</span>' : ''}
+        ${s.weakness ? '<br><span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4"></circle></svg>취약: ' + escapeHtml(s.weakness) + '</span>' : ''}
+        ${s.dreamUniv ? '&nbsp;&nbsp;<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>' + escapeHtml(s.dreamUniv) + '</span>' : ''}
+        ${s.availableDays && s.availableDays.length ? '<br><span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>등원 가능: ' + escapeHtml(s.availableDays.join(', ')) + '</span>' : ''}
+        ${s.mathPlatName ? '<br><span style="color:#888;font-size:0.74rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>매쓰플랫: <b style="color:#666;">' + escapeHtml(s.mathPlatName) + '</b></span>' : ''}
         ${s.notes ? '<br><span style="background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:6px;font-size:0.78rem;font-weight:600;">' + escapeHtml(s.notes) + '</span>' : ''}
         <div class="go-row" style="margin-top:11px;padding-top:11px;border-top:1px dashed var(--border);">
           <span class="go-row-label">이 학생:</span>
-          <button class="go-btn" title="이 학생에게 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔔<span class="go-txt"> 알림</span></button>
-          <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">📈<span class="go-txt"> 성적</span></button>
-          <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔓<span class="go-txt"> 인강</span></button>
-          <button class="go-btn" title="언제 결석했고 그날 인강이 열렸는지 — 기록만 봅니다" onclick="event.stopPropagation();toggleAdminMakeupHistory(this,'${jsArg(s.id)}')">🎬<span class="go-txt"> 인강 이력</span></button>
-          <button class="go-btn" title="이 학생이 속한 반의 리포트 (리포트는 반 단위로 올라옵니다)" onclick="event.stopPropagation();openReportsForClass('${jsArg(s.academy)}','${jsArg(s.className)}')">📋<span class="go-txt"> 리포트</span></button>
+          <button class="go-btn" title="이 학생에게 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg><span class="go-txt"> 알림</span></button>
+          <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg><span class="go-txt"> 성적</span></button>
+          <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg><span class="go-txt"> 인강</span></button>
+          <button class="go-btn" title="언제 결석했고 그날 인강이 열렸는지 — 기록만 봅니다" onclick="event.stopPropagation();toggleAdminMakeupHistory(this,'${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M8 5v14M16 5v14M3.5 12h17"></path></svg><span class="go-txt"> 인강 이력</span></button>
+          <button class="go-btn" title="이 학생이 속한 반의 리포트 (리포트는 반 단위로 올라옵니다)" onclick="event.stopPropagation();openReportsForClass('${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg><span class="go-txt"> 리포트</span></button>
         </div>
         <div class="mkwrap-admin" style="display:none;margin-top:10px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
         <!-- 관리 액션은 카드 헤더에서 여기로 내렸다(2026-07-30).
@@ -4119,9 +4148,9 @@
              기능은 그대로 — 카드를 펼치면 전부 여기 있다. -->
         <div class="go-row" style="margin-top:8px;">
           <span class="go-row-label">관리:</span>
-          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">📝 학원/반</button>
-          <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">➕ 다른 반</button>
-          <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')">🗑 퇴원처리</button>
+          <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>학원/반</button>
+          <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>다른 반</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
         </div>
         </div>
     </div>`;
@@ -4184,18 +4213,18 @@
               ${s.advanceProgress ? '&nbsp;·&nbsp;선행 ' + escapeHtml(s.advanceProgress) : ''}
             </div>
             <div class="go-row" style="margin-top:7px;">
-              <button class="go-btn" title="이 학생에게 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔔<span class="go-txt"> 알림</span></button>
-              <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">📈<span class="go-txt"> 성적</span></button>
-              <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')">🔓<span class="go-txt"> 인강</span></button>
-              <button class="go-btn" title="언제 결석했고 그날 인강이 열렸는지 — 기록만 봅니다" onclick="event.stopPropagation();toggleAdminMakeupHistory(this,'${jsArg(s.id)}')">🎬<span class="go-txt"> 인강 이력</span></button>
+              <button class="go-btn" title="이 학생에게 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg><span class="go-txt"> 알림</span></button>
+              <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg><span class="go-txt"> 성적</span></button>
+              <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg><span class="go-txt"> 인강</span></button>
+              <button class="go-btn" title="언제 결석했고 그날 인강이 열렸는지 — 기록만 봅니다" onclick="event.stopPropagation();toggleAdminMakeupHistory(this,'${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M8 5v14M16 5v14M3.5 12h17"></path></svg><span class="go-txt"> 인강 이력</span></button>
               <button class="go-btn" style="border-style:dashed;" title="학원/반 변경 · 다른 반 추가 · 비밀번호 초기화 · 퇴원처리" onclick="event.stopPropagation();toggleClassMore('smore-${gi}-${si}', this)">⋯ 더보기</button>
             </div>
             <div class="go-row" id="smore-${gi}-${si}" style="display:none;margin-top:6px;">
-              <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">📝 학원/반</button>
-              <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')">➕ 다른 반</button>
-              ${s.parentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학부모 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.parentPhone) + '\x27, \x27학부모\x27)">🔑 학부모 비번</button>' : ''}
-              ${s.studentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학생 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.studentPhone) + '\x27, \x27학생\x27)">🔑 학생 비번</button>' : ''}
-              <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')">🗑 퇴원처리</button>
+              <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>학원/반</button>
+              <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>다른 반</button>
+              ${s.parentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학부모 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.parentPhone) + '\x27, \x27학부모\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>학부모 비번</button>' : ''}
+              ${s.studentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학생 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.studentPhone) + '\x27, \x27학생\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>학생 비번</button>' : ''}
+              <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
             </div>
             <div class="mkwrap-admin" style="display:none;margin-top:9px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
           </div>
@@ -4210,20 +4239,20 @@
             <span style="font-size:0.78rem;color:var(--text-light);font-weight:600;margin-left:8px;">${g.students.length}명</span>
           </div>
           <div class="go-row">
-            <button class="go-btn" title="이 반 전체에 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')">🔔<span class="go-txt"> 반 알림</span></button>
-            <button class="go-btn" title="이 반 테스트·시험 평균과 학생별 점수" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')">📊<span class="go-txt"> 반 성적</span></button>
-            <button class="go-btn" title="이 반 리포트 보기·수정" onclick="event.stopPropagation();openReportsForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')">📋<span class="go-txt"> 반 리포트</span></button>
-            <button class="go-btn" title="이 반 수업자료 올리기" onclick="event.stopPropagation();openFilesForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')">📁<span class="go-txt"> 수업자료</span></button>
+            <button class="go-btn" title="이 반 전체에 알림 보내기" onclick="event.stopPropagation();goPreset('/admin-notify','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg><span class="go-txt"> 반 알림</span></button>
+            <button class="go-btn" title="이 반 테스트·시험 평균과 학생별 점수" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg><span class="go-txt"> 반 성적</span></button>
+            <button class="go-btn" title="이 반 리포트 보기·수정" onclick="event.stopPropagation();openReportsForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg><span class="go-txt"> 반 리포트</span></button>
+            <button class="go-btn" title="이 반 수업자료 올리기" onclick="event.stopPropagation();openFilesForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></svg><span class="go-txt"> 수업자료</span></button>
             <button class="go-btn" style="border-style:dashed;" onclick="event.stopPropagation();toggleClassMore('more-${gi}', this)">⋯ 더보기</button>
             <span onclick="toggleStudentGroup('${escapeAttr(key)}')" style="cursor:pointer;font-size:0.85rem;color:var(--text-light);transition:transform .25s;display:inline-block;${isOpen?'transform:rotate(180deg);':''}">▾</span>
           </div>
         </div>
         <div class="go-row" id="more-${gi}" style="display:none;padding:0 22px 12px;">
           <span class="go-row-label">이 반:</span>
-          <button class="go-btn" title="이 반 수업영상 목록" onclick="event.stopPropagation();openVideosForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')">📺<span class="go-txt"> 영상</span></button>
-          <button class="go-btn" title="이 반 대상으로 새 테스트 만들기" onclick="event.stopPropagation();goNewSurveyForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')">🗳️<span class="go-txt"> 테스트</span></button>
-          <button class="go-btn" title="이 반 학습 랭킹" onclick="event.stopPropagation();goPreset('/admin-study','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')">🏆<span class="go-txt"> 랭킹</span></button>
-          <button class="go-btn" title="이 반 출석부 PDF" onclick="event.stopPropagation();printAttendance('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')">📄<span class="go-txt"> 출석부 PDF</span></button>
+          <button class="go-btn" title="이 반 수업영상 목록" onclick="event.stopPropagation();openVideosForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect><path d="M15.5 10.5 21 7.5v9l-5.5-3"></path></svg><span class="go-txt"> 영상</span></button>
+          <button class="go-btn" title="이 반 대상으로 새 테스트 만들기" onclick="event.stopPropagation();goNewSurveyForClass('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 20.5h15M6 16.5h12l-1-9H7z"></path><path d="M9.5 7.5V4.5h5v3"></path></svg><span class="go-txt"> 테스트</span></button>
+          <button class="go-btn" title="이 반 학습 랭킹" onclick="event.stopPropagation();goPreset('/admin-study','${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}','')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M8 4h8v5a4 4 0 0 1-8 0z"></path><path d="M12 13v3.5M9 20.5h6l-.7-4h-4.6z"></path></svg><span class="go-txt"> 랭킹</span></button>
+          <button class="go-btn" title="이 반 출석부 PDF" onclick="event.stopPropagation();printAttendance('${jsArg(g.rawAcademy)}','${jsArg(g.rawClass)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M13.5 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"></path><path d="M13.5 3v5.5H19"></path></svg><span class="go-txt"> 출석부 PDF</span></button>
         </div>
         ${isOpen ? `<div style="border-top:1px solid var(--border);padding:12px 22px 16px;display:flex;flex-direction:column;gap:8px;">${items}</div>` : ''}
       </div>`;
@@ -4270,7 +4299,7 @@
 
     const sheet = document.getElementById('attendanceSheet');
     sheet.innerHTML = `
-      <h1>📐 LKW math LAB · 출석부</h1>
+      <h1><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>LKW math LAB · 출석부</h1>
       <div class="att-meta">
         <div><strong>학원:</strong> ${escapeHtml(academy)} &nbsp;·&nbsp; <strong>반:</strong> ${escapeHtml(className)} &nbsp;·&nbsp; <strong>학생 수:</strong> ${studentsInClass.length}명</div>
         <div><strong>출력일:</strong> ${dateStr}</div>
@@ -4516,16 +4545,16 @@
       if (v.class_name && !classOpts.includes(v.class_name)) classOpts = [v.class_name, ...classOpts];
       const opts = classOpts.map(c => `<option value="${c}" ${c===v.class_name?"selected":""}>${c}</option>`).join("");
       const lockBtn = v.require_code
-        ? `<button class="del-btn" style="border-color:#2ecc71;color:#2ecc71;" onclick="toggleVideoLock(\x27${v.code}\x27, false)">🔓 해제</button>`
-        : `<button class="del-btn" onclick="toggleVideoLock(\x27${v.code}\x27, true)">🔒 잠그기</button>`;
+        ? `<button class="del-btn" style="border-color:#2ecc71;color:#2ecc71;" onclick="toggleVideoLock(\x27${v.code}\x27, false)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>해제</button>`
+        : `<button class="del-btn" onclick="toggleVideoLock(\x27${v.code}\x27, true)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>잠그기</button>`;
       const lockBadge = v.require_code
-        ? `<span style="background:#FAEEDA;color:#854F0B;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔒 잠김</span>`
-        : `<span style="background:#E1F5EE;color:#085041;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">🔓 공개</span>`;
+        ? `<span style="background:#FAEEDA;color:#854F0B;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>잠김</span>`
+        : `<span style="background:#E1F5EE;color:#085041;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>공개</span>`;
       const checkbox = _videoSelectMode
         ? `<input type="checkbox" onchange="toggleVideoSelected(\x27${v.code}\x27, this.checked)" ${_videoSelected.has(v.code)?"checked":""} style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">`
         : "";
       const _accLog = Array.isArray(v.access_log) ? v.access_log : [];
-      const accBtn = `<button type="button" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);" onclick="toggleAccess(\x27${v.code}\x27)">👁 접근 ${v.access_count || 0}회${_accLog.length ? " ▾" : ""}</button>`;
+      const accBtn = `<button type="button" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);" onclick="toggleAccess(\x27${v.code}\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.8"></circle></svg>접근 ${v.access_count || 0}회${_accLog.length ? " ▾" : ""}</button>`;
       const accPanel = `<div id="acc-${v.code}" style="display:none;width:100%;margin-top:10px;padding:10px 12px;background:#F7F5F0;border-radius:10px;box-sizing:border-box;">${renderAccessLog(_accLog, v.access_source)}</div>`;
       return `<div class="video-card">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -4536,10 +4565,10 @@
           ${lockBadge}
           ${accBtn}
           <div style="margin-left:auto;display:flex;gap:6px;">
-            <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)">📋 코드 복사</button>
+            <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>코드 복사</button>
             ${lockBtn}
             <a href="${v.youtube_url}" target="_blank" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);text-decoration:none;">▶ 보기</a>
-            <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="deleteVideo(\x27${v.code}\x27, \x27${(v.date || '').replace(/'/g, '')}\x27, \x27${(v.school || '').replace(/'/g, '')}\x27, \x27${(v.class_name || '').replace(/'/g, '')}\x27)">🗑 삭제</button>
+            <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="deleteVideo(\x27${v.code}\x27, \x27${(v.date || '').replace(/'/g, '')}\x27, \x27${(v.school || '').replace(/'/g, '')}\x27, \x27${(v.class_name || '').replace(/'/g, '')}\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>삭제</button>
           </div>
         </div>
         ${accPanel}
@@ -4674,11 +4703,11 @@
         + '<div style="font-weight:900;font-size:1rem;color:var(--text);margin-bottom:3px;">' + escapeHtml(name) + ' — ' + escapeHtml(status) + ' 처리</div>'
         + '<div style="font-size:0.76rem;color:var(--text-light);margin-bottom:14px;">' + escapeHtml(qaDate()) + ' 기록으로 저장됩니다.</div>'
         + '<label style="display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:0.86rem;font-weight:700;color:var(--text);">'
-        +   '<input type="checkbox" id="absNotify" checked style="width:17px;height:17px;cursor:pointer;">🔔 학부모께 ' + escapeHtml(status) + ' 알림 보내기'
+        +   '<input type="checkbox" id="absNotify" checked style="width:17px;height:17px;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg>학부모께 ' + escapeHtml(status) + ' 알림 보내기'
         + '</label>'
         + (인강가능
             ? '<label style="display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:0.86rem;font-weight:700;color:var(--text);margin-top:8px;">'
-              + '<input type="checkbox" id="absMakeup" style="width:17px;height:17px;cursor:pointer;">🔓 이 날짜 인강 열어주기'
+              + '<input type="checkbox" id="absMakeup" style="width:17px;height:17px;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>이 날짜 인강 열어주기'
               + '</label>'
               + '<div style="font-size:0.72rem;color:var(--text-light);margin-top:6px;line-height:1.55;">그날 수업영상·수업자료가 이 학생에게 열립니다. 영상이 아직 없어도 미리 열어둘 수 있어요.</div>'
             : '')
@@ -5030,8 +5059,8 @@
       qaPill('병/공결', t.counts['병결'] + t.counts['공결'], '#E8EAF6', '#3949AB') +
       qaPill('미체크', t.counts['미체크'], '#F0F0F0', '#666') +
       (t.hwAvg !== null
-        ? '<span style="display:inline-block;background:linear-gradient(135deg,#FBE5E9,#E5F5E8);color:var(--primary);padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:800;border:1.5px solid var(--primary);">📝 숙제 ' + t.hwAvg + '% (' + t.hwN + '/' + t.total + ')</span>'
-        : '<span style="display:inline-block;color:var(--text-light);padding:3px 8px;font-size:0.78rem;">📝 숙제 미체크</span>');
+        ? '<span style="display:inline-block;background:linear-gradient(135deg,#FBE5E9,#E5F5E8);color:var(--primary);padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:800;border:1.5px solid var(--primary);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>숙제 ' + t.hwAvg + '% (' + t.hwN + '/' + t.total + ')</span>'
+        : '<span style="display:inline-block;color:var(--text-light);padding:3px 8px;font-size:0.78rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>숙제 미체크</span>');
   }
 
   // ── 그날 수업 있는 반 목록 ────────────────────
@@ -5086,11 +5115,11 @@
         '<span style="font-size:0.74rem;color:var(--text-light);">' + escapeHtml(formatClassSchedule(c.sched)) + '</span>' +
       '</div>' +
       '<div style="margin-bottom:9px;">' + qaTallyHtml(t) +
-        (allDone ? '<span style="color:#1F7A33;font-weight:800;font-size:0.78rem;margin-left:4px;">✅ 완료</span>'
+        (allDone ? '<span style="color:#1F7A33;font-weight:800;font-size:0.78rem;margin-left:4px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="m4.5 12.5 5 5 10-11"></path></svg>완료</span>'
                  : '<span style="color:var(--text-light);font-size:0.76rem;margin-left:4px;">(' + done + '/' + c.students.length + ' 체크됨)</span>') +
       '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-        '<button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance(\'출석\',\'' + a + '\',\'' + n + '\')">👥 전원 출석</button>' +
+        '<button class="del-btn" style="border-color:#1F7A33;color:#1F7A33;background:#E5F5E8;" onclick="bulkClassAttendance(\'출석\',\'' + a + '\',\'' + n + '\')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c1-3.2 3.4-4.6 6-4.6s5 1.4 6 4.6"></path><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M18 20c-.3-1.5-.8-2.7-1.5-3.6"></path></svg>전원 출석</button>' +
         '<button class="del-btn" style="border-color:#B02347;color:#B02347;background:#FBE5E9;" onclick="bulkClassAttendance(\'결석\',\'' + a + '\',\'' + n + '\')">전원 결석</button>' +
         '<button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="focusClass(\'' + a + '\',\'' + n + '\')">이 반만 보기 →</button>' +
       '</div></div>';
@@ -5147,8 +5176,8 @@
       pill('병/공결', counts['병결']+counts['공결'], '#E8EAF6', '#3949AB') +
       pill('미체크', counts['미체크'], '#F0F0F0', '#666') +
       (hwAvg !== null
-        ? '<span style="display:inline-block;background:linear-gradient(135deg,#FBE5E9,#E5F5E8);color:var(--primary);padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:800;margin-left:6px;border:1.5px solid var(--primary);">📝 숙제 평균 ' + hwAvg + '% (' + hwN + '/' + targets.length + ')</span>'
-        : '<span style="display:inline-block;color:var(--text-light);padding:3px 8px;font-size:0.78rem;margin-left:6px;">📝 숙제 미체크</span>');
+        ? '<span style="display:inline-block;background:linear-gradient(135deg,#FBE5E9,#E5F5E8);color:var(--primary);padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:800;margin-left:6px;border:1.5px solid var(--primary);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>숙제 평균 ' + hwAvg + '% (' + hwN + '/' + targets.length + ')</span>'
+        : '<span style="display:inline-block;color:var(--text-light);padding:3px 8px;font-size:0.78rem;margin-left:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>숙제 미체크</span>');
   }
   function refreshQuickAttendanceSummary() { updateQaSummary(); }
   // acad·cls를 넘기면 그 반(카드 버튼), 안 넘기면 드롭다운 선택 반(다른 반 찾기 패널).
@@ -5481,7 +5510,7 @@
     if (!acad && !cls && !q && !_attShowAll) {
       // 시간표가 아직 안 왔으면 전체 학생을 잠깐 뿌렸다 지우는 깜빡임이 생긴다. 도착할 때까지 기다린다.
       if (!_qaSchedTried) {
-        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);font-size:0.85rem;">🗓 오늘 수업 반 불러오는 중…</div>';
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);font-size:0.85rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>오늘 수업 반 불러오는 중…</div>';
         return;
       }
       const g = (typeof qaTodayClasses === 'function') ? qaTodayClasses() : { today: [] };
@@ -5490,7 +5519,7 @@
         filtered = filtered.filter(s => keys.has((s.academy||'') + '/' + (s.className||'')));
         banner = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;'
           + 'background:var(--primary-light);border-radius:9px;padding:8px 12px;margin-bottom:10px;font-size:0.8rem;color:var(--primary);font-weight:700;">'
-          + '<span>🗓 ' + escapeHtml(SCHED_DAY_NAMES[qaWeekday()]) + '요일 수업 반만 보고 있어요 (' + g.today.length + '개 반 · ' + filtered.length + '명)</span>'
+          + '<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>' + escapeHtml(SCHED_DAY_NAMES[qaWeekday()]) + '요일 수업 반만 보고 있어요 (' + g.today.length + '개 반 · ' + filtered.length + '명)</span>'
           + '<button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="showAllAttendanceStudents()">전체 학생 보기</button>'
           + '</div>';
       }
@@ -5498,7 +5527,7 @@
       banner = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;'
         + 'background:#f9fafc;border-radius:9px;padding:8px 12px;margin-bottom:10px;font-size:0.8rem;color:var(--text-light);font-weight:700;">'
         + '<span>전체 학생 ' + filtered.length + '명</span>'
-        + '<button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="showTodayAttendanceStudents()">🗓 오늘 수업 반만 보기</button>'
+        + '<button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="showTodayAttendanceStudents()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>오늘 수업 반만 보기</button>'
         + '</div>';
     }
     if (q) {
@@ -5534,7 +5563,7 @@
           <strong style="font-size:0.95rem;">${escapeHtml(s.name||'—')}</strong>
           <span style="font-size:0.78rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy||'')}${s.className?' / '+escapeHtml(s.className):''}</span>
         </div>
-        <div class="week-study" data-student="${(s.name||'').replace(/"/g,'&quot;')}" style="font-size:0.78rem;color:var(--text-light);">📚 이번 주: <span class="ws-val">…</span></div>
+        <div class="week-study" data-student="${(s.name||'').replace(/"/g,'&quot;')}" style="font-size:0.78rem;color:var(--text-light);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"></path></svg>이번 주: <span class="ws-val">…</span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
         <span style="font-size:0.72rem;color:var(--text-light);margin-right:2px;">출결:</span>
@@ -5542,7 +5571,7 @@
         <button class="att-btn" data-s="지각" onclick="markAttendance(${s.id},'${nameEsc}','지각',this)" style="background:#FFF4D6;color:#B07A00;border:1px solid #E8C56C;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">지</button>
         <button class="att-btn" data-s="결석" onclick="markAttendance(${s.id},'${nameEsc}','결석',this)" style="background:#FBE5E9;color:#B02347;border:1px solid #F2A8B5;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">결</button>
         <button class="att-btn" data-s="병결" onclick="markAttendance(${s.id},'${nameEsc}','병결',this)" style="background:#E8ECFB;color:#3949AB;border:1px solid #A8B4E3;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">병</button>
-        <button class="mk-btn" data-mk-sid="${s.id}" title="이 날짜 수업영상·수업자료를 이 학생에게 열어줍니다 (영상이 아직 없어도 미리 열어둘 수 있어요)" onclick="toggleMakeupForDate(${s.id},'${nameEsc}',this)" style="background:#fff;color:#888;border:1px solid #ddd;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;margin-left:8px;">🔒 인강 열기</button>
+        <button class="mk-btn" data-mk-sid="${s.id}" title="이 날짜 수업영상·수업자료를 이 학생에게 열어줍니다 (영상이 아직 없어도 미리 열어둘 수 있어요)" onclick="toggleMakeupForDate(${s.id},'${nameEsc}',this)" style="background:#fff;color:#888;border:1px solid #ddd;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;margin-left:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>인강 열기</button>
         <span style="font-size:0.72rem;color:var(--text-light);margin-left:10px;margin-right:2px;">숙제:</span>
         <div class="hw-bucket" data-hw-sid="${s.id}" data-hw-student="${(s.name||'').replace(/"/g,'&quot;')}">
           <button class="hw-btn" data-p="0"   onclick="markHomework(${s.id},'${nameEsc}',0,this)">0</button>
@@ -5551,10 +5580,10 @@
           <button class="hw-btn" data-p="75"  onclick="markHomework(${s.id},'${nameEsc}',75,this)">75</button>
           <button class="hw-btn" data-p="100" onclick="markHomework(${s.id},'${nameEsc}',100,this)">100</button>
         </div>
-        <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${nameEsc}')">📋</button>
+        <button class="hw-prev-btn" title="지난 회차 숙제 내용 보기" onclick="showLastHomework('${nameEsc}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg></button>
       </div>
       <div style="margin-top:10px;">
-        <button onclick="toggleAdminClinic(this,'${nameEsc}')" style="background:#E3F1F2;color:#1f6f78;border:1px solid #9CCDD2;padding:5px 12px;border-radius:7px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;">📋 클리닉 (출결·성취도·시간)</button>
+        <button onclick="toggleAdminClinic(this,'${nameEsc}')" style="background:#E3F1F2;color:#1f6f78;border:1px solid #9CCDD2;padding:5px 12px;border-radius:7px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>클리닉 (출결·성취도·시간)</button>
       </div>
       <div class="cliwrap-admin" data-name="${(s.name||'').replace(/"/g,'&quot;')}" style="display:none;margin-top:8px;background:#fff;border:1px dashed #1f6f78;border-radius:9px;padding:10px 12px;"></div>
     </div>`;
@@ -5580,7 +5609,7 @@
     box.dataset.built = '1';
     const stBtns = ['출석','지각','결석','병결','공결'];
     box.innerHTML =
-      '<div style="font-weight:800;font-size:0.78rem;color:#1f6f78;margin-bottom:8px;">📋 클리닉 입력</div>'+
+      '<div style="font-weight:800;font-size:0.78rem;color:#1f6f78;margin-bottom:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>클리닉 입력</div>'+
       '<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">'+
         '<input type="date" class="cli-date" value="'+_cliTodayStr()+'" style="padding:6px 9px;border:1.5px solid #cdd;border-radius:8px;font-family:inherit;font-size:0.82rem;">'+
         stBtns.map(function(s){ return '<button type="button" class="cli-st" data-st="'+s+'" style="background:#fff;color:#666;border:1.5px solid #ddd;border-radius:8px;padding:6px 11px;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;">'+s+'</button>'; }).join('')+
@@ -5643,7 +5672,7 @@
       const days = dates.map(function(d){ const e=rec[d]||{};
         return '<div style="display:flex;align-items:center;gap:7px;">'
           + '<span>'+escapeHtml(d.slice(5))+' · '+escapeHtml(e.status||'-')+(typeof e.achieve==='number'?' · 성취도 '+e.achieve:'')+(typeof e.minutes==='number'?' · '+fmtClinicMin(e.minutes):'')+'</span>'
-          + '<button type="button" class="cli-del" data-date="'+escapeHtml(d)+'" title="이 날짜 클리닉 기록 삭제" style="background:#fff;border:1px solid #E4B6C0;color:#B02347;border-radius:6px;padding:1px 8px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">🗑</button>'
+          + '<button type="button" class="cli-del" data-date="'+escapeHtml(d)+'" title="이 날짜 클리닉 기록 삭제" style="background:#fff;border:1px solid #E4B6C0;color:#B02347;border-radius:6px;padding:1px 8px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg></button>'
           + '</div>';
       }).join('');
       sumEl.innerHTML = nav + '<div style="font-weight:700;color:#1f6f78;margin-bottom:4px;">'+escapeHtml(head)+'</div><div style="line-height:1.9;color:#666;">'+days+'</div>';

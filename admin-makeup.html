@@ -223,15 +223,15 @@
     <div class="kwnav-mw">
       <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
       <div class="kwnav-pop" id="kwnavPop" role="menu">
-        <a role="menuitem" href="/admin-qna" data-p="/admin-qna">💬 질문 답변</a>
-        <a role="menuitem" href="/staff-students" data-p="/staff-students">🎓 학생</a>
-        <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster">🩺 클리닉 명단</a>
-        <a role="menuitem" href="/clinic-review" data-p="/clinic-review">📝 클리닉 총평</a>
-        <a role="menuitem" href="/admin-scores" data-p="/admin-scores">📈 성적</a>
-        <a role="menuitem" href="/staff-reports" data-p="/staff-reports">📋 리포트</a>
-        <a role="menuitem" href="/staff-materials" data-p="/staff-materials">📚 수업자료</a>
-        <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys">📝 테스트</a>
-        <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog">🗓️ 근무기록</a>
+        <a role="menuitem" href="/admin-qna" data-p="/admin-qna"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>질문 답변</a>
+        <a role="menuitem" href="/staff-students" data-p="/staff-students"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>학생</a>
+        <a role="menuitem" href="/clinic-roster" data-p="/clinic-roster"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2.5 12h4l2-5 3 10 2.5-5h7.5"></path></svg>클리닉 명단</a>
+        <a role="menuitem" href="/clinic-review" data-p="/clinic-review"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>클리닉 총평</a>
+        <a role="menuitem" href="/admin-scores" data-p="/admin-scores"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>성적</a>
+        <a role="menuitem" href="/staff-reports" data-p="/staff-reports"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>리포트</a>
+        <a role="menuitem" href="/staff-materials" data-p="/staff-materials"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H20"></path></svg>수업자료</a>
+        <a role="menuitem" href="/admin-surveys" data-p="/admin-surveys"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>테스트</a>
+        <a role="menuitem" href="/staff-worklog" data-p="/staff-worklog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>근무기록</a>
         <a role="menuitem" href="#" class="kwnav-logout" id="kwnavLogout">🚪 로그아웃</a>
       </div>
     </div>
@@ -464,14 +464,14 @@
     if (IS_STAFF){
       btns = '';                                   // 조교는 열람만 (POST /api/makeup는 원장 전용)
     } else if (s.locked){
-      btns = '<button class="mini" onclick="rowAct(\'grant\',\'' + sid + '\',this)">🔓 영상 해제</button>';
+      btns = '<button class="mini" onclick="rowAct(\'grant\',\'' + sid + '\',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>영상 해제</button>';
     } else if (s.lockSource === 'attendance'){
       // 출석해서 열린 학생 — 잠글 방법이 없다(출석을 고쳐야 잠긴다). 남아 있는 승인 기록만 지울 수 있게 둔다.
       btns = '<span class="autoOpen">자동 열림</span>' + (s.approved
         ? '<button class="mini ghost" title="이 학생은 출석해서 어차피 열립니다. 남아 있는 인강 승인 기록만 지웁니다." onclick="rowAct(\'revoke\',\'' + sid + '\',this)">승인기록 지우기</button>'
         : '');
     } else {
-      btns = '<button class="mini gray" onclick="rowAct(\'revoke\',\'' + sid + '\',this)">🔒 다시 잠그기</button>';
+      btns = '<button class="mini gray" onclick="rowAct(\'revoke\',\'' + sid + '\',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>다시 잠그기</button>';
     }
     return '<div class="row" id="mkr' + sid + '"><div><div class="who">' + esc(s.name || ('학생#' + sid)) + '</div>' + sub + '</div>' +
       '<div class="rt">' + statChip(s) + '<div class="sp" style="margin-left:0;">' + btns + '</div></div></div>';
@@ -485,20 +485,20 @@
       '<div style="font-weight:800;font-size:1.02rem;">' + esc(d.date) + '(' + dowOf(d.date) + ')</div>' +
       '<div style="color:var(--muted);font-size:0.84rem;">' + esc(d.academy || '(미지정)') + ' · ' + esc(d.className || '(반 없음)') + '</div></div>';
     head += '<div style="font-size:0.86rem;margin-bottom:10px;">' +
-      '<b style="color:#C0392B;">🔒 막힘 ' + (c.locked || 0) + '명</b> · ' +
-      '<b style="color:#1E7B41;">🔓 열림 ' + (c.open || 0) + '명</b>' +
+      '<b style="color:#C0392B;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>막힘 ' + (c.locked || 0) + '명</b> · ' +
+      '<b style="color:#1E7B41;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>열림 ' + (c.open || 0) + '명</b>' +
       (c.requested ? ' · <b style="color:#B26A00;">🙋 신청 ' + c.requested + '명</b>' : '') + '</div>';
 
     var vids = d.videos || [];
     if (!vids.length){
       head += '<div class="vidline">📭 이 날짜에 등록된 <b>영상이 없습니다</b>. 그래도 열어두면 그날 <b>수업자료</b>가 열리고, 나중에 영상이 올라오면 바로 보입니다.</div>';
     } else {
-      head += '<div class="vidline">🎬 이 날 영상 ' + vids.length + '개 — ' + vids.map(function(v){
+      head += '<div class="vidline"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M8 5v14M16 5v14M3.5 12h17"></path></svg>이 날 영상 ' + vids.length + '개 — ' + vids.map(function(v){
         return esc(v.title || v.code || '(제목 없음)') + (v.requireCode ? ' <span style="color:#C0392B;">(수업코드 잠금)</span>' : '');
       }).join(' · ') + '</div>';
       if (d.codeOnlyCount) head += '<div class="dt" style="color:#C0392B;margin-bottom:8px;">※ 수업코드 잠금 영상은 여기서 열리지 않습니다 — 영상 등록 화면에서 관리하세요.</div>';
     }
-    if (d.videosTruncated) head += '<div class="dt" style="color:#C0392B;margin-bottom:8px;">⚠️ 등록된 영상이 너무 많아 일부만 확인했습니다 — 위 영상 목록이 실제와 다를 수 있습니다.</div>';
+    if (d.videosTruncated) head += '<div class="dt" style="color:#C0392B;margin-bottom:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 4.5 2.8 19.5h18.4z"></path><path d="M12 10v4M12 17.2h.01"></path></svg>등록된 영상이 너무 많아 일부만 확인했습니다 — 위 영상 목록이 실제와 다를 수 있습니다.</div>';
     if (IS_STAFF) head += '<div class="dt" style="margin-bottom:8px;">👀 조교는 <b>보기만</b> 됩니다. 인강을 열고 잠그는 것은 원장만 할 수 있어요.</div>';
 
     if (!studs.length){ box.innerHTML = head + '<div class="empty">이 반에 등록된 학생이 없습니다.</div>'; return; }
@@ -506,9 +506,9 @@
     var locked = studs.filter(function(s){ return s.locked; });
     var open   = studs.filter(function(s){ return !s.locked; });
     box.innerHTML = head +
-      '<div class="grp lock">🔒 영상 막힘 · ' + locked.length + '명</div>' +
+      '<div class="grp lock"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>영상 막힘 · ' + locked.length + '명</div>' +
       (locked.length ? locked.map(rowHtml).join('') : '<div class="empty" style="padding:10px;">막힌 학생이 없습니다.</div>') +
-      '<div class="grp open">🔓 영상 열림 · ' + open.length + '명</div>' +
+      '<div class="grp open"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>영상 열림 · ' + open.length + '명</div>' +
       (open.length ? open.map(rowHtml).join('') : '<div class="empty" style="padding:10px;">열린 학생이 없습니다.</div>');
 
     if (presetSid){
