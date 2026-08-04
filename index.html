@@ -194,6 +194,15 @@
     .school-num b{font-size:1.48rem;}
   }
 
+  /* ⛔ 임시 숨김 스위치 — 입시 컨설팅 (2026-08-04 관우T 지시: "잠깐 안 보이게 해봐, 나중에 말하면 다시 열어")
+     ▶ 다시 열 때 할 일: 바로 아래 `.kw-off-consulting` 규칙 한 줄을 지운다. 그게 전부다.
+       HTML(메뉴 2곳 · §08 섹션)은 지우지 않고 그대로 살려 두었으므로 이 한 줄이 유일한 스위치다.
+     ※ 범위는 홈페이지(index.html)뿐이다 — 2026-08-04 관우T 확정 "홈페이지만".
+       /consulting · /consulting-sample 페이지 자체, lectures.html 메뉴 링크, sitemap.xml 은
+       일부러 그대로 두었다. 주소를 직접 치거나 검색으로 들어오면 여전히 열린다.
+     ※ 배경 교대: §07 REVIEWS(베이지) 다음이 §09 VIDEO(다크)가 되어 색이 겹치지 않는다. 확인함. */
+  #consulting, li.kw-off-consulting{display:none !important;}
+
   /* CONSULTING — 입시 컨설팅 ──────────────────────────────────────
      ⚠️ ANALYSIS 의 .school-card / .school-nums 를 재사용하지 않는다.
         재사용하면 두 섹션이 쌍둥이로 보인다(2026-08-03 관우T 확정: "내신분석 ≠ 입시컨설팅").
@@ -581,7 +590,7 @@
       <li><a href="#timetable">시간표</a></li>
       <li><a href="#video">영상</a></li>
       <li><a href="/analysis">학교별 내신 분석</a></li>
-      <li><a href="/consulting">입시 컨설팅</a></li>
+      <li class="kw-off-consulting"><a href="/consulting">입시 컨설팅</a></li>
       <li><a href="/materials">자료실</a></li>
       <li class="nav-keep"><a href="/portal" class="nav-portal">포털 로그인</a></li>
       <li class="nav-keep"><a href="#contact" class="nav-cta">상담 신청</a></li>
@@ -603,7 +612,7 @@
     <li><a href="#timetable">시간표</a></li>
     <li><a href="#video">영상</a></li>
     <li><a href="/analysis">학교별 내신 분석</a></li>
-    <li><a href="/consulting">입시 컨설팅</a></li>
+    <li class="kw-off-consulting"><a href="/consulting">입시 컨설팅</a></li>
     <li><a href="/materials">자료실</a></li>
   </ul>
   <div class="mnav-foot">
@@ -1563,8 +1572,10 @@ const FAQ_DATA = [
     <button class="kwap-x" id="kwapX" aria-label="닫기">&times;</button>
     <img src="수강신청_포스터.jpg" alt="이관우 수학 · 수강신청 안내 — 관점을 바꾸는 수학, 우상향으로 가는 실력">
     <div class="kwap-cta">
-      <div class="kwap-sub">반포 세정학원 · 고1 여름방학 · 수학</div>
-      <a class="kwap-apply" href="https://banpo.sejungedu.com/schedule/timetable?co=%EA%B3%A01&amp;ct=%EC%97%AC%EB%A6%84%EB%B0%A9%ED%95%99&amp;th=%EC%88%98%ED%95%99#%EC%9D%B4%EA%B4%80%EC%9A%B0" target="_blank" rel="noopener">수강신청하기 →</a>
+      <div class="kwap-sub">반포 세정학원 · 고1 2학기 내신 · 동덕여고</div>
+      <!-- 2026-08-04 여름방학 → 2학기 내신으로 교체. co=고1 · ct=내신 · th=동덕여고 (세정 홈페이지에서 실제 이동 확인).
+           옛 링크의 #이관우 앵커는 세정 페이지에 그런 id가 없어(DOM 확인) 아무 동작도 안 하므로 뺐다. -->
+      <a class="kwap-apply" href="https://banpo.sejungedu.com/schedule/timetable?co=%EA%B3%A01&amp;ct=%EB%82%B4%EC%8B%A0&amp;th=%EB%8F%99%EB%8D%95%EC%97%AC%EA%B3%A0" target="_blank" rel="noopener">수강신청하기 →</a>
       <div class="kwap-foot">
         <label><input type="checkbox" id="kwapDnd"> 오늘 하루 보지 않기</label>
         <button id="kwapClose">닫기</button>
