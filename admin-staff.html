@@ -778,7 +778,9 @@
   }
 
   // ── 원장: 그 급여구간 지급확정/해제 ──
-  //   확정하면 조교는 「확정 마감일(구간 끝 = 지급월 5일) 이전」 기록을 못 고친다. 그 다음날부터는 자유.
+  //   확정하면 조교는 「확정 마감일(구간 끝 = 지급월 4일) 이전」 기록을 못 고친다. 그 다음날(=월급날 5일)부터는 자유.
+  //   👤 **조교 1명 단위다.** 마감일은 그 조교 레코드(staff/{번호}.json)에만 박히므로,
+  //      A는 확정 / B는 미확정 같은 상태가 정상이고 서로 아무 영향이 없다. 전체 일괄확정 같은 건 없다.
   //   ⚠️ 해제는 마감일을 구간 시작 직전으로 되돌리는 것이라 **이 구간 이후 구간도 함께 풀린다.**
   //      마감일이 하나뿐인 구조라 그렇다 — 확인창에 그대로 적어 둔다(모르고 누르면 뒤 구간이 조용히 열린다).
   async function toggleLock(d, lock){
@@ -795,7 +797,14 @@
       var j = await r.json();
       if(!r.ok || !j.ok){ showToast(j.error||'처리하지 못했어요'); return; }
       if(wlCache[d]){ wlCache[d].locked = j.locked; wlCache[d].lockedUpto = j.lockedUpto; }
-      if(payByPhone[d]) payByPhone[d].locked = j.locked;   // 카드 겉면 🔒 배지·버튼도 같이 갱신
+      if(payByPhone[d]){
+        payByPhone[d].locked = j.locked;                   // 카드 겉면 🔒 배지·버튼도 같이 갱신
+        // 🐛 2026-08-05 수정 — lockedUpto 를 같이 안 갱신해서, 「일자별 보기」를 한 번도 안 연 채
+        //    확정하면 lockedUptoOf() 가 옛 값(대개 null)을 반환했다 → 바로 이어 「근무 입력」으로
+        //    확정 범위의 날짜를 저장/삭제해도 ⚠️ 확인창이 안 떴다. (서버는 정상 저장·감사로그도 정상이었고,
+        //    빠진 건 경고뿐이다. 그래도 원장이 모르고 확정액을 바꾸는 건 막아야 한다.)
+        payByPhone[d].lockedUpto = j.lockedUpto || null;
+      }
       // ⚠️ 상세 박스 id 는 **하이픈 포함 원본 번호**(wl_010-1234-5678)인데 여기 d 는 숫자만이다.
       //    phoneKey(d) 로 바꿔야 찾아진다 — 안 바꾸면 항상 null 이라 표가 조용히 닫혔다(2026-08-05 수정).
       var box = $('wl_'+phoneKey(d)), wasOpen = !!(box && box.style.display!=='none');
