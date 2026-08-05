@@ -3,6 +3,10 @@
 // 학생 데이터를 '하드 삭제'하기 직전에, 전체 기록을 관리자 아카이브(student_archive)에 보존한다.
 // 보존 항목: 실명 · 학부모 전화 · 학생 전화 · 학교 · 학년 · 수강기간 ·
 //            전체 성적 · 전체 출결 · 전체 학습기록. (자체 D1, 관리자 전용)
+//   + 2026-08-05 — students 행 전체를 profile_json 에 통째로 보존.
+//     (희망대학 · 상담메모 · 유입경로 · 학원/반 · 모의등급 · 취약단원 · 선행진도 · 가능요일 …)
+//     화면에는 안 뿌린다 — 퇴원생 목록은 이름·학교/학년·전화·기간까지만 보이고,
+//     profile_json 은 필요할 때 `GET /api/outcomes?id=N` 으로 꺼내 본다(관우T 요청, 2026-08-05).
 //
 // via 구분:
 //   'admin' = 관리자가 퇴원 처리(delete-student.js) — 학원 자체 기록
@@ -51,13 +55,16 @@ export async function ensureArchiveTable(env) {
     'enrolled_at TEXT, left_at TEXT, via TEXT, summary TEXT, ' +
     'score_count INTEGER, attendance_count INTEGER, study_count INTEGER, study_minutes INTEGER, ' +
     'scores_json TEXT, attendance_json TEXT, study_json TEXT, note TEXT, created_at TEXT, ' +
-    'hidden INTEGER DEFAULT 0)'
+    'hidden INTEGER DEFAULT 0, profile_json TEXT)'
   ).run();
   // 구버전 테이블에서 올라올 때 대비한 컬럼 추가 가드(이미 있으면 catch)
   for (const col of ['parent_phone TEXT', 'student_phone TEXT', 'via TEXT',
                      'attendance_json TEXT', 'study_json TEXT',
                      'attendance_count INTEGER', 'study_count INTEGER', 'study_minutes INTEGER',
-                     'hidden INTEGER DEFAULT 0']) {
+                     'hidden INTEGER DEFAULT 0',
+                     // 2026-08-05 — students 행 통째 보존. 이 칸이 없으면 희망대학·상담메모·유입경로 등이
+                     //   퇴원과 동시에 영구 소실된다(옛 스냅샷은 7칸만 담았다).
+                     'profile_json TEXT']) {
     try { await env.DB.prepare('ALTER TABLE student_archive ADD COLUMN ' + col).run(); } catch (_) {}
   }
 }
@@ -70,8 +77,23 @@ export async function snapshotArchive(env, student, via) {
     if (!student || !student.id) return { ok: false, error: 'no student' };
     await ensureArchiveTable(env);
     const id = student.id;
-    const parentPhone = student.parentPhone || student.parent_phone || '';
-    const studentPhone = student.studentPhone || student.student_phone || '';
+
+    // 🧾 2026-08-05 — students 행을 통째로 다시 읽어 profile_json 에 보존한다.
+    //   호출측(delete-student.js · account-delete.js)이 넘겨주는 객체는 SELECT 7칸뿐이라,
+    //   그것만 담으면 희망대학(target_univ) · 상담메모(notes) · 유입경로(referral/referral_detail) ·
+    //   학원/반 · 모의등급 3종 · 취약단원 · 선행진도 · 가능요일 · 매쓰플랫이름 등이
+    //   퇴원과 동시에 영구히 사라진다(30일 백업이 지나면 복구 불가였다).
+    //   여기서 직접 다시 읽으므로 호출측 SELECT를 건드리지 않아도 전 항목이 남는다.
+    //   ⚠️ 두 호출부 모두 'DELETE FROM students' 앞에서 이 함수를 부른다 — 행이 아직 살아 있다.
+    //      순서를 바꿔 삭제 뒤에 부르면 profileRow 가 null 이 되어 이 보존이 조용히 무력화된다.
+    let profileRow = null;
+    try {
+      profileRow = await env.DB.prepare('SELECT * FROM students WHERE id=?').bind(id).first();
+    } catch (_) { profileRow = null; }
+    const P = profileRow || {};   // 재조회 실패 시엔 넘겨받은 값으로만 채운다(아래 || 폴백)
+
+    const parentPhone = student.parentPhone || student.parent_phone || P.parent_phone || '';
+    const studentPhone = student.studentPhone || student.student_phone || P.student_phone || '';
 
     const scores = await readScores(env, id);
 
@@ -103,13 +125,15 @@ export async function snapshotArchive(env, student, via) {
       'INSERT INTO student_archive ' +
       '(name, parent_phone, student_phone, school, grade_level, enrolled_at, left_at, via, summary, ' +
       'score_count, attendance_count, study_count, study_minutes, ' +
-      'scores_json, attendance_json, study_json, note, created_at) ' +
-      'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+      'scores_json, attendance_json, study_json, note, created_at, profile_json) ' +
+      'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
     ).bind(
-      student.name || '', parentPhone, studentPhone, student.school || '', student.grade || '',
-      student.created_at || '', now, (via === 'app' ? 'app' : 'admin'),
+      student.name || P.name || '', parentPhone, studentPhone,
+      student.school || P.school || '', student.grade || P.grade || '',
+      student.created_at || P.created_at || '', now, (via === 'app' ? 'app' : 'admin'),
       buildSummary(scores), scores.length, attendance.length, study.length, studyMin,
-      JSON.stringify(scores), JSON.stringify(attendance), JSON.stringify(study), '', now
+      JSON.stringify(scores), JSON.stringify(attendance), JSON.stringify(study), '', now,
+      JSON.stringify(profileRow || student || {})
     ).run();
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
