@@ -225,7 +225,7 @@
     </div>
     <div class="wagehint" id="wageHint"></div>
     <div class="locknote" id="lockNote"></div>
-    <div class="paynote"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7l2.8 10L10 8.5l2.7 8.5L15.5 7"></path><path d="M3 11h17M3 14h17"></path></svg>월급날은 <b>매월 5일</b> · <b>전월 6일 ~ 당월 5일</b> 근무분이 그날 정산돼요</div>
+    <div class="paynote"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7l2.8 10L10 8.5l2.7 8.5L15.5 7"></path><path d="M3 11h17M3 14h17"></path></svg>월급날은 <b>매월 5일</b> · <b>전월 5일 ~ 당월 4일</b> 근무분이 그날 정산돼요 (5일 근무는 다음 달분)</div>
   </div>
 
   <!-- 급여 계좌 -->
@@ -279,7 +279,10 @@
 <div class="toast" id="toast"></div>
 <script>
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
-  var PAYDAY = 5;   // curPayMonth()이 state 초기화 때 쓰므로 반드시 위에서 먼저 대입
+  var PAYDAY = 5;            // 월급날 = 매월 5일 (돈 나가는 날)
+  var CUTOFF = PAYDAY - 1;   // = 4. 구간 마지막 날 = 지급 전날. PAYDAY와 하루 다르다(아래 periodOf 주석).
+                             // ⚠️ 두 줄 다 curPayMonth()이 state 초기화 때 쓰므로 반드시 위에서 먼저 대입.
+                             //    var는 대입이 호이스팅되지 않아 아래로 내리면 구간이 NaN이 된다.
   var state = { month: curPayMonth(), data: null, mode: 'time' };
   var WD = ['일','월','화','수','목','금','토'];
   var prefs = loadPrefs();
@@ -290,22 +293,29 @@
   function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
   function curMonth(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
   function pad2(n){ return ('0'+n).slice(-2); }
-  // 급여 구간: 전월 6일 ~ 당월 5일 (5일 포함). payMonth = 월급을 받는 달(YYYY-MM).
+  // 급여 구간: 전월 5일 ~ 지급월 4일 (양끝 포함). payMonth = 월급을 받는 달(YYYY-MM).
+  //   ⚠️ 구간 끝(4일) ≠ 월급날(5일). 2026-08-05 변경 — 잠깐 「전월 6일~당월 5일」이었다가 폐기됐다.
+  //      구간 끝이 월급날과 같으면, 5일에 원장이 「지급확정」을 누르는 순간 그날 근무를 못 넣는데
+  //      그 날짜는 다음 구간(6일~)에도 안 들어가서 하루가 사라졌다. 그래서 4일에서 끊는다.
+  //      → 5일 근무는 자연스럽게 다음 구간(다음 달 5일 지급분)으로 넘어간다.
   function periodOf(payMonth){
     var y=+payMonth.slice(0,4), m=+payMonth.slice(5,7);
     var py=(m===1)?y-1:y, pm=(m===1)?12:m-1;
     return {
       payMonth: payMonth,
-      start: py+'-'+pad2(pm)+'-'+pad2(PAYDAY+1),
-      end:   y +'-'+pad2(m) +'-'+pad2(PAYDAY),
-      label: pm+'/'+(PAYDAY+1)+'~'+m+'/'+PAYDAY,
-      longLabel: py+'.'+pad2(pm)+'.'+pad2(PAYDAY+1)+' ~ '+y+'.'+pad2(m)+'.'+pad2(PAYDAY)
+      start: py+'-'+pad2(pm)+'-'+pad2(CUTOFF+1),   // 전월 5일
+      end:   y +'-'+pad2(m) +'-'+pad2(CUTOFF),     // 지급월 4일 (지급 전날)
+      payday: y+'-'+pad2(m)+'-'+pad2(PAYDAY),      // 돈 받는 날 = 지급월 5일
+      label: pm+'/'+(CUTOFF+1)+'~'+m+'/'+CUTOFF,
+      longLabel: py+'.'+pad2(pm)+'.'+pad2(CUTOFF+1)+' ~ '+y+'.'+pad2(m)+'.'+pad2(CUTOFF)
     };
   }
-  // 이 날짜가 속한 급여 구간의 지급월. 6일 이후면 다음 달 5일에 받는다.
+  // 이 날짜가 속한 급여 구간의 지급월. 5일 이후(구간 끝 4일을 넘김)면 다음 달 5일에 받는다.
+  //   ⚠️ 기준선이 PAYDAY(5)가 아니라 **CUTOFF(4)** 다 — 이건 "이 근무일이 어느 구간이냐"는 **날짜** 질문이라서.
+  //      원장 화면 payInfo()의 "지금 어느 구간 돈을 보느냐"는 **돈** 질문이라 PAYDAY로 가른다. 하루 어긋나는 게 정상.
   function payMonthOf(ds){
     var y=+ds.slice(0,4), m=+ds.slice(5,7), d=+ds.slice(8,10);
-    if(d>PAYDAY){ m+=1; if(m>12){ m=1; y+=1; } }
+    if(d>CUTOFF){ m+=1; if(m>12){ m=1; y+=1; } }
     return y+'-'+pad2(m);
   }
   function curPayMonth(){ var d=new Date(); return payMonthOf(d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())); }
