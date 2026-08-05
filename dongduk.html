@@ -48,7 +48,7 @@
   .hero h1 em{font-style:normal;color:#E8A0A8;}
   .hero-lead{font-size:clamp(.98rem,1.6vw,1.12rem);color:rgba(255,255,255,.72);max-width:640px;line-height:1.85;}
   .hero-meta{margin-top:30px;display:flex;flex-wrap:wrap;gap:8px;}
-  .hero-meta span{font-size:.74rem;font-weight:600;color:rgba(255,255,255,.62);border:1px solid var(--line-d);border-radius:999px;padding:6px 13px;}
+  .hero-meta span{font-size:.74rem;font-weight:600;color:rgba(255,255,255,.62);border:1px solid var(--line-d);border-radius:999px;padding:6px 13px;white-space:nowrap;}
 
   /* ── 수치 스트립 ── */
   .stats{background:var(--wine);color:#fff;}
@@ -69,7 +69,8 @@
   h3.sub::before{content:"";width:4px;height:16px;background:var(--wine);border-radius:2px;flex-shrink:0;}
 
   /* ── 핵심 카드 ── */
-  .keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);}
+  .keys{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
+  @media(max-width:640px){.keys{grid-template-columns:1fr;}}
   .key{background:var(--card);padding:30px 26px;}
   .key .n{font-family:var(--serif);font-weight:900;font-size:.82rem;color:var(--wine);letter-spacing:.08em;margin-bottom:14px;}
   .key h4{font-family:var(--serif);font-weight:700;font-size:1.08rem;line-height:1.5;margin-bottom:11px;letter-spacing:-.01em;}
@@ -144,7 +145,7 @@
   .plan-inline-b{flex-shrink:0;display:inline-block;text-decoration:none;background:var(--wine);color:#fff;font-weight:800;font-size:.92rem;padding:14px 26px;border-radius:7px;transition:background .2s;}
   .plan-inline-b:hover{background:var(--wine-deep);color:#fff;}
   @media(max-width:640px){.plan-inline{display:block;}.plan-inline-b{display:block;text-align:center;margin-top:16px;}}
-  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;}
+  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;white-space:nowrap;}
   .btn.solid{background:#fff;color:var(--wine);}
   .btn.solid:hover{background:var(--beige);}
   .btn.ghost{border:1px solid rgba(255,255,255,.45);color:#fff;}
