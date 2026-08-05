@@ -137,6 +137,13 @@
   .cta-band h3{font-family:var(--serif);font-weight:900;font-size:clamp(1.4rem,3vw,2.1rem);line-height:1.42;letter-spacing:-.025em;margin-bottom:16px;}
   .cta-band p{color:rgba(255,255,255,.8);font-size:.95rem;margin-bottom:32px;max-width:560px;margin-left:auto;margin-right:auto;}
   .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  /* 본문 안 강의계획서 진입로 (2026-08-05). 밝은 배경 위에 얹는 박스라 .cta-band 계열과 색이 반대다. */
+  .plan-inline{margin:32px 0 6px;padding:22px 24px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--wine);border-radius:8px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;}
+  .plan-inline-t{font-weight:800;font-size:1rem;color:var(--ink);letter-spacing:-.01em;}
+  .plan-inline-d{font-size:.88rem;color:var(--muted);margin-top:5px;line-height:1.7;}
+  .plan-inline-b{flex-shrink:0;display:inline-block;text-decoration:none;background:var(--wine);color:#fff;font-weight:800;font-size:.92rem;padding:14px 26px;border-radius:7px;transition:background .2s;}
+  .plan-inline-b:hover{background:var(--wine-deep);color:#fff;}
+  @media(max-width:640px){.plan-inline{display:block;}.plan-inline-b{display:block;text-align:center;margin-top:16px;}}
   .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;}
   .btn.solid{background:#fff;color:var(--wine);}
   .btn.solid:hover{background:var(--beige);}
@@ -159,7 +166,7 @@
     .nav-right a:not(.cta){display:none;}
   }
   @media print{
-    header.site,.cta-btns,.nav-right{display:none;}
+    header.site,.cta-btns,.nav-right,.plan-inline{display:none;}
     body{background:#fff;font-size:10.5pt;}
     .hero,.stats,.pull,.cta-band{background:#fff!important;color:#000!important;}
     .hero h1,.pull blockquote,.cta-band h3{color:#000!important;}
@@ -342,6 +349,18 @@
     <div class="note">
       <b>해마다 반복되는 설계 하나 &mdash; &lsquo;케이스 완비형&rsquo;.</b><br>
       2025 중간 서술3(양 축에 접하는 원 <b>네 개 모두</b>) · 서술5(순서쌍 <b>두 개 모두</b>), 2024 1학기 기말 서답5(정수 k <b>네 개 모두</b>), 2023 1학기 기말 서답5(공통접선 <b>세 개 모두</b>). 답이 &lsquo;나열&rsquo;인 문항이 매년 서답형 상단에 놓입니다. 풀이 방향이 맞아도 케이스 하나를 빠뜨리면 만점이 아니라 절반입니다. 이 유형은 실력보다 <b>세는 습관</b>이 결정합니다.
+    </div>
+
+    <!-- 2026-08-05 본문 안 강의계획서 진입로 (관우T 지시 "동덕여고 분석 들어가면 안에도 강의계획서 보기가 있어야지").
+         그 전까지 이 페이지에서 강의계획서로 가는 길은 ① 상단 고정바의 작은 버튼 ② 맨 아래 CTA 밴드(y≈6,734 / 문서 7,005 = 96% 지점)
+         ③ 푸터 링크뿐이라, 정작 분석 본문 구간(y 1,862~6,700)에는 하나도 없었다. 지우지 말 것.
+         .btn.solid 를 쓰지 않은 이유: 그 클래스는 와인색 CTA 밴드 위에 얹는 흰 버튼이라 밝은 본문에서는 안 보인다. -->
+    <div class="plan-inline">
+      <div>
+        <div class="plan-inline-t">그래서 이 배점 지도를 회차로 옮기면?</div>
+        <div class="plan-inline-d">중간고사 범위를 정규 11회와 직전보강에 어떻게 나눠 담았는지 회차별로 정리해 두었습니다.</div>
+      </div>
+      <a class="plan-inline-b" href="syllabus.html">강의계획서 보기 →</a>
     </div>
   </div>
 </section>

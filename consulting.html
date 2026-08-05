@@ -53,7 +53,7 @@
   .hero h1 em{font-style:normal;color:var(--wine);}
   .hero-lead{font-size:clamp(.98rem,1.6vw,1.12rem);color:var(--muted);max-width:660px;line-height:1.85;}
   .hero-meta{margin-top:30px;display:flex;flex-wrap:wrap;gap:8px;}
-  .hero-meta span{font-size:.74rem;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 13px;}
+  .hero-meta span{font-size:.74rem;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 13px;white-space:nowrap;}
 
   /* ── 「지금 → 상한선」 사다리 ────────────────────────────────────
      `/analysis` 는 와인 배경 3칸 균등 스트립을 쓴다. 여기서 같은 걸 쓰면
@@ -98,7 +98,7 @@
   .acard p{font-size:.93rem;line-height:1.85;color:var(--muted);}
   .acard p + p{margin-top:12px;}
   .links{margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;}
-  .links a{display:inline-block;text-decoration:none;font-size:.87rem;font-weight:700;padding:11px 20px;border-radius:6px;transition:all .2s;}
+  .links a{display:inline-block;text-decoration:none;font-size:.87rem;font-weight:700;padding:11px 20px;border-radius:6px;transition:all .2s;white-space:nowrap;}
   .links a.solid{background:var(--wine);color:#fff;}
   .links a.solid:hover{background:var(--wine-deep);}
   .links a.ghost{border:1px solid var(--line);color:var(--ink);}
@@ -107,6 +107,9 @@
 
   /* ── 17개 섹션 목차 그리드 ── */
   .toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);}
+  /* 17번째 항목이 남은 칸을 채워 고아 빈 칸 제거 (3열: 16+17이 한 줄, 2열: 17이 전체 폭) */
+  .toc div:last-child{grid-column:span 2;}
+  @media(max-width:520px){.toc div:last-child{grid-column:auto;}}
   .toc div{background:var(--card);padding:18px 20px;display:flex;gap:12px;align-items:baseline;}
   .toc .n{font-family:var(--serif);font-weight:900;font-size:.82rem;color:var(--wine);flex-shrink:0;letter-spacing:.02em;}
   .toc .t{font-size:.88rem;font-weight:600;line-height:1.55;letter-spacing:-.01em;}
@@ -139,7 +142,7 @@
   .cta-band h3{font-family:var(--serif);font-weight:900;font-size:clamp(1.4rem,3vw,2.1rem);line-height:1.42;letter-spacing:-.025em;margin-bottom:16px;}
   .cta-band p{color:rgba(255,255,255,.8);font-size:.95rem;margin-bottom:32px;max-width:560px;margin-left:auto;margin-right:auto;}
   .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
-  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;}
+  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;white-space:nowrap;}
   .btn.solid{background:#fff;color:var(--wine);}
   .btn.solid:hover{background:var(--beige);}
   .btn.ghost{border:1px solid rgba(255,255,255,.45);color:#fff;}
