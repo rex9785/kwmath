@@ -261,13 +261,13 @@
   <div class="intro">
     조교(운영진) 가입 신청을 <b>승인</b>하면 같은 번호·비밀번호로 로그인해 <b>질문 답변</b>을 할 수 있습니다.
     승인 후 <b>담당 학원</b>을 배정하면 그 학원 학생 정보(연락처 제외)를 열람할 수 있고, <b>시급</b>을 설정하면 조교가 입력한 근무기록으로 월급이 자동 계산됩니다.
-    <b>월급날은 매월 5일</b> — 전월(1일~말일) 근무분을 정산해 지급합니다(아래 배너에 이번 지급 대상·금액 표시).
+    <b>월급날은 매월 5일</b> — <b>그 5일까지 일한 분</b>(전월 6일 ~ 지급월 5일)을 정산해 지급합니다(아래 배너에 이번 지급 구간·금액 표시).
     조교는 열람·질문답변·본인 근무기록만 가능하며, 학생 삭제·비밀번호 초기화 등 관리 기능은 쓸 수 없습니다.
   </div>
   <div class="summary" id="summary" style="display:none;">
     <div class="pill">대기 <b id="cntWait">0</b></div>
     <div class="pill">승인됨 <b id="cntOk">0</b></div>
-    <div class="pill"><span id="payMonthLbl">이달</span> 급여합계 <b id="cntPay">0원</b></div>
+    <div class="pill"><span id="payMonthLbl">이번 구간</span> 급여합계 <b id="cntPay">0원</b></div>
   </div>
   <div class="payday" id="payday" style="display:none;"></div>
   <div class="monthbar" id="monthbar" style="display:none;">
@@ -285,8 +285,11 @@
 <script>
   var token = localStorage.getItem('kwmath_admin_token') || '';
   var staff = [];
-  var PAY = payInfo();             // 월급날(매월 5일)·정산 대상월
-  var month = PAY.targetMonth;     // 기본 조회월 = 이번에 지급할 전월 근무분
+  var PAYDAY = 5;                  // ⚠️ payInfo()가 바로 아래에서 호출된다. var는 대입이 호이스팅되지 않으므로
+                                   //    이 줄이 payInfo() 호출보다 반드시 위에 있어야 한다(아래로 내리면 구간이 NaN).
+  var PAY = payInfo();             // 월급날(매월 5일)·이번 정산 구간
+  // ⚠️ month = **지급월**(YYYY-MM)이다. 그 달 1~말일이 아니라 「전월 6일 ~ 그 달 5일」 구간을 뜻한다.
+  var month = PAY.targetMonth;     // 기본 조회 = 이번에 지급할 구간
   var payByPhone = {};             // digits → { totalHours, totalPay, dayCount }
   var academyList = [];            // 학생 학원 목록(드롭다운) — 오타로 스코프 깨지는 것 방지
 
@@ -311,18 +314,39 @@
   function digits(p){ return String(p||'').replace(/\D/g,''); }
   function moveMonth(delta){ var p=month.split('-'); var d=new Date(+p[0],+p[1]-1+delta,1); month=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); loadPayroll().then(render); }
   function ym(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
-  // 월급날 = 매월 5일. 전월(1~말일) 근무분 정산.
-  // 오늘이 5일 이하 → 이번 달 5일에 '전월' 지급 / 5일 초과 → 다음 달 5일에 '이번 달' 지급.
-  function payInfo(){
-    var d=new Date(), y=d.getFullYear(), m=d.getMonth();   // m: 0-base
-    var pm = (d.getDate()>5) ? m+1 : m;                     // 지급일이 속한 달
-    var pay = new Date(y, pm, 5);                            // 다음(또는 오늘) 지급일
-    var tgt = new Date(y, pm-1, 1);                          // 정산 대상 = 지급월 전월
+
+  // ───────── 💰 급여 구간 (2026-08-05 관우T 확정) ─────────
+  //  월급날 = 매월 5일이고, **그 5일까지 일한 것**을 그날 지급한다.
+  //  ⇒ 정산 구간 = 「전월 6일 ~ 지급월 5일」(양끝 포함).  예) 8월 5일 지급 = 7/6 ~ 8/5 근무분
+  //  ❗ 예전에는 「전월 1일~말일」이었다. 아래 month 변수는 이제 **지급월**을 뜻한다(구간이 끝나는 달).
+  //     서버에도 ?period=YYYY-MM(지급월)로 보낸다. 서버가 두 달 파일을 읽어 날짜로 걸러 합쳐 준다.
+  // (PAYDAY = 5 는 맨 위 payInfo() 호출보다 먼저 대입해야 해서 파일 상단으로 올렸다)
+  function pad2(n){ return ('0'+n).slice(-2); }
+  // periodOf('2026-08') → { start:'2026-07-06', end:'2026-08-05', payday:'2026-08-05', label:'7/6~8/5' }
+  function periodOf(payMonth){
+    var y=+payMonth.slice(0,4), m=+payMonth.slice(5,7);
+    var py = (m===1) ? y-1 : y, pm = (m===1) ? 12 : m-1;
+    var start = py+'-'+pad2(pm)+'-'+pad2(PAYDAY+1);
+    var end   = y +'-'+pad2(m) +'-'+pad2(PAYDAY);
     return {
-      paydayLabel: (pay.getMonth()+1)+'월 5일',
-      targetMonth: ym(tgt),
-      targetLabel: (tgt.getMonth()+1)+'월',
-      isToday: (d.getFullYear()===pay.getFullYear() && d.getMonth()===pay.getMonth() && d.getDate()===5)
+      payMonth: payMonth, start: start, end: end, payday: end,
+      label: pm+'/'+(PAYDAY+1)+'~'+m+'/'+PAYDAY,
+      longLabel: py+'.'+pad2(pm)+'.'+pad2(PAYDAY+1)+' ~ '+y+'.'+pad2(m)+'.'+pad2(PAYDAY)
+    };
+  }
+  // 오늘이 5일 이하 → 이번 달 5일이 다음 지급일 / 6일 이상 → 다음 달 5일.
+  function payInfo(){
+    var d=new Date(), y=d.getFullYear(), m=d.getMonth();     // m: 0-base
+    var pm = (d.getDate()>PAYDAY) ? m+1 : m;                 // 지급일이 속한 달
+    var pay = new Date(y, pm, PAYDAY);                       // 다음(또는 오늘) 지급일
+    var tgtMonth = ym(pay);                                  // 지급월 = 구간이 끝나는 달
+    var per = periodOf(tgtMonth);
+    return {
+      paydayLabel: (pay.getMonth()+1)+'월 '+PAYDAY+'일',
+      targetMonth: tgtMonth,
+      targetLabel: per.label,
+      period: per,
+      isToday: (d.getFullYear()===pay.getFullYear() && d.getMonth()===pay.getMonth() && d.getDate()===PAYDAY)
     };
   }
   function goPayTarget(){ month=PAY.targetMonth; loadPayroll().then(render); }
@@ -357,11 +381,11 @@
     }catch(_){}
   }
 
-  // 선택 월 전체 조교 근무 합계 → payByPhone
+  // 선택 구간 전체 조교 근무 합계 → payByPhone  (period=지급월 → 서버가 전월 6일~그달 5일로 걸러 준다)
   async function loadPayroll(){
     payByPhone = {};
     try{
-      var r = await fetch('/api/staff-worklog?all=1&month='+month, { headers: { 'Authorization': 'Bearer ' + token } });
+      var r = await fetch('/api/staff-worklog?all=1&period='+month, { headers: { 'Authorization': 'Bearer ' + token } });
       if(!r.ok) return;
       var j = await r.json();
       (j && j.staff || []).forEach(function(s){ payByPhone[digits(s.phone)] = s; });
@@ -374,17 +398,19 @@
     $('summary').style.display='flex';
     $('monthbar').style.display = staff.length ? 'flex' : 'none';
     $('exbar').style.display = ok.length ? 'flex' : 'none';
-    $('monthLabel').textContent = month.replace('-','년 ')+'월 급여';
+    // 라벨은 구간으로 — "8월 급여"라고만 쓰면 8/1~8/31로 오해한다.
+    var CUR = periodOf(month);
+    $('monthLabel').textContent = CUR.longLabel + ' 급여 ('+(+month.slice(5))+'월 '+PAYDAY+'일 지급)';
     $('cntWait').textContent = wait.length;
     $('cntOk').textContent = ok.length;
-    $('payMonthLbl').textContent = (+month.slice(5))+'월';
+    $('payMonthLbl').textContent = CUR.label;
 
-    // 선택 월 급여 합계 (승인 조교 기준)
+    // 선택 구간 급여 합계 (승인 조교 기준)
     var totalPay = 0;
     ok.forEach(function(s){ var p=payByPhone[digits(s.phone)]; if(p) totalPay += (p.totalPay||0); });
     $('cntPay').textContent = won(totalPay);
 
-    // 💰 월급날(매월 5일) 배너 — 정산 대상 전월 안내
+    // 💰 월급날(매월 5일) 배너 — 이번 지급 구간 안내
     var pb = $('payday');
     if(staff.length){
       pb.style.display='flex';
@@ -432,9 +458,17 @@
             '<input id="acct_'+phone+'" value="'+esc(s.account||'')+'" placeholder="월급 보낼 은행·계좌번호">'+
             '<button class="save" onclick="saveConfig(\''+phone+'\',\''+nameSafe+'\')">저장</button></div>'+
           '<div class="payline">'+
-            '<span class="tag">'+month.slice(5)+'월 '+won(pay.totalPay)+'</span>'+
+            '<span class="tag">'+periodOf(month).label+' '+won(pay.totalPay)+'</span>'+
+            // 🔒 카드를 펼치지 않아도 확정 여부가 보이게 — 예전엔 「일자별 보기」를 열어야만 알 수 있었다.
+            (pay.locked ? '<span class="tag" style="background:var(--primary);color:#fff;">🔒 정산확정</span>' : '')+
             '<span class="dim">'+(pay.dayCount||0)+'일 · '+(pay.totalHours||0)+'시간'+(wage?'':' · ⚠️시급 미설정')+'</span>'+
             '<button class="more" onclick="toggleDetail(\''+phone+'\')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>일자별 보기</button>'+
+            // 🔒 정산확정 버튼을 카드 겉면에 바로 둔다(2026-08-05) — 안에만 있어 「그런 버튼 어디 있냐」가 됐다.
+            '<button class="more" id="lk_'+phone+'" onclick="toggleLock(\''+digits(s.phone)+'\','+(pay.locked?'false':'true')+')">'+
+              (pay.locked
+                ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>확정 해제'
+                : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>지급확정')+
+            '</button>'+
           '</div>'+
           '<div class="wl" id="wl_'+phone+'" style="display:none;"></div>'+
         '</div>';
@@ -520,7 +554,7 @@
     box.innerHTML = '<div class="empty">불러오는 중…</div>';
     var d = digits(phone);
     try{
-      var r = await fetch('/api/staff-worklog?phone='+encodeURIComponent(d)+'&month='+month, { headers:{ 'Authorization':'Bearer '+token } });
+      var r = await fetch('/api/staff-worklog?phone='+encodeURIComponent(d)+'&period='+month, { headers:{ 'Authorization':'Bearer '+token } });
       if(r.status===401||r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
       var j = await r.json();
       if(!r.ok || !j.ok){ box.innerHTML='<div class="empty">'+esc(j.error||'불러오지 못했어요')+'</div>'; return; }
@@ -534,18 +568,20 @@
     var rows = j.entries || [];
     var wage = j.hourlyWage||0;
     var locked = !!j.locked;
+    var PER = periodOf(month);
     var lockBtn = locked
-      ? '<button class="xbtn" style="background:var(--primary);color:#fff;" onclick="toggleLock(\''+d+'\',false)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>잠금 해제</button>'
-      : '<button class="xbtn" onclick="toggleLock(\''+d+'\',true)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>이 달 정산확정</button>';
+      ? '<button class="xbtn" style="background:var(--primary);color:#fff;" onclick="toggleLock(\''+d+'\',false)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>확정 해제</button>'
+      : '<button class="xbtn" onclick="toggleLock(\''+d+'\',true)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>이 구간 지급확정</button>';
     var btns =
       '<div class="wlbtns">'+
         '<button class="xbtn" onclick="exportStaffCsv(\''+d+'\')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M13.5 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5z"></path><path d="M13.5 3v5.5H19"></path></svg>CSV</button>'+
         '<button class="xbtn" onclick="printStaff(\''+d+'\')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M7 8.5V3.5h10v5"></path><rect x="3.5" y="8.5" width="17" height="7.5" rx="2"></rect><path d="M7 14h10v6.5H7z"></path></svg>인쇄(PDF)</button>'+
         lockBtn +
       '</div>'+
-      (locked ? '<div class="empty" style="color:var(--primary);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>정산확정(잠금) — 조교는 이 달 기록을 수정·삭제할 수 없어요.</div>' : '');
+      '<div class="empty" style="padding-top:2px;">정산 구간 <b>'+PER.longLabel+'</b> · 지급일 '+PER.payday+'</div>'+
+      (locked ? '<div class="empty" style="color:var(--primary);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>지급확정 — 조교는 '+(j.lockedUpto||PER.end)+' 이전 기록을 수정·삭제할 수 없어요. (그 다음날부터는 평소대로 입력됩니다)</div>' : '');
     if(!rows.length){
-      box.innerHTML = btns + '<div class="empty">'+month.slice(5)+'월 입력된 근무기록이 없어요.</div>';
+      box.innerHTML = btns + '<div class="empty">'+PER.label+' 구간에 입력된 근무기록이 없어요.</div>';
       return;
     }
     var body = rows.map(function(e){
@@ -567,21 +603,29 @@
       '<tfoot>'+foot+'</tfoot></table>';
   }
 
-  // ── 원장: 그 달 정산확정(잠금)/해제 — 잠그면 조교가 그 달 기록을 못 고침 ──
+  // ── 원장: 그 급여구간 지급확정/해제 ──
+  //   확정하면 조교는 「확정 마감일(구간 끝 = 지급월 5일) 이전」 기록을 못 고친다. 그 다음날부터는 자유.
+  //   ⚠️ 해제는 마감일을 구간 시작 직전으로 되돌리는 것이라 **이 구간 이후 구간도 함께 풀린다.**
+  //      마감일이 하나뿐인 구조라 그렇다 — 확인창에 그대로 적어 둔다(모르고 누르면 뒤 구간이 조용히 열린다).
   async function toggleLock(d, lock){
-    if(lock && !confirm(month+' 근무기록을 정산확정(잠금)할까요?\n잠그면 조교가 이 달 기록을 수정·삭제할 수 없어요. (원장은 언제든 해제 가능)')) return;
+    var PER = periodOf(month);
+    if(lock && !confirm('['+PER.longLabel+'] 정산을 확정할까요?\n\n확정하면 조교가 '+PER.end+' 이전 근무기록을 수정·삭제할 수 없어요.\n그 다음날('+PER.payMonth+'-'+('0'+(PAYDAY+1)).slice(-2)+') 부터는 평소대로 입력됩니다.\n(원장님은 언제든 해제 가능)')) return;
+    if(!lock && !confirm('['+PER.longLabel+'] 확정을 해제할까요?\n\n확정 마감일이 '+PER.start+' 직전으로 물러납니다.\n⚠️ 이 구간뿐 아니라 그 이후 구간도 함께 풀려 조교가 다시 고칠 수 있게 됩니다.')) return;
     try{
       var r = await fetch('/api/staff-worklog', {
         method:'POST',
         headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
-        body: JSON.stringify({ lock: !!lock, phone: d, month: month })
+        body: JSON.stringify({ lock: !!lock, phone: d, period: month })
       });
       if(r.status===401||r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
       var j = await r.json();
       if(!r.ok || !j.ok){ showToast(j.error||'처리하지 못했어요'); return; }
-      if(wlCache[d]) wlCache[d].locked = j.locked;
-      var box = $('wl_'+d); if(box) renderWl(box, d);
-      showToast(j.locked ? '🔒 이 달을 잠갔어요' : '🔓 잠금을 해제했어요');
+      if(wlCache[d]){ wlCache[d].locked = j.locked; wlCache[d].lockedUpto = j.lockedUpto; }
+      if(payByPhone[d]) payByPhone[d].locked = j.locked;   // 카드 겉면 🔒 배지·버튼도 같이 갱신
+      var box = $('wl_'+d), wasOpen = !!(box && box.style.display!=='none');
+      render();
+      if(wasOpen){ var nb=$('wl_'+d); if(nb){ nb.style.display='block'; nb.dataset.month=month; renderWl(nb, d); } }
+      showToast(j.locked ? '🔒 이 구간을 확정했어요' : '🔓 확정을 해제했어요');
     }catch(e){ showToast('네트워크 오류'); }
   }
 
@@ -600,8 +644,9 @@
   function exportStaffCsv(d){
     var j = wlCache[d]; if(!j){ showToast('먼저 일자별 보기를 열어주세요'); return; }
     var wage = j.hourlyWage||0;
+    var PER = periodOf(month);
     var aoa = [
-      [ (j.name||'조교')+' 근무기록', month ],
+      [ (j.name||'조교')+' 근무기록', PER.longLabel, '지급일 '+PER.payday ],
       [],
       [ '날짜','출근','퇴근','시간','메모' ],
     ];
@@ -611,13 +656,15 @@
     aoa.push([]);
     aoa.push([ '합계','','', (j.totalHours||0), (j.dayCount||0)+'일' ]);
     aoa.push([ '시급', wage, '정산금액', (wage? j.totalPay : '시급 미설정'), '' ]);
-    downloadCsv('근무_'+(j.name||d)+'_'+month+'.csv', aoa);
+    // 파일명에 '지급'을 박아 둔다 — '근무_홍길동_2026-08.csv' 로만 두면 8/1~8/31로 읽힌다.
+    downloadCsv('근무_'+(j.name||d)+'_'+PER.end+'지급.csv', aoa);
   }
 
   function exportAllCsv(){
     var ok = staff.filter(function(s){ return s.approved; });
+    var PER = periodOf(month);
     var aoa = [
-      [ month+' 조교 근무 합계' ],
+      [ '조교 근무 합계', PER.longLabel, '지급일 '+PER.payday ],
       [],
       [ '이름','담당학원','시급','근무일수','총시간','정산금액','계좌' ],
     ];
@@ -630,7 +677,7 @@
     });
     aoa.push([]);
     aoa.push([ '합계','','','','', sumPay, '' ]);
-    downloadCsv('조교근무합계_'+month+'.csv', aoa);
+    downloadCsv('조교근무합계_'+PER.end+'지급.csv', aoa);
   }
 
   // ── 인쇄(PDF): 새 창에 표만 그리고 브라우저 인쇄 → PDF로 저장 ──
@@ -649,7 +696,7 @@
       'td.memo{text-align:left;color:#444;}'+
       '@media print{body{padding:0;}}'+
       '</style></head><body>'+
-      '<h1>'+esc(title)+'</h1><div class="sub">'+esc(month)+' · kwmath</div>'+
+      '<h1>'+esc(title)+'</h1><div class="sub">'+esc(periodOf(month).longLabel)+' (지급일 '+esc(periodOf(month).payday)+') · kwmath</div>'+
       '<table><thead>'+theadHtml+'</thead><tbody>'+tbodyHtml+'</tbody>'+
       (tfootHtml?('<tfoot>'+tfootHtml+'</tfoot>'):'')+'</table>'+
       '</body></html>';

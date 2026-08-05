@@ -1,7 +1,12 @@
 // 운영진(조교) 레지스트리 — R2에 저장. D1 스키마 변경 없이 역할/승인 상태 관리.
 //   키:  staff/{normalizedPhone}.json
-//   값:  { phone, name, role:'staff', approved:bool, createdAt, approvedAt?, academy?, hourlyWage?, account? }
+//   값:  { phone, name, role:'staff', approved:bool, createdAt, approvedAt?, academy?, hourlyWage?, account?,
+//          lockedUpto?, lockedAt? }
 //        account = 월급 받을 계좌(은행명+번호 자유텍스트). 가입시 입력, 본인/원장이 나중에 변경 가능.
+//        lockedUpto = 급여 확정 마감일 'YYYY-MM-DD'. 이 날짜까지(그날 포함) 근무기록을 조교가 못 고친다.
+//          원장이 /admin-staff에서 「지급확정」을 누르면 그 구간 끝(지급월 5일)으로 세팅된다.
+//          ⚠️ 레코드를 새로 만들어 덮어쓰면 이 값이 날아간다 — 반드시 getStaffRecord로 읽어 필드만 고쳐 저장할 것.
+//          (staff-register.js는 같은 번호면 409로 막고 아예 안 쓴다. 2026-08-05 확인)
 //   원장(owner)은 별도 ADMIN_PHONES로 식별하므로 이 레지스트리에 없어도 됨.
 //   비밀번호 자체는 기존 accounts(D1)에 저장 — 여기엔 역할/승인/배정 메타만.
 import { normalizePhone } from './_auth.js';

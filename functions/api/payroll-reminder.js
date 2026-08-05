@@ -1,7 +1,9 @@
 // /api/payroll-reminder  (GET, 공개) + runPayrollReminder(env) (내부 재사용)
 // ───────────────────────────────────────────────────────────
 // "월급날(매월 5일) 리마인더" 를 관우T(__admin__) 폰으로 푸시.
-// 푸시 본문 = 승인된 조교별  "이름 / 계좌(뒤 4자리만) / 전월 정산금액"  목록.
+// 푸시 본문 = 승인된 조교별  "이름 / 계좌(뒤 4자리만) / 이번 구간 정산금액"  목록.
+//   📌 2026-08-05 — 정산 구간이 "전월 1일~말일"에서 "전월 6일 ~ 당월 5일(5일 포함)"로 바뀌었다.
+//      금액은 staff-worklog.js의 staffPeriodSummary(구간 합계)로 뽑는다. 여기서 따로 계산하지 않는다.
 //   ⚠️ 계좌번호 전체는 푸시에 넣지 않는다(잠금화면 노출). 전체 번호는 앱 /admin-staff 에서 본다.
 //
 // ⚠️ Cloudflare Pages는 cron(예약 실행)을 지원하지 않음 → 진짜 스케줄러가 없다.
@@ -16,11 +18,15 @@
 //     - R2 payroll-reminder/state.json { lastSent:'YYYY-MM-DD' } 로 하루 1발만(멱등).
 //   발송 대상: push-subs/__admin__.json (admin-qna '관리자 푸시 구독'으로 등록된 폰). 없으면 sent=0.
 //
-// 4일 = 내일(5일) 예고 / 5일 = 오늘 지급. 지급 대상은 항상 '전월(1~말일) 근무분'.
+// 4일 = 내일(5일) 예고 / 5일 = 오늘 지급.
+// 💰 2026-08-05 변경 — 지급 대상 구간이 '전월 1~말일'에서 **'전월 6일 ~ 이번 달 5일'** 로 바뀌었다.
+//   관우T 확정: 5일에 주는 돈은 "그 5일까지 일한 것"이다.
+//   ⚠️ 그래서 **4일에 가는 예고 금액은 최종액이 아니다** — 4일·5일 이틀치 근무가 아직 안 들어와 있다.
+//      푸시 본문에도 그렇게 적는다. 최종 금액은 5일 알림(또는 /admin-staff)에서 본다.
 // ───────────────────────────────────────────────────────────
 import { sendPushToUsers } from './_push.js';
 import { listStaff } from './_staff.js';
-import { staffMonthSummary } from './staff-worklog.js';
+import { staffPeriodSummary, periodOf } from './staff-worklog.js';
 // 📓 감사로그(2026-07-31) — "월급 알림이 안 왔다"에 답할 근거.
 //   대부분의 호출은 4·5일이 아니라 즉시 끝난다(하루 288틱 + 페이지 핑) → **실제로 쏜 때만** 1건 남긴다.
 //   크론/트래픽 어느 쪽이든 사람의 행위가 아니므로 actor='system'.
@@ -75,12 +81,16 @@ export async function runPayrollReminder(env) {
   } catch (_) {}
   if (state.lastSent === today) return { ok: true, today, fired: false, reason: 'already sent today' };
 
-  // 지급 대상 = 전월 (4·5일엔 항상 전월 근무분 정산)
-  const tgtY = p.m === 1 ? p.y - 1 : p.y;
-  const tgtM = p.m === 1 ? 12 : p.m - 1;
-  const tgtMonth = tgtY + '-' + String(tgtM).padStart(2, '0');
+  // 지급 대상 = 이번 달 5일에 나가는 급여구간 = 전월 6일 ~ 이번 달 5일.
+  //   4일·5일 어느 쪽에 떠도 지급월은 '이번 달'이다(5일이 아직 안 지났으므로).
+  const payMonth = p.y + '-' + String(p.m).padStart(2, '0');
+  const 구간 = periodOf(payMonth);       // { start:'전월 6일', end:'이번달 5일', payday, months }
+  const tgtMonth = payMonth;             // 로그·상태 키 호환용 이름 유지
+  // 푸시 본문용 짧은 라벨 — '7/6~8/5' 처럼. 앞의 0은 떼서 잠금화면에서 읽기 좋게.
+  const 구간라벨 = Number(구간.start.slice(5, 7)) + '/' + Number(구간.start.slice(8, 10))
+    + '~' + Number(구간.end.slice(5, 7)) + '/' + Number(구간.end.slice(8, 10));
 
-  // 승인된 조교별 전월 정산액 → "이름 / 계좌(마스킹) / 금액" 줄 목록
+  // 승인된 조교별 이번 구간 정산액 → "이름 / 계좌(마스킹) / 금액" 줄 목록
   let lines = [];
   // 로그용 — 계좌번호는 뒤 4자리만 남긴다(금액·시간은 그대로. 누가 얼마 받았는지가 이 로그의 핵심이다).
   const 로그용조교 = [];
@@ -92,8 +102,8 @@ export async function runPayrollReminder(env) {
       const digits = String(s.phone || '').replace(/\D/g, '');
       if (!digits) continue;
       let sum = { totalHours: 0, totalPay: 0 };
-      try { sum = await staffMonthSummary(env, digits, tgtMonth, s.hourlyWage); } catch (_) {}
-      if ((sum.totalHours || 0) <= 0) continue;   // 그 달 근무 없으면 제외
+      try { sum = await staffPeriodSummary(env, digits, payMonth, s.hourlyWage); } catch (_) {}
+      if ((sum.totalHours || 0) <= 0) continue;   // 그 구간 근무 없으면 제외
       rows.push({
         name: s.name || '(이름없음)', account: s.account || '',
         pay: sum.totalPay || 0, hours: sum.totalHours || 0, wage: s.hourlyWage || 0,
@@ -115,9 +125,13 @@ export async function runPayrollReminder(env) {
   } catch (_) {}
 
   const title = (p.d === 4) ? '💰 내일(5일) 조교 월급날' : '💰 오늘 조교 월급날 (5일)';
+  // 4일에는 4일·5일 근무가 아직 안 들어와 있다 → "중간 집계"임을 본문에 못박는다.
+  const 꼬리 = (p.d === 4)
+    ? '\n\n· 4·5일 근무는 아직 미반영 (중간 집계)\n· 계좌번호 전체는 알림을 눌러 앱에서 확인'
+    : '\n\n· 계좌번호 전체는 알림을 눌러 앱에서 확인';
   const body = lines.length
-    ? (tgtM + '월 정산\n' + lines.join('\n') + '\n\n· 계좌번호 전체는 알림을 눌러 앱에서 확인')
-    : (tgtM + '월 근무기록이 있는 조교가 없어요');
+    ? (구간라벨 + ' 정산\n' + lines.join('\n') + 꼬리)
+    : (구간라벨 + ' 구간에 근무기록이 있는 조교가 없어요');
 
   let res = { sent: 0 };
   let 발송오류 = '';
@@ -132,11 +146,12 @@ export async function runPayrollReminder(env) {
     target: today, targetName: tgtMonth + ' 정산',
     path: 'cron runPayrollReminder() ← /api/notices-flush 또는 페이지 핑',
     summary: '조교 월급 리마인드 ' + (발송오류 ? '발송 실패' : '발송') + ' — ' + today + ' · '
-      + tgtMonth + '월분 · 조교 ' + 로그용조교.length + '명 · 총 '
+      + 구간.start + '~' + 구간.end + ' 분 · 조교 ' + 로그용조교.length + '명 · 총 '
       + won(로그용조교.reduce((a, b) => a + (b.정산액 || 0), 0)) + '원 · 기기 ' + ((res && res.sent) || 0) + '대',
     detail: {
-      실행일: today + (p.d === 4 ? ' (내일이 월급날 — 예고)' : ' (오늘이 월급날)'),
-      정산대상월: tgtMonth,
+      실행일: today + (p.d === 4 ? ' (내일이 월급날 — 예고, 4·5일 근무 미반영)' : ' (오늘이 월급날)'),
+      지급월: tgtMonth,
+      정산구간: 구간.start + ' ~ ' + 구간.end + ' (지급일 ' + 구간.payday + ')',
       조교별정산: 로그용조교,
       총액: 로그용조교.reduce((a, b) => a + (b.정산액 || 0), 0),
       받는사람: ADMIN_PUSH_USERS,
@@ -146,7 +161,9 @@ export async function runPayrollReminder(env) {
         ? '원장 폰에 조교별 지급 목록이 갔다. 오늘은 다시 보내지 않는다(하루 1발 멱등).'
         : '보낼 기기가 없거나 발송이 실패해 알림이 도착하지 않았다. 그래도 오늘 보낸 것으로 표시되어 오늘은 재발송되지 않는다.',
       비고: '계좌번호는 푸시 본문·이 로그 둘 다 뒤 4자리만 남긴다(2026-07-31 변경 — 그 전에는 푸시 본문에 전체가 들어갔다). '
-        + '전체 번호는 앱 /admin-staff 에서만 본다. 전월 근무기록이 0인 조교는 목록에서 빠진다.',
+        + '전체 번호는 앱 /admin-staff 에서만 본다. 그 구간 근무기록이 0인 조교는 목록에서 빠진다. '
+        + '💰 2026-08-05부터 정산 구간이 「전월 6일~지급월 5일」이다(예전엔 전월 1~말일). '
+        + '4일 예고분은 4·5일 근무가 빠진 중간 집계이므로 5일 알림과 금액이 다를 수 있다 — 정상이다.',
     },
   });
 

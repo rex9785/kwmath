@@ -22,7 +22,9 @@
   .card{ background:#fff; border:1px solid var(--border); border-radius:13px; padding:15px 16px; margin-bottom:12px; box-shadow:0 2px 8px rgba(134,38,51,0.04); }
   .mhead{ display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:12px; }
   .mhead button{ background:#fff; border:1.5px solid var(--border); border-radius:8px; width:34px; height:34px; font-size:1.0rem; cursor:pointer; color:var(--primary); font-weight:800; }
-  .mhead .ml{ font-size:1.05rem; font-weight:800; min-width:118px; text-align:center; }
+  .mhead .ml{ font-size:1.05rem; font-weight:800; min-width:132px; text-align:center; line-height:1.25; }
+  .mhead .ml small{ display:block; font-size:0.66rem; font-weight:700; color:var(--muted); margin-top:2px; letter-spacing:-0.2px; }
+  .locknote{ display:none; text-align:center; font-size:0.76rem; color:#8a6d1f; background:#fff8e1; border:1px solid #f2e1a8; border-radius:9px; padding:7px 10px; margin-top:9px; line-height:1.5; }
   .sumgrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
   .sumbox{ background:var(--bg); border-radius:11px; padding:13px 8px; text-align:center; }
   .sumbox .l{ font-size:0.74rem; color:var(--muted); font-weight:700; margin-bottom:4px; }
@@ -220,7 +222,8 @@
       <div class="sumbox pay"><div class="l">예상 급여</div><div class="v" id="sPay">—</div></div>
     </div>
     <div class="wagehint" id="wageHint"></div>
-    <div class="paynote"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7l2.8 10L10 8.5l2.7 8.5L15.5 7"></path><path d="M3 11h17M3 14h17"></path></svg>월급날은 <b>매월 5일</b> · 전월(1일~말일) 근무분이 정산돼요</div>
+    <div class="locknote" id="lockNote"></div>
+    <div class="paynote"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7l2.8 10L10 8.5l2.7 8.5L15.5 7"></path><path d="M3 11h17M3 14h17"></path></svg>월급날은 <b>매월 5일</b> · <b>전월 6일 ~ 당월 5일</b> 근무분이 그날 정산돼요</div>
   </div>
 
   <!-- 급여 계좌 -->
@@ -255,11 +258,11 @@
       <span class="arrow" id="prefArrow">▾</span>
     </div>
     <div class="collapse-body" id="prefBody">
-      <div class="hint" style="margin-bottom:9px;">기본으로 나오는 요일과 1회 근무시간을 정해두면, 이번 달을 한 번에 채울 수 있어요. (이 설정은 이 기기에만 저장)</div>
+      <div class="hint" style="margin-bottom:9px;">기본으로 나오는 요일과 1회 근무시간을 정해두면, 이번 정산 구간을 한 번에 채울 수 있어요. (이 설정은 이 기기에만 저장)</div>
       <div class="days" id="dayBtns"></div>
       <div class="row"><label>1회 시간</label><input type="number" id="defHours" min="0" max="24" step="0.5" placeholder="예: 3"><button class="ghost" onclick="savePrefs()" style="white-space:nowrap;">설정 저장</button></div>
       <div class="fillrow">
-        <button class="ghost" id="fillBtn" onclick="fillMonth()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 21s6.5-6 6.5-11a6.5 6.5 0 1 0-13 0C5.5 15 12 21 12 21z"></path><circle cx="12" cy="10" r="2.3"></circle></svg>이번 달 기본요일 채우기</button>
+        <button class="ghost" id="fillBtn" onclick="fillMonth()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 21s6.5-6 6.5-11a6.5 6.5 0 1 0-13 0C5.5 15 12 21 12 21z"></path><circle cx="12" cy="10" r="2.3"></circle></svg>이번 구간 기본요일 채우기</button>
         <span class="hint">이미 기록된 날은 건너뛰어요. 못 나온 날은 아래에서 삭제, 추가 근무는 위에서 입력하세요.</span>
       </div>
     </div>
@@ -274,7 +277,8 @@
 <div class="toast" id="toast"></div>
 <script>
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
-  var state = { month: curMonth(), data: null, mode: 'time' };
+  var PAYDAY = 5;   // curPayMonth()이 state 초기화 때 쓰므로 반드시 위에서 먼저 대입
+  var state = { month: curPayMonth(), data: null, mode: 'time' };
   var WD = ['일','월','화','수','목','금','토'];
   var prefs = loadPrefs();
 
@@ -283,6 +287,27 @@
   function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2400); }
   function logout(){ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); location.href='/portal'; }
   function curMonth(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+  function pad2(n){ return ('0'+n).slice(-2); }
+  // 급여 구간: 전월 6일 ~ 당월 5일 (5일 포함). payMonth = 월급을 받는 달(YYYY-MM).
+  function periodOf(payMonth){
+    var y=+payMonth.slice(0,4), m=+payMonth.slice(5,7);
+    var py=(m===1)?y-1:y, pm=(m===1)?12:m-1;
+    return {
+      payMonth: payMonth,
+      start: py+'-'+pad2(pm)+'-'+pad2(PAYDAY+1),
+      end:   y +'-'+pad2(m) +'-'+pad2(PAYDAY),
+      label: pm+'/'+(PAYDAY+1)+'~'+m+'/'+PAYDAY,
+      longLabel: py+'.'+pad2(pm)+'.'+pad2(PAYDAY+1)+' ~ '+y+'.'+pad2(m)+'.'+pad2(PAYDAY)
+    };
+  }
+  // 이 날짜가 속한 급여 구간의 지급월. 6일 이후면 다음 달 5일에 받는다.
+  function payMonthOf(ds){
+    var y=+ds.slice(0,4), m=+ds.slice(5,7), d=+ds.slice(8,10);
+    if(d>PAYDAY){ m+=1; if(m>12){ m=1; y+=1; } }
+    return y+'-'+pad2(m);
+  }
+  function curPayMonth(){ var d=new Date(); return payMonthOf(d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())); }
+  function curPeriod(){ return periodOf(state.month); }
   function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
   function won(n){ return (Number(n)||0).toLocaleString()+'원'; }
   function wdOf(dateStr){ var p=dateStr.split('-'); return new Date(+p[0],+p[1]-1,+p[2]).getDay(); }
@@ -303,7 +328,11 @@
 
   function renderSummary(){
     var d = state.data || {};
-    $('monthLabel').textContent = state.month.replace('-','년 ')+'월';
+    var per = (d.period && d.period.start) ? d.period : curPeriod();
+    var lbl = periodOf(per.payMonth || state.month);
+    $('monthLabel').innerHTML = lbl.label.replace('~',' ~ ')
+      + '<small>'+lbl.end.slice(0,4)+'년 '+(+lbl.end.slice(5,7))+'월 '+PAYDAY+'일 지급</small>';
+    renderLockNote(d, lbl);
     $('sDays').textContent = (d.dayCount||0)+'일';
     $('sHours').textContent = (d.totalHours||0)+'h';
     $('sPay').textContent = won(d.totalPay||0);
@@ -311,9 +340,27 @@
     $('wageHint').innerHTML = w ? ('시급 <b style="color:var(--primary);">'+won(w)+'</b> 기준 (원장이 설정)') : '⚠️ 시급이 아직 설정되지 않았어요. 원장께 문의하면 급여가 계산돼요.';
   }
 
+  // 확정 마감일(lockedUpto)은 "이 날짜까지 확정" 이라는 뜻. 그날 포함해서 못 고친다.
+  function lockedUpto(){ var d=state.data||{}; return d.lockedUpto || ''; }
+  function isLockedDate(ds){ var u=lockedUpto(); return !!u && ds <= u; }
+
+  function renderLockNote(d, per){
+    var el=$('lockNote'); if(!el) return;
+    var u = d.lockedUpto || '';
+    if(d.locked){
+      el.style.display='';
+      el.innerHTML='🔒 이 구간은 원장님이 <b>정산확정</b>했어요. 기록을 더 고칠 수 없어요. 수정이 필요하면 원장께 말씀해 주세요.';
+    } else if(u && u >= per.start){
+      el.style.display='';
+      el.innerHTML='🔒 <b>'+esc(u)+'</b>까지는 정산확정돼 수정할 수 없어요. 그 다음 날부터는 자유롭게 입력할 수 있어요.';
+    } else {
+      el.style.display='none'; el.innerHTML='';
+    }
+  }
+
   function renderEntries(){
     var rows = (state.data && state.data.entries) || [];
-    if(!rows.length){ $('entryList').innerHTML = '<div class="empty">이 달 기록이 없어요. 위에서 추가해보세요.</div>'; return; }
+    if(!rows.length){ $('entryList').innerHTML = '<div class="empty">이 구간('+curPeriod().label+') 기록이 없어요. 위에서 추가해보세요.</div>'; return; }
     $('entryList').innerHTML = rows.map(function(e){
       var wd = WD[wdOf(e.date)];
       var det = (e.start&&e.end) ? (e.start+'~'+e.end) : '직접입력';
@@ -322,7 +369,9 @@
         '<div class="d">'+esc(e.date.slice(5))+'<small>'+wd+'요일</small></div>'+
         '<div class="h">'+e.hours+'h</div>'+
         '<div class="det">'+det+memo+'</div>'+
-        '<button class="del" onclick="delEntry(\''+e.date+'\')">삭제</button>'+
+        (isLockedDate(e.date)
+          ? '<span class="del" style="opacity:.45;cursor:default;border-color:transparent;background:transparent;" title="정산확정된 날은 수정할 수 없어요">🔒</span>'
+          : '<button class="del" onclick="delEntry(\''+e.date+'\')">삭제</button>')+
       '</div>';
     }).join('');
   }
@@ -345,7 +394,10 @@
       var r=await api('/api/staff-worklog',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
       var j=await r.json();
       if(!r.ok||!j.ok){ showToast(j.error||'저장 실패'); btn.disabled=false; return; }
-      showToast('저장됐어요 ('+j.hours+'시간)');
+      // 지금 보고 있는 구간 밖의 날짜면, 그 날이 속한 구간으로 옮겨서 보여준다 (저장했는데 안 보이는 일 방지)
+      var pm=payMonthOf(date);
+      if(pm!==state.month){ state.month=pm; showToast('저장됐어요 · '+periodOf(pm).label+' 구간으로 이동'); }
+      else showToast('저장됐어요 ('+j.hours+'시간)');
       $('inMemo').value=''; $('inStart').value=''; $('inEnd').value=''; $('inHours').value='';
       await load();
     }catch(e){ showToast('저장 중 오류'); }
@@ -374,12 +426,17 @@
     if(!days.length){ showToast('기본 요일을 먼저 골라주세요'); return; }
     if(!(h>0)){ showToast('1회 근무시간을 입력해주세요'); return; }
     savePrefs();
-    var p=state.month.split('-'), y=+p[0], mo=+p[1];
+    var per=curPeriod();
     var existing={}; ((state.data&&state.data.entries)||[]).forEach(function(e){ existing[e.date]=1; });
     var targets=[];
-    var last=new Date(y,mo,0).getDate();
-    for(var d=1; d<=last; d++){ var ds=state.month+'-'+('0'+d).slice(-2); if(days.indexOf(new Date(y,mo-1,d).getDay())>=0 && !existing[ds]) targets.push(ds); }
-    if(!targets.length){ showToast('채울 날이 없어요 (이미 기록됨)'); return; }
+    var cur=new Date(+per.start.slice(0,4), +per.start.slice(5,7)-1, +per.start.slice(8,10));
+    var stop=new Date(+per.end.slice(0,4), +per.end.slice(5,7)-1, +per.end.slice(8,10));
+    while(cur<=stop){
+      var ds=cur.getFullYear()+'-'+pad2(cur.getMonth()+1)+'-'+pad2(cur.getDate());
+      if(days.indexOf(cur.getDay())>=0 && !existing[ds] && !isLockedDate(ds)) targets.push(ds);
+      cur.setDate(cur.getDate()+1);
+    }
+    if(!targets.length){ showToast('채울 날이 없어요 (이미 기록됐거나 정산확정됨)'); return; }
     if(!confirm(targets.length+'일을 '+h+'시간으로 채울까요? (이미 기록된 날 제외)')) return;
     var btn=$('fillBtn'); btn.disabled=true; var ok=0;
     for(var i=0;i<targets.length;i++){
@@ -391,7 +448,7 @@
   async function load(){
     if(!token){ logout(); return; }
     try{
-      var r=await api('/api/staff-worklog?month='+state.month);
+      var r=await api('/api/staff-worklog?period='+state.month);
       var j=await r.json();
       if(!r.ok){ if(j&&j.error) showToast(j.error); return; }
       state.data=j;

@@ -8,12 +8,28 @@
 //   - adm_(원장) 토큰은 X-Staff-Phone이 없다 → 원장으로 식별.
 //   ⇒ 쓰기(POST/DELETE)는 "조교 본인"만(X-Staff-Phone 필수). 원장은 조회만.
 //
+// 💰 급여 구간 (2026-08-05 변경 — 관우T 확정):
+//   월급날은 매월 5일이고, **그 5일까지 일한 것**을 그날 지급한다.
+//   ⇒ 정산 구간 = 「전월 6일 ~ 지급월 5일」 (양끝 포함).  예) 2026-08-05 지급 = 2026-07-06 ~ 2026-08-05 근무분
+//   ❗ 예전에는 달력 월(1일~말일)이었다. "8월 5일에 7월분(7/1~7/31) 지급" → 지금은 아니다.
+//   저장 구조(R2 키)는 **안 바뀌었다.** 파일은 여전히 달력 월 단위이고, 구간이 두 달에 걸치므로
+//   readPeriod() 가 그 두 달 파일을 읽어 날짜 범위로 걸러 합친다. 마이그레이션 불필요.
+//
+// 🔒 정산확정(잠금) (2026-08-05 변경 — 관우T 확정):
+//   예전: 달 단위 플래그(월파일의 locked). 구간이 달을 걸치면 8/5까지 확정하려다 8월 전체가 잠겼다.
+//   지금: **확정 마감일 방식** — 조교 레코드(staff/{번호}.json)의 lockedUpto = 'YYYY-MM-DD'.
+//        그 날짜 **이하**의 모든 근무기록을 조교가 추가·수정·삭제할 수 없다(423). 그 다음날부터는 자유.
+//   ⚠️ 옛 월단위 플래그(md.locked)도 계속 존중한다 — 이미 잠가 둔 달이 새 코드에서 슬그머니
+//      풀리는 일이 없게 하기 위한 하위호환이다. 잠금 해제 시에는 그 두 달의 옛 플래그도 같이 지운다.
+//
 // 엔드포인트:
-//   GET  ?month=YYYY-MM                 → 본인(조교) 그 달 기록 + 합계
-//   GET  ?phone=010...&month=YYYY-MM    → (원장) 특정 조교 그 달 기록 + 합계
-//   GET  ?all=1&month=YYYY-MM           → (원장) 전체 조교 그 달 합계 요약
+//   GET  ?period=YYYY-MM                 → 본인(조교) 그 급여구간 기록 + 합계   (YYYY-MM = 지급월)
+//   GET  ?phone=010...&period=YYYY-MM    → (원장) 특정 조교 그 구간 기록 + 합계
+//   GET  ?all=1&period=YYYY-MM           → (원장) 전체 조교 그 구간 합계 요약
+//   GET  ?month=YYYY-MM (구버전 호환)    → 달력 월 그대로. period 가 오면 period 가 이긴다.
+//   POST { lock:bool, phone, period }    → (원장) 그 구간 정산확정/해제 = lockedUpto 이동
 //   POST { date, hours? | start?,end?, memo? }  → (조교 본인) 그 날 upsert
-//   DELETE ?date=YYYY-MM-DD             → (조교 본인) 그 날 삭제
+//   DELETE ?date=YYYY-MM-DD              → (조교 본인) 그 날 삭제
 //
 // 시간 계산: start·end(HH:MM)가 있으면 (end-start) 시간으로, 없으면 hours 직접값.
 import { listStaff, getStaffRecord, putStaffRecord } from './_staff.js';
@@ -38,6 +54,65 @@ function thisMonth() {
   // 한국시간(UTC+9) 기준 '이번 달'. UTC로 계산하면 한국 새벽 0~9시에 지난 달로 잡힘.
   const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
+
+// ───────── 급여 구간 (전월 6일 ~ 지급월 5일) ─────────
+// 🔎 날짜를 전부 'YYYY-MM-DD' 문자열로 다룬다. 이 형식은 사전순 비교 = 날짜순 비교라
+//    d >= start && d <= end 한 줄로 구간 판정이 끝난다(Date 객체·시간대 함정 없음).
+export const PAYDAY = 5;                       // 월급날 = 매월 5일 (여기만 바꾸면 구간이 통째로 따라온다)
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// payMonth('2026-08') → { start:'2026-07-06', end:'2026-08-05', months:['2026-07','2026-08'], payday:'2026-08-05' }
+//   payMonth = **지급월**(그 달 5일에 돈이 나간다). 1월이면 전월이 작년 12월이 되는 것까지 여기서 처리.
+export function periodOf(payMonth) {
+  const y = Number(String(payMonth).slice(0, 4));
+  const m = Number(String(payMonth).slice(5, 7));          // 1~12
+  const py = m === 1 ? y - 1 : y;                          // 구간이 시작하는 달(= 전월)의 연
+  const pm = m === 1 ? 12 : m - 1;                         // 구간이 시작하는 달
+  return {
+    payMonth: y + '-' + pad2(m),
+    payday: y + '-' + pad2(m) + '-' + pad2(PAYDAY),
+    start: py + '-' + pad2(pm) + '-' + pad2(PAYDAY + 1),   // 전월 6일
+    end: y + '-' + pad2(m) + '-' + pad2(PAYDAY),           // 지급월 5일
+    months: [py + '-' + pad2(pm), y + '-' + pad2(m)],      // 읽어야 할 R2 월파일 2개
+  };
+}
+
+// 오늘(KST) 기준 "지금 정산할 구간"의 지급월.
+//   5일 이하 → 이번 달 5일이 아직 안 지났거나 오늘이다 → 이번 달이 지급월.
+//   6일 이상 → 이번 구간은 다음 달 5일에 나간다 → 다음 달이 지급월.
+export function currentPayMonth() {
+  const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  let y = d.getUTCFullYear();
+  let m = d.getUTCMonth() + 1;
+  if (d.getUTCDate() > PAYDAY) { m += 1; if (m > 12) { m = 1; y += 1; } }
+  return y + '-' + pad2(m);
+}
+
+// 구간에 걸친 두 달 파일을 읽어 날짜 범위로 걸러 합친다.
+//   ⚠️ 월파일 구조는 그대로다 — 여기서만 합쳐 보여 준다(데이터 이사 없음).
+//   legacyLocked = 그 두 달 중 하나라도 옛 월단위 잠금이 걸려 있으면 true (하위호환 표시용).
+async function readPeriod(env, digits, per) {
+  const entries = {};
+  let legacyLocked = false;
+  for (const mm of per.months) {
+    const md = await readMonth(env, digits, mm);
+    if (md && md.locked) legacyLocked = true;
+    const src = (md && md.entries) || {};
+    for (const d of Object.keys(src)) {
+      if (d >= per.start && d <= per.end) entries[d] = src[d];
+    }
+  }
+  return { entries, legacyLocked };
+}
+
+// 조교 레코드의 확정 마감일. 없으면 ''.
+const lockedUptoOf = (rec) => (rec && isDate(rec.lockedUpto) ? String(rec.lockedUpto) : '');
+// 하루 전 날짜(확정 해제 시 마감일을 구간 시작 직전으로 되돌릴 때 씀).
+function prevDay(ymd) {
+  const t = Date.UTC(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10))) - 86400000;
+  const d = new Date(t);
+  return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
 }
 
 // 한 항목의 실제 근무시간(시간 단위, 소수 2자리). start/end 우선, 없으면 hours.
@@ -69,9 +144,21 @@ async function writeMonth(env, digits, month, data) {
 
 // 외부(payroll-reminder 등)에서 재사용: 한 조교의 한 달 합계만 깔끔히.
 //   → { totalHours, totalPay, dayCount, rows }
+//   ⚠️ 달력 월 기준이다. 급여 정산에는 쓰지 말 것 — 급여는 아래 staffPeriodSummary(구간)로 계산한다.
+//      (2026-08-05 이후 실제 지급액과 다르다. 남겨 둔 이유는 옛 호출부 안전용.)
 export async function staffMonthSummary(env, phoneDigits, month, hourlyWage) {
   const md = await readMonth(env, onlyDigits(phoneDigits), month);
   return summarize(md, hourlyWage);
+}
+
+// 💰 급여 정산의 표준 계산기 — 한 조교의 한 급여구간(전월 6일~지급월 5일) 합계.
+//   payMonth = 지급월('YYYY-MM'). → { totalHours, totalPay, dayCount, rows, period }
+export async function staffPeriodSummary(env, phoneDigits, payMonth, hourlyWage) {
+  const per = periodOf(payMonth);
+  const pd = await readPeriod(env, onlyDigits(phoneDigits), per);
+  const sum = summarize(pd, hourlyWage);
+  sum.period = per;
+  return sum;
 }
 
 // 한 달치 합계 계산 → { totalHours, totalPay, dayCount, entries(정렬·시간포함) }
@@ -127,7 +214,12 @@ export async function onRequest({ request, env }) {
   try {
     // ───────── GET ─────────
     if (request.method === 'GET') {
+      // 💰 period(지급월)가 오면 급여구간 모드, 없으면 옛 달력월 모드(호환).
+      //   화면 3장(admin-staff·staff-worklog·리마인드)은 전부 period 를 보낸다.
+      const qPeriod = url.searchParams.get('period');
+      const usePeriod = isMonth(qPeriod);
       const month = isMonth(url.searchParams.get('month')) ? url.searchParams.get('month') : thisMonth();
+      const per = usePeriod ? periodOf(qPeriod) : null;
 
       // 원장 전체 요약
       if (!isStaff && url.searchParams.get('all') === '1') {
@@ -135,15 +227,20 @@ export async function onRequest({ request, env }) {
         const out = [];
         for (const s of staff) {
           const d = onlyDigits(s.phone);
-          const md = await readMonth(env, d, month);
-          const sum = summarize(md, s.hourlyWage);
+          const sum = usePeriod
+            ? summarize(await readPeriod(env, d, per), s.hourlyWage)
+            : summarize(await readMonth(env, d, month), s.hourlyWage);
           out.push({
             phone: s.phone, name: s.name || '', academy: s.academy || '',
             hourlyWage: s.hourlyWage || 0, approved: !!s.approved,
             totalHours: sum.totalHours, totalPay: sum.totalPay, dayCount: sum.dayCount,
+            // 🔒 목록에서도 확정 여부가 보여야 한다 — 확정 마감일이 구간 끝을 덮으면 확정된 구간.
+            locked: usePeriod ? (!!lockedUptoOf(s) && lockedUptoOf(s) >= per.end) : false,
           });
         }
-        return Response.json({ ok: true, month, staff: out });
+        return Response.json(usePeriod
+          ? { ok: true, period: per, month: per.payMonth, staff: out }
+          : { ok: true, month, staff: out });
       }
 
       // 대상 조교: 본인(조교) 또는 ?phone=(원장)
@@ -152,6 +249,24 @@ export async function onRequest({ request, env }) {
 
       const rec = await getStaffRecord(env, normalizePhone(targetDigits) || targetDigits);
       const wage = rec ? (rec.hourlyWage || 0) : 0;
+      const upto = lockedUptoOf(rec);
+
+      if (usePeriod) {
+        const pd = await readPeriod(env, targetDigits, per);
+        const sum = summarize(pd, wage);
+        return Response.json({
+          ok: true, phone: targetDigits, period: per, month: per.payMonth,
+          name: rec ? (rec.name || '') : '', academy: rec ? (rec.academy || '') : '',
+          hourlyWage: wage, account: rec ? (rec.account || '') : '',
+          totalHours: sum.totalHours, totalPay: sum.totalPay, dayCount: sum.dayCount,
+          entries: sum.rows,
+          // locked = 이 구간이 확정됐나. 옛 월단위 잠금이 남아 있어도 잠긴 것으로 본다(실제로 못 고치니까).
+          locked: (!!upto && upto >= per.end) || pd.legacyLocked,
+          lockedUpto: upto || null, lockedAt: (rec && rec.lockedAt) || null,
+          legacyLocked: pd.legacyLocked,
+        });
+      }
+
       const md = await readMonth(env, targetDigits, month);
       const sum = summarize(md, wage);
       return Response.json({
@@ -161,6 +276,7 @@ export async function onRequest({ request, env }) {
         totalHours: sum.totalHours, totalPay: sum.totalPay, dayCount: sum.dayCount,
         entries: sum.rows,
         locked: !!md.locked, lockedAt: md.lockedAt || null,
+        lockedUpto: upto || null,
       });
     }
 
@@ -169,61 +285,122 @@ export async function onRequest({ request, env }) {
       let body = {};
       try { body = await request.json(); } catch (_) {}
 
-      // 원장: 특정 조교의 그 달을 잠금/해제(정산 확정). 잠그면 그 조교는 그 달 기록을 못 고침.
-      //   원장(adm_)은 X-Staff-Phone이 없어 isStaff=false. body.lock 있으면 근무입력이 아니라 잠금 처리.
+      // 원장: 특정 조교의 그 **급여구간**을 정산확정/해제. 확정하면 그 조교는 마감일 이전 기록을 못 고침.
+      //   원장(adm_)은 X-Staff-Phone이 없어 isStaff=false. body.lock 있으면 근무입력이 아니라 확정 처리.
+      //   📌 2026-08-05 — 달 단위 플래그를 버리고 조교 레코드의 lockedUpto(확정 마감일) 하나로 통일했다.
+      //      구간이 두 달에 걸치므로(7/6~8/5) 달 단위로는 8월 전체가 같이 잠겨 버렸다.
       if (!isStaff && body.lock !== undefined) {
         const ld = onlyDigits(body.phone || '');
-        const lm = String(body.month || '');
-        if (!ld || !isMonth(lm)) {
+        const lp = String(body.period || body.month || '');   // month 는 옛 화면 호환
+        if (!ld || !isMonth(lp)) {
           await logAudit(env, request, {
             action: 'staff.worklog.lock.reject',
-            summary: '근무기록 잠금 요청 거부 — 조교 번호 또는 달(month)이 빠졌다',
+            summary: '정산확정 요청 거부 — 조교 번호 또는 지급월(period)이 빠졌다',
             detail: {
-              결과: '거부(400). 어떤 달의 잠금 상태도 바뀌지 않았다.',
+              결과: '거부(400). 어떤 구간의 확정 상태도 바뀌지 않았다.',
               보낸값: {
                 phone: String(body.phone || '').slice(0, 30) || '(빈칸)',
-                month: lm || '(빈칸)',
+                period: lp || '(빈칸)',
                 lock: !!body.lock,
               },
               기기: 기기,
               효과: '없음.',
             },
           });
-          return Response.json({ error: '조교(phone)와 달(month)이 필요합니다.' }, { status: 400 });
+          return Response.json({ error: '조교(phone)와 지급월(period)이 필요합니다.' }, { status: 400 });
         }
-        const lmd = await readMonth(env, ld, lm);
-        // 🔎 lmd 를 그 자리에서 뜯어고치므로(in-place) 손대기 **전에** 이전 잠금 상태를 떠 둔다.
-        //   안 그러면 로그의 "전/후"가 똑같이 찍혀 아무 의미가 없다(선례: staff-approve.js).
-        const 이전 = { locked: !!lmd.locked, lockedAt: lmd.lockedAt || null };
-        const 그달합계 = summarize(lmd, 0);   // 이미 읽은 데이터로 계산 — 추가 조회 없음
-        lmd.locked = !!body.lock;
-        lmd.lockedAt = lmd.locked ? new Date().toISOString() : null;
-        await writeMonth(env, ld, lm, lmd);
 
-        // 📓 잠금 = "이 달 정산 확정". 잠긴 뒤엔 그 조교가 자기 근무기록을 못 고친다(423).
+        const per = periodOf(lp);
+        const skey = normalizePhone(ld) || ld;
+        const rec = await getStaffRecord(env, skey);
+        if (!rec) {
+          await logAudit(env, request, {
+            action: 'staff.worklog.lock.reject',
+            target: ld, targetName: '',
+            summary: '[' + ld + '] 정산확정 실패 — 조교 레코드를 못 찾음 (staff/' + skey + '.json)',
+            detail: {
+              결과: '실패(404). 확정 상태가 바뀌지 않았다.',
+              사유: 'R2에 이 번호의 조교 레코드가 없다. 확정 마감일은 조교 레코드에 저장하므로 레코드가 없으면 저장할 곳이 없다.',
+              대상구간: per.start + ' ~ ' + per.end,
+              기기: 기기,
+              효과: '없음.',
+            },
+          });
+          return Response.json({ error: '조교 정보를 찾을 수 없어요.' }, { status: 404 });
+        }
+
+        // 🔎 rec 을 그 자리에서 뜯어고치므로(in-place) 손대기 **전에** 이전 상태를 떠 둔다.
+        //   안 그러면 로그의 "전/후"가 똑같이 찍혀 아무 의미가 없다(선례: staff-approve.js).
+        const 이전마감 = lockedUptoOf(rec);
+        const 이전시각 = rec.lockedAt || null;
+
+        // 그 구간의 실제 기록(확정 시점 스냅샷) — 나중에 "그때 얼마로 굳혔나"를 대조할 근거.
+        const pd = await readPeriod(env, ld, per);
+        const 구간합계 = summarize(pd, rec.hourlyWage || 0);
+
+        let 새마감;
+        if (body.lock) {
+          // 확정: 마감일을 구간 끝(지급월 5일)로. 이미 더 뒤까지 확정돼 있으면 뒤로 물리지 않는다.
+          새마감 = (이전마감 && 이전마감 > per.end) ? 이전마감 : per.end;
+        } else {
+          // 해제: 마감일을 이 구간 시작 직전(= 전월 5일)으로 되돌린다.
+          //   ⚠️ 마감일은 하나뿐이라 "이 구간만 콕 집어 해제"는 불가능하다 —
+          //      이 구간과 그 이후 구간이 **함께** 풀린다. 아래 로그와 화면 확인문구에 그대로 적는다.
+          새마감 = prevDay(per.start);
+        }
+        rec.lockedUpto = 새마감;
+        rec.lockedAt = new Date().toISOString();
+        await putStaffRecord(env, skey, rec);
+
+        // 🧹 하위호환 정리 — 해제인데 옛 월단위 잠금이 남아 있으면 조교는 여전히 못 고친다.
+        //   "풀었는데 안 풀린다"가 되지 않게 이 구간이 걸친 두 달의 옛 플래그를 같이 지운다.
+        const 옛플래그정리 = [];
+        if (!body.lock) {
+          for (const mm of per.months) {
+            const lmd = await readMonth(env, ld, mm);
+            if (lmd && lmd.locked) {
+              lmd.locked = false; lmd.lockedAt = null;
+              await writeMonth(env, ld, mm, lmd);
+              옛플래그정리.push(mm);
+            }
+          }
+        }
+
+        const 확정됨 = !!body.lock;
+        const 변화없음 = 이전마감 === 새마감;
+        // 📓 확정 = "이 구간 지급액을 굳힌다". 굳은 뒤엔 그 조교가 마감일 이전 기록을 못 고친다(423).
         //   해제는 반대로 확정했던 금액이 다시 움직일 수 있다는 뜻이라 더 중요하게 남긴다.
         await logAudit(env, request, {
-          action: lmd.locked ? 'staff.worklog.lock' : 'staff.worklog.unlock',
-          target: ld, targetName: '',
-          summary: '[' + ld + '] ' + lm + ' 근무기록 ' + (lmd.locked ? '잠금(정산 확정)' : '잠금 해제')
-            + (이전.locked === lmd.locked ? ' — 상태 변화 없음(이미 ' + (lmd.locked ? '잠김' : '풀림') + ')' : '')
-            + ' · 그 달 기록 ' + 그달합계.dayCount + '일 ' + 그달합계.totalHours + '시간',
+          action: 확정됨 ? 'staff.worklog.lock' : 'staff.worklog.unlock',
+          target: ld, targetName: rec.name || '',
+          summary: '[' + (rec.name || ld) + '] ' + per.start + '~' + per.end + ' 정산 '
+            + (확정됨 ? '확정' : '확정 해제')
+            + (변화없음 ? ' — 상태 변화 없음(마감일 그대로 ' + (새마감 || '없음') + ')' : '')
+            + ' · 구간 기록 ' + 구간합계.dayCount + '일 ' + 구간합계.totalHours + '시간'
+            + (rec.hourlyWage ? (' · ' + 구간합계.totalPay + '원') : ' · 시급 미설정'),
           detail: {
-            대상조교번호: ld,
-            대상월: lm,
-            잠금: { 전: 이전.locked ? '잠김' : '풀림', 후: lmd.locked ? '잠김' : '풀림' },
-            잠금시각: { 전: 이전.lockedAt || '(없음)', 후: lmd.lockedAt || '(없음)' },
-            변화없음: 이전.locked === lmd.locked,
-            그시점기록: { 일수: 그달합계.dayCount, 총시간: 그달합계.totalHours },
+            대상조교: { 전화번호: ld, 이름: rec.name || '(이름없음)', 시급: rec.hourlyWage || 0 },
+            지급월: per.payMonth,
+            정산구간: per.start + ' ~ ' + per.end + ' (지급일 ' + per.payday + ')',
+            확정마감일: { 전: 이전마감 || '(없음)', 후: 새마감 || '(없음)' },
+            확정시각: { 전: 이전시각 || '(없음)', 후: rec.lockedAt },
+            변화없음: 변화없음,
+            그시점기록: { 일수: 구간합계.dayCount, 총시간: 구간합계.totalHours, 정산액: 구간합계.totalPay },
+            옛월단위잠금해제: 옛플래그정리.length ? 옛플래그정리 : '(해당 없음)',
             기기: 기기,
-            효과: lmd.locked
-              ? '이제 그 조교는 이 달 근무기록을 추가·수정·삭제할 수 없다(423). 정산 금액이 굳는다.'
-              : '그 조교가 이 달 근무기록을 다시 고칠 수 있게 됐다 — 이미 확정했던 정산액이 바뀔 수 있다.',
-            비고: '이 요청은 번호만 받으므로 조교 이름은 알 수 없다(이름을 알려면 조회가 한 번 더 필요해 넣지 않았다). '
-              + '번호로 대조할 것.',
+            효과: 확정됨
+              ? '이제 그 조교는 ' + 새마감 + ' 이전(당일 포함) 근무기록을 추가·수정·삭제할 수 없다(423). '
+                + '그 다음날부터는 평소대로 입력된다 — 다음 구간 근무가 막히지 않는다.'
+              : '확정 마감일이 ' + 새마감 + ' 로 물러났다. 그 조교는 ' + per.start + ' 이후 기록을 다시 고칠 수 있다 — '
+                + '이미 확정했던 정산액이 바뀔 수 있다. 마감일은 하나뿐이라 이 구간 **이후** 구간도 함께 풀린다.',
+            비고: '확정 마감일은 조교 레코드(staff/{번호}.json)의 lockedUpto 한 칸이다. '
+              + '구간이 두 달에 걸치므로(전월 6일~지급월 5일) 달 단위 플래그로는 다음 달이 통째로 잠기던 문제를 이 방식으로 없앴다.',
           },
         });
-        return Response.json({ ok: true, phone: ld, month: lm, locked: lmd.locked });
+        return Response.json({
+          ok: true, phone: ld, period: per, month: per.payMonth,
+          locked: 확정됨, lockedUpto: 새마감,
+        });
       }
 
       // 이하(근무기록 입력·계좌변경)는 조교 본인만.
@@ -357,27 +534,42 @@ export async function onRequest({ request, env }) {
 
       const month = date.slice(0, 7);
       const md = await readMonth(env, selfDigits, month);
-      if (md.locked) {
+      // 🔒 확정 검사 두 겹: ① 확정 마감일(그 날짜 **이하**는 못 고침) ② 옛 월단위 잠금(하위호환).
+      //   ②를 남겨 두는 이유 — 새 방식으로 넘어오기 전에 잠가 둔 달이 슬그머니 풀리면 안 되기 때문.
+      const 내레코드 = await getStaffRecord(env, normalizePhone(selfDigits) || selfDigits);
+      const 마감일 = lockedUptoOf(내레코드);
+      const 마감에걸림 = !!마감일 && date <= 마감일;
+      if (마감에걸림 || md.locked) {
         await logAudit(env, request, {
           action: 'staff.worklog.locked',
           target: selfDigits + ' / ' + date, targetName: 내이름,
-          summary: '[' + 내이름 + '] ' + date + ' 근무기록 입력 거부 — ' + month + ' 정산이 확정(잠금)된 달',
+          summary: '[' + 내이름 + '] ' + date + ' 근무기록 입력 거부 — 정산이 확정된 날짜'
+            + (마감에걸림 ? (' (확정 마감일 ' + 마감일 + ' 이하)') : ' (' + month + ' 옛 월단위 잠금)'),
           detail: {
             결과: '거부(423). 근무기록이 저장되지 않았다.',
-            사유: month + ' 은 원장이 정산 확정(잠금)한 달이라 조교가 고칠 수 없다.',
-            잠근시각: md.lockedAt || '(기록 없음)',
+            사유: 마감에걸림
+              ? ('원장이 ' + 마감일 + ' 까지 정산을 확정했다. 그 날짜 이하(당일 포함)는 조교가 고칠 수 없다.')
+              : (month + ' 은 옛 방식으로 월 전체가 잠긴 달이다(2026-08-05 이전 확정분).'),
+            확정마감일: 마감일 || '(없음)',
+            옛월단위잠금: !!md.locked,
+            잠근시각: (내레코드 && 내레코드.lockedAt) || md.lockedAt || '(기록 없음)',
             넣으려던값: {
               날짜: date, 출근: entry.start || '', 퇴근: entry.end || '',
               직접입력시간: entry.hours === undefined ? '' : entry.hours,
               계산된시간: entryHours(entry), 메모: entry.memo || '',
             },
             기기: 기기,
-            효과: '없음. 확정된 달의 지급액이 뒤늦게 바뀌는 것을 막는다. '
-              + '정말 고쳐야 하면 원장이 그 달 잠금을 풀어야 한다(staff.worklog.unlock 으로 남는다).',
-            비고: '조교가 "입력이 안 된다"고 하면 이 로그로 잠금 때문인지 바로 확인된다.',
+            효과: '없음. 확정된 구간의 지급액이 뒤늦게 바뀌는 것을 막는다. '
+              + '정말 고쳐야 하면 원장이 그 구간 확정을 풀어야 한다(staff.worklog.unlock 으로 남는다).',
+            비고: '조교가 "입력이 안 된다"고 하면 이 로그로 확정 때문인지 바로 확인된다. '
+              + '마감일 다음날부터는 정상 입력된다 — 전체가 막힌 게 아니다.',
           },
         });
-        return Response.json({ error: '이 달은 정산이 확정(잠금)되어 수정할 수 없어요. 원장님께 문의해주세요.' }, { status: 423 });
+        return Response.json({
+          error: 마감에걸림
+            ? ('' + 마감일 + ' 까지는 정산이 확정되어 수정할 수 없어요. 원장님께 문의해주세요.')
+            : '이 달은 정산이 확정되어 수정할 수 없어요. 원장님께 문의해주세요.',
+        }, { status: 423 });
       }
       md.entries = md.entries || {};
       // 🔎 같은 날짜에 이미 기록이 있으면 이건 **덮어쓰기**다 — 사라지는 값을 먼저 통째로 떠 둔다.
@@ -419,8 +611,9 @@ export async function onRequest({ request, env }) {
           변경: 변경사항.변경,
           시간증감: Math.round((새시간 - 이전시간) * 100) / 100,
           기기: 기기,
-          효과: '이 달(' + month + ') 급여 계산에 바로 반영된다. 시급 × 총시간이 월급이므로 '
-            + (이전항목 ? '이 수정폭만큼 지급액이 달라진다.' : '이 시간만큼 지급액이 늘어난다.'),
+          효과: '이 날짜가 속한 급여구간(전월 6일~지급월 5일) 계산에 바로 반영된다. 시급 × 총시간이 급여이므로 '
+            + (이전항목 ? '이 수정폭만큼 지급액이 달라진다.' : '이 시간만큼 지급액이 늘어난다.')
+            + ' 지급월은 ' + (Number(date.slice(8, 10)) <= PAYDAY ? month : (date.slice(0, 7) + '의 다음 달')) + ' 5일이다.',
           비고: '출근·퇴근이 둘 다 있으면 그 차이로 계산하고, 없으면 직접 입력한 시간을 쓴다. '
             + '같은 날짜에 다시 입력하면 덮어쓴다 — 위 "전"이 그때 사라진 값이다.',
         },
@@ -462,21 +655,34 @@ export async function onRequest({ request, env }) {
       }
       const month = date.slice(0, 7);
       const md = await readMonth(env, selfDigits, month);
-      if (md.locked) {
+      // 🔒 입력과 같은 두 겹 검사 — 확정 마감일 + 옛 월단위 잠금(하위호환).
+      const 내레코드 = await getStaffRecord(env, normalizePhone(selfDigits) || selfDigits);
+      const 마감일 = lockedUptoOf(내레코드);
+      const 마감에걸림 = !!마감일 && date <= 마감일;
+      if (마감에걸림 || md.locked) {
         await logAudit(env, request, {
           action: 'staff.worklog.locked',
           target: selfDigits + ' / ' + date, targetName: 내이름,
-          summary: '[' + 내이름 + '] ' + date + ' 근무기록 삭제 거부 — ' + month + ' 정산이 확정(잠금)된 달',
+          summary: '[' + 내이름 + '] ' + date + ' 근무기록 삭제 거부 — 정산이 확정된 날짜'
+            + (마감에걸림 ? (' (확정 마감일 ' + 마감일 + ' 이하)') : ' (' + month + ' 옛 월단위 잠금)'),
           detail: {
             결과: '거부(423). 아무것도 지워지지 않았다.',
-            사유: month + ' 은 원장이 정산 확정(잠금)한 달이라 조교가 지울 수 없다.',
-            잠근시각: md.lockedAt || '(기록 없음)',
+            사유: 마감에걸림
+              ? ('원장이 ' + 마감일 + ' 까지 정산을 확정했다. 그 날짜 이하(당일 포함)는 조교가 지울 수 없다.')
+              : (month + ' 은 옛 방식으로 월 전체가 잠긴 달이다(2026-08-05 이전 확정분).'),
+            확정마감일: 마감일 || '(없음)',
+            옛월단위잠금: !!md.locked,
+            잠근시각: (내레코드 && 내레코드.lockedAt) || md.lockedAt || '(기록 없음)',
             지우려던날짜: date,
             기기: 기기,
-            효과: '없음. 확정된 달의 지급액이 뒤늦게 줄어드는 것을 막는다.',
+            효과: '없음. 확정된 구간의 지급액이 뒤늦게 줄어드는 것을 막는다.',
           },
         });
-        return Response.json({ error: '이 달은 정산이 확정(잠금)되어 삭제할 수 없어요. 원장님께 문의해주세요.' }, { status: 423 });
+        return Response.json({
+          error: 마감에걸림
+            ? ('' + 마감일 + ' 까지는 정산이 확정되어 삭제할 수 없어요. 원장님께 문의해주세요.')
+            : '이 달은 정산이 확정되어 삭제할 수 없어요. 원장님께 문의해주세요.',
+        }, { status: 423 });
       }
       if (md.entries && md.entries[date]) {
         // 🔴 지우면 되돌릴 수 없다 — 지워지는 값을 통째로 남긴다(이미 읽은 데이터라 추가 조회 없음).
@@ -499,9 +705,9 @@ export async function onRequest({ request, env }) {
             },
             남은일수: Object.keys(md.entries || {}).length,
             기기: 기기,
-            효과: '이 달(' + month + ') 총 근무시간이 ' + 지운시간 + '시간 줄어 그만큼 월급이 줄어든다. '
+            효과: '이 날짜가 속한 급여구간 총 근무시간이 ' + 지운시간 + '시간 줄어 그만큼 급여가 줄어든다. '
               + 'R2에서 완전히 사라지므로 복구하려면 이 로그의 「지운항목」을 보고 다시 입력해야 한다.',
-            비고: '조교 본인이 지웠다. 정산 확정(잠금) 전이라 삭제가 허용된 것이다.',
+            비고: '조교 본인이 지웠다. 확정 마감일보다 뒤 날짜라 삭제가 허용된 것이다.',
           },
         });
         return Response.json({ ok: true, removed: 1, date });
