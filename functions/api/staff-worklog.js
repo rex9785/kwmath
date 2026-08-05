@@ -6,7 +6,15 @@
 //   - 미들웨어가 ast_(조교) 토큰을 검증하면 Authorization을 ADMIN_PASSWORD로 번역하고
 //     X-Staff-Phone(검증된 조교 전화번호, 위조불가)을 실어 보낸다.
 //   - adm_(원장) 토큰은 X-Staff-Phone이 없다 → 원장으로 식별.
-//   ⇒ 쓰기(POST/DELETE)는 "조교 본인"만(X-Staff-Phone 필수). 원장은 조회만.
+//   ⇒ 조교는 **자기 것만** 쓴다. body.phone 을 보내도 무시된다(남의 기록에 못 쓴다).
+//   ⇒ 원장은 조회 · 정산확정 · **대리입력/대리삭제**(2026-08-05 추가, phone 명시 필수).
+//
+// ✏️ 원장 대리입력 (2026-08-05 추가 — 관우T 요청 "내가 일한 날짜 입력할 수도 있어야지"):
+//   조교가 못 넣은 날을 원장이 /admin-staff 카드 안 접힌 폼에서 대신 입력한다.
+//   · 대리입력분은 entry.by='owner' 로 표시된다 → 조교 화면·원장 표에 「원장 입력」으로 보인다(몰래 바뀐 것처럼 안 보이게).
+//   · 조교가 나중에 같은 날을 다시 저장하면 by 표시는 사라진다(마지막에 쓴 사람이 기준).
+//   · 원장은 **확정(lockedUpto)된 날짜도** 쓸 수 있다 — 확정을 푸는 것보다 안전하기 때문이다.
+//     (해제는 마감일이 하나뿐이라 이 구간 이후까지 함께 풀린다.) 대신 감사로그 summary에 「⚠️ 확정구간 수정」이 박힌다.
 //
 // 💰 급여 구간 (2026-08-05 변경 — 관우T 확정):
 //   월급날은 매월 5일이고, **그 5일까지 일한 것**을 그날 지급한다.
@@ -28,8 +36,10 @@
 //   GET  ?all=1&period=YYYY-MM           → (원장) 전체 조교 그 구간 합계 요약
 //   GET  ?month=YYYY-MM (구버전 호환)    → 달력 월 그대로. period 가 오면 period 가 이긴다.
 //   POST { lock:bool, phone, period }    → (원장) 그 구간 정산확정/해제 = lockedUpto 이동
-//   POST { date, hours? | start?,end?, memo? }  → (조교 본인) 그 날 upsert
+//   POST { date, hours? | start?,end?, memo? }         → (조교 본인) 그 날 upsert
+//   POST { phone, date, hours? | start?,end?, memo? }  → (원장) 그 조교의 그 날 대리 upsert
 //   DELETE ?date=YYYY-MM-DD              → (조교 본인) 그 날 삭제
+//   DELETE ?phone=010...&date=YYYY-MM-DD → (원장) 그 조교의 그 날 대리 삭제
 //
 // 시간 계산: start·end(HH:MM)가 있으면 (end-start) 시간으로, 없으면 hours 직접값.
 import { listStaff, getStaffRecord, putStaffRecord } from './_staff.js';
@@ -170,7 +180,8 @@ function summarize(monthData, hourlyWage) {
     const e = entries[date] || {};
     const h = entryHours(e);
     totalHours += h;
-    return { date, hours: h, start: e.start || '', end: e.end || '', memo: e.memo || '' };
+    // by: 'owner' = 원장이 대신 넣은 날. 화면에서 「원장 입력」으로 표시한다(없으면 조교 본인 입력).
+    return { date, hours: h, start: e.start || '', end: e.end || '', memo: e.memo || '', by: e.by || '' };
   });
   totalHours = Math.round(totalHours * 100) / 100;
   const wage = Number(hourlyWage) || 0;
@@ -236,6 +247,8 @@ export async function onRequest({ request, env }) {
             totalHours: sum.totalHours, totalPay: sum.totalPay, dayCount: sum.dayCount,
             // 🔒 목록에서도 확정 여부가 보여야 한다 — 확정 마감일이 구간 끝을 덮으면 확정된 구간.
             locked: usePeriod ? (!!lockedUptoOf(s) && lockedUptoOf(s) >= per.end) : false,
+            // 원장 대리입력 화면이 "이 날짜가 확정 범위인가"를 카드만 보고 판단할 수 있게 마감일도 같이 준다.
+            lockedUpto: lockedUptoOf(s) || null,
           });
         }
         return Response.json(usePeriod
@@ -403,29 +416,56 @@ export async function onRequest({ request, env }) {
         });
       }
 
-      // 이하(근무기록 입력·계좌변경)는 조교 본인만.
-      if (!isStaff) {
-        await logAudit(env, request, {
-          action: 'staff.worklog.denied',
-          summary: '근무기록 입력 거부 — 조교 본인만 입력 가능(조교 세션이 아닌 호출)',
-          detail: {
-            결과: '거부(403). 아무것도 저장되지 않았다.',
-            사유: 'X-Staff-Phone(미들웨어가 검증해 심는 조교 신원)이 없다 = 조교 세션이 아니다.',
-            보낸값: {
-              날짜: String(body.date || '').slice(0, 20) || '(빈칸)',
-              계좌필드보냄: body.account !== undefined,
-              잠금필드보냄: body.lock !== undefined,
+      // 👤 누구의 근무기록에 쓰는가 = 대상. 여기서 한 번만 정하고 아래는 전부 이 값을 쓴다.
+      //   조교 세션 → 무조건 **본인**(selfDigits). body.phone 을 보내도 쳐다보지 않는다 → 남의 기록에 못 쓴다.
+      //   원장 세션 → body.phone 으로 **대리입력**. phone 을 빼먹으면 400 — 엉뚱한 사람에게 쓰이는 사고를 원천 차단.
+      const 원장대리 = !isStaff;
+      let 대상번호 = selfDigits;
+      let 대상이름 = 내이름;
+      if (원장대리) {
+        대상번호 = onlyDigits(body.phone || '');
+        const 대상레코드 = 대상번호 ? await getStaffRecord(env, normalizePhone(대상번호) || 대상번호) : null;
+        // 승인 대기 중인 신청자에게는 쓰지 않는다 — 원장 화면도 **승인된 카드에만** 입력폼을 띄우므로 둘을 일치시킨다.
+        const 미승인 = !!대상레코드 && !대상레코드.approved;
+        if (!대상번호 || !대상레코드 || 미승인) {
+          await logAudit(env, request, {
+            action: 'staff.worklog.denied',
+            target: 대상번호 || '',
+            summary: '원장 대리입력 거부 — ' + (!대상번호 ? '대상 조교(phone)가 빠졌다'
+              : 미승인 ? ('아직 승인되지 않은 조교 (' + (대상레코드.name || 대상번호) + ')')
+              : ('등록된 조교가 아님 (staff/' + 대상번호 + '.json 없음)')),
+            detail: {
+              결과: '거부(' + (대상번호 ? (미승인 ? '403' : '404') : '400') + '). 아무것도 저장되지 않았다.',
+              사유: !대상번호
+                ? '원장 세션인데 body.phone 이 없다. 누구 기록인지 알 수 없으니 아무 데도 쓰지 않는다.'
+                : 미승인
+                  ? '레코드는 있으나 approved=false 다. 승인 전에는 급여 기록을 만들지 않는다(승인 먼저).'
+                  : 'R2에 이 번호의 조교 레코드가 없다. 등록·승인된 조교에게만 대리입력할 수 있다.',
+              보낸값: {
+                phone: String(body.phone || '').slice(0, 30) || '(빈칸)',
+                날짜: String(body.date || '').slice(0, 20) || '(빈칸)',
+                계좌필드보냄: body.account !== undefined,
+                잠금필드보냄: body.lock !== undefined,
+              },
+              기기: 기기,
+              효과: '없음.',
+              비고: '원장이 정산확정(lock)을 보내려다 phone/period 를 빠뜨린 경우에도 여기로 온다. '
+                + '급여 계좌 변경은 조교 본인 또는 /api/staff-approve(config)로만 — 이 API로는 안 된다.',
             },
-            기기: 기기,
-            효과: '없음. 원장은 조회·잠금만 할 수 있고 근무기록 입력은 조교 본인만 한다.',
-            비고: '원장이 잠금(lock)을 보내려다 phone/month를 빠뜨린 게 아니라 lock 자체를 안 보낸 경우에도 여기로 온다.',
-          },
-        });
-        return Response.json({ error: '근무기록은 조교 본인만 입력할 수 있어요.' }, { status: 403 });
+          });
+          return Response.json(
+            { error: !대상번호 ? '어느 조교인지(phone)가 필요합니다.'
+              : 미승인 ? '아직 승인 대기 중인 조교예요. 먼저 승인해 주세요.'
+              : '등록된 조교가 아니에요.' },
+            { status: !대상번호 ? 400 : (미승인 ? 403 : 404) },
+          );
+        }
+        대상이름 = 대상레코드.name || 대상번호;
       }
 
       // 급여 계좌 변경 — date 없이 account만 보내면 본인 계좌 업데이트(근무기록 아님)
-      if (body.account !== undefined && !body.date) {
+      //   ⚠️ 여기는 **조교 본인만**이다. 원장은 /api/staff-approve 의 config 로 바꾼다(그쪽에 감사로그가 있다).
+      if (isStaff && body.account !== undefined && !body.date) {
         const skey = normalizePhone(selfDigits) || selfDigits;
         const rec = await getStaffRecord(env, skey);
         if (!rec) {
@@ -484,11 +524,12 @@ export async function onRequest({ request, env }) {
       const 입력거부 = async (사유) => {
         await logAudit(env, request, {
           action: 'staff.worklog.reject',
-          target: selfDigits, targetName: 내이름,
-          summary: '[' + 내이름 + '] 근무기록 입력 거부 — ' + 사유,
+          target: 대상번호, targetName: 대상이름,
+          summary: '[' + 대상이름 + '] 근무기록 입력 거부 — ' + 사유 + (원장대리 ? ' (원장 대리입력)' : ''),
           detail: {
             결과: '거부(400). 근무기록이 저장되지 않았다.',
             사유: 사유,
+            입력자: 원장대리 ? '원장(대리입력)' : '조교 본인',
             보낸값: {
               날짜: String(body.date || '').slice(0, 20) || '(빈칸)',
               출근: String(body.start === undefined ? '' : body.start).slice(0, 10) || '(빈칸)',
@@ -531,19 +572,25 @@ export async function onRequest({ request, env }) {
         entry.hours = Math.round(h * 100) / 100;
       }
       if (typeof body.memo === 'string') entry.memo = body.memo.slice(0, 500);
+      // ✏️ 원장이 대신 넣은 날은 표시를 남긴다 — 조교 화면·원장 표에 「원장 입력」으로 뜬다.
+      //    (조교가 나중에 같은 날을 다시 저장하면 entry가 통째로 새로 만들어져 이 표시는 자연히 사라진다.)
+      if (원장대리) entry.by = 'owner';
 
       const month = date.slice(0, 7);
-      const md = await readMonth(env, selfDigits, month);
+      const md = await readMonth(env, 대상번호, month);
       // 🔒 확정 검사 두 겹: ① 확정 마감일(그 날짜 **이하**는 못 고침) ② 옛 월단위 잠금(하위호환).
       //   ②를 남겨 두는 이유 — 새 방식으로 넘어오기 전에 잠가 둔 달이 슬그머니 풀리면 안 되기 때문.
-      const 내레코드 = await getStaffRecord(env, normalizePhone(selfDigits) || selfDigits);
+      const 내레코드 = await getStaffRecord(env, normalizePhone(대상번호) || 대상번호);
       const 마감일 = lockedUptoOf(내레코드);
       const 마감에걸림 = !!마감일 && date <= 마감일;
-      if (마감에걸림 || md.locked) {
+      const 확정범위 = 마감에걸림 || !!md.locked;
+      // 🔓 원장은 확정된 날짜도 고칠 수 있다 — 확정을 푸는 것(이 구간 이후까지 함께 풀림)보다 안전해서다.
+      //    대신 아래 저장 로그 summary에 「⚠️ 확정구간 수정」이 박히고 화면에서도 한 번 더 물어본다.
+      if (확정범위 && !원장대리) {
         await logAudit(env, request, {
           action: 'staff.worklog.locked',
-          target: selfDigits + ' / ' + date, targetName: 내이름,
-          summary: '[' + 내이름 + '] ' + date + ' 근무기록 입력 거부 — 정산이 확정된 날짜'
+          target: 대상번호 + ' / ' + date, targetName: 대상이름,
+          summary: '[' + 대상이름 + '] ' + date + ' 근무기록 입력 거부 — 정산이 확정된 날짜'
             + (마감에걸림 ? (' (확정 마감일 ' + 마감일 + ' 이하)') : ' (' + month + ' 옛 월단위 잠금)'),
           detail: {
             결과: '거부(423). 근무기록이 저장되지 않았다.',
@@ -560,7 +607,8 @@ export async function onRequest({ request, env }) {
             },
             기기: 기기,
             효과: '없음. 확정된 구간의 지급액이 뒤늦게 바뀌는 것을 막는다. '
-              + '정말 고쳐야 하면 원장이 그 구간 확정을 풀어야 한다(staff.worklog.unlock 으로 남는다).',
+              + '정말 고쳐야 하면 ① 원장이 /admin-staff 카드의 「근무 입력」으로 대신 넣거나(확정 유지·권장) '
+              + '② 그 구간 확정을 푼다(staff.worklog.unlock 으로 남는다. 이후 구간까지 함께 풀림).',
             비고: '조교가 "입력이 안 된다"고 하면 이 로그로 확정 때문인지 바로 확인된다. '
               + '마감일 다음날부터는 정상 입력된다 — 전체가 막힌 게 아니다.',
           },
@@ -576,7 +624,7 @@ export async function onRequest({ request, env }) {
       //   (md.entries[date] = entry 로 원본 참조가 끊기므로, 이 줄이 없으면 이전 값이 영영 사라진다.)
       const 이전항목 = md.entries[date] ? JSON.parse(JSON.stringify(md.entries[date])) : null;
       md.entries[date] = entry;
-      await writeMonth(env, selfDigits, month, md);
+      await writeMonth(env, 대상번호, month, md);
 
       // 📓 시급 × 총시간 = 월급이다. 이 한 줄이 그 달 지급액을 직접 움직인다.
       const 새시간 = entryHours(entry);
@@ -590,12 +638,15 @@ export async function onRequest({ request, env }) {
       const 변경사항 = diffFields(비교전, 비교후, ['start', 'end', 'hours', 'memo']);
       await logAudit(env, request, {
         action: 이전항목 ? 'staff.worklog.update' : 'staff.worklog.create',
-        target: selfDigits + ' / ' + date, targetName: 내이름,
-        summary: '[' + 내이름 + '] ' + date + ' 근무 ' + (이전항목 ? '수정' : '입력') + ' — '
+        target: 대상번호 + ' / ' + date, targetName: 대상이름,
+        summary: '[' + 대상이름 + '] ' + date + ' 근무 ' + (이전항목 ? '수정' : '입력') + ' — '
           + (이전항목 ? (이전시간 + '시간 → ' + 새시간 + '시간') : (새시간 + '시간'))
-          + (entry.start ? (' (' + entry.start + '~' + entry.end + ')') : '') + ' · ' + 기기,
+          + (entry.start ? (' (' + entry.start + '~' + entry.end + ')') : '')
+          + (원장대리 ? ' · ✏️ 원장 대리입력' : '')
+          + (확정범위 ? ' · ⚠️ 확정구간 수정' : '') + ' · ' + 기기,
         detail: {
-          조교: { 전화번호: selfDigits, 이름: 내이름 },
+          조교: { 전화번호: 대상번호, 이름: 대상이름 },
+          입력자: 원장대리 ? '원장(대리입력)' : '조교 본인',
           날짜: date, 달: month,
           전: 이전항목 ? {
             출근: 이전항목.start || '', 퇴근: 이전항목.end || '',
@@ -614,36 +665,63 @@ export async function onRequest({ request, env }) {
           효과: '이 날짜가 속한 급여구간(전월 6일~지급월 5일) 계산에 바로 반영된다. 시급 × 총시간이 급여이므로 '
             + (이전항목 ? '이 수정폭만큼 지급액이 달라진다.' : '이 시간만큼 지급액이 늘어난다.')
             + ' 지급월은 ' + (Number(date.slice(8, 10)) <= PAYDAY ? month : (date.slice(0, 7) + '의 다음 달')) + ' 5일이다.',
+          확정구간수정: 확정범위
+            ? ('그렇다. 확정 마감일 ' + (마감일 || '(없음)') + (md.locked ? ' · 옛 월단위 잠금 있음' : '')
+               + ' — 원장이 확정을 유지한 채 직접 고쳤다. 이미 확정한 지급액이 이만큼 달라진다.')
+            : false,
           비고: '출근·퇴근이 둘 다 있으면 그 차이로 계산하고, 없으면 직접 입력한 시간을 쓴다. '
-            + '같은 날짜에 다시 입력하면 덮어쓴다 — 위 "전"이 그때 사라진 값이다.',
+            + '같은 날짜에 다시 입력하면 덮어쓴다 — 위 "전"이 그때 사라진 값이다.'
+            + (원장대리
+              ? ' 이 건은 원장이 대신 넣은 것이라 entry.by="owner" 가 붙는다 — 조교 화면에 「원장 입력」으로 보인다. '
+                + '조교가 같은 날을 다시 저장하면 그 표시는 사라진다.'
+              : ''),
         },
       });
 
       return Response.json({ ok: true, date, hours: entryHours(entry), entry });
     }
 
-    // ───────── DELETE (조교 본인만) ─────────
+    // ───────── DELETE (조교 본인 · 또는 원장 대리삭제) ─────────
     if (request.method === 'DELETE') {
-      if (!isStaff) {
-        await logAudit(env, request, {
-          action: 'staff.worklog.denied',
-          summary: '근무기록 삭제 거부 — 조교 본인만 삭제 가능(조교 세션이 아닌 호출)',
-          detail: {
-            결과: '거부(403). 아무것도 지워지지 않았다.',
-            사유: 'X-Staff-Phone(미들웨어가 검증해 심는 조교 신원)이 없다 = 조교 세션이 아니다.',
-            지우려던날짜: String(url.searchParams.get('date') || '').slice(0, 20) || '(빈칸)',
-            기기: 기기,
-            효과: '없음. 원장도 남의 근무기록을 직접 지울 수 없다(잠금만 가능).',
-          },
-        });
-        return Response.json({ error: '근무기록은 조교 본인만 삭제할 수 있어요.' }, { status: 403 });
+      // 👤 대상 결정 — POST 와 같은 규칙. 조교는 본인만, 원장은 ?phone= 를 반드시 명시해야 한다.
+      //   (원장이 대신 입력할 수 있는데 오타를 못 지우면 그게 더 위험해서 삭제도 같이 연다. 2026-08-05)
+      //   ⚠️ POST 와 달리 여기선 **approved 를 보지 않는다** — 일부러다.
+      //      새로 만드는 건 승인된 조교에게만, 이미 있는 걸 치우는 건 언제나 가능해야 한다(정리 불가 상태 방지).
+      const 원장대리 = !isStaff;
+      let 대상번호 = selfDigits;
+      let 대상이름 = 내이름;
+      if (원장대리) {
+        대상번호 = onlyDigits(url.searchParams.get('phone') || '');
+        const 대상레코드 = 대상번호 ? await getStaffRecord(env, normalizePhone(대상번호) || 대상번호) : null;
+        if (!대상번호 || !대상레코드) {
+          await logAudit(env, request, {
+            action: 'staff.worklog.denied',
+            target: 대상번호 || '',
+            summary: '원장 대리삭제 거부 — ' + (대상번호 ? ('등록된 조교가 아님 (staff/' + 대상번호 + '.json 없음)') : '대상 조교(phone)가 빠졌다'),
+            detail: {
+              결과: '거부(' + (대상번호 ? '404' : '400') + '). 아무것도 지워지지 않았다.',
+              사유: 대상번호
+                ? 'R2에 이 번호의 조교 레코드가 없다.'
+                : '원장 세션인데 ?phone= 이 없다. 누구 기록인지 알 수 없으니 아무것도 건드리지 않는다.',
+              지우려던날짜: String(url.searchParams.get('date') || '').slice(0, 20) || '(빈칸)',
+              기기: 기기,
+              효과: '없음.',
+            },
+          });
+          return Response.json(
+            { error: 대상번호 ? '등록된 조교가 아니에요.' : '어느 조교인지(phone)가 필요합니다.' },
+            { status: 대상번호 ? 404 : 400 },
+          );
+        }
+        대상이름 = 대상레코드.name || 대상번호;
       }
       const date = String(url.searchParams.get('date') || '').trim();
       if (!isDate(date)) {
         await logAudit(env, request, {
           action: 'staff.worklog.delete.reject',
-          target: selfDigits, targetName: 내이름,
-          summary: '[' + 내이름 + '] 근무기록 삭제 거부 — 날짜 형식 오류 "' + String(url.searchParams.get('date') || '').slice(0, 20) + '"',
+          target: 대상번호, targetName: 대상이름,
+          summary: '[' + 대상이름 + '] 근무기록 삭제 거부 — 날짜 형식 오류 "' + String(url.searchParams.get('date') || '').slice(0, 20) + '"'
+            + (원장대리 ? ' (원장 대리삭제)' : ''),
           detail: {
             결과: '거부(400). 아무것도 지워지지 않았다.',
             사유: 'date가 YYYY-MM-DD 형식이 아니다.',
@@ -654,16 +732,18 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: 'date(YYYY-MM-DD)가 필요합니다.' }, { status: 400 });
       }
       const month = date.slice(0, 7);
-      const md = await readMonth(env, selfDigits, month);
+      const md = await readMonth(env, 대상번호, month);
       // 🔒 입력과 같은 두 겹 검사 — 확정 마감일 + 옛 월단위 잠금(하위호환).
-      const 내레코드 = await getStaffRecord(env, normalizePhone(selfDigits) || selfDigits);
+      const 내레코드 = await getStaffRecord(env, normalizePhone(대상번호) || 대상번호);
       const 마감일 = lockedUptoOf(내레코드);
       const 마감에걸림 = !!마감일 && date <= 마감일;
-      if (마감에걸림 || md.locked) {
+      const 확정범위 = 마감에걸림 || !!md.locked;
+      // 🔓 입력과 같은 원칙 — 원장은 확정된 날도 지울 수 있다(확정을 푸는 쪽이 부작용이 더 크다). 로그에 크게 남긴다.
+      if (확정범위 && !원장대리) {
         await logAudit(env, request, {
           action: 'staff.worklog.locked',
-          target: selfDigits + ' / ' + date, targetName: 내이름,
-          summary: '[' + 내이름 + '] ' + date + ' 근무기록 삭제 거부 — 정산이 확정된 날짜'
+          target: 대상번호 + ' / ' + date, targetName: 대상이름,
+          summary: '[' + 대상이름 + '] ' + date + ' 근무기록 삭제 거부 — 정산이 확정된 날짜'
             + (마감에걸림 ? (' (확정 마감일 ' + 마감일 + ' 이하)') : ' (' + month + ' 옛 월단위 잠금)'),
           detail: {
             결과: '거부(423). 아무것도 지워지지 않았다.',
@@ -689,13 +769,16 @@ export async function onRequest({ request, env }) {
         const 지운항목 = JSON.parse(JSON.stringify(md.entries[date]));
         const 지운시간 = entryHours(지운항목);
         delete md.entries[date];
-        await writeMonth(env, selfDigits, month, md);
+        await writeMonth(env, 대상번호, month, md);
         await logAudit(env, request, {
           action: 'staff.worklog.delete',
-          target: selfDigits + ' / ' + date, targetName: 내이름,
-          summary: '[' + 내이름 + '] ' + date + ' 근무기록 삭제 — ' + 지운시간 + '시간이 그 달 합계에서 빠짐 · ' + 기기,
+          target: 대상번호 + ' / ' + date, targetName: 대상이름,
+          summary: '[' + 대상이름 + '] ' + date + ' 근무기록 삭제 — ' + 지운시간 + '시간이 그 달 합계에서 빠짐'
+            + (원장대리 ? ' · ✏️ 원장 대리삭제' : '')
+            + (확정범위 ? ' · ⚠️ 확정구간 수정' : '') + ' · ' + 기기,
           detail: {
-            조교: { 전화번호: selfDigits, 이름: 내이름 },
+            조교: { 전화번호: 대상번호, 이름: 대상이름 },
+            지운사람: 원장대리 ? '원장(대리삭제)' : '조교 본인',
             날짜: date, 달: month,
             지운항목: {
               출근: 지운항목.start || '', 퇴근: 지운항목.end || '',
@@ -707,7 +790,13 @@ export async function onRequest({ request, env }) {
             기기: 기기,
             효과: '이 날짜가 속한 급여구간 총 근무시간이 ' + 지운시간 + '시간 줄어 그만큼 급여가 줄어든다. '
               + 'R2에서 완전히 사라지므로 복구하려면 이 로그의 「지운항목」을 보고 다시 입력해야 한다.',
-            비고: '조교 본인이 지웠다. 확정 마감일보다 뒤 날짜라 삭제가 허용된 것이다.',
+            확정구간수정: 확정범위
+              ? ('그렇다. 확정 마감일 ' + (마감일 || '(없음)') + (md.locked ? ' · 옛 월단위 잠금 있음' : '')
+                 + ' — 원장이 확정을 유지한 채 확정된 날을 지웠다. 이미 확정한 지급액이 그만큼 줄어든다.')
+              : false,
+            비고: 원장대리
+              ? '원장이 /admin-staff 일자별 표에서 지웠다. 조교가 아니라 원장의 판단이다.'
+              : '조교 본인이 지웠다. 확정 마감일보다 뒤 날짜라 삭제가 허용된 것이다.',
           },
         });
         return Response.json({ ok: true, removed: 1, date });
@@ -715,8 +804,9 @@ export async function onRequest({ request, env }) {
       // 지울 게 없었던 경우도 남긴다 — "지웠는데 남아있다"류 착각을 가르는 근거.
       await logAudit(env, request, {
         action: 'staff.worklog.delete.noop',
-        target: selfDigits + ' / ' + date, targetName: 내이름,
-        summary: '[' + 내이름 + '] ' + date + ' 근무기록 삭제 요청 — 지울 기록이 없었음(변화 없음)',
+        target: 대상번호 + ' / ' + date, targetName: 대상이름,
+        summary: '[' + 대상이름 + '] ' + date + ' 근무기록 삭제 요청 — 지울 기록이 없었음(변화 없음)'
+          + (원장대리 ? ' (원장 대리삭제)' : ''),
         detail: {
           결과: '삭제 0건. R2 파일도 다시 쓰지 않았다.',
           날짜: date, 달: month,

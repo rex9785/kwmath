@@ -62,6 +62,8 @@
   .entry .h{ font-weight:800; color:var(--primary); font-size:0.92rem; min-width:54px; }
   .entry .det{ font-size:0.76rem; color:var(--muted); flex:1; min-width:80px; }
   .entry .det .memo{ color:var(--ink); }
+  /* 원장이 대신 입력해 준 날 표시 (entry.by==='owner') */
+  .entry .det .bymark{ display:inline-block; background:var(--primary-light,#F9ECED); color:var(--primary,#862633); border-radius:5px; padding:0 5px; font-size:0.68rem; font-weight:800; white-space:nowrap; }
   .entry button.del{ background:none; border:none; color:#c0392b; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:inherit; }
   .empty{ text-align:center; color:var(--muted); padding:18px; font-size:0.85rem; }
   .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(30,30,30,0.92); color:#fff; padding:11px 18px; border-radius:9px; font-size:0.84rem; font-weight:600; z-index:100; display:none; }
@@ -365,10 +367,13 @@
       var wd = WD[wdOf(e.date)];
       var det = (e.start&&e.end) ? (e.start+'~'+e.end) : '직접입력';
       var memo = e.memo ? ' · <span class="memo">'+esc(e.memo)+'</span>' : '';
+      // ✏️ 원장이 대신 넣어 준 날 — 조교가 "내가 안 넣었는데?" 하지 않도록 그대로 보여 준다.
+      //    (그 날을 조교가 직접 다시 저장하면 이 표시는 사라진다.)
+      var byMark = (e.by==='owner') ? ' <span class="bymark">원장 입력</span>' : '';
       return '<div class="entry">'+
         '<div class="d">'+esc(e.date.slice(5))+'<small>'+wd+'요일</small></div>'+
         '<div class="h">'+e.hours+'h</div>'+
-        '<div class="det">'+det+memo+'</div>'+
+        '<div class="det">'+det+memo+byMark+'</div>'+
         (isLockedDate(e.date)
           ? '<span class="del" style="opacity:.45;cursor:default;border-color:transparent;background:transparent;" title="정산확정된 날은 수정할 수 없어요">🔒</span>'
           : '<button class="del" onclick="delEntry(\''+e.date+'\')">삭제</button>')+

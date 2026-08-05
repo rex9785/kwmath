@@ -68,6 +68,20 @@
   .wl td.memo{text-align:left;color:var(--text-light);word-break:break-all;}
   .wl tfoot td{font-weight:800;background:var(--bg2);}
   .wl .empty{color:var(--text-light);font-size:0.82rem;padding:12px 0;text-align:center;}
+  /* 표 안 줄단위 조작 — 날짜를 누르면 입력폼에 채워지고, ✕ 는 그 날 기록 삭제 */
+  .wl .rowbtn{background:none;border:none;color:var(--primary);font-weight:800;font-size:0.78rem;cursor:pointer;font-family:inherit;text-decoration:underline;padding:0;}
+  .wl .rowdel{background:#fff;border:1px solid var(--border);color:var(--text-light);border-radius:6px;padding:1px 7px;font-size:0.75rem;cursor:pointer;font-family:inherit;}
+  .wl .bymark{display:inline-block;background:var(--primary-light);color:var(--primary);border-radius:5px;padding:0 5px;font-size:0.68rem;font-weight:800;white-space:nowrap;}
+  /* ✏️ 원장 대리입력 폼 — 기본은 접혀 있고 카드의 「근무 입력」 버튼으로 펼친다 */
+  .wlin{margin-top:11px;border:1.5px dashed var(--primary);border-radius:10px;padding:11px;background:var(--primary-light);}
+  .wlin .inhd{font-size:0.76rem;color:var(--primary);font-weight:800;line-height:1.55;margin-bottom:9px;}
+  .wlin .inrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px;}
+  .wlin label{font-size:0.75rem;color:var(--text-light);font-weight:700;flex:0 0 auto;}
+  .wlin input{border:1.5px solid var(--border);border-radius:8px;padding:6px 8px;font-size:0.8rem;background:#fff;font-family:inherit;}
+  .wlin input[type=number]{width:78px;}
+  .wlin input.memo{flex:1 1 130px;min-width:110px;}
+  .wlin .wsave{background:var(--primary);color:#fff;border:none;border-radius:9px;padding:8px 17px;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .wlin .hint{font-size:0.72rem;color:var(--text-light);line-height:1.5;}
   /* 전체 조교 내보내기 툴바 */
   .exbar{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;}
   .exbar button{background:#fff;border:1.5px solid var(--primary);color:var(--primary);border-radius:8px;padding:7px 14px;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:inherit;}
@@ -314,6 +328,10 @@
   function digits(p){ return String(p||'').replace(/\D/g,''); }
   function moveMonth(delta){ var p=month.split('-'); var d=new Date(+p[0],+p[1]-1+delta,1); month=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); loadPayroll().then(render); }
   function ym(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+  // 로컬(한국) 기준 'YYYY-MM-DD'. toISOString()은 UTC라 한국 새벽에 하루 전으로 나온다 — 쓰지 말 것.
+  function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  // 숫자만 번호(d) → 카드 DOM id에 쓰는 원본 phone. (기존 id는 s.phone 그대로라 대조가 필요하다)
+  function phoneKey(d){ for(var i=0;i<staff.length;i++){ if(digits(staff[i].phone)===d) return String(staff[i].phone||d); } return d; }
 
   // ───────── 💰 급여 구간 (2026-08-05 관우T 확정) ─────────
   //  월급날 = 매월 5일이고, **그 5일까지 일한 것**을 그날 지급한다.
@@ -448,6 +466,10 @@
     if(s.approved){
       var pay = payByPhone[digits(s.phone)] || { totalHours:0, totalPay:0, dayCount:0 };
       var wage = s.hourlyWage||0;
+      var dg = digits(s.phone);                 // API·새 폼 id는 전부 숫자만 쓴다(카드 id는 예전대로 phone)
+      var PERI = periodOf(month);
+      var today = ymd(new Date());
+      var defDate = (today>=PERI.start && today<=PERI.end) ? today : PERI.end;   // 오늘이 이 구간이면 오늘, 아니면 구간 끝
       extra =
         '<div class="cfg">'+
           '<div class="crow"><label>담당 학원</label>'+
@@ -463,12 +485,32 @@
             (pay.locked ? '<span class="tag" style="background:var(--primary);color:#fff;">🔒 정산확정</span>' : '')+
             '<span class="dim">'+(pay.dayCount||0)+'일 · '+(pay.totalHours||0)+'시간'+(wage?'':' · ⚠️시급 미설정')+'</span>'+
             '<button class="more" onclick="toggleDetail(\''+phone+'\')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>일자별 보기</button>'+
+            // ✏️ 원장 대리입력 — 폼은 접어 두고 이 버튼으로만 펼친다(평소엔 보이지 않게).
+            '<button class="more" id="inbtn_'+dg+'" onclick="toggleWorkInput(\''+dg+'\')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"></path><path d="M14.5 6.5l3 3"></path></svg>근무 입력</button>'+
             // 🔒 정산확정 버튼을 카드 겉면에 바로 둔다(2026-08-05) — 안에만 있어 「그런 버튼 어디 있냐」가 됐다.
             '<button class="more" id="lk_'+phone+'" onclick="toggleLock(\''+digits(s.phone)+'\','+(pay.locked?'false':'true')+')">'+
               (pay.locked
                 ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg>확정 해제'
                 : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>지급확정')+
             '</button>'+
+          '</div>'+
+          // ✏️ 대리입력 폼 (기본 숨김). 조교가 못 넣은 날을 원장이 대신 채운다 — 저장하면 「원장 입력」으로 표시된다.
+          '<div class="wlin" id="in_'+dg+'" style="display:none;">'+
+            '<div class="inhd">✏️ <b>'+nameSafe+'</b> 님 근무를 대신 입력합니다 · '+PERI.longLabel+'<br>'+
+              '<span class="hint">저장하면 조교 화면에 <b>「원장 입력」</b>으로 표시돼요. 다른 구간은 위 ◀ ▶ 로 옮겨서 입력하세요.</span></div>'+
+            '<div class="inrow">'+
+              '<label>날짜</label><input type="date" id="ind_'+dg+'" value="'+defDate+'" min="'+PERI.start+'" max="'+PERI.end+'">'+
+            '</div>'+
+            '<div class="inrow">'+
+              '<label>출근</label><input type="time" id="ins_'+dg+'">'+
+              '<label>퇴근</label><input type="time" id="ine_'+dg+'">'+
+              '<label>또는 시간</label><input type="number" id="inh_'+dg+'" min="0" max="24" step="0.5" placeholder="예 3">'+
+            '</div>'+
+            '<div class="inrow">'+
+              '<label>메모</label><input class="memo" id="inm_'+dg+'" maxlength="100" placeholder="선택 — 예: 보강">'+
+              '<button class="wsave" onclick="saveWork(\''+dg+'\')">저장</button>'+
+            '</div>'+
+            '<div class="hint">출퇴근 시각을 넣으면 그 차이로, 비워 두면 「또는 시간」 값으로 계산해요. 같은 날에 다시 저장하면 덮어씁니다.</div>'+
           '</div>'+
           '<div class="wl" id="wl_'+phone+'" style="display:none;"></div>'+
         '</div>';
@@ -552,15 +594,7 @@
     box.style.display='block';
     box.dataset.month = month;
     box.innerHTML = '<div class="empty">불러오는 중…</div>';
-    var d = digits(phone);
-    try{
-      var r = await fetch('/api/staff-worklog?phone='+encodeURIComponent(d)+'&period='+month, { headers:{ 'Authorization':'Bearer '+token } });
-      if(r.status===401||r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
-      var j = await r.json();
-      if(!r.ok || !j.ok){ box.innerHTML='<div class="empty">'+esc(j.error||'불러오지 못했어요')+'</div>'; return; }
-      wlCache[d] = j;
-      renderWl(box, d);
-    }catch(e){ box.innerHTML='<div class="empty">네트워크 오류</div>'; }
+    await reloadWl(digits(phone));   // 조회·캐시·표 그리기는 한 곳(reloadWl)에서만 한다
   }
 
   function renderWl(box, d){
@@ -584,23 +618,151 @@
       box.innerHTML = btns + '<div class="empty">'+PER.label+' 구간에 입력된 근무기록이 없어요.</div>';
       return;
     }
+    // 날짜를 누르면 대리입력 폼에 그 날 값이 채워진다(수정). ✕ 는 그 날 기록 삭제.
     var body = rows.map(function(e){
+      var mine = (e.by==='owner') ? ' <span class="bymark">원장 입력</span>' : '';
       return '<tr>'+
-        '<td>'+esc(e.date)+'</td>'+
+        '<td><button class="rowbtn" onclick="wlEdit(\''+d+'\',\''+esc(e.date)+'\')" title="이 날 기록을 폼에 불러와 수정">'+esc(e.date)+'</button></td>'+
         '<td>'+hhmm(e.start)+'</td>'+
         '<td>'+hhmm(e.end)+'</td>'+
         '<td>'+(e.hours||0)+'</td>'+
-        '<td class="memo">'+esc(e.memo||'')+'</td>'+
+        '<td class="memo">'+esc(e.memo||'')+mine+'</td>'+
+        '<td><button class="rowdel" onclick="delWork(\''+d+'\',\''+esc(e.date)+'\')" title="이 날 기록 삭제">✕</button></td>'+
       '</tr>';
     }).join('');
     var foot =
       '<tr><td colspan="3">합계</td>'+
       '<td>'+(j.totalHours||0)+'시간</td>'+
-      '<td class="memo">'+(j.dayCount||0)+'일'+(wage?(' · '+won(j.totalPay)):' · ⚠️시급 미설정')+'</td></tr>';
+      '<td class="memo">'+(j.dayCount||0)+'일'+(wage?(' · '+won(j.totalPay)):' · ⚠️시급 미설정')+'</td>'+
+      '<td></td></tr>';
     box.innerHTML = btns +
-      '<table><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>시간</th><th>메모</th></tr></thead>'+
+      '<table><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>시간</th><th>메모</th><th></th></tr></thead>'+
       '<tbody>'+body+'</tbody>'+
       '<tfoot>'+foot+'</tfoot></table>';
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  ✏️ 원장 대리입력 (2026-08-05 추가)
+  //   조교가 못 넣은 날을 원장이 대신 기록한다. 폼은 카드 안에 접혀 있고 「근무 입력」으로만 펼친다.
+  //   서버(POST /api/staff-worklog with phone)가 entry.by='owner' 를 붙여 조교 화면에 「원장 입력」으로 표시한다.
+  //   ⚠️ 원장은 확정(lockedUpto)된 날짜도 저장·삭제할 수 있다. 확정을 푸는 쪽이 부작용이 더 크기 때문
+  //      (마감일이 하나라 이후 구간까지 함께 풀린다). 대신 아래에서 한 번 더 물어보고 감사로그에 크게 남는다.
+  // ══════════════════════════════════════════════════════════════════
+  function toggleWorkInput(d){
+    var pan = $('in_'+d); if(!pan) return;
+    pan.style.display = (pan.style.display==='none') ? 'block' : 'none';
+  }
+
+  // 이 조교의 현재 확정 마감일 — 카드 요약(payByPhone)이나 일자별 캐시(wlCache) 중 아는 쪽에서.
+  function lockedUptoOf(d){
+    if(wlCache[d] && wlCache[d].lockedUpto) return wlCache[d].lockedUpto;
+    if(payByPhone[d] && payByPhone[d].lockedUpto) return payByPhone[d].lockedUpto;
+    return '';
+  }
+  // 그 날짜의 기존 기록(있으면) — 덮어쓰기 경고용. 일자별 보기를 연 적 있어야 안다.
+  function cachedEntry(d, date){
+    var j = wlCache[d]; if(!j || !j.entries) return null;
+    for(var i=0;i<j.entries.length;i++){ if(j.entries[i].date===date) return j.entries[i]; }
+    return null;
+  }
+
+  async function saveWork(d){
+    var PER = periodOf(month);
+    var date = (($('ind_'+d)||{}).value||'').trim();
+    var st   = (($('ins_'+d)||{}).value||'').trim();
+    var en   = (($('ine_'+d)||{}).value||'').trim();
+    var hh   = (($('inh_'+d)||{}).value||'').trim();
+    var memo = (($('inm_'+d)||{}).value||'').trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ showToast('날짜를 선택해주세요'); return; }
+    // 지금 보고 있는 구간 밖이면 저장해도 화면에 안 보인다 — 아예 막고 안내한다.
+    if(date < PER.start || date > PER.end){ showToast('지금 구간('+PER.label+') 안의 날짜만 입력돼요. 위 ◀ ▶ 로 구간을 옮겨주세요'); return; }
+    if(!(st && en) && !hh){ showToast('출퇴근 시각 또는 근무시간을 입력해주세요'); return; }
+    if(st && en && st >= en){ showToast('퇴근이 출근보다 늦어야 해요'); return; }
+    var old = cachedEntry(d, date);
+    if(old && !confirm(date+' 은 이미 '+(old.hours||0)+'시간으로 기록돼 있어요.\n\n덮어쓸까요?')) return;
+    var upto = lockedUptoOf(d);
+    if(upto && date <= upto &&
+       !confirm('⚠️ '+date+' 은 정산확정된 날짜예요 ('+upto+'까지 확정).\n\n확정을 유지한 채 원장님이 직접 고치는 것이라\n이미 확정한 지급액이 달라집니다. 감사로그에 남습니다.\n\n그래도 저장할까요?')) return;
+    var body = { phone: d, date: date, memo: memo };
+    if(st && en){ body.start = st; body.end = en; } else { body.hours = Number(hh); }
+    try{
+      var r = await fetch('/api/staff-worklog', {
+        method:'POST',
+        headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+        body: JSON.stringify(body)
+      });
+      if(r.status===401){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var j = await r.json();
+      if(!r.ok || !j.ok){ showToast(j.error||'저장하지 못했어요'); return; }
+      showToast('✏️ '+date+' '+(j.hours||0)+'시간 저장했어요');
+      await afterWorkChange(d, date);
+    }catch(e){ showToast('네트워크 오류'); }
+  }
+
+  // 일자별 표의 ✕ — 원장이 그 날 기록을 지운다(오타 정정용). 되돌릴 수 없으므로 반드시 확인.
+  async function delWork(d, date){
+    var e = cachedEntry(d, date) || {};
+    if(!confirm(date+' 근무기록('+(e.hours||0)+'시간)을 지울까요?\n\n되돌릴 수 없습니다. (감사로그에는 남습니다)')) return;
+    var upto = lockedUptoOf(d);
+    if(upto && date <= upto &&
+       !confirm('⚠️ '+date+' 은 정산확정된 날짜예요 ('+upto+'까지 확정).\n\n지우면 이미 확정한 지급액이 그만큼 줄어듭니다.\n\n그래도 지울까요?')) return;
+    try{
+      var r = await fetch('/api/staff-worklog?phone='+encodeURIComponent(d)+'&date='+encodeURIComponent(date), {
+        method:'DELETE', headers:{ 'Authorization':'Bearer '+token }
+      });
+      if(r.status===401){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var j = await r.json();
+      if(!r.ok || !j.ok){ showToast(j.error||'지우지 못했어요'); return; }
+      showToast(j.removed ? (date+' 기록을 지웠어요') : '지울 기록이 없었어요');
+      await afterWorkChange(d, '');
+    }catch(e2){ showToast('네트워크 오류'); }
+  }
+
+  // 표에서 날짜를 누르면 그 날 값을 폼에 채워 준다(= 수정). 폼이 접혀 있으면 펼친다.
+  function wlEdit(d, date){
+    var e = cachedEntry(d, date) || {};
+    var pan = $('in_'+d); if(pan) pan.style.display='block';
+    if($('ind_'+d)) $('ind_'+d).value = date;
+    if($('ins_'+d)) $('ins_'+d).value = e.start||'';
+    if($('ine_'+d)) $('ine_'+d).value = e.end||'';
+    if($('inh_'+d)) $('inh_'+d).value = (e.start&&e.end) ? '' : (e.hours||'');
+    if($('inm_'+d)) $('inm_'+d).value = e.memo||'';
+    if(pan && pan.scrollIntoView) pan.scrollIntoView({ block:'nearest' });
+  }
+
+  // 그 조교의 일자별 상세를 서버에서 다시 받아 캐시·표를 갱신(보이든 숨겨져 있든).
+  async function reloadWl(d){
+    var box = $('wl_'+phoneKey(d)); if(!box) return;
+    try{
+      var r = await fetch('/api/staff-worklog?phone='+encodeURIComponent(d)+'&period='+month, { headers:{ 'Authorization':'Bearer '+token } });
+      if(r.status===401||r.status===403){ localStorage.removeItem('kwmath_admin_token'); token=''; needLogin(); return; }
+      var j = await r.json();
+      if(!r.ok || !j.ok){ box.innerHTML='<div class="empty">'+esc(j.error||'불러오지 못했어요')+'</div>'; return; }
+      wlCache[d] = j;
+      box.dataset.month = month;
+      renderWl(box, d);
+    }catch(e){ box.innerHTML='<div class="empty">네트워크 오류</div>'; }
+  }
+
+  // 저장·삭제 뒤 화면 되살리기.
+  //   render()가 카드를 통째로 다시 그리므로 열려 있던 패널이 닫힌다 → 여기서 도로 열어 준다.
+  //   상세는 보이든 안 보이든 항상 다시 받는다(덮어쓰기·확정 경고가 최신 데이터로 뜨게).
+  async function afterWorkChange(d, keepDate){
+    var wlOpen = !!($('wl_'+phoneKey(d)) && $('wl_'+phoneKey(d)).style.display!=='none');
+    await loadPayroll();
+    render();
+    var pan = $('in_'+d);
+    if(pan){
+      pan.style.display='block';                                  // 연속 입력이 잦아 폼은 열어 둔다
+      if(keepDate && $('ind_'+d)) $('ind_'+d).value = keepDate;    // 날짜는 유지, 값만 비운다
+      if($('ins_'+d)) $('ins_'+d).value='';
+      if($('ine_'+d)) $('ine_'+d).value='';
+      if($('inh_'+d)) $('inh_'+d).value='';
+      if($('inm_'+d)) $('inm_'+d).value='';
+    }
+    var box = $('wl_'+phoneKey(d));
+    if(box) box.style.display = wlOpen ? 'block' : 'none';
+    await reloadWl(d);
   }
 
   // ── 원장: 그 급여구간 지급확정/해제 ──
@@ -622,9 +784,11 @@
       if(!r.ok || !j.ok){ showToast(j.error||'처리하지 못했어요'); return; }
       if(wlCache[d]){ wlCache[d].locked = j.locked; wlCache[d].lockedUpto = j.lockedUpto; }
       if(payByPhone[d]) payByPhone[d].locked = j.locked;   // 카드 겉면 🔒 배지·버튼도 같이 갱신
-      var box = $('wl_'+d), wasOpen = !!(box && box.style.display!=='none');
+      // ⚠️ 상세 박스 id 는 **하이픈 포함 원본 번호**(wl_010-1234-5678)인데 여기 d 는 숫자만이다.
+      //    phoneKey(d) 로 바꿔야 찾아진다 — 안 바꾸면 항상 null 이라 표가 조용히 닫혔다(2026-08-05 수정).
+      var box = $('wl_'+phoneKey(d)), wasOpen = !!(box && box.style.display!=='none');
       render();
-      if(wasOpen){ var nb=$('wl_'+d); if(nb){ nb.style.display='block'; nb.dataset.month=month; renderWl(nb, d); } }
+      if(wasOpen){ var nb=$('wl_'+phoneKey(d)); if(nb){ nb.style.display='block'; nb.dataset.month=month; renderWl(nb, d); } }
       showToast(j.locked ? '🔒 이 구간을 확정했어요' : '🔓 확정을 해제했어요');
     }catch(e){ showToast('네트워크 오류'); }
   }
