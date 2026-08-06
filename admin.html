@@ -696,6 +696,81 @@
 
     <!-- 공지사항 탭 -->
     <div class="tab-panel" id="tab-notices">
+
+      <!-- ══════════════════════════════════════════════════════════════════════════════
+           📅 주간 요약 (2026-08-07 신설)
+           토요일에 폰 알림 한 번 → 이 카드에서 표 훑고 → 「보내기」. 그게 주중 업무의 전부다.
+           (관우T: "월말에 너를 부르는 건 확정인데 주말에는 어떻게해 내가 편하려면")
+
+           문장에는 **그 학생 개인 숫자만** 들어간다 — 진도 문구 없음(관우T 확정 "개인숫자만하자 다음주진도말고").
+           진도를 넣으면 매주 관우T가 진도를 입력해야 해서 "편하려면"이라는 목적 자체가 깨진다.
+
+           왜 공지 탭 맨 위인가 — 토요일 푸시의 링크가 /admin 이고, 이 탭이 첫 화면이다.
+           탭을 찾아 들어가게 만들면 그 한 단계에서 주말 작업이 끊긴다.
+           카드는 늘 접혀 있고, 「열기」를 누르거나 홈 줄로 들어올 때만 서버를 부른다.
+           홈 「오늘 확인할 것」의 줄 자체도 토·일에만 뜬다 — 평일 홈 로드에 조회 비용을 얹지 않으려고.
+           ⚠️ 등수·반평균은 계산하지 않는다. 전부 개인 숫자라 시동반/공통수학2가 섞일 여지가 없다.
+           ══════════════════════════════════════════════════════════════════════════════ -->
+      <div class="card" style="margin-bottom:20px;border:1.5px solid var(--primary);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <h3 style="font-size:1rem;margin:0;">📅 주간 요약
+            <span style="font-size:0.78rem;color:var(--text-light);font-weight:500;margin-left:6px;">이번 주 테스트 숫자를 학부모에게 한 줄로</span></h3>
+          <button type="button" id="wdToggleBtn" class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="wdToggle()">열기</button>
+        </div>
+
+        <div id="wdBody" style="display:none;margin-top:14px;">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <span id="wdRange" style="font-size:0.85rem;font-weight:700;color:var(--text);">불러오는 중...</span>
+              <button type="button" class="del-btn" onclick="wdLoad()">다시 계산</button>
+            </div>
+
+            <div id="wdTableWrap" style="display:none;">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.83rem;font-weight:700;cursor:pointer;">
+                  <input id="wdAll" type="checkbox" checked onchange="wdToggleAll(this.checked)" style="width:15px;height:15px;">전체 선택
+                </label>
+                <span id="wdSummary" style="font-size:0.83rem;color:var(--text-light);"></span>
+              </div>
+              <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+                  <thead><tr style="background:#f6f6f6;">
+                    <th style="padding:8px 6px;width:34px;"></th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;">학생</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;white-space:nowrap;">이번 주</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;width:46%;">보낼 문장 (고칠 수 있어요)</th>
+                  </tr></thead>
+                  <tbody id="wdRows"></tbody>
+                </table>
+              </div>
+              <p style="font-size:0.78rem;color:var(--text-light);margin-top:6px;line-height:1.55;">
+                숫자는 앱 퀴즈 중 <strong>「테스트 종류」를 고른 것</strong>만 자동으로 잡힙니다. 종류를 안 고른 퀴즈는 성적에 안 들어가서 여기에도 안 뜹니다.
+              </p>
+            </div>
+
+            <div id="wdNoData" style="display:none;font-size:0.82rem;color:var(--text-light);background:#fafafa;border:1px solid var(--border);border-radius:8px;padding:10px 12px;line-height:1.6;"></div>
+
+            <div style="border-top:1px solid var(--border);padding-top:12px;">
+              <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">받는 사람</label>
+              <select id="wdAudience" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;margin-bottom:8px;">
+                <option value="parent">학부모만</option>
+                <option value="all">학부모 + 학생</option>
+                <option value="student">학생만</option>
+              </select>
+              <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">제목</label>
+              <input id="wdTitle" type="text" value=""
+                style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;box-sizing:border-box;">
+              <p style="font-size:0.78rem;color:var(--text-light);margin-top:6px;line-height:1.55;">
+                밤 11시~아침 7시엔 학부모 휴대폰이 울리지 않고 <strong>아침 7시 이후 자동 발송</strong>됩니다(알림함에는 바로 쌓입니다).
+              </p>
+            </div>
+
+            <button id="wdSendBtn" onclick="wdSend()" style="background:var(--primary);color:#fff;border:none;padding:12px;border-radius:8px;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:inherit;">선택한 학생에게 보내기</button>
+            <div id="wdLog" style="display:none;font-size:0.82rem;line-height:1.7;background:#fafafa;border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:260px;overflow-y:auto;"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="notice-form">
         <h3>+ 새 공지사항 등록</h3>
         <div class="form-row-inline">
@@ -1272,7 +1347,12 @@
     const H = { 'Authorization': 'Bearer ' + adminToken };
     const grab = (u) => fetch(u, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    const [inq, qna, stf, hw, att, stu, rev, cli, tt] = await Promise.allSettled([
+    // 📅 주간 요약(2026-08-07)은 토·일에만 조회한다 — 평일 홈 로드에 조회 비용을 얹지 않는다.
+    //    기기 시간대와 무관하게 한국 요일로 판정하려고 UTC+9 로 직접 계산한다.
+    const 오늘요일KST = new Date(Date.now() + 9 * 3600 * 1000).getUTCDay();   // 0=일 … 6=토
+    const 주말인가 = (오늘요일KST === 6 || 오늘요일KST === 0);
+
+    const [inq, qna, stf, hw, att, stu, rev, cli, tt, wd] = await Promise.allSettled([
       grab('/api/inquiry?admin=1'),
       grab('/api/qna?count=1'),
       grab('/api/staff-approve'),
@@ -1284,6 +1364,8 @@
       // ⏰ 시간 기반 줄 (2026-08-03 신설) — 위 7개가 "남이 나를 기다리는 밀린 건수"라면,
       //    이건 "지금 내가 할 시간이 된 일"이다. 수업 시간표(🕘)를 기준으로 서버가 판단한다.
       grab('/api/today-tasks'),
+      // 📅 주간 요약 초안 — 조교가 부르면 서버가 403이라 grab이 null을 준다(줄이 안 그려짐 = 조용히 없는 셈).
+      주말인가 ? grab('/api/weekly-digest') : Promise.resolve(null),
     ]).then(rs => rs.map(r => (r.status === 'fulfilled' ? r.value : null)));
 
     const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
@@ -1374,6 +1456,12 @@
         else if (it.key === 'report')            row(it.n, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>', '오늘 리포트 만들 시간' + 반이름붙이기(it), '', "openSection('reports')");
       }
     }
+
+    // 📅 주간 요약 (2026-08-07) — 토·일에, 보낼 학생이 있을 때만 뜬다. 누르면 공지 탭의 카드가 펼쳐진다.
+    //    시간 기반 줄과 같은 성격("지금 할 시간이 된 일")이라 밀린 건수보다 위에 둔다.
+    row((wd && wd.ok) ? (Number(wd.count) || null) : null,
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>',
+      '주간 요약 보낼 것 — 이번 주 테스트 본 학생', '', 'openWeeklyDigest()');
 
     row(nInq, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5V18a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4.5"></path><path d="M3.5 13.5 6 5.5h12l2.5 8"></path><path d="M8.5 13.5h7l-1 2.5h-5z"></path></svg>', '새 상담 문의', '/admin-inquiries');
     row(nQna, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>', '답변 안 한 질문', '/admin-qna');
@@ -3067,7 +3155,9 @@
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'create', studentId: String(st.id), type: 'manual', audience,
+            // ⚠️ 키 이름은 반드시 id — /api/notifications 는 body.id 만 읽는다(notifications.js:119).
+            //    studentId 로 보내면 학생을 못 찾아 400 'id 또는 name 필수'로 전부 튕긴다(2026-08-07 발견·수정).
+            action: 'create', id: String(st.id), type: 'manual', audience,
             title, body: tpl.replace(/\{이름\}/g, st.name || ''), url: urlPath, queueIfNight: true,
           }),
         });
@@ -3085,6 +3175,200 @@
     if (fails.length) btSay('<span style="color:var(--primary);">실패 ' + fails.length + '건: ' + escapeHtml(fails.join(' / ')) + '</span>');
     btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '일괄전송 실행';
     if (!fails.length) { btQueue = []; btRender(); loadFiles(); }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // 📅 주간 요약 (2026-08-07 신설)
+  //   토요일 아침 크론(runWeeklyDigestReminder)이 폰에 "초안 준비됨"을 쏘고,
+  //   홈 「오늘 확인할 것」에 줄이 하나 생긴다 → 누르면 이 카드가 펼쳐진다.
+  //   여기서 표를 훑고 「보내기」를 누르면 학생별로 알림이 나간다. 그게 주말 업무의 전부다.
+  //
+  //   문구는 서버(/api/weekly-digest)가 학생 개인 숫자만으로 만든다. 진도 문구 없음.
+  //   ⚠️ manual 알림은 dedupKey 가 없다 = 중복 차단이 없다. 두 번 누르면 두 번 간다.
+  //      그래서 보낸 줄은 즉시 체크 해제 + 잠근다(아래 wdSend 끝부분).
+  // ══════════════════════════════════════════════════════════════════════════════
+  var wdData = null;      // 마지막으로 서버에서 받아 온 초안
+  var wdAutoTitle = '';   // 자동으로 채워 넣은 제목 — 관우T가 고쳤으면 덮어쓰지 않으려고 기억해 둔다
+
+  function wdToggle() {
+    var b = document.getElementById('wdBody');
+    if (!b) return;
+    var open = b.style.display === 'none';
+    b.style.display = open ? 'block' : 'none';
+    var btn = document.getElementById('wdToggleBtn');
+    if (btn) btn.textContent = open ? '닫기' : '열기';
+    if (open && !wdData) wdLoad();
+  }
+
+  function wdOpen() {
+    var b = document.getElementById('wdBody');
+    if (!b) return;
+    if (b.style.display === 'none') wdToggle();
+    try { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+  }
+
+  // 홈 「오늘 확인할 것」 줄에서 부른다 — 탭을 찾아 들어가는 단계를 없앤다.
+  function openWeeklyDigest() {
+    try { openSection('notices'); } catch (_) {}
+    setTimeout(wdOpen, 60);
+  }
+
+  async function wdLoad() {
+    var range = document.getElementById('wdRange');
+    if (!range) return;
+    range.textContent = '불러오는 중...';
+    document.getElementById('wdTableWrap').style.display = 'none';
+    document.getElementById('wdNoData').style.display = 'none';
+    try {
+      var r = await fetch('/api/weekly-digest', { headers: { 'Authorization': 'Bearer ' + adminToken } });
+      var j = await r.json().catch(function () { return null; });
+      if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
+      wdData = j;
+      wdRender();
+    } catch (e) {
+      wdData = null;
+      range.textContent = '불러오지 못했어요 — ' + (e.message || e);
+    }
+  }
+
+  function wdRender() {
+    var j = wdData;
+    if (!j) return;
+    document.getElementById('wdRange').textContent =
+      '이번 주 ' + j.weekLabel + ' · 테스트 본 학생 ' + j.count + '명';
+
+    var t = document.getElementById('wdTitle');
+    if (t && (!(t.value || '').trim() || t.value === wdAutoTitle)) {
+      t.value = '📊 이번 주 테스트 요약 (' + j.weekLabel + ')';
+      wdAutoTitle = t.value;
+    }
+
+    var wrap = document.getElementById('wdTableWrap');
+    var rows = (j.items || []).map(function (it, i) {
+      var dl = (it.prevN > 0)
+        ? ('지난주 ' + it.prevAvg + '점 · ' + (it.delta > 0 ? '+' : '') + it.delta + '점')
+        : '지난주 기록 없음';
+      // 개별 시험 점수는 **화면에서 눈으로 확인하는 용도**다 — 문자에는 안 들어간다.
+      var tests = (it.tests || []).map(function (x) {
+        return escapeHtml(x.label || x.type || '') + ' ' + x.score;
+      }).join(' · ');
+      return '<tr style="border-top:1px solid var(--border);">'
+        + '<td style="padding:8px 6px;text-align:center;vertical-align:top;"><input type="checkbox" class="wdChk" data-i="' + i + '" checked onchange="wdSyncAll()" style="width:15px;height:15px;"></td>'
+        + '<td style="padding:8px 10px;vertical-align:top;"><b>' + escapeHtml(it.name) + '</b>'
+          + (it.className ? '<div style="font-size:0.75rem;color:var(--text-light);">' + escapeHtml(it.className) + '</div>' : '')
+          + '</td>'
+        + '<td style="padding:8px 10px;vertical-align:top;white-space:nowrap;"><b>' + it.n + '회 · 평균 ' + it.avg + '점</b>'
+          + '<div style="font-size:0.75rem;color:var(--text-light);">' + escapeHtml(dl) + '</div>'
+          + (tests ? '<div style="font-size:0.72rem;color:var(--text-light);margin-top:3px;">' + tests + '</div>' : '')
+          + '</td>'
+        + '<td style="padding:8px 10px;vertical-align:top;"><input type="text" class="wdMsg" data-i="' + i + '" value="' + escapeHtml(it.body) + '" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.8rem;font-family:inherit;box-sizing:border-box;"></td>'
+        + '</tr>';
+    }).join('');
+    document.getElementById('wdRows').innerHTML = rows;
+    wrap.style.display = (j.items || []).length ? 'block' : 'none';
+
+    var nd = document.getElementById('wdNoData');
+    if (j.noDataCount) {
+      nd.style.display = 'block';
+      nd.innerHTML = '이번 주 테스트 기록이 없는 학생 <b>' + j.noDataCount + '명</b>은 목록에서 빠졌어요 — '
+        + escapeHtml((j.noData || []).map(function (s) { return s.name || ''; }).join(', '))
+        + '<br>「0회」라고 보내면 학부모에게 아무 정보도 아니라 아예 안 보냅니다. 퀴즈에서 <b>「테스트 종류」를 안 고른</b> 경우도 여기로 빠집니다.';
+    } else {
+      nd.style.display = 'none';
+    }
+
+    if (!(j.items || []).length) {
+      document.getElementById('wdRange').textContent =
+        '이번 주 ' + j.weekLabel + ' · 보낼 학생이 없어요 (테스트 기록 0건)';
+    }
+    var all = document.getElementById('wdAll');
+    if (all) all.checked = true;
+    wdSyncAll();
+  }
+
+  function wdToggleAll(on) {
+    document.querySelectorAll('.wdChk').forEach(function (c) { if (!c.disabled) c.checked = !!on; });
+    wdSyncAll();
+  }
+
+  function wdSyncAll() {
+    var boxes = [].slice.call(document.querySelectorAll('.wdChk'));
+    var live = boxes.filter(function (c) { return !c.disabled; });
+    var on = live.filter(function (c) { return c.checked; }).length;
+    var all = document.getElementById('wdAll');
+    if (all) all.checked = live.length > 0 && on === live.length;
+    var s = document.getElementById('wdSummary');
+    if (s) s.textContent = on + '명 선택됨' + (boxes.length - live.length ? ' · 보낸 ' + (boxes.length - live.length) + '명' : '');
+  }
+
+  function wdSay(html) {
+    var el = document.getElementById('wdLog');
+    el.style.display = 'block';
+    el.innerHTML += html + '<br>';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function wdSend() {
+    if (!wdData || !(wdData.items || []).length) return alert('보낼 내용이 없습니다.');
+
+    var picks = [];
+    [].slice.call(document.querySelectorAll('.wdChk')).forEach(function (c) {
+      if (!c.checked || c.disabled) return;
+      var i = Number(c.getAttribute('data-i'));
+      var it = wdData.items[i];
+      if (!it) return;
+      var inp = document.querySelector('.wdMsg[data-i="' + i + '"]');
+      var msg = inp ? (inp.value || '').trim() : (it.body || '');
+      if (msg) picks.push({ i: i, it: it, msg: msg });
+    });
+    if (!picks.length) return alert('보낼 학생을 선택해주세요.');
+
+    var title = (document.getElementById('wdTitle').value || '').trim();
+    if (!title) return alert('알림 제목을 입력해주세요.');
+    var audience = document.getElementById('wdAudience').value;
+
+    if (!confirm(picks.length + '명에게 주간 요약을 보냅니다.\n\n'
+      + picks.map(function (p) { return p.it.name; }).join(', ')
+      + '\n\n받는 사람: ' + (audience === 'all' ? '학부모+학생' : audience === 'parent' ? '학부모만' : '학생만')
+      + '\n\n같은 알림에 중복 차단이 없어서, 두 번 누르면 두 번 갑니다. 보낼까요?')) return;
+
+    var btn = document.getElementById('wdSendBtn');
+    btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '보내는 중...';
+    document.getElementById('wdLog').innerHTML = '';
+
+    var ok = 0; var fails = [];
+    for (var n = 0; n < picks.length; n++) {
+      var p = picks[n];
+      wdSay('(' + (n + 1) + '/' + picks.length + ') <b>' + escapeHtml(p.it.name) + '</b> ...');
+      try {
+        var r = await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            // ⚠️ 키는 id — /api/notifications 는 body.id 만 읽는다(동명이인 안전 계약).
+            action: 'create', id: String(p.it.studentId), type: 'manual', audience: audience,
+            title: title, body: p.msg, url: '/test-results', queueIfNight: true,
+          }),
+        });
+        var j = await r.json().catch(function () { return null; });
+        if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
+        ok++;
+        wdSay('&nbsp;&nbsp;🔔 발송');
+        // 보낸 줄은 바로 잠근다 — manual 알림엔 중복 차단이 없어서 두 번 누르면 두 번 간다.
+        var c2 = document.querySelector('.wdChk[data-i="' + p.i + '"]');
+        if (c2) { c2.checked = false; c2.disabled = true; }
+        var m2 = document.querySelector('.wdMsg[data-i="' + p.i + '"]');
+        if (m2) { m2.disabled = true; m2.style.background = '#f2f2f2'; }
+      } catch (e) {
+        fails.push(p.it.name + ' — ' + (e.message || e));
+        wdSay('&nbsp;&nbsp;❌ 실패: ' + escapeHtml(String(e.message || e)));
+      }
+    }
+
+    wdSay('<br><b>끝 — ' + ok + '/' + picks.length + '명 발송</b>');
+    if (fails.length) wdSay('<span style="color:var(--primary);">실패 ' + fails.length + '건: ' + escapeHtml(fails.join(' / ')) + '</span>');
+    btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '선택한 학생에게 보내기';
+    wdSyncAll();
   }
 
   // ── 자료실: 단일 파일 업로드 (FormData → Cloudflare Worker → R2) ──

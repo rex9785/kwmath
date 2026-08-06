@@ -9,6 +9,7 @@ import { safeError } from './_errors.js';
 import { dispatchNoticePush } from './notices-write.js';
 import { runPayrollReminder } from './payroll-reminder.js';
 import { runAttendanceReminder, runReportReminder } from './admin-reminders.js';
+import { runWeeklyDigestReminder } from './weekly-digest.js';
 import { flushNightPushQueue } from './_push.js';
 import { runDailyBackup } from './_backup.js';
 import { writeHeartbeat } from './_heartbeat.js';
@@ -63,6 +64,14 @@ export async function onRequest({ request, env, waitUntil }) {
   try {
     const rrP = Promise.resolve(runReportReminder(env)).catch(() => {});
     if (typeof waitUntil === 'function') waitUntil(rrP); else await rrP;
+  } catch (_) {}
+
+  // 주간 요약 초안 알림도 같은 틱에 얹는다(토요일 1발·주1회 게이트는 함수 내부가 전담).
+  //   ⚠️ 이건 "초안이 준비됐다"는 원장 알림일 뿐, 학부모에게 문자를 보내지 않는다.
+  //      실제 발송은 관우T가 관리자 화면 「📅 주간 요약」에서 눌러야 나간다.
+  try {
+    const wdP = Promise.resolve(runWeeklyDigestReminder(env)).catch(() => {});
+    if (typeof waitUntil === 'function') waitUntil(wdP); else await wdP;
   } catch (_) {}
 
   // 밤에 쌓인 학부모 푸시(자료·리포트 업로드)를 아침에 모아 발송.
