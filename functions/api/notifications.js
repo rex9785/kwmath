@@ -197,7 +197,14 @@ export async function onRequest(context) {
           if (phones.length) {
             // 학부모 번호만 밤(KST 23~7) 무음 — 학생 대상(audience:student)이면 무음 없음.
             const nightSilent = audience === 'student' ? [] : [normalizePhone(st.parentPhone)].filter(Boolean);
-            const p = sendPushToUsers(env, phones, { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' }, nightSilent.length ? { nightSilent } : {});
+            // 📓 2026-08-07 — body.queueIfNight 옵트인: 밤에 드롭하지 말고 R2 야간 큐에 쌓아 아침 7시 첫 크론에 발송.
+            //   왜 옵트인인가: 출결·수동공지는 밤에 드롭되는 게 맞다(_push.js §야간 큐 주석). 하지만 '보고서/자료 배포'는
+            //   드롭되면 학부모가 영영 못 받고 알림함에만 남는다. 7월 보고서 때 이 구멍 때문에 push-send를 따로 한 번 더
+            //   불러야 했다. 일괄전송처럼 "배포"인 호출만 이 플래그를 켠다.
+            const pushOpts = nightSilent.length
+              ? (body.queueIfNight ? { nightSilent, queueIfNight: true, queueTag: 'kwmath-notif' } : { nightSilent })
+              : {};
+            const p = sendPushToUsers(env, phones, { title, body: bodyText, url: urlPath, tag: 'kwmath-notif' }, pushOpts);
             if (context && typeof context.waitUntil === 'function') context.waitUntil(p);
             else if (p && typeof p.catch === 'function') p.catch(() => {});
           }
@@ -219,6 +226,7 @@ export async function onRequest(context) {
               ? (audience === 'parent' ? [st.parentPhone] : audience === 'student' ? [st.studentPhone] : [st.parentPhone, st.studentPhone])
                   .map((p) => normalizePhone(p)).filter(Boolean)
               : [],
+            야간큐옵트인: !!body.queueIfNight,   // 밤이면 학부모 푸시를 드롭 대신 아침 큐로 (2026-08-07)
           },
         });
         return Response.json({ ok: true, created: created.created, id: created.id });

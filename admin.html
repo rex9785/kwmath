@@ -919,8 +919,87 @@
     <div class="tab-panel" id="tab-files">
       <p class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></svg>자료실 파일 관리</p>
 
+      <!-- ══════════════════════════════════════════════════════════════════════════════
+           📤 일괄전송 (2026-08-07 신설)
+           파일 여러 개 → 파일명으로 학생 자동매칭 → test-results/{이름} 업로드 → 알림 일괄발송.
+           여태는 학생 1명 고르고 1개 올리기를 사람 수만큼 반복해야 했다(7월 보고서 9명 = 9회 + 알림 따로).
+           보고서 배포가 이 화면의 진짜 용도라 아래 단일 업로드보다 위에 둔다.
+           ⚠️ 폴더 이름은 학생 '이름' — list-files가 student.name 정확일치로 접근을 막기 때문(계약).
+              반면 알림은 studentId 로 보낸다(동명이인 오발송 방지). 그래서 자동매칭이 애매하면 사람이 고르게 한다.
+           ══════════════════════════════════════════════════════════════════════════════ -->
+      <div class="card" style="margin-bottom:20px;border:1.5px solid var(--primary);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <h3 style="font-size:1rem;margin:0;">📤 일괄전송
+            <span style="font-size:0.78rem;color:var(--text-light);font-weight:500;margin-left:6px;">여러 학생 파일을 한 번에 올리고 알림까지</span></h3>
+          <button type="button" id="btToggleBtn" class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="btToggle()">열기</button>
+        </div>
+
+        <div id="btBody" style="display:none;margin-top:14px;">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+              <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">저장 위치</label>
+              <select id="btFolder" onchange="btRematch()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;background:#fff;">
+                <option value="test-results">📊 학습 진단 결과 (앱 「학습 진단 결과」에 뜸)</option>
+                <option value="reports">📋 학생 리포트 (앱 「내 리포트」에 뜸)</option>
+              </select>
+            </div>
+
+            <div id="btDrop" onclick="document.getElementById('btFiles').click()"
+                 style="border:2px dashed var(--border);border-radius:10px;padding:22px 14px;text-align:center;cursor:pointer;background:#fafafa;transition:.15s;">
+              <div style="font-size:0.92rem;font-weight:700;color:var(--text);">파일을 여기로 끌어다 놓으세요</div>
+              <div style="font-size:0.8rem;color:var(--text-light);margin-top:5px;">또는 눌러서 여러 개 선택 · 파일명에 학생 이름이 들어 있으면 자동으로 짝지어집니다</div>
+            </div>
+            <input id="btFiles" type="file" multiple accept=".pdf,.hwp,.hwpx,.docx,.xlsx,.pptx,.zip,.png,.jpg" style="display:none;" onchange="btAddFiles(this.files)">
+
+            <div id="btTableWrap" style="display:none;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                <span id="btSummary" style="font-size:0.83rem;font-weight:700;"></span>
+                <button type="button" class="del-btn" onclick="btClear()">전부 비우기</button>
+              </div>
+              <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+                  <thead><tr style="background:#f6f6f6;">
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;">파일</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;width:44%;">받을 학생</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;width:22%;">상태</th>
+                    <th style="padding:8px 6px;width:34px;"></th>
+                  </tr></thead>
+                  <tbody id="btRows"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--border);padding-top:12px;">
+              <label style="display:flex;align-items:center;gap:7px;font-size:0.88rem;font-weight:700;cursor:pointer;">
+                <input id="btNotify" type="checkbox" checked onchange="document.getElementById('btNotifyWrap').style.display=this.checked?'block':'none'" style="width:16px;height:16px;">
+                업로드 후 알림도 보내기
+              </label>
+              <div id="btNotifyWrap" style="margin-top:10px;display:block;">
+                <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">받는 사람</label>
+                <select id="btAudience" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;background:#fff;margin-bottom:8px;">
+                  <option value="all">학부모 + 학생</option>
+                  <option value="parent">학부모만</option>
+                  <option value="student">학생만</option>
+                </select>
+                <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">제목</label>
+                <input id="btTitle" type="text" value="📊 학습 진단 결과가 등록되었습니다"
+                  style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">
+                <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">내용 <span style="color:var(--primary);font-size:0.78rem;">{이름} 은 학생 이름으로 바뀝니다</span></label>
+                <textarea id="btBodyText" rows="3" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;box-sizing:border-box;resize:vertical;">{이름} 학생의 새 학습 진단 결과가 등록되었습니다. 앱 「학습 진단 결과」에서 확인하실 수 있습니다.</textarea>
+                <p style="font-size:0.78rem;color:var(--text-light);margin-top:6px;line-height:1.55;">
+                  밤 11시~아침 7시엔 학부모 휴대폰이 울리지 않고 <strong>아침 7시 이후 자동 발송</strong>됩니다(알림함에는 바로 쌓입니다). 학생은 시간과 무관하게 바로 갑니다.
+                </p>
+              </div>
+            </div>
+
+            <button id="btRunBtn" onclick="btRun()" style="background:var(--primary);color:#fff;border:none;padding:12px;border-radius:8px;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:inherit;">일괄전송 실행</button>
+            <div id="btLog" style="display:none;font-size:0.82rem;line-height:1.7;background:#fafafa;border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:260px;overflow-y:auto;"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:20px;">
-        <h3 style="font-size:1rem;margin-bottom:16px;">+ 파일 업로드</h3>
+        <h3 style="font-size:1rem;margin-bottom:16px;">+ 파일 업로드 <span style="font-size:0.78rem;color:var(--text-light);font-weight:500;">(1건씩 · 여러 학생이면 위 일괄전송)</span></h3>
         <div style="display:flex;flex-direction:column;gap:12px;">
           <div>
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">파일 분류</label>
@@ -2808,6 +2887,204 @@
     if (!students.length) { sel.innerHTML = '<option value="">해당 반에 학생 없음</option>'; return; }
     students.sort((a,b) => (a.name||'').localeCompare(b.name||''));
     sel.innerHTML = '<option value="">학생 선택</option>' + students.map(s => '<option value="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + '</option>').join('');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // 📤 일괄전송 (2026-08-07 신설) — 여러 학생 파일을 한 번에 업로드 + 알림
+  //   설계 근거(바꾸기 전에 읽을 것):
+  //   · 저장 폴더는 학생 '이름'(test-results/{name}) — list-files가 student.name 정확일치로 접근을 막는 계약.
+  //   · 알림은 studentId — 서버가 동명이인이면 409로 발송을 막는다(이름으로 쏘면 그 벽에 걸림).
+  //   · 그래서 모든 행이 '학생 1명 확정'까지 간 뒤에야 실행된다. 애매하면 사람이 고른다.
+  //   · queueIfNight:true — 밤이면 학부모 푸시를 드롭하지 않고 아침 7시 큐로(2026-08-07 notifications.js).
+  // ══════════════════════════════════════════════════════════════════════════════
+  let btQueue = [];            // [{ f:File, sid:string, auto:boolean }]
+  let btDropWired = false;
+
+  function btToggle() {
+    const body = document.getElementById('btBody');
+    const btn  = document.getElementById('btToggleBtn');
+    const open = body.style.display === 'none';
+    body.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '접기' : '열기';
+    if (open) { btWireDrop(); btEnsureStudents(); }
+  }
+
+  function btWireDrop() {
+    if (btDropWired) return;
+    btDropWired = true;
+    const dz = document.getElementById('btDrop');
+    const on = (e) => { e.preventDefault(); dz.style.borderColor = 'var(--primary)'; dz.style.background = '#fff5f6'; };
+    const off = (e) => { e.preventDefault(); dz.style.borderColor = 'var(--border)'; dz.style.background = '#fafafa'; };
+    dz.addEventListener('dragover', on);
+    dz.addEventListener('dragenter', on);
+    dz.addEventListener('dragleave', off);
+    dz.addEventListener('drop', (e) => { off(e); btAddFiles(e.dataTransfer && e.dataTransfer.files); });
+  }
+
+  // 학생 목록이 아직 없으면 여기서 직접 채운다(학생 탭을 안 들렀어도 일괄전송이 되게).
+  async function btEnsureStudents() {
+    if (Array.isArray(allStudents) && allStudents.length) return;
+    try {
+      const res = await fetch('/api/students?t=' + Date.now(), { headers: { 'Authorization': 'Bearer ' + adminToken }, cache: 'no-store' });
+      const j = await res.json();
+      if (Array.isArray(j)) allStudents = j;
+    } catch (_) { /* 실패해도 화면은 살아 있고, 행마다 수동 선택으로 진행 가능 */ }
+  }
+
+  // 파일명 → 학생 자동매칭. 이름이 파일명 안에 들어 있으면 매칭.
+  //   자동으로 확정하는 경우는 '한 사람으로 좁혀질 때' 뿐이고, 나머지는 전부 사람이 고른다.
+  //   ① 긴 이름 우선 — '김서'와 '김서율'이 함께 걸리면 '김서율'. (짧은 쪽은 우연한 부분일치)
+  //   ② 같은 길이의 '다른 이름'이 둘 이상 → 확정 안 함. 예: 「김서율_이지민_공동.pdf」
+  //      한쪽을 임의로 고르면 다른 학생 자료가 남의 폴더로 간다 — 되돌릴 수 없는 사고라 무조건 사람에게 넘긴다.
+  //   ③ 같은 이름의 학생이 둘 이상(동명이인) → 확정 안 함.
+  function btMatch(fileName) {
+    const base = String(fileName || '').replace(/\.[^.]+$/, '').replace(/\s+/g, '');
+    let best = '', hits = [], namesAtBest = new Set();
+    for (const s of (allStudents || [])) {
+      const n = String(s.name || '').replace(/\s+/g, '');
+      if (!n || !base.includes(n)) continue;
+      if (n.length > best.length) { best = n; hits = [s]; namesAtBest = new Set([n]); }
+      else if (n.length === best.length) { hits.push(s); namesAtBest.add(n); }
+    }
+    if (!best) return { sid: '', state: 'none' };
+    if (namesAtBest.size > 1) return { sid: '', state: 'multi', names: Array.from(namesAtBest) };
+    if (hits.length > 1) return { sid: '', state: 'dup', name: best, n: hits.length };
+    return { sid: String(hits[0].id), state: 'ok' };
+  }
+
+  function btAddFiles(files) {
+    if (!files || !files.length) return;
+    btEnsureStudents().then(() => {
+      for (const f of files) {
+        if (btQueue.some(q => q.f.name === f.name && q.f.size === f.size)) continue;   // 같은 파일 두 번 담기 방지
+        const m = btMatch(f.name);
+        btQueue.push({ f, sid: m.sid, auto: m.state === 'ok', why: m.state, dupName: m.name || '', dupN: m.n || 0, names: m.names || [] });
+      }
+      btRender();
+    });
+    document.getElementById('btFiles').value = '';
+  }
+
+  function btRematch() { btRender(); }   // 저장 위치만 바뀌므로 표만 다시 그린다
+  function btClear() { btQueue = []; btRender(); }
+  function btRemove(i) { btQueue.splice(i, 1); btRender(); }
+  function btPick(i, sid) { btQueue[i].sid = String(sid || ''); btQueue[i].auto = false; btRender(); }
+
+  function btStudentOptions(sel) {
+    const list = (allStudents || []).slice().sort((a, b) =>
+      (a.academy || '').localeCompare(b.academy || '') || (a.className || '').localeCompare(b.className || '') || (a.name || '').localeCompare(b.name || ''));
+    return '<option value="">— 직접 고르기 —</option>' + list.map(s =>
+      '<option value="' + escapeHtml(String(s.id)) + '"' + (String(s.id) === String(sel) ? ' selected' : '') + '>'
+      + escapeHtml(s.name || '') + ' · ' + escapeHtml(s.academy || '') + ' ' + escapeHtml(s.className || '') + '</option>').join('');
+  }
+
+  function btRender() {
+    const wrap = document.getElementById('btTableWrap');
+    const rows = document.getElementById('btRows');
+    if (!btQueue.length) { wrap.style.display = 'none'; rows.innerHTML = ''; return; }
+    wrap.style.display = 'block';
+    const folder = document.getElementById('btFolder').value;
+    rows.innerHTML = btQueue.map((q, i) => {
+      const st = (allStudents || []).find(s => String(s.id) === String(q.sid));
+      let badge;
+      if (st) badge = '<span style="color:#0a7d34;font-weight:700;">' + (q.auto ? '자동매칭' : '직접 지정') + '</span>'
+                    + '<div style="color:var(--text-light);font-size:0.75rem;margin-top:2px;">' + escapeHtml(folder) + '/' + escapeHtml(st.name || '') + '/</div>';
+      else if (q.why === 'dup') badge = '<span style="color:#b06000;font-weight:700;">같은 이름 ' + q.dupN + '명 — 고르세요</span>';
+      else if (q.why === 'multi') badge = '<span style="color:#b06000;font-weight:700;">이름이 여럿 — 고르세요</span>'
+                    + '<div style="color:var(--text-light);font-size:0.75rem;margin-top:2px;">' + escapeHtml((q.names || []).join(' · ')) + '</div>';
+      else badge = '<span style="color:var(--primary);font-weight:700;">이름 못 찾음 — 고르세요</span>';
+      return '<tr style="border-top:1px solid var(--border);">'
+        + '<td style="padding:8px 10px;word-break:break-all;">' + escapeHtml(q.f.name)
+        + '<div style="color:var(--text-light);font-size:0.75rem;">' + Math.round(q.f.size / 1024) + ' KB</div></td>'
+        + '<td style="padding:8px 10px;"><select onchange="btPick(' + i + ', this.value)" style="width:100%;padding:6px;border:1.5px solid ' + (st ? 'var(--border)' : 'var(--primary)') + ';border-radius:6px;font-size:0.8rem;font-family:inherit;background:#fff;">' + btStudentOptions(q.sid) + '</select></td>'
+        + '<td style="padding:8px 10px;">' + badge + '</td>'
+        + '<td style="padding:8px 6px;text-align:center;"><button type="button" onclick="btRemove(' + i + ')" style="background:none;border:none;color:var(--text-light);cursor:pointer;font-size:1rem;line-height:1;">×</button></td>'
+        + '</tr>';
+    }).join('');
+    const ready = btQueue.filter(q => q.sid).length;
+    document.getElementById('btSummary').innerHTML = '파일 ' + btQueue.length + '개 · 학생 확정 ' + ready + '개'
+      + (ready < btQueue.length ? ' <span style="color:var(--primary);">· ' + (btQueue.length - ready) + '개는 학생을 골라야 실행됩니다</span>' : '');
+  }
+
+  function btSay(html) {
+    const el = document.getElementById('btLog');
+    el.style.display = 'block';
+    el.innerHTML += html + '<br>';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function btRun() {
+    if (!btQueue.length) return alert('보낼 파일이 없습니다.');
+    const missing = btQueue.filter(q => !q.sid).length;
+    if (missing) return alert(missing + '개 파일은 아직 받을 학생이 정해지지 않았습니다.');
+
+    const folder   = document.getElementById('btFolder').value;
+    const notify   = document.getElementById('btNotify').checked;
+    const audience = document.getElementById('btAudience').value;
+    const title    = (document.getElementById('btTitle').value || '').trim();
+    const tpl      = (document.getElementById('btBodyText').value || '').trim();
+    const urlPath  = folder === 'reports' ? '/report' : '/test-results';
+    if (notify && (!title || !tpl)) return alert('알림 제목과 내용을 채워주세요.');
+
+    const names = btQueue.map(q => ((allStudents || []).find(s => String(s.id) === String(q.sid)) || {}).name || '?');
+    if (!confirm('파일 ' + btQueue.length + '개를 ' + folder + '/ 에 올립니다.\n\n' + names.join(', ')
+      + (notify ? '\n\n올린 뒤 알림도 발송합니다(' + (audience === 'all' ? '학부모+학생' : audience === 'parent' ? '학부모만' : '학생만') + ').' : '\n\n알림은 보내지 않습니다.')
+      + '\n\n진행할까요?')) return;
+
+    const btn = document.getElementById('btRunBtn');
+    btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '전송 중...';
+    document.getElementById('btLog').innerHTML = '';
+
+    let okUp = 0, okNoti = 0;
+    const fails = [];
+    for (let i = 0; i < btQueue.length; i++) {
+      const q = btQueue[i];
+      const st = (allStudents || []).find(s => String(s.id) === String(q.sid));
+      if (!st) { fails.push(q.f.name + ' — 학생을 못 찾음'); continue; }
+      btSay('(' + (i + 1) + '/' + btQueue.length + ') <b>' + escapeHtml(st.name) + '</b> 업로드 중...');
+      try {
+        const fd = new FormData();
+        fd.append('file', q.f, q.f.name);
+        fd.append('folder', folder + '/' + st.name);
+        fd.append('password', adminToken);
+        const r = await fetch('/api/upload-file', { method: 'POST', headers: { 'Authorization': 'Bearer ' + adminToken }, body: fd });
+        if (!r.ok) {
+          let msg = 'HTTP ' + r.status;
+          try { const j = await r.json(); if (j && j.error) msg = j.error; } catch (_) {}
+          throw new Error(msg);
+        }
+        okUp++;
+        btSay('&nbsp;&nbsp;✅ 업로드 완료');
+      } catch (e) {
+        fails.push(st.name + ' 업로드 — ' + (e.message || e));
+        btSay('&nbsp;&nbsp;❌ 업로드 실패: ' + escapeHtml(String(e.message || e)));
+        continue;   // 업로드가 안 됐으면 알림도 보내지 않는다(없는 파일을 보러 가게 만들지 않는다)
+      }
+
+      if (!notify) continue;
+      try {
+        const r2 = await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create', studentId: String(st.id), type: 'manual', audience,
+            title, body: tpl.replace(/\{이름\}/g, st.name || ''), url: urlPath, queueIfNight: true,
+          }),
+        });
+        const j2 = await r2.json().catch(() => null);
+        if (!r2.ok) throw new Error((j2 && j2.error) || ('HTTP ' + r2.status));
+        if (j2 && j2.created === false) btSay('&nbsp;&nbsp;➖ 알림 생략(같은 알림이 이미 있음)');
+        else { okNoti++; btSay('&nbsp;&nbsp;🔔 알림 발송'); }
+      } catch (e) {
+        fails.push(st.name + ' 알림 — ' + (e.message || e));
+        btSay('&nbsp;&nbsp;❌ 알림 실패: ' + escapeHtml(String(e.message || e)));
+      }
+    }
+
+    btSay('<br><b>끝 — 업로드 ' + okUp + '/' + btQueue.length + '건' + (notify ? ' · 알림 ' + okNoti + '건' : '') + '</b>');
+    if (fails.length) btSay('<span style="color:var(--primary);">실패 ' + fails.length + '건: ' + escapeHtml(fails.join(' / ')) + '</span>');
+    btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '일괄전송 실행';
+    if (!fails.length) { btQueue = []; btRender(); loadFiles(); }
   }
 
   // ── 자료실: 단일 파일 업로드 (FormData → Cloudflare Worker → R2) ──
