@@ -217,6 +217,26 @@
   // 상단 바 날짜 — 콘솔에서 "오늘"을 항상 보이게 (kstTodayLabel 재사용)
   try{ var hd = document.getElementById('hdrDate'); if(hd) hd.textContent = kstTodayLabel(); }catch(_){}
   loadTodo();
+
+  // ── 🔄 「지금 할 일」 다시 묻기 (2026-08-06 신설) ──
+  //   원장앱(admin.html)과 같은 문제였다. loadTodo()는 페이지가 처음 뜰 때 한 번만 돌아서,
+  //   총평을 다 쓰고 뒤로가기로 돌아오면(화면이 캐시에서 되살아나 스크립트가 다시 안 돈다)
+  //   "클리닉 총평 쓸 시간" 줄이 숫자까지 그대로 남아 있었다. 서버 판정은 실시간이라 문제없다.
+  //   ⚠️ pageshow와 visibilitychange가 함께 터지는 기기가 있어 2초 안의 중복 호출은 건너뛴다.
+  var _todoAt = 0;
+  function refreshTodo(){
+    if (!token) return;
+    var now = Date.now();
+    if (now - _todoAt < 2000) return;
+    _todoAt = now;
+    loadTodo();
+  }
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') refreshTodo();
+  });
+  window.addEventListener('pageshow', function(e){
+    if (e && e.persisted) refreshTodo();   // persisted=true = 캐시에서 되살아난 것
+  });
 </script>
 </body>
 </html>
