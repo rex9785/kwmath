@@ -370,7 +370,10 @@ function mathEqual(studentLatex, correctLatex) {
 //   long(장문형) + 배점 有 = 채점 대상이지만 제출 시점엔 미채점(pending, 0점) —
 //     조교/원장이 결과 화면에서 O·X 판정하면 점수에 합산(PATCH ?grade=1).
 //     배점 없는 옛 장문형(자동배점 도입 전 퀴즈)은 기존대로 채점 제외.
-function gradeAnswers(questions, answers) {
+// 📤 export 이유 — weekly-digest.js(주말 오답 뽑기)가 **같은 채점 규칙**을 써야 하기 때문.
+//   여기 로직을 복사해 두면 수식 동치(mathEqual)·복수정답 규칙이 조용히 갈라져서
+//   "결과 화면에선 O인데 주간 피드백에선 X"가 난다. 채점의 단일 출처는 이 함수 하나다.
+export function gradeAnswers(questions, answers) {
   let score = 0, maxScore = 0;
   const detail = {};
   for (const q of questions) {

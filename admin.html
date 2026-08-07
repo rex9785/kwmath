@@ -699,22 +699,30 @@
 
       <!-- ══════════════════════════════════════════════════════════════════════════════
            📅 주간 요약 (2026-08-07 신설)
-           토요일에 폰 알림 한 번 → 이 카드에서 표 훑고 → 「보내기」. 그게 주중 업무의 전부다.
+           토요일에 폰 알림 한 번 → Claude에게 「주간 피드백」 → 이 카드에서 3줄 읽고 → 「보내기」.
            (관우T: "월말에 너를 부르는 건 확정인데 주말에는 어떻게해 내가 편하려면")
 
-           문장에는 **그 학생 개인 숫자만** 들어간다 — 진도 문구 없음(관우T 확정 "개인숫자만하자 다음주진도말고").
-           진도를 넣으면 매주 관우T가 진도를 입력해야 해서 "편하려면"이라는 목적 자체가 깨진다.
+           🔴 문자 칸은 **비어서 뜬다. 그게 정상이다.** 첫 판은 "평균 72점입니다"를 자동으로 채웠는데
+              관우T가 잘랐다 — "학부모도 테스트 결과를 볼 수 있잖아 … 그저 평균만알려주는게 무슨 의민가 싶어".
+              학부모는 이미 매 수업 MathOS 리포트와 앱의 회차별 점수를 본다. 숫자를 또 보내면 정보량 0이다.
+              그래서 서버는 **틀린 문항까지만** 뽑아 오고(오른쪽 「오답 N개」), 문장은 Claude가 채운다.
+              채우는 방법 둘 — ① Claude가 브라우저에서 직접 wdFill() 호출 ② 「초안 붙여넣기」에 JSON 붙여넣기.
+
+           진도 문구는 넣지 않는다(관우T 확정 "개인숫자만하자 다음주진도말고").
+           매주 진도를 입력해야 하면 "편하려면"이라는 목적 자체가 깨진다.
+           셋째 줄("뭘 할 건가")은 틀린 문항에서 따라 나오는 조치지 진도표가 아니다.
 
            왜 공지 탭 맨 위인가 — 토요일 푸시의 링크가 /admin 이고, 이 탭이 첫 화면이다.
            탭을 찾아 들어가게 만들면 그 한 단계에서 주말 작업이 끊긴다.
            카드는 늘 접혀 있고, 「열기」를 누르거나 홈 줄로 들어올 때만 서버를 부른다.
            홈 「오늘 확인할 것」의 줄 자체도 토·일에만 뜬다 — 평일 홈 로드에 조회 비용을 얹지 않으려고.
            ⚠️ 등수·반평균은 계산하지 않는다. 전부 개인 숫자라 시동반/공통수학2가 섞일 여지가 없다.
+           ⚠️ 「3명 중 3명 틀림」 같은 표시는 **난이도 맥락**이지 등수가 아니다. 화면에서만 쓰고 문자엔 넣지 않는다.
            ══════════════════════════════════════════════════════════════════════════════ -->
       <div class="card" style="margin-bottom:20px;border:1.5px solid var(--primary);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <h3 style="font-size:1rem;margin:0;">📅 주간 요약
-            <span style="font-size:0.78rem;color:var(--text-light);font-weight:500;margin-left:6px;">이번 주 테스트 숫자를 학부모에게 한 줄로</span></h3>
+            <span style="font-size:0.78rem;color:var(--text-light);font-weight:500;margin-left:6px;">이번 주 오답을 학부모에게 3줄로</span></h3>
           <button type="button" id="wdToggleBtn" class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="wdToggle()">열기</button>
         </div>
 
@@ -723,6 +731,26 @@
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
               <span id="wdRange" style="font-size:0.85rem;font-weight:700;color:var(--text);">불러오는 중...</span>
               <button type="button" class="del-btn" onclick="wdLoad()">다시 계산</button>
+            </div>
+
+            <!-- 초안 채우기 — 이 카드의 핵심. 문자 칸은 비어서 뜨고 여기서 채운다. -->
+            <div id="wdDraftBox" style="display:none;background:#fff8f8;border:1.5px solid var(--primary);border-radius:8px;padding:11px 12px;">
+              <div style="font-size:0.84rem;font-weight:700;color:var(--primary);margin-bottom:5px;">✍️ 3줄 초안 채우기</div>
+              <p style="font-size:0.79rem;color:var(--text-light);margin:0 0 8px;line-height:1.6;">
+                Claude에게 <strong>「주간 피드백」</strong>이라고 하시면 학생별 3줄을 여기 채워 드립니다.
+                Claude가 브라우저를 못 볼 때만 아래 두 버튼을 쓰세요 — 재료를 복사해 채팅에 붙여넣고, 받은 JSON을 다시 붙여넣으면 됩니다.
+              </p>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                <button type="button" class="del-btn" onclick="wdCopyData()">① 재료 복사</button>
+                <button type="button" class="del-btn" onclick="wdTogglePaste()" id="wdPasteBtn">② 초안 붙여넣기</button>
+                <button type="button" class="del-btn" onclick="wdClearDrafts()">문자 칸 비우기</button>
+              </div>
+              <div id="wdPasteWrap" style="display:none;">
+                <textarea id="wdPasteBox" rows="4" placeholder='[{"studentId":"12","body":"1줄\n2줄\n3줄"}, …]'
+                  style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;font-family:ui-monospace,monospace;box-sizing:border-box;resize:vertical;"></textarea>
+                <button type="button" class="del-btn" style="margin-top:6px;" onclick="wdApplyPaste()">붙여넣은 초안 적용</button>
+              </div>
+              <div id="wdDraftMsg" style="display:none;font-size:0.79rem;margin-top:7px;line-height:1.55;"></div>
             </div>
 
             <div id="wdTableWrap" style="display:none;">
@@ -737,14 +765,15 @@
                   <thead><tr style="background:#f6f6f6;">
                     <th style="padding:8px 6px;width:34px;"></th>
                     <th style="padding:8px 10px;text-align:left;font-weight:700;">학생</th>
-                    <th style="padding:8px 10px;text-align:left;font-weight:700;white-space:nowrap;">이번 주</th>
-                    <th style="padding:8px 10px;text-align:left;font-weight:700;width:46%;">보낼 문장 (고칠 수 있어요)</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;white-space:nowrap;">이번 주 · 오답</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:700;width:46%;">보낼 3줄 (고칠 수 있어요)</th>
                   </tr></thead>
                   <tbody id="wdRows"></tbody>
                 </table>
               </div>
               <p style="font-size:0.78rem;color:var(--text-light);margin-top:6px;line-height:1.55;">
-                숫자는 앱 퀴즈 중 <strong>「테스트 종류」를 고른 것</strong>만 자동으로 잡힙니다. 종류를 안 고른 퀴즈는 성적에 안 들어가서 여기에도 안 뜹니다.
+                숫자는 앱 퀴즈 중 <strong>「테스트 종류」를 고른 것</strong>만 자동으로 잡힙니다. 종류를 안 고른 퀴즈는 성적에 안 들어가서 여기에도 안 뜹니다.<br>
+                <strong>문자 칸이 빈 학생은 보내지 않습니다</strong> — 체크가 되어 있어도 건너뜁니다.
               </p>
             </div>
 
@@ -1461,7 +1490,7 @@
     //    시간 기반 줄과 같은 성격("지금 할 시간이 된 일")이라 밀린 건수보다 위에 둔다.
     row((wd && wd.ok) ? (Number(wd.count) || null) : null,
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>',
-      '주간 요약 보낼 것 — 이번 주 테스트 본 학생', '', 'openWeeklyDigest()');
+      '주간 피드백 보낼 것 — 이번 주 테스트 본 학생', '', 'openWeeklyDigest()');
 
     row(nInq, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5V18a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4.5"></path><path d="M3.5 13.5 6 5.5h12l2.5 8"></path><path d="M8.5 13.5h7l-1 2.5h-5z"></path></svg>', '새 상담 문의', '/admin-inquiries');
     row(nQna, '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8c-1.5 0-3-.3-4.2-1L3 20l1.2-4A8 8 0 1 1 21 12z"></path></svg>', '답변 안 한 질문', '/admin-qna');
@@ -3220,7 +3249,8 @@
     document.getElementById('wdTableWrap').style.display = 'none';
     document.getElementById('wdNoData').style.display = 'none';
     try {
-      var r = await fetch('/api/weekly-digest', { headers: { 'Authorization': 'Bearer ' + adminToken } });
+      // detail=1 — 오답 문항까지. 이게 없으면 Claude가 쓸 재료가 없다(홈 요약 줄은 detail 없이 부른다).
+      var r = await fetch('/api/weekly-digest?detail=1', { headers: { 'Authorization': 'Bearer ' + adminToken } });
       var j = await r.json().catch(function () { return null; });
       if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
       wdData = j;
@@ -3239,7 +3269,7 @@
 
     var t = document.getElementById('wdTitle');
     if (t && (!(t.value || '').trim() || t.value === wdAutoTitle)) {
-      t.value = '📊 이번 주 테스트 요약 (' + j.weekLabel + ')';
+      t.value = '📊 이번 주 테스트 피드백 (' + j.weekLabel + ')';
       wdAutoTitle = t.value;
     }
 
@@ -3252,20 +3282,38 @@
       var tests = (it.tests || []).map(function (x) {
         return escapeHtml(x.label || x.type || '') + ' ' + x.score;
       }).join(' · ');
+      // 오답 목록 — Claude가 3줄을 쓸 때 본 재료를 관우T도 그대로 본다(초안이 맞는지 판단할 근거).
+      //   「N명 중 M명 틀림」은 난이도 맥락이다. 등수가 아니고, 문자에도 안 들어간다.
+      var wq = (it.wrong || []).map(function (w) {
+        var ctx = (w.answered > 1) ? (' · ' + w.answered + '명 중 ' + w.missed + '명 틀림') : '';
+        return '<li style="margin:0 0 4px;">' + escapeHtml((w.no ? (w.no + '번 ') : '') + (w.q || ''))
+          + '<span style="color:var(--text-light);"> — 정답 ' + escapeHtml(w.correct || '')
+          + ' / 쓴 답 ' + escapeHtml(w.given || '') + escapeHtml(ctx) + '</span></li>';
+      }).join('');
+      var wrongCell = (it.wrongCount || 0)
+        ? ('<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:0.75rem;color:var(--primary);font-weight:700;">오답 ' + it.wrongCount + '개'
+            + (it.soloMiss ? (' (혼자 틀린 것 ' + it.soloMiss + '개)') : '') + '</summary>'
+            + '<ul style="margin:6px 0 0;padding-left:16px;font-size:0.72rem;line-height:1.5;white-space:normal;">' + wq + '</ul></details>')
+        : '<div style="font-size:0.75rem;color:var(--text-light);margin-top:4px;">오답 기록 없음</div>';
       return '<tr style="border-top:1px solid var(--border);">'
         + '<td style="padding:8px 6px;text-align:center;vertical-align:top;"><input type="checkbox" class="wdChk" data-i="' + i + '" checked onchange="wdSyncAll()" style="width:15px;height:15px;"></td>'
         + '<td style="padding:8px 10px;vertical-align:top;"><b>' + escapeHtml(it.name) + '</b>'
           + (it.className ? '<div style="font-size:0.75rem;color:var(--text-light);">' + escapeHtml(it.className) + '</div>' : '')
           + '</td>'
-        + '<td style="padding:8px 10px;vertical-align:top;white-space:nowrap;"><b>' + it.n + '회 · 평균 ' + it.avg + '점</b>'
+        + '<td style="padding:8px 10px;vertical-align:top;min-width:190px;"><b style="white-space:nowrap;">' + it.n + '회 · 평균 ' + it.avg + '점</b>'
           + '<div style="font-size:0.75rem;color:var(--text-light);">' + escapeHtml(dl) + '</div>'
           + (tests ? '<div style="font-size:0.72rem;color:var(--text-light);margin-top:3px;">' + tests + '</div>' : '')
+          + wrongCell
           + '</td>'
-        + '<td style="padding:8px 10px;vertical-align:top;"><input type="text" class="wdMsg" data-i="' + i + '" value="' + escapeHtml(it.body) + '" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.8rem;font-family:inherit;box-sizing:border-box;"></td>'
+        + '<td style="padding:8px 10px;vertical-align:top;"><textarea class="wdMsg" data-i="' + i + '" rows="3" oninput="wdSyncAll()" placeholder="비어 있으면 안 보냅니다 — Claude에게 「주간 피드백」이라고 하세요"'
+          + ' style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.8rem;font-family:inherit;box-sizing:border-box;resize:vertical;line-height:1.5;">'
+          + escapeHtml(it.body || '') + '</textarea></td>'
         + '</tr>';
     }).join('');
     document.getElementById('wdRows').innerHTML = rows;
     wrap.style.display = (j.items || []).length ? 'block' : 'none';
+    var db = document.getElementById('wdDraftBox');
+    if (db) db.style.display = (j.items || []).length ? 'block' : 'none';
 
     var nd = document.getElementById('wdNoData');
     if (j.noDataCount) {
@@ -3297,8 +3345,131 @@
     var on = live.filter(function (c) { return c.checked; }).length;
     var all = document.getElementById('wdAll');
     if (all) all.checked = live.length > 0 && on === live.length;
+    // 「선택됨」과 「실제로 나갈 수 있는 수」는 다르다 — 문자 칸이 비면 체크돼 있어도 안 나간다.
+    //   그 차이를 여기서 눈에 보이게 해 둔다. 안 그러면 "6명 선택"만 보고 눌렀다가 0건 발송이 된다.
+    var ready = live.filter(function (c) {
+      if (!c.checked) return false;
+      var m = document.querySelector('.wdMsg[data-i="' + c.getAttribute('data-i') + '"]');
+      return !!(m && (m.value || '').trim());
+    }).length;
     var s = document.getElementById('wdSummary');
-    if (s) s.textContent = on + '명 선택됨' + (boxes.length - live.length ? ' · 보낸 ' + (boxes.length - live.length) + '명' : '');
+    if (s) {
+      s.textContent = on + '명 선택됨'
+        + (on !== ready ? (' · 초안 있는 ' + ready + '명만 나갑니다') : '')
+        + (boxes.length - live.length ? (' · 보낸 ' + (boxes.length - live.length) + '명') : '');
+    }
+  }
+
+  // ─── ✍️ 3줄 초안 채우기 ───────────────────────────────────────────────
+  // 서버는 문장을 만들지 않는다(만들면 "평균만 알려주는 게 무슨 의미냐"로 되돌아간다).
+  // 문장은 Claude가 오답을 읽고 여기로 넣는다. 들어오는 길은 둘 다 이 함수 하나로 모은다.
+  //   ① Claude가 브라우저에서 직접  wdFill([{studentId:'12', body:'…'}, …])
+  //   ② 관우T가 JSON을 붙여넣기   → wdApplyPaste() → wdFill()
+  // ⚠️ 학생 지목은 이름이 아니라 studentId로만 한다(동명이인 안전 계약).
+  function wdFill(list) {
+    if (!wdData || !(wdData.items || []).length) { wdDraftSay('먼저 「다시 계산」으로 목록을 불러와 주세요.', true); return 0; }
+    var arr = Array.isArray(list) ? list : [list];
+    var byId = {};
+    (wdData.items || []).forEach(function (it, i) { byId[String(it.studentId)] = i; });
+    var okCount = 0; var 못찾음 = []; var 잠김 = [];
+    arr.forEach(function (e) {
+      if (!e || typeof e !== 'object') return;
+      var sid = String(e.studentId == null ? '' : e.studentId).trim();
+      var body = String(e.body == null ? '' : e.body).trim();
+      var i = byId[sid];
+      if (i === undefined) { 못찾음.push(sid || '(id 없음)'); return; }
+      var el = document.querySelector('.wdMsg[data-i="' + i + '"]');
+      if (el && el.disabled) { 잠김.push(wdData.items[i].name); return; }   // 이미 보낸 줄은 안 건드린다
+      wdData.items[i].body = body;
+      if (el) el.value = body;
+      okCount++;
+    });
+    var msg = '<b>' + okCount + '명</b>의 초안을 채웠어요.';
+    if (잠김.length) msg += ' 이미 보낸 ' + 잠김.length + '명(' + escapeHtml(잠김.join(', ')) + ')은 건드리지 않았어요.';
+    if (못찾음.length) msg += ' <span style="color:var(--primary);">명단에 없는 id ' + escapeHtml(못찾음.join(', ')) + '는 건너뛰었어요.</span>';
+    wdDraftSay(msg, !!못찾음.length);
+    wdSyncAll();
+    return okCount;
+  }
+
+  function wdDraftSay(html, warn) {
+    var el = document.getElementById('wdDraftMsg');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = warn ? 'var(--primary)' : 'var(--text-light)';
+    el.innerHTML = html;
+  }
+
+  function wdTogglePaste() {
+    var w = document.getElementById('wdPasteWrap');
+    if (!w) return;
+    var open = w.style.display === 'none';
+    w.style.display = open ? 'block' : 'none';
+    var b = document.getElementById('wdPasteBtn');
+    if (b) b.textContent = open ? '② 붙여넣기 닫기' : '② 초안 붙여넣기';
+  }
+
+  function wdApplyPaste() {
+    var box = document.getElementById('wdPasteBox');
+    var raw = box ? (box.value || '').trim() : '';
+    if (!raw) { wdDraftSay('붙여넣은 내용이 없어요.', true); return; }
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) {
+      wdDraftSay('JSON을 읽지 못했어요 — ' + escapeHtml(String(e.message || e)) + '<br>대괄호 [ ] 까지 통째로 복사했는지 확인해 주세요.', true);
+      return;
+    }
+    if (!Array.isArray(parsed)) parsed = [parsed];
+    if (wdFill(parsed) > 0 && box) box.value = '';
+  }
+
+  function wdClearDrafts() {
+    if (!confirm('문자 칸을 전부 비웁니다. 직접 쓰신 문장도 사라져요. 계속할까요?')) return;
+    [].slice.call(document.querySelectorAll('.wdMsg')).forEach(function (el) {
+      if (el.disabled) return;
+      el.value = '';
+      var i = Number(el.getAttribute('data-i'));
+      if (wdData && wdData.items[i]) wdData.items[i].body = '';
+    });
+    wdDraftSay('문자 칸을 비웠어요.');
+    wdSyncAll();
+  }
+
+  // Claude가 브라우저를 못 볼 때의 우회로 — 재료를 통째로 복사해 채팅에 붙여넣는다.
+  //   개인정보라 이름·반까지 나간다. 관우T 본인 채팅에만 붙여넣는 용도다.
+  function wdCopyData() {
+    if (!wdData) { wdDraftSay('먼저 「다시 계산」으로 목록을 불러와 주세요.', true); return; }
+    var payload = {
+      주간: wdData.weekLabel,
+      학생: (wdData.items || []).map(function (it) {
+        return {
+          studentId: it.studentId, 이름: it.name, 반: it.className,
+          이번주: { 회수: it.n, 평균: it.avg, 지난주평균: (it.prevN ? it.prevAvg : null) },
+          오답: (it.wrong || []).map(function (w) {
+            return { 시험: w.test, 번호: w.no, 배점: w.points, 문항: w.q, 정답: w.correct, 쓴답: w.given, 푼사람: w.answered, 틀린사람: w.missed };
+          }),
+        };
+      }),
+    };
+    var text = JSON.stringify(payload, null, 1);
+    var done = function () {
+      wdDraftSay('재료를 복사했어요 (' + (wdData.items || []).length + '명). Claude 채팅에 붙여넣고 「주간 피드백 3줄 초안 만들어줘」라고 하세요.');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { wdCopyFallback(text, done); });
+    } else { wdCopyFallback(text, done); }
+  }
+
+  function wdCopyFallback(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    document.body.removeChild(ta);
+    if (ok) done();
+    else wdDraftSay('자동 복사가 막혀 있어요. 브라우저 주소창에 <code>/api/weekly-digest?detail=1</code> 를 직접 열어 내용을 복사해 주세요.', true);
   }
 
   function wdSay(html) {
@@ -3312,6 +3483,7 @@
     if (!wdData || !(wdData.items || []).length) return alert('보낼 내용이 없습니다.');
 
     var picks = [];
+    var 빈칸 = [];
     [].slice.call(document.querySelectorAll('.wdChk')).forEach(function (c) {
       if (!c.checked || c.disabled) return;
       var i = Number(c.getAttribute('data-i'));
@@ -3320,15 +3492,23 @@
       var inp = document.querySelector('.wdMsg[data-i="' + i + '"]');
       var msg = inp ? (inp.value || '').trim() : (it.body || '');
       if (msg) picks.push({ i: i, it: it, msg: msg });
+      else 빈칸.push(it.name || '');     // 체크는 됐는데 초안이 없는 학생 — 조용히 빠지면 안 된다
     });
-    if (!picks.length) return alert('보낼 학생을 선택해주세요.');
+    if (!picks.length) {
+      return alert(빈칸.length
+        ? ('선택한 ' + 빈칸.length + '명 모두 문자 칸이 비어 있습니다.\n\n'
+          + 'Claude에게 「주간 피드백」이라고 하시면 3줄 초안을 채워 드립니다.\n'
+          + '직접 쓰셔도 됩니다.')
+        : '보낼 학생을 선택해주세요.');
+    }
 
     var title = (document.getElementById('wdTitle').value || '').trim();
     if (!title) return alert('알림 제목을 입력해주세요.');
     var audience = document.getElementById('wdAudience').value;
 
-    if (!confirm(picks.length + '명에게 주간 요약을 보냅니다.\n\n'
+    if (!confirm(picks.length + '명에게 주간 피드백을 보냅니다.\n\n'
       + picks.map(function (p) { return p.it.name; }).join(', ')
+      + (빈칸.length ? ('\n\n⚠️ 문자 칸이 비어 있는 ' + 빈칸.length + '명(' + 빈칸.join(', ') + ')은 빠집니다.') : '')
       + '\n\n받는 사람: ' + (audience === 'all' ? '학부모+학생' : audience === 'parent' ? '학부모만' : '학생만')
       + '\n\n같은 알림에 중복 차단이 없어서, 두 번 누르면 두 번 갑니다. 보낼까요?')) return;
 
