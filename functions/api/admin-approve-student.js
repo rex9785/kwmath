@@ -1,9 +1,10 @@
 // POST /api/admin-approve-student (admin only) — Cloudflare D1 (이전엔 Notion)
-// body: { studentId (D1 id), action: 'approve'|'reject'|'complete'|'restore' }
+// body: { studentId (D1 id), action: 'approve'|'reject'|'complete'|'graduate'|'restore' }
 //   approve : 승인 상태→'승인' + 동명이인 alias 자동 부여 + 학부모/학생 계정 생성(초기 0000)
 //   reject  : 학생 레코드 삭제
 //   complete: 승인 상태→'수료' (2026-08-10) — 한 명만 중간에 그만둘 때. 지우는 건 하나도 없다.
-//   restore : 수료→'승인' 재원 복귀. 다시 들어온 학생.
+//   graduate: 승인 상태→'졸업' (2026-08-10) — 학교를 졸업해 더는 올 일이 없을 때. 역시 아무것도 안 지운다.
+//   restore : 수료·졸업→'승인' 재원 복귀. 다시 들어온 학생.
 import { normalizePhone, findAccountByPhone, createAccount, revokeTokensIfUnused } from './_auth.js';
 import { getStudentById, setApprovalStatus, deleteStudent } from './_db.js';
 import { safeError } from './_errors.js';
@@ -49,8 +50,8 @@ export async function onRequest(context) {
   const action = (body.action || '').toString();
 
   if (!body.studentId || !Number.isFinite(studentId)) return Response.json({ error: 'studentId 필수' }, { status: 400 });
-  if (!['approve', 'reject', 'complete', 'restore'].includes(action)) {
-    return Response.json({ error: 'action은 approve · reject · complete · restore 중 하나' }, { status: 400 });
+  if (!['approve', 'reject', 'complete', 'graduate', 'restore'].includes(action)) {
+    return Response.json({ error: 'action은 approve · reject · complete · graduate · restore 중 하나' }, { status: 400 });
   }
 
   try {
@@ -89,7 +90,7 @@ export async function onRequest(context) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // === 🎓 수료 / 재원 복귀 (개별) === 2026-08-10
+    // === 🎓 수료 / 졸업 / 재원 복귀 (개별) === 2026-08-10
     //   반 전체는 「반 종강」(class-options.js 의 archive-class)이 한 번에 처리한다.
     //   여기는 한 명만 학기 중간에 그만두거나, 그만뒀던 학생이 다시 들어올 때 쓴다.
     //
@@ -98,15 +99,27 @@ export async function onRequest(context) {
     //      그 순간 「수료 상태」 설계 전체가 무의미해진다.
     //   ⚠️ 계정 생성·alias 부여·승인 푸시도 여기서는 하지 않는다. 상태 한 칸만 바꾼다.
     // ═══════════════════════════════════════════════════════════════════════
-    if (action === 'complete' || action === 'restore') {
-      const 새상태 = (action === 'complete') ? '수료' : '승인';
+    if (action === 'complete' || action === 'graduate' || action === 'restore') {
+      // 세 동작이 하는 일은 **문자열 한 칸 바꾸기**로 완전히 같다. 다른 건 남길 말과 감사 로그 이름뿐.
+      const 표 = {
+        complete: { 상태: '수료', 로그: 'student.complete', 이름: '수료 처리',
+          영향: '앱 로그인·리포트·성적은 계속 열린다. 수업영상만 잠기고, 관리자 명단·출결·살펴볼학생 집계에서 빠진다.',
+          안내: '수료 처리 완료 — 앱 로그인·리포트·성적은 그대로 열려 있고 수업영상만 잠깁니다.' },
+        graduate: { 상태: '졸업', 로그: 'student.graduate', 이름: '졸업 처리',
+          영향: '수료와 똑같다 — 로그인·리포트·성적은 열려 있고 수업영상만 잠긴다. 관리자 화면에서 「졸업생」 탭으로 옮겨갈 뿐이다.',
+          안내: '졸업 처리 완료 — 계정과 기록은 그대로 남고 명단에서만 빠집니다. 지운 것은 하나도 없습니다.' },
+        restore:  { 상태: '승인', 로그: 'student.restore', 이름: '재원 복귀',
+          영향: '수업영상이 다시 열리고 관리자 명단·출결 대상으로 돌아온다.',
+          안내: '재원 복귀 완료 — 수업영상이 다시 열립니다.' },
+      }[action];
+      const 새상태 = 표.상태;
       const r = await setApprovalStatus(env, studentId, 새상태);
       if (!r.ok) return safeError(r.error || 'setApprovalStatus failed', env, { message: '상태 변경에 실패했습니다.' });
       await logAudit(env, request, {
-        action: (action === 'complete') ? 'student.complete' : 'student.restore',
+        action: 표.로그,
         target: String(studentId),
         targetName: name,
-        summary: '[' + name + '] ' + (action === 'complete' ? '수료 처리' : '재원 복귀')
+        summary: '[' + name + '] ' + 표.이름
           + ' (' + (r.before || '(빈값)') + ' → ' + 새상태 + ')'
           + (st.academy || st.className ? ' · ' + [st.academy, st.className].filter(Boolean).join(' · ') : ''),
         detail: {
@@ -114,18 +127,14 @@ export async function onRequest(context) {
           승인상태: { 전: r.before, 후: 새상태 },
           학원: st.academy || '', 반: st.className || '',
           지운것: '없음 — 출결·학습기록·리포트·성적·계정·로그인 토큰 모두 그대로',
-          영향: (action === 'complete')
-            ? '앱 로그인·리포트·성적은 계속 열린다. 수업영상만 잠기고, 관리자 명단·출결·살펴볼학생 집계에서 빠진다.'
-            : '수업영상이 다시 열리고 관리자 명단·출결 대상으로 돌아온다.',
+          영향: 표.영향,
           비고: '반 전체를 정리하려면 이게 아니라 「반 관리 → 🏁 종강」을 쓴다',
         },
       });
       return Response.json({
         ok: true, action, name, studentId: String(studentId),
         before: r.before, after: 새상태,
-        message: '[' + name + '] ' + (action === 'complete'
-          ? '수료 처리 완료 — 앱 로그인·리포트·성적은 그대로 열려 있고 수업영상만 잠깁니다.'
-          : '재원 복귀 완료 — 수업영상이 다시 열립니다.'),
+        message: '[' + name + '] ' + 표.안내,
       });
     }
 

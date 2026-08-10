@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>퇴원생 기록 · 이관우 수학연구소</title>
+<title>지운 기록 · 이관우 수학연구소</title>
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
@@ -72,7 +72,7 @@
   tr.main.hiddenrow td{ background:#faf6f6; }
   .viewtoggle{ background:#fff; color:var(--muted); border:1px solid var(--border); border-radius:8px; padding:8px 13px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
   .viewtoggle.on{ background:var(--primary); color:#fff; border-color:var(--primary); }
-  /* 학생 목록 '퇴원생' 탭 안에 iframe으로 임베드될 때 — 자체 헤더/여백 제거 */
+  /* 학생 목록 「졸업생」 탭 아래 「🗃 지운 기록」 안에 iframe으로 임베드될 때 — 자체 헤더/여백 제거 */
   body.embed{ background:transparent; }
   body.embed .top{ display:none; }
   body.embed .wrap{ padding:4px 2px 12px; max-width:none; margin:0; }
@@ -223,20 +223,21 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div><h1><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M12 3.5v10"></path><path d="m8 7.5 4-4 4 4"></path><path d="M4.5 14v4.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V14"></path></svg>퇴원생 기록</h1><div class="sub">퇴원·탈퇴한 학생의 성적·출결·학습 보관 (관리자 전용)</div></div>
+    <div><h1><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M12 3.5v10"></path><path d="m8 7.5 4-4 4 4"></path><path d="M4.5 14v4.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V14"></path></svg>지운 기록</h1><div class="sub">계정까지 지운 학생의 성적·출결·학습 보관 (관리자 전용)</div></div>
     <a class="back" href="/admin">← 관리자</a>
   </div>
   <div id="content"><div class="msg">불러오는 중…</div></div>
   <div class="note" id="footnote" style="display:none;">
-    ※ 퇴원·탈퇴한 학생의 <b>이름·전화·성적·출결·학습 전체</b>를 보관합니다(관리자 전용, 앱에는 노출 안 됨).<br>
-    ※ <span class="badge out">퇴원</span> 관리자가 퇴원 처리 · <span class="badge self">앱탈퇴</span> 학생이 앱에서 직접 탈퇴(앱에서는 삭제, 기록만 보존).
+    ※ 계정과 함께 <b>지워진</b> 학생의 이름·전화·성적·출결·학습 전체를 보관합니다(관리자 전용, 앱에는 노출 안 됨).<br>
+    ※ <span class="badge out">기록 삭제</span> 관리자가 「기록 삭제」로 계정까지 지움 · <span class="badge self">앱탈퇴</span> 학생이 앱에서 직접 탈퇴(앱에서는 삭제, 기록만 보존).<br>
+    ※ 그만둔 학생은 여기 오지 않습니다 — 「🎓 수료 처리」·「🎓 졸업」은 계정과 기록을 그대로 두고 명단에서만 뺍니다.
   </div>
 </div>
 <script>
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
   var rows = [], openIdx = null, q = '', showHidden = false;
 
-  // '학생 목록 > 퇴원생' 탭 안에 iframe으로 들어올 때(?embed=1): 자체 헤더 감추고, 렌더할 때마다 부모창에 높이 알림
+  // '학생 목록 > 졸업생 > 🗃 지운 기록' 안에 iframe으로 들어올 때(?embed=1): 자체 헤더 감추고, 렌더할 때마다 부모창에 높이 알림
   var EMBED = /[?&]embed=1/.test(location.search);
   if (EMBED) { try { document.body.classList.add('embed'); } catch (_) {} }
   function notifyHeight(){
@@ -281,7 +282,7 @@
   function doLogin(){ token=($('pw').value||'').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw',token); boot(); }
 
   async function boot(){
-    $('content').innerHTML = '<div class="msg">퇴원생 기록 불러오는 중…</div>';
+    $('content').innerHTML = '<div class="msg">지운 기록 불러오는 중…</div>';
     try{
       var r = await api('/api/outcomes?t='+Date.now());
       var data = await r.json();
@@ -308,7 +309,7 @@
     var hc = hiddenCount();
     var head =
       '<div class="bar">'+
-        '<div class="count">'+(showHidden?'숨긴 기록 ':'퇴원생 ')+'<b>'+list.length+'</b>명'+
+        '<div class="count">'+(showHidden?'숨긴 기록 ':'지운 기록 ')+'<b>'+list.length+'</b>명'+
           (q?(' <span class="muted">/ 전체 '+(showHidden?hc:(rows.length-hc))+'</span>'):'')+'</div>'+
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
           '<button class="viewtoggle'+(showHidden?' on':'')+'" onclick="toggleHiddenView()">'+
@@ -317,9 +318,9 @@
         '</div>'+
       '</div>';
 
-    if(!rows.length){ $('content').innerHTML = head + '<div class="msg">아직 퇴원생 기록이 없습니다.<br><span class="muted">학생을 퇴원 처리하면 이 목록에 전체 기록이 자동 보관됩니다.</span></div>'; wireSearch(); notifyHeight(); return; }
+    if(!rows.length){ $('content').innerHTML = head + '<div class="msg">지운 기록이 아직 없습니다.<br><span class="muted">학생을 「기록 삭제」로 지우면 이 목록에 전체 기록이 자동 보관됩니다. (수료·졸업은 여기 오지 않습니다)</span></div>'; wireSearch(); notifyHeight(); return; }
     if(!list.length){
-      var emptyMsg = showHidden ? '숨긴 기록이 없습니다.' : (q ? '검색 결과가 없습니다.' : '표시할 퇴원생 기록이 없습니다.');
+      var emptyMsg = showHidden ? '숨긴 기록이 없습니다.' : (q ? '검색 결과가 없습니다.' : '표시할 기록이 없습니다.');
       $('content').innerHTML = head + '<div class="msg">'+emptyMsg+'</div>'; wireSearch(); notifyHeight(); return;
     }
 
@@ -328,7 +329,7 @@
       var sum = o.summary ? esc(o.summary).replace(/→/g,'<span class="up">→</span>') : '<span class="muted">성적 기록 없음</span>';
       var chips = '<span>성적 '+(o.score_count||0)+'</span>'+
                   '<span>출결 '+(o.attendance_count||0)+'</span><span>공부 '+hrs(o.study_minutes)+'</span>';
-      var stBadge = o.via==='app' ? '<span class="badge self">앱탈퇴</span>' : '<span class="badge out">퇴원</span>';
+      var stBadge = o.via==='app' ? '<span class="badge self">앱탈퇴</span>' : '<span class="badge out">기록 삭제</span>';
       var phones = [];
       if(o.parent_phone) phones.push('학부모 '+esc(o.parent_phone));
       if(o.student_phone) phones.push('학생 '+esc(o.student_phone));
@@ -425,7 +426,7 @@
 
   async function doDelete(id){
     var nm=''; for(var k=0;k<rows.length;k++){ if(rows[k].id===id){ nm=rows[k].name||''; break; } }
-    if(!confirm('⚠️ "'+(nm||'이 학생')+'" 기록을 완전 삭제할까요?\n\n퇴원생의 마지막 백업(실명·전화·성적·출결·학습)이 영구 삭제되며 복구할 수 없습니다.')) return;
+    if(!confirm('⚠️ "'+(nm||'이 학생')+'" 기록을 완전 삭제할까요?\n\n이 학생의 마지막 백업(실명·전화·성적·출결·학습)이 영구 삭제되며 복구할 수 없습니다.')) return;
     try{
       await api('/api/outcomes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', id: id }) });
       rows = rows.filter(function(r){ return r.id!==id; });

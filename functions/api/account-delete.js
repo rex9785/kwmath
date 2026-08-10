@@ -157,7 +157,7 @@ export async function onRequest({ request, env }) {
           성적: result.scores_deleted, 리포트: result.reports_deleted, 파일: result.files_deleted,
           계정: result.account_deleted,
         },
-        퇴원기록보존: result.outcomes_saved,      // student_archive 에 via='app' 으로 남은 건수
+        지운기록보존: result.outcomes_saved,      // student_archive 에 via='app' 으로 남은 건수 (관리자 화면 「🗃 지운 기록」)
         리포트아카이브: 리포트아카이브,            // R2 archive/reports/... (복원 근거)
         삭제된파일키: 삭제된파일키,
         파일키일부만저장: result.files_deleted > 200,

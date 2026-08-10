@@ -1,11 +1,14 @@
-// /api/outcomes  (admin only) — 퇴원생 기록 조회·숨김·삭제
+// /api/outcomes  (admin only) — 「지운 기록」 조회·숨김·삭제
 // ───────────────────────────────────────────────────────────
-// GET  : student_archive(실명·전화·성적·출결·학습 전체)를 최근 퇴원 순으로 돌려준다.
+// ⚠️ 2026-08-10 — 화면 이름이 「퇴원생 기록」 → 「지운 기록」으로 바뀌었다. 여기 담기는 건
+//    **계정까지 지운 학생**뿐이다. 그냥 그만둔 학생은 「수료」·「졸업」으로 빠지므로 students 행에
+//    그대로 남고 이 테이블엔 오지 않는다. 옛 주석의 "퇴원"은 전부 "계정 삭제"로 읽으면 된다.
+// GET  : student_archive(실명·전화·성적·출결·학습 전체)를 최근 삭제 순으로 돌려준다.
 //        (hidden=1 행도 포함해서 돌려줌 — 화면에서 '숨김 보기'로 분리 표시)
 //        ⚠️ 목록에는 profile_json 을 안 실어 보낸다(has_profile 0/1 만).
 // GET ?id=N : 그 1건 + profile_json 을 한글 라벨로 펼친 profile 을 돌려준다 = 「소환」.
 //        희망대학·상담메모·유입경로 등은 여기서만 나온다(2026-08-05 관우T 요청).
-//   via='admin' : 관리자 퇴원 처리분 / via='app' : 앱 자가탈퇴분(앱에선 삭제됨, 기록만 보존)
+//   via='admin' : 관리자가 「기록 삭제」한 분 / via='app' : 앱 자가탈퇴분(앱에선 삭제됨, 기록만 보존)
 // POST : { action:'hide'|'unhide', id }  → hidden 플래그만 토글(기록은 보존, 복구 가능)
 //        { action:'delete', id }         → 그 행을 DB에서 영구 삭제(복구 불가)
 // 인증: Authorization: Bearer <ADMIN_PASSWORD>  (admin-scores.html과 동일 방식)
@@ -66,7 +69,7 @@ export async function onRequest({ request, env }) {
         const rid = Number(idQ);
         if (!Number.isFinite(rid)) return Response.json({ error: 'id 형식 오류' }, { status: 400 });
         const row = await env.DB.prepare('SELECT * FROM student_archive WHERE id = ?').bind(rid).first();
-        if (!row) return Response.json({ error: '그 번호의 퇴원 기록이 없습니다.' }, { status: 404 });
+        if (!row) return Response.json({ error: '그 번호의 기록이 없습니다.' }, { status: 404 });
         const profile = expandProfile(row.profile_json);
         return Response.json({
           ok: true, outcome: row, profile,
@@ -107,8 +110,8 @@ export async function onRequest({ request, env }) {
           action: 'outcome.' + action,
           target: 'student_archive/' + id,
           targetName: 이름,
-          summary: (이름 || ('기록 #' + id)) + ' 퇴원기록을 ' + (action === 'hide' ? '숨김' : '숨김 해제'),
-          detail: { id, 전: prev ? prev.hidden : null, 후: action === 'hide' ? 1 : 0, 퇴원경로: prev ? prev.via : null },
+          summary: (이름 || ('기록 #' + id)) + ' 지운 기록을 ' + (action === 'hide' ? '숨김' : '숨김 해제'),
+          detail: { id, 전: prev ? prev.hidden : null, 후: action === 'hide' ? 1 : 0, 삭제경로: prev ? prev.via : null },
         });
         return Response.json({ ok: true, id, hidden: action === 'hide' ? 1 : 0 });
       }
@@ -119,7 +122,7 @@ export async function onRequest({ request, env }) {
           action: 'outcome.delete',
           target: 'student_archive/' + id,
           targetName: 이름,
-          summary: (이름 || ('기록 #' + id)) + ' 퇴원기록을 영구 삭제 (복구 불가)',
+          summary: (이름 || ('기록 #' + id)) + ' 지운 기록을 영구 삭제 (복구 불가)',
           detail: { id, 삭제행수: (d.meta && d.meta.changes) || 0, 지워진행: prev || null },
         });
         return Response.json({ ok: true, id, deleted: (d.meta && d.meta.changes) || 0 });
@@ -129,6 +132,6 @@ export async function onRequest({ request, env }) {
 
     return Response.json({ error: 'GET/POST만 허용됩니다.' }, { status: 405 });
   } catch (e) {
-    return Response.json({ error: '퇴원생 기록 처리 중 오류가 발생했습니다.' }, { status: 500 });
+    return Response.json({ error: '지운 기록을 처리하는 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

@@ -17,7 +17,7 @@ kwmath push 대상 파일 — 2026-08-04
   admin-log.html          변경이력
   admin-makeup.html       인강 신청·해제
   admin-notify.html       알림 보내기
-  admin-outcomes.html     퇴원생 기록
+  admin-outcomes.html     지운 기록 (계정까지 삭제한 학생 보관 · 학생목록>졸업생 탭 아래 임베드)
   admin-qna.html          질문 관리
   admin-report.html       진단평가 보고서 (인쇄 디자인은 그대로 · 화면 UI만)
   admin-scores.html       성적 관리

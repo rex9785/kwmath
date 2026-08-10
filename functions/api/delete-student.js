@@ -1,7 +1,10 @@
 // POST /api/delete-student (admin only) — Cloudflare D1 + R2 (이전엔 Notion+R2)
-// body: { name } 전체 퇴원(같은 이름 모든 enrollment + 리포트 + 출결 + 공부 + 계정)
+// body: { name } 전체 삭제(같은 이름 모든 enrollment + 리포트 + 출결 + 공부 + 계정)
 //       { studentId } enrollment-only (그 레코드만 + 그 출결/공부)
 // 안전장치: 계정은 같은 번호를 쓰는 다른 학생이 남아있으면 보존(형제 로그인 보호).
+// ⚠️ 2026-08-10 — 이 API를 부르는 버튼 이름이 「퇴원처리」 → 「🗑 기록 삭제」로 바뀌었다.
+//    그만두는 학생은 이제 여기로 오지 않는다 — 「🎓 수료 처리」·「🎓 졸업」이 계정과 기록을 통째로 남긴다.
+//    이건 잘못 만든 계정·삭제 요청을 받았을 때 쓰는 비상 수단이다. 로그 문구도 「기록 삭제」로 통일했다.
 import { safeError } from './_errors.js';
 import { snapshotArchive } from './_outcomes.js';
 import { logAudit } from './_auditlog.js';
@@ -57,7 +60,7 @@ export async function onRequest({ request, env }) {
         action: 'student.delete.enrollment',
         target: String(id),
         targetName: st.name || '',
-        summary: '[' + (st.name || id) + '] 등록 1건 삭제(퇴원) — 출결 ' + ((dAtt.meta && dAtt.meta.changes) || 0)
+        summary: '[' + (st.name || id) + '] 등록 1건 기록 삭제 — 출결 ' + ((dAtt.meta && dAtt.meta.changes) || 0)
           + '건 · 학습 ' + ((dStu.meta && dStu.meta.changes) || 0) + '건 · 성적 ' + result.scores_deleted + '건 함께 삭제',
         detail: {
           방식: 'enrollmentOnly(studentId 지정)',
@@ -68,14 +71,14 @@ export async function onRequest({ request, env }) {
             성적: result.scores_deleted,
             학생레코드: result.students_archived,
           },
-          퇴원기록보존: 'student_archive(via=admin) 1건 — 실명·전화·성적·출결·학습 전체 보존됨',
+          지운기록보존: 'student_archive(via=admin) 1건 — 실명·전화·성적·출결·학습 전체 보존됨',
           로그인토큰: 폐기,
         },
       });
       return Response.json({ ok: true, ...result });
     }
 
-    // 전체 퇴원 (이름 기준)
+    // 전체 기록 삭제 (이름 기준)
     const phones = new Set();
     const { results: studs } = await env.DB.prepare(
       'SELECT id, parent_phone, student_phone, school, grade, created_at FROM students WHERE name = ?'
@@ -167,17 +170,17 @@ export async function onRequest({ request, env }) {
       } catch (e) { result.errors.push('account ' + phone); }
     }
 
-    // 🔴 이름 기준 전체 퇴원 — 학생·출결·학습·성적·리포트·로그인계정이 한 번에 사라진다.
+    // 🔴 이름 기준 전체 기록 삭제 — 학생·출결·학습·성적·리포트·로그인계정이 한 번에 사라진다.
     //    무엇이 몇 건 사라졌는지 + 복원 근거(아카이브 위치)를 한 건에 모아 남긴다.
     await logAudit(env, request, {
       action: 'student.delete.full',
       target: ((studs || [])[0] && String((studs || [])[0].id)) || name,
       targetName: name,
-      summary: '[' + name + '] 전체 퇴원 삭제 — 학생 ' + result.students_archived + '명 · 리포트 '
+      summary: '[' + name + '] 전체 기록 삭제 — 학생 ' + result.students_archived + '명 · 리포트 '
         + result.reports_archived + '건 · 로그인계정 ' + result.accounts_archived + '개 삭제'
         + (보존된계정.length ? ' (형제 사용 중 계정 ' + 보존된계정.length + '개는 보존)' : ''),
       detail: {
-        방식: '이름 기준 전체 퇴원',
+        방식: '이름 기준 전체 기록 삭제',
         학생별삭제: 삭제내역,
         리포트: {
           원본건수: 리포트원본건수, 삭제건수: result.reports_archived,
@@ -188,7 +191,7 @@ export async function onRequest({ request, env }) {
         R2개인파일: '삭제하지 않음(reports/{이름}/ PDF는 복원 수단으로 보존)',
         계정: { 삭제: 삭제된계정, 보존_형제사용중: 보존된계정 },
         로그인토큰폐기: 폐기된토큰,   // { 번호: 지운 개수 } — 0이면 애초에 로그인 중이 아니었거나 옛 토큰이라 색인이 없다
-        퇴원기록보존: result.outcomes_saved + '건 (student_archive, via=admin)',
+        지운기록보존: result.outcomes_saved + '건 (student_archive, via=admin)',
         오류: result.errors,
       },
     });

@@ -39,16 +39,20 @@ export async function onRequest({ request, env }) {
   //     수료생이 「시동반」이라는 같은 이름을 달고 남아 있으면 다음 학기 새 영상까지 매칭된다.
   //     그래서 반 이름에 기수를 붙인다(시동반 (26-2)). 여기 잠금은 그 위의 2차 방어선이다.
   if (isCompleted(access.student.approvalStatus)) {
+    // 🎓 2026-08-10 — 잠그는 조건은 수료·졸업이 같지만, **로그에는 실제 상태를 그대로 적는다.**
+    //   여기에 '수료'를 박아두면 졸업생이 막힌 기록까지 "수료"로 남아, 나중에 로그만 보고
+    //   "졸업 처리한 적 없는데?"라고 헷갈리게 된다. 판정은 isCompleted, 기록은 원문.
+    const 끝난상태 = String(access.student.approvalStatus || '').trim() || '수료';
     await logAudit(env, request, {
       ...행위자,
       action: 'video.list.completed',
       target: String(access.student.id || ''), targetName: name || '',
-      summary: '수업영상 열람 차단(수료) — [' + (name || '이름없음') + '] ' + (academy || '') + ' · ' + (className || ''),
+      summary: '수업영상 열람 차단(' + 끝난상태 + ') — [' + (name || '이름없음') + '] ' + (academy || '') + ' · ' + (className || ''),
       detail: {
-        학생: { 학생ID: access.student.id, 이름: name, 학원: academy || '(빈칸)', 반: className || '(빈칸)', 상태: '수료' },
+        학생: { 학생ID: access.student.id, 이름: name, 학원: academy || '(빈칸)', 반: className || '(빈칸)', 상태: 끝난상태 },
         누가열었나: role === 'parent' ? '학부모' : role === 'student' ? '학생' : (role || '알 수 없음'),
         로그인번호: phone || '(없음)',
-        해석: '이 반은 종강했고 학생은 수료 상태다. 수업영상은 재원생 전용이다.',
+        해석: '이 학생은 ' + 끝난상태 + ' 상태다. 수업영상은 재원생 전용이다.',
         여전히보이는것: '리포트 · 성적 · 오답 · 출결 기록은 그대로 열린다(본인이 만든 기록이므로)',
         되돌리려면: '관리자 화면에서 이 학생을 새 반에 배정하면 그 반의 영상이 다시 보인다',
       },

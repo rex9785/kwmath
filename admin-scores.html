@@ -381,7 +381,9 @@
     var stu=null;
     if(sid){
       stu=students.filter(function(s){ return String(s.id)===String(sid); })[0];
-      if(!stu){ presetBanner('⚠️ 지정된 학생을 찾지 못했습니다. 퇴원했거나 반이 바뀌었을 수 있어요 — 직접 골라주세요.', true); return; }
+      // 2026-08-10 — 「퇴원」 문구를 지웠다. 이 화면의 students 는 /api/students 전체(재원·수료·졸업 모두)라
+      //   상태 때문에 사라지는 일은 없다. 못 찾으면 진짜로 기록이 지워졌거나 링크가 옛 id를 들고 온 것이다.
+      if(!stu){ presetBanner('⚠️ 지정된 학생을 찾지 못했습니다. 기록이 삭제됐거나 링크가 옛 정보를 들고 있을 수 있어요 — 직접 골라주세요.', true); return; }
       acad=acadOf(stu); cls=clsOf(stu);      // 대상은 학생 데이터가 정본
     }
     if(acad!=null && presetHasOption($('acadSel'),acad)){ $('acadSel').value=acad; buildCls(); }
@@ -514,7 +516,10 @@
       '</div>'+
       '<div style="margin-top:12px;display:flex;gap:8px;align-items:center;">'+
         '<button id="fSubmit" onclick="submitScore()">추가</button>'+
-        '<button class="ghost" id="fCancel" style="display:none;" onclick="resetForm()">취소</button>'+
+        // 🔴 2026-08-10 — `none` 뒤의 !important 를 빼지 말 것. 위 CSS 의 `.ghost{display:inline-flex !important}`
+        //   가 인라인 스타일을 이겨서, 이 「취소」 버튼이 수정 중이 아닐 때도 계속 떠 있었다.
+        //   (관우T가 학생 목록에서 같은 「빈 알약」 버그를 발견해 전 화면을 훑다가 같이 잡힌 자리)
+        '<button class="ghost" id="fCancel" style="display:none !important;" onclick="resetForm()">취소</button>'+
         '<span class="formline" id="fMsg"></span>'+
       '</div></div>';
   }
@@ -548,7 +553,8 @@
     if($('fRaw'))$('fRaw').value=''; if($('fGr'))$('fGr').value='';
     if($('formTitle'))$('formTitle').textContent='➕ '+tab+' 성적 추가';
     if($('fSubmit'))$('fSubmit').textContent='추가';
-    if($('fCancel'))$('fCancel').style.display='none';
+    // ⚠️ `style.display='none'` 만으로는 안 감춰진다(.ghost 의 !important). 우선순위를 맞춰 준다.
+    if($('fCancel'))$('fCancel').style.setProperty('display','none','important');
     if($('fMsg'))$('fMsg').textContent='';
   }
   async function submitScore(){

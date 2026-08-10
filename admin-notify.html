@@ -330,7 +330,10 @@
     }
     var d = await r.json().catch(function(){ return null; });
     if (!Array.isArray(d)) { $('loading').textContent = '학생 목록을 불러오지 못했습니다.'; return; }
-    // 승인 학생만(대기중/거부 제외; 빈 값=옛 학생 통과). 퇴원생은 이미 목록에 없음.
+    // 승인 학생만(대기중/거부 제외; 빈 값=옛 학생 통과).
+    // ※ 2026-08-10 정정 — "퇴원생은 이미 목록에 없음"은 이제 틀린 말이다. 「수료·졸업」은 학생 행을
+    //   그대로 남기므로, 상태를 안 보면 그만둔 학생이 알림 대상에 그대로 올라온다. 아래 필터가 막는다.
+    //   (화이트리스트 방식이라 앞으로 상태가 더 늘어도 자동으로 빠진다 — `!== '수료'` 식으로 바꾸지 말 것)
     roster = d.filter(function(s){ var st = (s.approvalStatus || ''); return st === '' || st === '승인'; });
     show('loading', false); show('form', true);
     buildAcademies(); onAcademyChange();
@@ -344,7 +347,7 @@
   //   학생 목록의 학생 카드·반 헤더 인라인 버튼에서 넘어올 때 대상을 미리 선택해 둔다.
   //   식별은 반드시 student_id(sid). 이름은 URL에 싣지 않는다 —
   //     ① 동명이인 오발송 방지(이름은 유일하지 않음)  ② 주소창·히스토리에 실명 안 남김.
-  //   sid가 roster에 없으면(퇴원·반이동) 조용히 넘어가지 않고 경고를 띄우고 멈춘다.
+  //   sid가 roster에 없으면(수료·졸업·반이동) 조용히 넘어가지 않고 경고를 띄우고 멈춘다.
   function presetHasOption(sel, v){
     if (!sel) return false;
     for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === v) return true;
@@ -367,7 +370,9 @@
     if (sid){
       stu = roster.filter(function(s){ return String(s.id) === String(sid); })[0];
       if (!stu){
-        presetBanner('⚠️ 지정된 학생을 찾지 못했습니다. 퇴원했거나 반이 바뀌었을 수 있어요 — 대상을 직접 골라주세요.', true);
+        // 2026-08-10 — 「퇴원」 문구를 지웠다. 이 명단은 재원생만 담으므로, 못 찾는 흔한 이유는
+        //   수료·졸업으로 빠졌거나 반이 바뀐 것이다(계정 삭제는 드물다).
+        presetBanner('⚠️ 지정된 학생을 찾지 못했습니다. 수료·졸업 처리됐거나 반이 바뀌었을 수 있어요 — 대상을 직접 골라주세요.', true);
         return;
       }
       acad = stu.academy || '';       // 대상은 학생 데이터가 정본 (URL의 acad/cls보다 우선)

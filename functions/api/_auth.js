@@ -18,18 +18,29 @@ export const TOKEN_TTL_DAYS = 30;
 //   '거부'     : 등록 거부. 로그인 불가.
 //   '수료'     : 다녔던 학생. **로그인 되고 본인 리포트·성적은 계속 보이지만, 수업영상은 잠긴다.**
 //              명단·출결·집계·알림의 기본 대상에서는 빠진다.
+//   '졸업'     : 학교를 졸업해 더는 올 일이 없는 학생. **앱에서의 대우는 수료와 글자 하나 다르지 않다.**
+//              (2026-08-10 관우T: "그만두면 무조건 수료로 빠지게 될건데 퇴원생은 안쓰잖아 …
+//               학교 졸업을 해서 내 수업을 들을 일이 없으면 몰라도 그냥 졸업생으로 해버려")
 export const STATUS_ACTIVE    = '승인';
 export const STATUS_PENDING   = '대기중';
 export const STATUS_REJECTED  = '거부';
 export const STATUS_COMPLETED = '수료';
+export const STATUS_GRADUATED = '졸업';
 
 const 상태 = (v) => String(v || '').trim();
+
+// 🔴 수료와 졸업은 **서버에서 한 덩어리로 다룬다.** 둘의 차이는 관리자 화면의 이름표와 탭뿐이고,
+//    로그인·영상·명단·알림에서의 대우는 완전히 같다. 그래서 아래 isCompleted() 가 둘 다 참을 돌려준다.
+//    ⚠️ 새 가드를 만들 때 `=== '수료'` 로 직접 비교하지 말 것 — 졸업생이 그 가드를 그냥 통과해 버린다.
+//       반드시 isCompleted() 를 쓴다. (이 설계 덕에 class-videos·notify-class-materials·me·login·
+//        class-options 의 기존 가드가 한 줄도 안 고치고 졸업생까지 덮는다.)
+const 수업끝난상태 = new Set([STATUS_COMPLETED, STATUS_GRADUATED]);
 
 // 앱에 들어올 수 있는가 (로그인·토큰 검증)
 // 🔴 login.js 와 auth/me.js **둘 다** 이 함수를 써야 한다. 한 곳만 고치면 "로그인은 되는데 빈 화면"이 된다.
 export function canSignIn(approvalStatus) {
   const s = 상태(approvalStatus);
-  return s === '' || s === STATUS_ACTIVE || s === STATUS_COMPLETED;
+  return s === '' || s === STATUS_ACTIVE || 수업끝난상태.has(s);
 }
 
 // 지금 다니는 학생인가 (명단·출결·집계·알림·수업영상의 기본 대상)
@@ -38,8 +49,14 @@ export function isEnrolled(approvalStatus) {
   return s === '' || s === STATUS_ACTIVE;
 }
 
+// 수업이 끝난 학생인가 (수료 + 졸업). 영상 잠금·발송 제외 판정은 전부 이걸 쓴다.
 export function isCompleted(approvalStatus) {
-  return 상태(approvalStatus) === STATUS_COMPLETED;
+  return 수업끝난상태.has(상태(approvalStatus));
+}
+
+// 둘을 갈라 봐야 할 때만 (관리자 화면의 탭·이름표). 접근 권한 판정에는 쓰지 않는다.
+export function isGraduated(approvalStatus) {
+  return 상태(approvalStatus) === STATUS_GRADUATED;
 }
 
 // 🔄 2026-07-29 — 로그인 유지(슬라이딩 갱신).

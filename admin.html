@@ -502,6 +502,14 @@
   /* 아이콘이 들어간 탭·버튼·라벨 정렬 */
   .tab-btn, .edit-btn, .save-btn, .del-btn, .submit-btn, .pw-btn{
     display:inline-flex !important; align-items:center; justify-content:center; gap:6px; white-space:nowrap; }
+  /* 🔴 2026-08-10 — 바로 위 !important 는 **인라인 style="display:none" 까지 이긴다.**
+     그래서 JS가 `btn.style.display='none'` 으로 감춘 버튼(해당자 0명일 때의 ⚠️ 살펴볼 학생 필터 등)이
+     사라지지 않고 「글자 없는 빈 알약」으로 남아 있었다. 관우T가 화면에서 먼저 발견하셨다.
+     내용이 빈 버튼은 어차피 보일 이유가 없으므로 여기서 다시 숨긴다(위 484행과 같은 수법).
+     ⚠️ 근본 해결은 JS 쪽이다 — 감출 때 setProperty('display','none','important') 를 쓴다.
+        이 CSS는 그걸 빠뜨린 다른 자리까지 덮는 그물이다. */
+  .tab-btn:empty, .edit-btn:empty, .save-btn:empty, .del-btn:empty, .submit-btn:empty, .pw-btn:empty{
+    display:none !important; }
   /* .panel-title 은 div(전체폭 flex 행)와 p(텍스트) 두 형태가 있다 → display 를 강제하지 않고 정렬만 준다 */
   .panel-title{ align-items:center; gap:7px; }
   p.panel-title{ display:flex; }
@@ -906,19 +914,21 @@
     <!-- 학생 목록 탭 -->
     <div class="tab-panel" id="tab-students">
       <div class="stu-subtabs">
+        <!-- 🎓 2026-08-10 개편 — 재원생 / 수료생 / 졸업생.
+             셋 다 **계정이 살아 있는 사람들**이다. 계정까지 지운 학생은 졸업생 탭 아래 「지운 기록」에 있다.
+             관우T: "재원생 수료생 퇴원생 이렇게 하는 게 좋지 않을까 … 그냥 졸업생으로 해버려" -->
         <button type="button" id="stuTabActive" class="stu-subtab on" onclick="switchStudentTab('active')">재원생</button>
-        <button type="button" id="stuTabLeft" class="stu-subtab" onclick="switchStudentTab('left')">퇴원생</button>
+        <button type="button" id="stuTabDone" class="stu-subtab" onclick="switchStudentTab('completed')">수료생</button>
+        <button type="button" id="stuTabGrad" class="stu-subtab" onclick="switchStudentTab('graduated')">졸업생</button>
       </div>
       <div id="studentsActivePane">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-        <p class="panel-title" style="margin-bottom:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg>등록 학생 목록</p>
+        <p class="panel-title" style="margin-bottom:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"></path></svg><span id="studentListTitle">등록 학생 목록</span></p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input id="studentSearch" type="text" placeholder="이름 검색..." oninput="renderStudentsView()"
             style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
           <!-- ⚠️ 살펴볼 학생만 — 해당자가 0명이면 JS가 숨긴다(syncRiskFilterBtn). 늘 떠 있는 0은 눈이 무시한다. -->
           <button type="button" id="riskFilterBtn" class="edit-btn" onclick="toggleRiskOnly()" style="white-space:nowrap;display:none;"></button>
-          <!-- 🏁 수료생(종강한 반) 보기 — 기본 숨김. 해당자가 없으면 버튼 자체가 안 뜬다. -->
-          <button type="button" id="completedFilterBtn" class="edit-btn" onclick="toggleShowCompleted()" style="white-space:nowrap;display:none;"></button>
           <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>반별로 보기</button>
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
@@ -944,8 +954,8 @@
         <div id="pendingApprovalList"></div>
       </div>
 
-      <!-- 반 관리 패널 (접기/펼치기) -->
-      <div style="background:#f7f9fc;border:1.5px solid #d8e0ec;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+      <!-- 반 관리 패널 (접기/펼치기) — id 는 탭 전환 때 통째로 숨기려고 붙였다(switchStudentTab). -->
+      <div id="classManagerBox" style="background:#f7f9fc;border:1.5px solid #d8e0ec;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleClassManager()">
           <strong style="color:#3949AB;font-size:0.92rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20.5V9.5L12 4l8 5.5v11"></path><path d="M2.5 20.5h19M9.5 20.5v-6h5v6"></path></svg>학원·반 관리</strong>
           <span id="classManagerToggle" style="color:#3949AB;font-size:0.88rem;font-weight:700;">▶ 펼치기</span>
@@ -969,8 +979,18 @@
       </div>
       <div id="studentList"><div class="empty">불러오는 중...</div></div>
       </div><!-- /studentsActivePane -->
-      <div id="studentsLeftPane" style="display:none;">
-        <div id="leftStudentsMount"><div class="empty">불러오는 중...</div></div>
+
+      <!-- 🗃 지운 기록 — 「기록 삭제」로 계정까지 지운 학생의 보관함. 졸업생 탭에서만, 그것도 접힌 채로 뜬다.
+           재원생·수료생·졸업생은 **계정이 살아 있는 사람**이고 여긴 아니다. 성격이 달라 같은 목록에 섞지 않는다.
+           iframe 은 펼칠 때 딱 한 번 만든다(지연 로드) — 안 여는 사람에게 admin-outcomes 를 통째로 받게 할 이유가 없다. -->
+      <div id="removedRecordsBox" style="display:none;margin-top:18px;background:#fafafa;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px 14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:10px;" onclick="toggleRemovedRecords()">
+          <strong style="color:#666;font-size:0.9rem;">🗃 지운 기록 — 계정까지 삭제한 학생</strong>
+          <span id="removedRecordsToggle" style="color:#666;font-size:0.86rem;font-weight:700;white-space:nowrap;">▶ 펼치기</span>
+        </div>
+        <div id="removedRecordsBody" style="display:none;margin-top:12px;border-top:1px solid #e0e0e0;padding-top:12px;">
+          <div id="leftStudentsMount"><div class="empty">불러오는 중...</div></div>
+        </div>
       </div>
     </div>
 
@@ -1600,12 +1620,12 @@
   //   왜 필요한가: 출결 테이블에는 옛 기록이 남아 있을 수 있는데(전입·재등록·마이그레이션 잔여),
   //   그걸 그대로 세면 홈에 뜬 "살펴볼 학생 5명"을 눌렀을 때 목록엔 3명만 나온다.
   //   숫자와 목록이 어긋나면 그 숫자를 다시는 안 믿는다. 그래서 세는 기준을 한 곳으로 묶는다.
-  //   🏁 2026-08-10 — '수료'(종강한 반 학생)도 뺀다. 안 빼면 끝난 반 학생이 「연속 결석」으로
+  //   🏁 2026-08-10 — 수료·졸업(수업이 끝난 학생)도 뺀다. 안 빼면 끝난 반 학생이 「연속 결석」으로
   //      경보에 올라온다. 수업이 없으니 결석이 쌓이는 건 당연하고, 손쓸 방법도 없다.
   function enrolledIdSet(students) {
     if (!Array.isArray(students)) return null;
     return new Set(students
-      .filter(s => s && s.approvalStatus !== '대기중' && s.approvalStatus !== '거부' && s.approvalStatus !== '수료')
+      .filter(s => s && s.approvalStatus !== '대기중' && s.approvalStatus !== '거부' && !isDoneStudent(s))
       .map(s => String(s.id)));
   }
 
@@ -1679,12 +1699,57 @@
       + (r.length > 1 ? ' +' + (r.length - 1) : '') + '</span>';
   }
 
-  // 🎓 수료 배지 — 반이 종강했거나 개별 수료 처리된 학생. 퇴원과 다르다: 계정은 살아 있다.
+  // ── 학생 상태 읽기 (클라이언트) ────────────────────────────────────────────────
+  //   서버의 _auth.js 와 짝을 이룬다. 거기서 isCompleted() 가 수료+졸업을 한 덩어리로 참을 주듯,
+  //   여기서도 「수업이 끝난 학생」은 isDoneStudent() 하나로 판정한다.
+  //   ⚠️ 새 코드에서 `s.approvalStatus === '수료'` 로 직접 비교하지 말 것 — 졸업생이 그물을 빠져나간다.
+  function stuStatus(s) { return String((s && s.approvalStatus) || '').trim(); }
+  function isDoneStudent(s) { const v = stuStatus(s); return v === '수료' || v === '졸업'; }
+
+  // 🎓 수료 / 졸업 배지 — 둘 다 계정은 살아 있다. 계정까지 지운 「기록 삭제」와 다르다.
+  //   색을 갈라 둔 이유: 같은 명단에 섞여 보일 때(검색·동명이인 패널) 눈으로 구분되어야 한다.
   function completedBadge(s) {
-    if (!s || String(s.approvalStatus || '').trim() !== '수료') return '';
+    const v = stuStatus(s);
+    if (v === '졸업') {
+      return '<span title="졸업 — 학교를 졸업한 학생. 앱 로그인·리포트·성적은 그대로 열려 있고 수업 영상만 잠깁니다"'
+        + ' style="background:#E8EDF7;color:#3949AB;border:1px solid #b9c6e8;padding:2px 8px;border-radius:20px;'
+        + 'font-size:0.68rem;font-weight:700;margin-left:6px;white-space:nowrap;">🎓 졸업</span>';
+    }
+    if (v !== '수료') return '';
     return '<span title="수료 — 앱 로그인·리포트·성적은 그대로 열려 있고 수업 영상만 잠깁니다"'
       + ' style="background:#F5EFE3;color:#8a6d3b;border:1px solid #e0c98f;padding:2px 8px;border-radius:20px;'
       + 'font-size:0.68rem;font-weight:700;margin-left:6px;white-space:nowrap;">🎓 수료</span>';
+  }
+
+  // ── 학생 카드의 상태 전환 버튼 (2026-08-10) ────────────────────────────────────
+  //   flat 카드와 반별 보기 두 곳에서 똑같이 쓴다. 예전엔 같은 삼항식이 양쪽에 복사돼 있어서
+  //   한쪽만 고치면 다른 쪽이 조용히 옛 동작으로 남았다. 그래서 함수 하나로 묶었다.
+  //   ⚠️ 「기록 삭제」는 계정·출결·리포트까지 지우는 **되돌릴 수 없는** 버튼이다.
+  //      그냥 그만둔 학생은 「🎓 수료 처리」, 학교를 졸업했으면 「🎓 졸업」 — 둘 다 아무것도 안 지운다.
+  function studentStatusButtons(s) {
+    const v = stuStatus(s);
+    const id = jsArg(s.id), nm = jsArg(s.name);
+    const 수료 = `<button class="del-btn" style="border-color:#e0c98f;color:#8a6d3b;" title="그만뒀을 때 — 앱·리포트는 그대로 두고 수업 영상만 잠급니다" onclick="event.stopPropagation();completeStudent('${id}','${nm}')">🎓 수료 처리</button>`;
+    const 졸업 = `<button class="del-btn" style="border-color:#b9c6e8;color:#3949AB;" title="학교를 졸업해 더는 올 일이 없을 때 — 수료와 똑같이 계정·리포트는 그대로 두고 수업 영상만 잠급니다" onclick="event.stopPropagation();graduateStudent('${id}','${nm}')">🎓 졸업</button>`;
+    const 복귀 = `<button class="del-btn" style="border-color:#3949AB;color:#3949AB;" title="다시 다니게 됐을 때 — 수업 영상이 도로 열립니다" onclick="event.stopPropagation();restoreStudent('${id}','${nm}')">↩ 재원 복귀</button>`;
+    const 삭제 = `<button class="del-btn" title="⚠️ 계정과 기록까지 지웁니다. 되돌릴 수 없어요. 그냥 그만둔 학생은 「🎓 수료 처리」, 학교를 졸업했으면 「🎓 졸업」을 쓰세요" onclick="event.stopPropagation();deleteStudent('${id}','${nm}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>기록 삭제</button>`;
+    if (v === '졸업') return 복귀 + 삭제;                 // 졸업한 학생에게 「졸업」을 또 권하지 않는다
+    if (v === '수료') return 복귀 + 졸업 + 삭제;
+    return 수료 + 졸업 + 삭제;
+  }
+
+  // 버튼 감추기/보이기 — ⚠️ `style.display='none'` 만으로는 안 감춰진다.
+  //   CSS 의 `.edit-btn{display:inline-flex !important}` 가 인라인 스타일을 이겨서, 감춘 버튼이
+  //   「글자 없는 빈 알약」으로 화면에 남는다(2026-08-10 관우T 발견). 그래서 우선순위를 맞춰 준다.
+  //   텍스트도 같이 비운다 — 안 비우면 옛 숫자("⚠️ 살펴볼 학생만 1")가 그대로 남는다.
+  function hideBtn(btn) {
+    if (!btn) return;
+    btn.textContent = '';
+    btn.style.setProperty('display', 'none', 'important');
+  }
+  function showBtn(btn) {
+    if (!btn) return;
+    btn.style.removeProperty('display');
   }
 
   // 학생 목록 상단 필터 칩 — 해당자가 있을 때만 나타난다(0명이면 아예 안 보임).
@@ -1692,8 +1757,9 @@
     const btn = document.getElementById('riskFilterBtn');
     if (!btn) return;
     const n = studentRisk ? Object.keys(studentRisk).length : 0;
-    if (!n) { btn.style.display = 'none'; riskOnly = false; return; }
-    btn.style.display = '';
+    // ⚠️ 필터는 「지금 가르치는 학생」 화면에서만 뜻이 있다. 수료생·졸업생 탭에선 감춘다.
+    if (!n || studentTab !== 'active') { hideBtn(btn); riskOnly = false; return; }
+    showBtn(btn);
     btn.title = RISK_CRITERIA_TEXT();
     btn.textContent = (riskOnly ? '✅ 전체 보기' : '⚠️ 살펴볼 학생만 ' + n);
     btn.style.borderColor = riskOnly ? '#B3261E' : 'var(--border)';
@@ -1705,29 +1771,28 @@
     if (typeof renderStudentsView === 'function') renderStudentsView();
   }
 
-  // 🏁 수료생 보기 토글 (2026-08-10) — 종강한 반 학생은 기본으로 감춘다.
-  //   퇴원과 다르다: 수료생은 계정이 살아 있고 앱에서 리포트·성적을 계속 본다. 여기서만 안 보일 뿐이다.
-  let showCompleted = false;
-  function syncCompletedFilterBtn(n) {
-    const btn = document.getElementById('completedFilterBtn');
-    if (!btn) return;
-    if (!n) { btn.style.display = 'none'; showCompleted = false; return; }
-    btn.style.display = '';
-    btn.title = '종강한 반 학생입니다. 앱 로그인·리포트·성적은 그대로 열려 있고 수업 영상만 잠깁니다.';
-    btn.textContent = (showCompleted ? '🙈 수료생 숨기기' : '🎓 수료생 보기 ' + n);
-    btn.style.borderColor = showCompleted ? '#8a6d3b' : 'var(--border)';
-    btn.style.color = showCompleted ? '#8a6d3b' : '';
-  }
-  function toggleShowCompleted() {
-    showCompleted = !showCompleted;
-    if (typeof renderStudentsView === 'function') renderStudentsView();
+  // ══ 🎓 학생 목록 서브탭 (2026-08-10 개편) — 재원생 / 수료생 / 졸업생 ══════════════
+  //   예전엔 「🎓 수료생 보기」 토글 버튼 하나에 숨어 있었다.
+  //   관우T: "이렇게해놓지말고 재원생 수료생 퇴원생 이렇게 하는 게 좋지 않을까" → 탭으로 올렸다.
+  //   셋 다 **계정이 살아 있는 사람들**이다. 계정까지 지운 학생은 졸업생 탭 아래 「지운 기록」에 있다.
+  let studentTab = 'active';        // 'active'(재원생) | 'completed'(수료생) | 'graduated'(졸업생)
+
+  // 탭 라벨에 인원수를 얹는다. 0명이면 숫자를 안 붙인다 — 늘 떠 있는 0은 눈이 무시한다.
+  function syncStudentTabCounts(nCompleted, nGraduated) {
+    const t2 = document.getElementById('stuTabDone');
+    const t3 = document.getElementById('stuTabGrad');
+    if (t2) t2.textContent = '수료생' + (nCompleted ? ' ' + nCompleted : '');
+    if (t3) t3.textContent = '졸업생' + (nGraduated ? ' ' + nGraduated : '');
   }
 
   // 홈 「오늘 확인할 것」의 ⚠️ 줄 → 학생 목록 탭 + 필터 ON
   function openRiskStudents() {
     riskOnly = true;
     switchTab('students', findTabBtn('students'));
-    if (typeof switchStudentTab === 'function') switchStudentTab('active');   // 퇴원생 탭에 있었을 수도 있다
+    // ⚠️ 필터는 재원생 탭 전용이다. 수료생·졸업생 탭에 있었을 수 있으니 먼저 재원생으로 돌려놓는다.
+    //    순서 주의 — switchStudentTab 이 riskOnly 를 끄므로, 탭을 옮긴 **뒤에** 다시 켠다.
+    if (typeof switchStudentTab === 'function') switchStudentTab('active');
+    riskOnly = true;
     // switchTab이 loadStudents()를 부르므로 렌더는 그쪽에서 끝난다. 목록이 이미 있으면 즉시 다시 그린다.
     if (Array.isArray(allStudents) && allStudents.length && typeof renderStudentsView === 'function') renderStudentsView();
     const el = document.getElementById('studentList');
@@ -1801,18 +1866,54 @@
     if (name === 'reviews') loadAdminReviews();
       }
 
-  // ── 학생 목록: 재원생 / 퇴원생 서브탭 ──
+  // ── 학생 목록: 재원생 / 수료생 / 졸업생 서브탭 (2026-08-10 개편) ──
+  //   셋 다 같은 명단(#studentList)을 쓴다. 다른 건 **어느 상태를 걸러 보여주느냐**뿐이다.
+  //   ⚠️ 재원생 탭에서만 뜻이 있는 것들(승인 대기·반 관리·일괄 반 배정)은 다른 탭에서 감춘다.
+  //      수료생에게 「일괄 반 배정」을 걸 수 있게 두면 실수로 되살아난다.
   function switchStudentTab(which){
-    var active = which !== 'left';
-    var ta = document.getElementById('stuTabActive');
-    var tl = document.getElementById('stuTabLeft');
-    if (ta) ta.classList.toggle('on', active);
-    if (tl) tl.classList.toggle('on', !active);
-    var pa = document.getElementById('studentsActivePane');
-    var pl = document.getElementById('studentsLeftPane');
-    if (pa) pa.style.display = active ? '' : 'none';
-    if (pl) pl.style.display = active ? 'none' : '';
-    if (!active) ensureLeftStudentsLoaded();
+    if (which !== 'completed' && which !== 'graduated') which = 'active';
+    studentTab = which;
+    riskOnly = false;                                  // 필터는 재원생 전용 — 탭을 옮기면 푼다
+    var 재원 = which === 'active';
+
+    var 탭 = { active:'stuTabActive', completed:'stuTabDone', graduated:'stuTabGrad' };
+    for (var k in 탭){
+      var b = document.getElementById(탭[k]);
+      if (b) b.classList.toggle('on', k === which);
+    }
+
+    // 재원생 탭에서만 뜻이 있는 패널들.
+    //   ⚠️ pendingApprovalPanel 은 여기서 켜지 않는다 — 대기자가 0명이면 다시 감춰야 하는데,
+    //      그 판단은 renderPendingApproval() 이 한다(아래 renderStudentsView 안에서 불린다).
+    //   ⚠️ 되돌릴 때 그냥 removeProperty 하면 안 된다 — bulkActionBar 는 인라인 display:flex 로 짜여 있어서
+    //      지워 버리면 block 으로 떨어져 가로 배치가 무너진다. 그래서 원래 값을 한 번 기억해 둔다.
+    ['classManagerBox','bulkActionBar'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (el.dataset.origDisplay === undefined) el.dataset.origDisplay = el.style.display || '';
+      el.style.display = 재원 ? el.dataset.origDisplay : 'none';
+    });
+
+    var 제목 = document.getElementById('studentListTitle');
+    if (제목) 제목.textContent = 재원 ? '등록 학생 목록'
+      : (which === 'completed' ? '수료생 목록' : '졸업생 목록');
+
+    // 「지운 기록」(계정까지 삭제)은 졸업생 탭에서만. 접힌 채로 둔다.
+    var box = document.getElementById('removedRecordsBox');
+    if (box) box.style.display = (which === 'graduated') ? '' : 'none';
+
+    renderStudentsView();
+  }
+
+  // 「지운 기록」 접기/펼치기 — 펼칠 때 처음 한 번만 iframe 을 만든다.
+  function toggleRemovedRecords(){
+    var body = document.getElementById('removedRecordsBody');
+    var lab  = document.getElementById('removedRecordsToggle');
+    if (!body) return;
+    var 펼침 = body.style.display === 'none';
+    body.style.display = 펼침 ? '' : 'none';
+    if (lab) lab.textContent = 펼침 ? '▼ 접기' : '▶ 펼치기';
+    if (펼침) ensureLeftStudentsLoaded();
   }
   function ensureLeftStudentsLoaded(){
     var mount = document.getElementById('leftStudentsMount');
@@ -1846,7 +1947,7 @@
   // 홈 카드 [🏫 학원·반 관리] 전용 — 학생 목록 → 재원생 탭 → 접힌 패널 펼치기까지 3단계를 한 번에 해준다.
   function openClassManager() {
     openSection('students');
-    switchStudentTab('active');                     // 퇴원생 탭이 열려 있으면 패널이 화면에 없다
+    switchStudentTab('active');                     // 수료생·졸업생 탭이 열려 있으면 패널이 화면에 없다
     var body = document.getElementById('classManagerBody');
     if (body && body.style.display === 'none') toggleClassManager();   // 이미 펼쳐져 있으면 그대로 둔다(다시 부르면 닫혀버림)
     // openSection이 맨 위로 스크롤하므로, 그 뒤에 패널로 내려준다.
@@ -4069,12 +4170,13 @@
             const pDone = ((data.completed || {})[acad + '/' + cls]) || 0;
             const pAll  = ((data.countsAll || {})[acad + '/' + cls]);
             const pCanDelete = ((pAll === undefined) ? (pCnt + pDone) : pAll) === 0;
-            html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f2f2f4;border-radius:6px;font-size:0.85rem;opacity:0.85;">
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:5px 8px;background:#f2f2f4;border-radius:6px;font-size:0.85rem;opacity:0.85;">
               <span style="color:#666;">${esc(cls)}
                 <span style="display:inline-block;margin-left:6px;background:#e8e5de;color:#8a6d3b;font-weight:700;font-size:0.74rem;padding:1px 7px;border-radius:5px;">종강</span>
                 <span style="color:#888;font-size:0.78rem;margin-left:6px;">수료 ${pDone}명${pCnt ? ' · 재원 ' + pCnt + '명' : ''}</span>
               </span>
               <span style="display:flex;gap:6px;flex:0 0 auto;">
+              <button onclick="openYoutubeCleanupModal('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}', false)" title="앱은 잠겼지만 유튜브 주소는 살아 있다 — 비공개로 바꿀 영상 목록" style="background:#fff;color:#862633;border:1.5px solid #e0b6bc;border-radius:6px;padding:4px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;">🔒 유튜브</button>
               <button onclick="unarchiveClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="종강을 되돌린다 — 종강 때 수료로 바뀐 학생만 재원 복귀" style="background:#fff;color:#3949AB;border:1.5px solid #c5cae9;border-radius:6px;padding:4px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;">↩ 종강 취소</button>
               <button class="del-btn" ${pCanDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${pCanDelete ? '반 삭제' : '학생이 남아 있어 삭제 불가 (지난 반은 그냥 두셔도 됩니다)'}" style="padding:4px 10px;font-size:0.78rem;">삭제</button>
               </span>
@@ -4235,7 +4337,7 @@
     }
   }
   // ─── 🏁 반 종강 / ↩ 종강 취소 (2026-08-10) ───
-  // 「퇴원」을 대신하는 학기 마감 도구. 지우는 게 아니라 접는 것 —
+  // 「기록 삭제」를 대신하는 학기 마감 도구. 지우는 게 아니라 접는 것 —
   // 학생 행을 지우면 로그인·수업명단·반 소속이 한꺼번에 끊겨서, 학부모 앱이 통째로 닫히고
   // 그동안 쌓인 리포트도 눈앞에서 사라진다. 종강은 그중 「수업영상」 하나만 닫는다.
   async function archiveClass(academy, className) {
@@ -4246,7 +4348,9 @@
       + '· 앱 로그인 · 리포트 · 성적은 그대로 보입니다\n'
       + '· 수업 영상만 잠깁니다\n'
       + '· 반코드가 폐기되고 수업시간표가 해제됩니다\n'
-      + '· 이 반은 「지난 반」으로 접힙니다\n\n'
+      + '· 이 반은 「지난 반」으로 접힙니다\n'
+      + '· 종강 뒤 「유튜브에서 비공개로 바꿀 영상」 목록이 뜹니다\n'
+      + '  (앱은 잠겨도 유튜브 주소를 적어 둔 사람은 계속 볼 수 있어서입니다)\n\n'
       + '출결 · 학습기록 · 리포트 · 성적은 하나도 지워지지 않습니다.\n'
       + '잘못 누르셨다면 「종강 취소」로 되돌릴 수 있습니다.'
     )) return;
@@ -4263,6 +4367,9 @@
       renderClassManager();
       // 학생 상태가 바뀌었으니 명단도 다시 읽는다. 안 하면 화면엔 아직 「승인」으로 보인다.
       try { await loadStudents(); } catch (_) {}
+      // 🔒 앱은 여기서 잠갔지만 **유튜브 주소는 아직 살아 있다** — 바꿀 영상 목록을 바로 띄운다.
+      //   (영상이 0개인 반이면 창을 안 띄운다. 나중에 「🗂 지난 반 → 🔒 유튜브」로 다시 열 수 있다.)
+      try { await openYoutubeCleanupModal(academy, className, true); } catch (_) {}
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }
@@ -4289,6 +4396,122 @@
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }
+  }
+  // ─── 🔒 종강 후 유튜브 정리 ────────────────────────────────────────────────
+  // 왜 필요한가 (관우T 지적 2026-08-10): 앱에서 영상을 잠가도(수료 → report.html 에서 안 보임)
+  //   **유튜브 주소 자체는 살아 있다.** 우리 수업영상은 「일부공개(링크 아는 사람만)」라서
+  //   주소를 한 번 받아 적어 둔 사람은 그만둔 뒤에도 주소만으로 계속 본다.
+  //   ⚠️ 2026-08-10 유튜브 공식문서 확인: 일부공개엔 **만료도 도메인 제한도 없다.**
+  //      「퍼가기 도메인 제한」은 YouTube Studio **Content Manager 파트너 전용**이라 우리 채널엔 그 메뉴가 아예 없다.
+  //      → 링크를 확실히 끊는 수단은 **유튜브에서 「비공개」로 바꾸는 것 하나뿐**이다.
+  //   그런데 공개상태 변경(videos.update)은 API 키로 안 되고 **OAuth 토큰이 필요**해 서버가 대신 못 한다.
+  //   → 그래서 종강할 때 **그 반 영상 목록을 띄워 관우T가 한 번씩 눌러 바꾸시게** 한다.
+  //   비공개는 되돌릴 수 있다(다시 일부공개). 화면녹화는 어떤 수로도 못 막는다 —
+  //   여기서 막으려는 것은 「주소 하나로 영원히 공짜 시청」까지다.
+  const YT_DONE_KEY = 'kwmath_admin_yt_private_v1';   // 「바꿨음」 체크 = 이 브라우저에만 남는 메모(서버·유튜브와 무관)
+  function ytDoneSet() { try { return new Set(JSON.parse(localStorage.getItem(YT_DONE_KEY) || '[]')); } catch (_) { return new Set(); } }
+  function ytMarkDone(code, done) {
+    const s = ytDoneSet();
+    if (done) s.add(code); else s.delete(code);
+    try { localStorage.setItem(YT_DONE_KEY, JSON.stringify(Array.from(s))); } catch (_) {}
+    updateYtCleanCount();
+  }
+  // 유튜브 주소에서 영상ID 11자를 뽑는다. watch?v= · youtu.be/ · embed/ · live/ · shorts/ 다섯 형태.
+  //   ⚠️ `v=` 앞의 `[?&]` 를 빼면 안 된다 — 그러면 `...?srv=XXXXXXXXXXX&v=진짜ID` 에서 앞의 엉뚱한 값을 집는다(테스트로 증명함).
+  function ytVideoId(url) {
+    const m = String(url || '').match(/(?:[?&]v=|youtu\.be\/|\/(?:embed|live|shorts|v)\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : '';
+  }
+  let _ytCleanList = [];
+  function updateYtCleanCount() {
+    const el = document.getElementById('ytCleanCount');
+    if (!el) return;
+    const done = ytDoneSet();
+    const n = _ytCleanList.filter(v => done.has(v.code)).length;
+    el.textContent = _ytCleanList.length ? ('비공개로 바꿈 ' + n + ' / ' + _ytCleanList.length + '개') : '';
+    el.style.color = (_ytCleanList.length && n === _ytCleanList.length) ? '#1B5E20' : '#8a6d3b';
+  }
+  function closeYoutubeCleanupModal() {
+    const el = document.getElementById('ytCleanModal');
+    if (el) el.style.display = 'none';
+  }
+  // quietIfEmpty=true → 영상이 0개면 창을 아예 안 띄운다(종강 직후 자동 호출용).
+  async function openYoutubeCleanupModal(academy, className, quietIfEmpty) {
+    let el = document.getElementById('ytCleanModal');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'ytCleanModal';
+      el.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9100;align-items:center;justify-content:center;padding:16px;';
+      el.innerHTML = '<div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:540px;max-height:84vh;overflow:auto;box-shadow:0 10px 34px rgba(0,0,0,0.28);">'
+        + '<div style="font-weight:800;color:#862633;font-size:1.02rem;">🔒 유튜브에서 비공개로 바꿀 영상</div>'
+        + '<div id="ytCleanTitle" style="font-size:0.86rem;color:#666;margin:3px 0 10px;"></div>'
+        + '<div style="background:#FAEEDA;border:1px solid #e6d3a8;border-radius:9px;padding:10px 12px;font-size:0.82rem;color:#6b4f14;line-height:1.6;margin-bottom:12px;">'
+          + '앱에서는 이미 잠겼습니다. 다만 <b>유튜브 주소를 받아 적어 둔 사람은 앱을 안 거치고도 계속 볼 수 있습니다.</b><br>'
+          + '아래 <b>유튜브 열기</b> → 공개 상태를 <b>비공개</b>로 바꾸시면 그 주소가 막힙니다. 나중에 다시 「일부공개」로 되돌릴 수 있습니다.'
+        + '</div>'
+        + '<div id="ytCleanCount" style="font-size:0.82rem;font-weight:700;margin-bottom:8px;"></div>'
+        + '<div id="ytCleanBody"><div style="color:#888;font-size:0.86rem;">불러오는 중…</div></div>'
+        + '<div style="display:flex;gap:8px;margin-top:14px;">'
+          + '<button onclick="closeYoutubeCleanupModal()" style="flex:1;background:#862633;color:#fff;border:none;border-radius:8px;padding:10px 0;font-weight:700;cursor:pointer;">닫기</button>'
+        + '</div>'
+        + '<div style="font-size:0.75rem;color:#999;margin-top:9px;line-height:1.5;">체크는 이 브라우저에만 남는 메모입니다 — 체크한다고 유튜브 설정이 바뀌지는 않습니다.<br>「🗂 지난 반」에서 <b>🔒 유튜브</b> 를 눌러 언제든 다시 열 수 있습니다.</div>'
+        + '</div>';
+      el.addEventListener('click', (e) => { if (e.target === el) closeYoutubeCleanupModal(); });
+      document.body.appendChild(el);
+    }
+    const title = document.getElementById('ytCleanTitle');
+    const body = document.getElementById('ytCleanBody');
+    if (title) title.textContent = academy + ' · ' + className;
+    _ytCleanList = [];
+    if (!quietIfEmpty) {
+      body.innerHTML = '<div style="color:#888;font-size:0.86rem;">불러오는 중…</div>';
+      updateYtCleanCount();
+      el.style.display = 'flex';
+    }
+    // 목록은 열 때마다 새로 읽는다 — 영상 관리 탭을 안 열었으면 _allVideos 는 비어 있고,
+    // 열었더라도 그 사이 반 바꾸기·삭제가 있었을 수 있다.
+    let vids = [];
+    try {
+      const res = await fetch('/api/video-list', { headers: { Authorization: 'Bearer ' + adminToken } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        if (quietIfEmpty) { showToast('⚠️ 영상 목록을 못 읽었습니다 — 「🗂 지난 반」에서 🔒 유튜브로 다시 확인해 주세요'); return; }
+        body.innerHTML = '<div style="color:#c0392b;font-size:0.86rem;">영상 목록을 못 읽었습니다: ' + (data.error || res.status) + '</div>';
+        return;
+      }
+      vids = (data.videos || []).filter(v => (v.school || '') === academy && (v.class_name || '') === className);
+    } catch (e) {
+      if (quietIfEmpty) { showToast('⚠️ 영상 목록을 못 읽었습니다 — 「🗂 지난 반」에서 🔒 유튜브로 다시 확인해 주세요'); return; }
+      body.innerHTML = '<div style="color:#c0392b;font-size:0.86rem;">네트워크 오류: ' + e.message + '</div>';
+      return;
+    }
+    if (quietIfEmpty && !vids.length) return;   // 영상 없는 반을 종강했을 때 괜히 창을 띄우지 않는다
+    if (quietIfEmpty) el.style.display = 'flex';
+    _ytCleanList = vids;
+    renderYoutubeCleanupList(vids);
+    updateYtCleanCount();
+  }
+  function renderYoutubeCleanupList(vids) {
+    const body = document.getElementById('ytCleanBody');
+    if (!body) return;
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    if (!vids.length) { body.innerHTML = '<div style="color:#888;font-size:0.86rem;">이 반에 등록된 수업영상이 없습니다. 유튜브에서 바꿀 것도 없습니다.</div>'; return; }
+    const done = ytDoneSet();
+    body.innerHTML = vids.map(v => {
+      const id = ytVideoId(v.youtube_url);
+      const codeArg = esc(v.code).replace(/'/g, '\\x27');
+      // ID를 못 읽으면 스튜디오 편집 주소를 만들 수 없다 → 원본 주소를 그대로 열어 드리고 그 사실을 적는다.
+      const link = id
+        ? '<a href="https://studio.youtube.com/video/' + esc(id) + '/edit" target="_blank" rel="noopener" style="flex:0 0 auto;background:#862633;color:#fff;border-radius:7px;padding:6px 11px;font-size:0.78rem;font-weight:700;text-decoration:none;">유튜브 열기 ↗</a>'
+        : '<a href="' + esc(v.youtube_url || '#') + '" target="_blank" rel="noopener" style="flex:0 0 auto;background:#f0f1f4;color:#666;border-radius:7px;padding:6px 11px;font-size:0.78rem;font-weight:700;text-decoration:none;" title="주소 형식을 못 읽어 편집 화면으로 바로 못 갑니다">주소 열기 ↗</a>';
+      return '<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid #e6e8ec;border-radius:9px;margin-bottom:6px;background:#fafbfc;">'
+        + '<input type="checkbox" onchange="ytMarkDone(\'' + codeArg + '\', this.checked)" ' + (done.has(v.code) ? 'checked' : '')
+          + ' title="비공개로 바꿨으면 체크" style="width:17px;height:17px;cursor:pointer;flex:0 0 auto;">'
+        + '<span style="min-width:80px;font-weight:700;font-size:0.83rem;">' + esc(v.date || '—') + '</span>'
+        + '<span style="flex:1;min-width:0;font-size:0.83rem;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(v.title || v.code || '') + '</span>'
+        + link
+        + '</div>';
+    }).join('');
   }
   async function deleteAcademy(academy) {
     if (!confirm('[' + academy + '] 학원을 삭제할까요?\n(학원 자체와 그 안의 모든 반 옵션이 드롭다운에서 사라집니다. 옛 데이터는 보존됨)')) return;
@@ -4505,11 +4728,14 @@
     renderPendingApproval();
     // 2) 일반 목록은 승인된 + 옛 학생 (대기중/거부 제외)
     const approved = (allStudents || []).filter(s => s.approvalStatus !== '대기중' && s.approvalStatus !== '거부');
-    // 🏁 2026-08-10 — 수료생(종강한 반)은 기본으로 감춘다. 명단은 "지금 가르치는 사람"이어야 한다.
-    //    지우는 게 아니라 접는 것 — 버튼 한 번이면 다시 보인다.
-    const completedList = approved.filter(s => s.approvalStatus === '수료');
-    syncCompletedFilterBtn(completedList.length);
-    const roster = showCompleted ? approved : approved.filter(s => s.approvalStatus !== '수료');
+    // 🎓 2026-08-10 — 명단은 탭이 정한다. 재원생 탭은 "지금 가르치는 사람"만 보여야 한다.
+    //    지우는 게 아니라 나누는 것 — 수료생·졸업생은 옆 탭에 그대로 있다.
+    const completedList = approved.filter(s => stuStatus(s) === '수료');
+    const graduatedList = approved.filter(s => stuStatus(s) === '졸업');
+    syncStudentTabCounts(completedList.length, graduatedList.length);
+    const roster = studentTab === 'completed' ? completedList
+                 : studentTab === 'graduated' ? graduatedList
+                 : approved.filter(s => !isDoneStudent(s));
     // 동명이인 점검 — 같은 이름이 둘 이상이면 상단에 경보(리포트/alias가 이름으로 매칭돼 오귀속 위험)
     //   ⚠️ 여기엔 **수료생도 넣는다**(roster 아님). 리포트는 이름으로 붙기 때문에, 수료생과 이름이 겹치면
     //      새 학생 리포트가 수료생 기록에 붙을 수 있다. 화면에서 감췄다고 위험이 사라지는 게 아니다.
@@ -4589,6 +4815,8 @@
     if (!panel || !list) return;
     const pending = (allStudents || []).filter(s => s.approvalStatus === '대기중');
     if (countEl) countEl.textContent = pending.length;
+    // 승인 대기는 「지금 들어오려는 사람」 — 수료생·졸업생 탭에서 뜨면 맥락이 안 맞는다.
+    if (studentTab !== 'active') { panel.style.display = 'none'; return; }
     if (!pending.length) {
       panel.style.display = 'none';
       pendingSelectedIds.clear();
@@ -5109,16 +5337,13 @@
         </div>
         <div class="mkwrap-admin" style="display:none;margin-top:10px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
         <!-- 관리 액션은 카드 헤더에서 여기로 내렸다(2026-07-30).
-             자주 안 쓰는데 늘 보이면 자주 쓰는 버튼까지 안 보이게 되고, 🗑 퇴원처리가 오조작 한 클릭 거리에 있었다.
+             자주 안 쓰는데 늘 보이면 자주 쓰는 버튼까지 안 보이게 되고, 🗑 기록 삭제가 오조작 한 클릭 거리에 있었다.
              기능은 그대로 — 카드를 펼치면 전부 여기 있다. -->
         <div class="go-row" style="margin-top:8px;">
           <span class="go-row-label">관리:</span>
           <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>학원/반</button>
           <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>다른 반</button>
-          ${String(s.approvalStatus || '').trim() === '수료'
-                ? `<button class="del-btn" style="border-color:#3949AB;color:#3949AB;" title="다시 다니게 됐을 때 — 수업 영상이 도로 열립니다" onclick="event.stopPropagation();restoreStudent('${jsArg(s.id)}','${jsArg(s.name)}')">↩ 재원 복귀</button>`
-                : `<button class="del-btn" style="border-color:#e0c98f;color:#8a6d3b;" title="그만뒀을 때 — 앱·리포트는 그대로 두고 수업 영상만 잠급니다" onclick="event.stopPropagation();completeStudent('${jsArg(s.id)}','${jsArg(s.name)}')">🎓 수료 처리</button>`}
-              <button class="del-btn" title="⚠️ 계정과 기록까지 지웁니다. 그냥 그만둔 학생은 「🎓 수료 처리」를 쓰세요" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
+          ${studentStatusButtons(s)}
         </div>
         </div>
     </div>`;
@@ -5160,16 +5385,16 @@
       const g = groups[key];
       const isOpen = openStudentGroups.has(key);
       // 학생 한 명당 노출 버튼은 4개(🔔알림·📈성적·🔓인강·🎬인강이력) + ⋯더보기.
-      //   나머지(학원/반·다른 반·비번·퇴원)는 접어 둔다.
+      //   나머지(학원/반·다른 반·비번·수료/졸업·기록 삭제)는 접어 둔다.
       //   ⚠️ 기능은 하나도 없어지지 않는다 — 자리만 옮긴다. 한 줄에 8개를 늘어놓으면
-      //   자주 쓰는 3개도 같이 안 보이게 되고, 🗑 퇴원처리가 오조작 한 클릭 거리에 놓인다.
+      //   자주 쓰는 3개도 같이 안 보이게 되고, 🗑 기록 삭제가 오조작 한 클릭 거리에 놓인다.
       const items = isOpen ? g.students.map((s, si) => `
         <div class="mkhost" style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
           <div>
             <div>
               <strong style="font-size:0.92rem;">${escapeHtml(s.name||'—')}</strong>
               ${riskBadge(s)}
-              ${isMultiClass(s) ? '<span title="같은 학생이 다른 반에도 등록돼 있습니다. 반을 옮기거나 퇴원 처리할 때 다른 반 등록도 확인하세요." style="background:#FAEEDA;color:#854F0B;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;margin-left:6px;">🔀 겸반</span>' : ''}
+              ${isMultiClass(s) ? '<span title="같은 학생이 다른 반에도 등록돼 있습니다. 반을 옮기거나 수료·졸업 처리할 때 다른 반 등록도 확인하세요." style="background:#FAEEDA;color:#854F0B;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;margin-left:6px;">🔀 겸반</span>' : ''}
               <span style="font-size:0.8rem;color:var(--text-light);margin-left:8px;">
                 ${s.school?escapeHtml(s.school):''}${s.grade?' · '+escapeHtml(s.grade):''}
               </span>
@@ -5185,17 +5410,14 @@
               <button class="go-btn" title="이 학생 성적 입력·조회" onclick="event.stopPropagation();goPreset('/admin-scores','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg><span class="go-txt"> 성적</span></button>
               <button class="go-btn" title="이 학생 인강 열기·잠그기" onclick="event.stopPropagation();goPreset('/admin-makeup','${jsArg(s.academy)}','${jsArg(s.className)}','${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg><span class="go-txt"> 인강</span></button>
               <button class="go-btn" title="언제 결석했고 그날 인강이 열렸는지 — 기록만 봅니다" onclick="event.stopPropagation();toggleAdminMakeupHistory(this,'${jsArg(s.id)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M8 5v14M16 5v14M3.5 12h17"></path></svg><span class="go-txt"> 인강 이력</span></button>
-              <button class="go-btn" style="border-style:dashed;" title="학원/반 변경 · 다른 반 추가 · 비밀번호 초기화 · 퇴원처리" onclick="event.stopPropagation();toggleClassMore('smore-${gi}-${si}', this)">⋯ 더보기</button>
+              <button class="go-btn" style="border-style:dashed;" title="학원/반 변경 · 다른 반 추가 · 비밀번호 초기화 · 수료/졸업 처리" onclick="event.stopPropagation();toggleClassMore('smore-${gi}-${si}', this)">⋯ 더보기</button>
             </div>
             <div class="go-row" id="smore-${gi}-${si}" style="display:none;margin-top:6px;">
               <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>학원/반</button>
               <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>다른 반</button>
               ${s.parentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학부모 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.parentPhone) + '\x27, \x27학부모\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>학부모 비번</button>' : ''}
               ${s.studentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학생 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.studentPhone) + '\x27, \x27학생\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>학생 비번</button>' : ''}
-              ${String(s.approvalStatus || '').trim() === '수료'
-                ? `<button class="del-btn" style="border-color:#3949AB;color:#3949AB;" title="다시 다니게 됐을 때 — 수업 영상이 도로 열립니다" onclick="event.stopPropagation();restoreStudent('${jsArg(s.id)}','${jsArg(s.name)}')">↩ 재원 복귀</button>`
-                : `<button class="del-btn" style="border-color:#e0c98f;color:#8a6d3b;" title="그만뒀을 때 — 앱·리포트는 그대로 두고 수업 영상만 잠급니다" onclick="event.stopPropagation();completeStudent('${jsArg(s.id)}','${jsArg(s.name)}')">🎓 수료 처리</button>`}
-              <button class="del-btn" title="⚠️ 계정과 기록까지 지웁니다. 그냥 그만둔 학생은 「🎓 수료 처리」를 쓰세요" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
+              ${studentStatusButtons(s)}
             </div>
             <div class="mkwrap-admin" style="display:none;margin-top:9px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
           </div>
@@ -5526,6 +5748,12 @@
         : "";
       const _accLog = Array.isArray(v.access_log) ? v.access_log : [];
       const accBtn = `<button type="button" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);" onclick="toggleAccess(\x27${v.code}\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.8"></circle></svg>접근 ${v.access_count || 0}회${_accLog.length ? " ▾" : ""}</button>`;
+      // 🔒 유튜브 공개설정 바로가기 — 앱에서 잠가도 유튜브 주소는 살아 있다(일부공개=링크가 곧 열쇠).
+      //   주소 형식을 못 읽으면(영상ID 11자를 못 뽑으면) 버튼을 안 만든다 — 엉뚱한 영상 편집화면을 열면 더 위험하다.
+      const _ytId = ytVideoId(v.youtube_url);
+      const ytBtn = _ytId
+        ? `<a href="https://studio.youtube.com/video/${_ytId}/edit" target="_blank" rel="noopener" class="del-btn" style="border-color:#862633;color:#862633;text-decoration:none;" title="유튜브에서 공개 설정 바꾸기 — 「비공개」로 바꾸면 주소를 아는 사람도 못 봅니다">🔒 유튜브</a>`
+        : "";
       const accPanel = `<div id="acc-${v.code}" style="display:none;width:100%;margin-top:10px;padding:10px 12px;background:#F7F5F0;border-radius:10px;box-sizing:border-box;">${renderAccessLog(_accLog, v.access_source)}</div>`;
       return `<div class="video-card">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -5539,6 +5767,7 @@
             <button class="del-btn" style="border-color:var(--primary);color:var(--primary);" onclick="copyCode(\x27${v.code}\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>코드 복사</button>
             ${lockBtn}
             <a href="${v.youtube_url}" target="_blank" class="del-btn" style="border-color:var(--text-light);color:var(--text-light);text-decoration:none;">▶ 보기</a>
+            ${ytBtn}
             <button class="del-btn" style="border-color:#c0392b;color:#c0392b;" onclick="deleteVideo(\x27${v.code}\x27, \x27${(v.date || '').replace(/'/g, '')}\x27, \x27${(v.school || '').replace(/'/g, '')}\x27, \x27${(v.class_name || '').replace(/'/g, '')}\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>삭제</button>
           </div>
         </div>
@@ -5621,8 +5850,11 @@
   async function deleteVideo(code, date, school, className) {
     if (!code) return;
     const label = [date, school, className].filter(Boolean).join(" / ") || code;
-    const ok = confirm("⚠️ 영상을 정말 삭제할까요?\n\n[" + label + "]\n코드: " + code + "\n\n삭제하면 R2에서 영상 코드가 즉시 제거되어 학생/학부모 페이지에서 더 이상 보이지 않습니다.\n(유튜브 원본 영상은 영향 없음)");
+    const ok = confirm("⚠️ 영상을 정말 삭제할까요?\n\n[" + label + "]\n코드: " + code + "\n\n삭제하면 R2에서 영상 코드가 즉시 제거되어 학생/학부모 페이지에서 더 이상 보이지 않습니다.\n(유튜브 원본 영상은 그대로 남습니다 — 삭제 뒤 비공개로 바꾸실지 여쭤봅니다)");
     if (!ok) return;
+    // 🔒 유튜브 주소는 지우기 **전에** 챙겨 둔다 — 지우고 나면 목록에서 사라져 못 찾는다.
+    //   앱에서 지워도 유튜브 영상은 살아 있어, 주소를 적어 둔 사람은 계속 본다(일부공개는 링크가 곧 열쇠).
+    const _delId = ytVideoId(((_allVideos || []).find(x => x.code === code) || {}).youtube_url);
     try {
       const res = await fetch("/api/video-delete", {
         method: "POST",
@@ -5633,6 +5865,10 @@
       if (res.ok && data.ok) {
         showToast("🗑 삭제 완료: " + code);
         loadVideos();
+        // 앱에서만 지웠을 뿐이다. 유튜브에서 「비공개」로 바꿔야 주소가 진짜 막힌다(되돌릴 수 있음).
+        if (_delId && confirm("앱에서는 지웠습니다.\n\n다만 유튜브 영상은 그대로 살아 있어, 주소를 적어 둔 사람은 계속 볼 수 있습니다.\n지금 유튜브에서 「비공개」로 바꾸러 가시겠어요?\n(나중에 다시 「일부공개」로 되돌릴 수 있습니다)")) {
+          window.open("https://studio.youtube.com/video/" + _delId + "/edit", "_blank", "noopener");
+        }
       } else {
         showToast("실패: " + (data.error || res.status));
       }
@@ -5818,7 +6054,10 @@
     }
   }
 
-  // ─── 학생 퇴원 처리 (D1 삭제 — 삭제 전 관리자 아카이브 스냅샷 보존, R2 PDF는 남김) ──
+  // ─── 🗑 기록 삭제 (D1 삭제 — 삭제 전 관리자 아카이브 스냅샷 보존, R2 PDF는 남김) ──
+  //   2026-08-10 이름 변경: 「퇴원처리」→「기록 삭제」. 관우T: "그만두면 무조건 수료로 빠지게 될건데 퇴원생은 안쓰잖아"
+  //   → 그만둔 학생은 「🎓 수료 처리」, 학교를 졸업했으면 「🎓 졸업」. 이 버튼은 잘못 만든 계정이나
+  //     삭제 요청을 받았을 때 쓰는 비상 수단이다. **되돌릴 수 없다.**
   async function deleteStudent(studentId, name, className, academy) {
     if (!studentId && !name) return;
     // 같은 이름의 다른 enrollment가 있는지 확인 (per-class records 대응)
@@ -5833,17 +6072,17 @@
         '⚠️ [' + name + '] 학생은 여러 반에 등록돼있어요.\n\n' +
         '현재 이 카드: ' + label + '\n' +
         '다른 등록:\n' + others + '\n\n' +
-        '[확인] = 이 반 enrollment만 퇴원 (다른 반 유지)\n' +
+        '[확인] = 이 반 등록 기록만 삭제 (다른 반 유지)\n' +
         '[취소] = 작업 취소\n\n' +
-        '(전체 퇴원을 원하면 다른 반들도 각각 같은 방식으로 처리해주세요)'
+        '(전부 지우려면 다른 반들도 각각 같은 방식으로 처리해주세요)'
       );
       if (!choice) return;
       mode = 'enrollment-only';
     } else {
-      // 단독 enrollment → 전체 퇴원 (기존 동작)
+      // 단독 enrollment → 전체 삭제 (기존 동작)
       // 📝 2026-07-30 — 문구를 실동작대로 정정: 아카이브 스냅샷 보존 · R2 PDF 보존 · 보존 실패 시 삭제 자체가 중단됨.
       //   (이전 문구는 "복구 불가"+"R2 파일 모두 삭제"로 겁줬지만 실제와 달랐다 — 양방향 오해 소지)
-      const ok = confirm("⚠️ [" + name + "] 학생을 퇴원 처리할까요?\n\n· 삭제 직전 전체 기록(인적사항·성적·출결·학습)을 관리자 아카이브에 보존\n· 학생·출결·공부기록·성적·리포트 행을 DB에서 삭제\n· 리포트 PDF 파일은 삭제하지 않고 보존\n· 계정은 형제가 같은 번호를 쓰면 유지, 아니면 삭제\n\n(보존에 실패하면 아무것도 지우지 않고 중단됩니다)\n정말 진행할까요?");
+      const ok = confirm("⚠️ [" + name + "] 학생의 기록을 삭제할까요?\n\n· 앱 계정이 사라져 학생·학부모가 더는 로그인하지 못합니다\n· 삭제 직전 전체 기록(인적사항·성적·출결·학습)을 관리자 아카이브에 보존\n· 학생·출결·공부기록·성적·리포트 행을 DB에서 삭제\n· 리포트 PDF 파일은 삭제하지 않고 보존\n· 계정은 형제가 같은 번호를 쓰면 유지, 아니면 삭제\n\n그냥 그만둔 학생이면 「🎓 수료 처리」, 학교를 졸업했으면 「🎓 졸업」을 쓰세요 — 둘 다 아무것도 안 지웁니다.\n\n(보존에 실패하면 아무것도 지우지 않고 중단됩니다)\n정말 진행할까요?");
       if (!ok) return;
     }
     try {
@@ -5857,13 +6096,13 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        showToast("❌ 퇴원 처리 실패: " + (data.error || res.status));
+        showToast("❌ 기록 삭제 실패: " + (data.error || res.status));
         return;
       }
       if (mode === 'enrollment-only') {
-        showToast("🗑 " + name + " 이 반에서만 퇴원 (다른 반 유지)");
+        showToast("🗑 " + name + " 이 반 기록만 삭제 (다른 반 유지)");
       } else {
-        showToast("🗑 " + name + " 전체 퇴원 완료 — 학생 " + data.students_archived + " · 리포트 " + data.reports_archived + " · 아카이브 " + (data.outcomes_saved || 0));
+        showToast("🗑 " + name + " 기록 삭제 완료 — 학생 " + data.students_archived + " · 리포트 " + data.reports_archived + " · 아카이브 " + (data.outcomes_saved || 0));
       }
       if (typeof loadStudents === "function") loadStudents();
     } catch (e) {
@@ -5872,8 +6111,8 @@
   }
 
   // ─── 🎓 수료 처리 / ↩ 재원 복귀 (2026-08-10) ──────────────────
-  //   퇴원처리(위)와의 차이가 이 기능의 존재 이유다.
-  //     퇴원처리 = students 행을 지운다 → 로그인 열쇠·수업 명단·반 소속이 한꺼번에 끊긴다.
+  //   기록 삭제(위)와의 차이가 이 기능의 존재 이유다.
+  //     기록 삭제 = students 행을 지운다 → 로그인 열쇠·수업 명단·반 소속이 한꺼번에 끊긴다.
   //                그만둔 학생 집에서 앱을 열면 "등록된 학생 정보가 없습니다" 가 뜬다.
   //     수료 처리 = approval_status 를 '수료' 로만 바꾼다 → 로그인·지난 리포트·성적은 그대로,
   //                수업 영상만 잠긴다(class-videos.js 가 403). 학원을 나가도 앱은 남는다.
@@ -5887,10 +6126,28 @@
       '· 수업 영상만 잠깁니다\n' +
       '· 명단·출결·「연속 결석」 경보에서 빠집니다\n' +
       '· 다시 다니게 되면 「↩ 재원 복귀」 한 번으로 되돌아옵니다\n\n' +
-      '(기록까지 지우려면 이게 아니라 「퇴원처리」입니다)'
+      '(기록까지 지우려면 이게 아니라 「기록 삭제」입니다)'
     );
     if (!ok) return;
     await setStudentCompletion(studentId, name, 'complete');
+  }
+
+  // 🎓 졸업 처리 — 하는 일은 수료와 **글자 하나 다르지 않다**(상태 문자열만 '졸업').
+  //   관우T: "학교를 졸업을 해서 내 수업을 들을 일이 없으면 … 그냥 졸업생으로 해버려"
+  //   나뉘어 있는 이유는 딱 하나 — 명단에서 「잠깐 쉬는 사람(수료)」과 「이제 안 올 사람(졸업)」을
+  //   눈으로 갈라 보기 위해서다. 권한·잠금은 서버에서 완전히 같게 다룬다(_auth.js isCompleted).
+  async function graduateStudent(studentId, name) {
+    if (!studentId) return;
+    const ok = confirm(
+      '🎓 [' + name + '] 학생을 졸업 처리할까요?\n\n' +
+      '· 계정·지난 리포트·성적·출결 기록은 그대로 남습니다 (앱 계속 사용 가능)\n' +
+      '· 수업 영상만 잠깁니다\n' +
+      '· 명단·출결·「연속 결석」 경보에서 빠지고 「졸업생」 탭으로 옮겨갑니다\n' +
+      '· 되돌리려면 「↩ 재원 복귀」 한 번이면 됩니다\n\n' +
+      '(지우는 것은 하나도 없습니다. 기록까지 지우려면 「기록 삭제」입니다)'
+    );
+    if (!ok) return;
+    await setStudentCompletion(studentId, name, 'graduate');
   }
 
   async function restoreStudent(studentId, name) {
@@ -5908,11 +6165,13 @@
         body: JSON.stringify({ studentId: String(studentId), action: action }),
       });
       const data = await res.json().catch(() => ({}));
+      // 세 동작의 이름표. 표로 두는 이유는 하나 늘 때마다 삼항식이 겹치는 걸 막기 위해서다.
+      const 이름 = { complete:'수료 처리', graduate:'졸업 처리', restore:'재원 복귀' }[action] || action;
       if (!res.ok || !data.ok) {
-        showToast('❌ ' + (action === 'complete' ? '수료 처리' : '재원 복귀') + ' 실패: ' + (data.error || data.message || res.status));
+        showToast('❌ ' + 이름 + ' 실패: ' + (data.error || data.message || res.status));
         return;
       }
-      showToast((action === 'complete' ? '🎓 ' : '↩ ') + name + ' — ' + (data.message || (action === 'complete' ? '수료 처리 완료' : '재원 복귀 완료')));
+      showToast((action === 'restore' ? '↩ ' : '🎓 ') + name + ' — ' + (data.message || (이름 + ' 완료')));
       if (typeof loadStudents === 'function') await loadStudents();
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
@@ -6097,8 +6356,8 @@
     const byKey = {};
     for (const s of (allStudents || [])) {
       if (!s.academy || !s.className) continue;
-      // 🎓 수료생 제외 — 카드의 인원수·출결 집계가 아래 명단(renderAttendanceList)과 어긋나면 안 된다.
-      if (String(s.approvalStatus || '').trim() === '수료') continue;
+      // 🎓 수료·졸업생 제외 — 카드의 인원수·출결 집계가 아래 명단(renderAttendanceList)과 어긋나면 안 된다.
+      if (isDoneStudent(s)) continue;
       const k = s.academy + '/' + s.className;
       (byKey[k] = byKey[k] || []).push(s);
     }
@@ -6188,10 +6447,10 @@
     const sumEl  = document.getElementById('qaSummary');
     if (!sumEl || !acadEl || !clsEl) return;
     const acad = acadEl.value, cls = clsEl.value;
-    // 🎓 수료생 제외 — renderAttendanceList(6542)와 **같은 조건이어야 한다.**
+    // 🎓 수료·졸업생 제외 — renderAttendanceList(6542)와 **같은 조건이어야 한다.**
     //    여기만 빠뜨리면 명단엔 5명인데 요약은 8명(미체크 3)으로 떠서, 매번 있지도 않은 미체크를 찾게 된다.
     const targets = (allStudents||[]).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls)
-      && String(s.approvalStatus || '').trim() !== '수료');
+      && !isDoneStudent(s));
     if (!targets.length) { sumEl.innerHTML = '<span style="color:var(--text-light);">대상 학생 없음</span>'; return; }
     const _t = qaTally(targets);
     const counts = _t.counts, hwAvg = _t.hwAvg, hwN = _t.hwN;
@@ -6214,11 +6473,11 @@
     const acad = acadArg || (document.getElementById('qaAcademy') || {}).value || '';
     const cls  = clsArg  || (document.getElementById('qaClass')   || {}).value || '';
     if (!acad || !cls) { showToast('학원과 반을 먼저 선택하세요'); return; }
-    // 🎓 수료생 제외 — 여기가 셋 중 **가장 위험한 자리**다.
+    // 🎓 수료·졸업생 제외 — 여기가 셋 중 **가장 위험한 자리**다.
     //    ① 반 전체를 한 번에 찍는 쓰기 경로이고 ② 결석·지각·병결이면 **학부모께 푸시가 나간다.**
     //    끝난 반 학생이 섞여 있으면 그만둔 아이 학부모께 "오늘 결석입니다" 알림이 간다 — 되돌릴 수 없다.
     const targets = (allStudents||[]).filter(s => s.academy === acad && s.className === cls
-      && String(s.approvalStatus || '').trim() !== '수료');
+      && !isDoneStudent(s));
     if (!targets.length) { showToast('해당 반에 학생이 없습니다'); return; }
     const date = qaDate();
     if (!confirm(acad + ' / ' + cls + ' (' + targets.length + '명)을 모두 [' + status + '] 처리할까요?\n' + date + ' 날짜로 기록됩니다.')) return;
@@ -6565,11 +6824,11 @@
     const acad = (document.getElementById('qaAcademy')?.value || '');
     const cls  = (document.getElementById('qaClass')?.value || '');
     // 학원/반 필터 우선 적용 (선택돼있으면), 그 다음 이름 검색
-    // 🎓 수료생은 출석 명단에서 뺀다. 여기는 「보는」 화면이 아니라 출·지·결을 **찍는** 화면이라,
+    // 🎓 수료·졸업생은 출석 명단에서 뺀다. 여기는 「보는」 화면이 아니라 출·지·결을 **찍는** 화면이라,
     //    끝난 반 학생이 섞여 있으면 안 다니는 아이 출결이 기록된다.
     //    (기록 자체는 그대로 남는다 — 출석 현황·리포트에서는 여전히 보인다)
     let filtered = (allStudents || []).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls)
-      && String(s.approvalStatus || '').trim() !== '수료');
+      && !isDoneStudent(s));
     // 🗓 아무것도 안 고르고 검색도 안 했으면 '그날 수업 있는 반' 학생만 기본 표시.
     //    (매번 학원·반을 고르게 하지 않기 위함 — 2026-07-31 관우T 요청)
     let banner = '';

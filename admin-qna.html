@@ -339,7 +339,10 @@
       </div>
     </div>
   </div>
-  <button id="pushBtn" class="pushbtn" style="display:none;" onclick="togglePush()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg>새 질문 알림 받기</button>
+  <!-- 🔴 2026-08-10 — `none` 뒤의 !important 를 빼지 말 것. 위 CSS 의 `.pushbtn{display:inline-flex !important}`
+       가 인라인 스타일을 이겨서, 이 버튼이 **로그인 화면에도** 떠 있고 알림 미지원 브라우저에서도 안 사라졌다.
+       (관우T가 학생 목록에서 같은 「빈 알약」 버그를 발견해 전 화면을 훑다가 같이 잡힌 자리) -->
+  <button id="pushBtn" class="pushbtn" style="display:none !important;" onclick="togglePush()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10.3 19a2 2 0 0 0 3.4 0"></path></svg>새 질문 알림 받기</button>
   <div id="content"><div class="msg">불러오는 중…</div></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -410,7 +413,8 @@
     return r;
   }
   function showLogin(err){
-    var pb=$('pushBtn'); if(pb) pb.style.display='none';
+    // ⚠️ `.pushbtn{display:inline-flex !important}` 때문에 그냥 'none' 은 안 먹는다.
+    var pb=$('pushBtn'); if(pb) pb.style.setProperty('display','none','important');
     $('content').innerHTML =
       '<div class="login"><div style="font-weight:700;">관리자 비밀번호</div>'+
       '<input type="password" id="pw" placeholder="비밀번호" onkeydown="if(event.key===\'Enter\')doLogin()">'+
@@ -531,13 +535,13 @@
   async function refreshPushBtn(){
     var btn=$('pushBtn'); if(!btn) return;
     if(isInApp()){
-      btn.style.display='block';
+      btn.style.removeProperty('display');
       if(_appPushDone){ btn.textContent='새 질문 알림 켜짐'; btn.className='pushbtn on'; }
       else { btn.textContent='새 질문 알림 받기'; btn.className='pushbtn'; if(!_appPushTried){ _appPushTried=true; appPushRegister(ADMIN_PUSH_USER); } }
       return;
     }
-    if(!pushSupported()){ btn.style.display='none'; return; }
-    btn.style.display='block';
+    if(!pushSupported()){ btn.style.setProperty('display','none','important'); return; }  // ⚠️ !important 필수(.pushbtn)
+    btn.style.removeProperty('display');   // 숨길 때 !important 를 걸었으므로, 보일 땐 선언 자체를 지운다
     // 차단 → 탭하면 복구 안내 모달 (이제 버튼 클릭 가능)
     if(Notification.permission==='denied'){ btn.textContent='알림 차단됨 — 탭해서 푸는 법 보기'; btn.className='pushbtn blocked'; return; }
     try{

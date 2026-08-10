@@ -887,8 +887,11 @@
   // 🎓 수료 판정은 화면 어디서든 이 함수 하나로 한다.
   //   /api/auth/me 는 isCompleted 를 붙여 주지만 /api/auth/login 은 approvalStatus 원본만 준다.
   //   둘 중 하나만 보면 "로그인 직후엔 배지가 없다가 새로고침하면 생기는" 이상한 화면이 된다.
+  //   🎓 2026-08-10 — '졸업'도 여기 포함된다. 학생 화면에서 수료와 졸업은 대우가 완전히 같다
+  //      (로그인 O · 리포트/성적 O · 수업영상 X). 서버 isCompleted() 도 둘 다 참을 준다.
   function isDoneStudent(s) {
-    return !!(s && (s.isCompleted === true || String(s.approvalStatus || '').trim() === '수료'));
+    const st = String((s && s.approvalStatus) || '').trim();
+    return !!(s && (s.isCompleted === true || st === '수료' || st === '졸업'));
   }
 
   // 지금 보고 있는 자녀 기준으로 안내를 켠다/끈다. 자녀를 바꿔도 다시 불러야 한다.
@@ -898,7 +901,9 @@
     const st = selectedStudent || currentStudents[0];
     if (!isDoneStudent(st)) { box.style.display = 'none'; box.innerHTML = ''; return; }
     const 남은재원 = currentStudents.filter(s => !isDoneStudent(s)).length;
-    box.innerHTML = '<b style="color:#8a6d3b;">🎓 수강이 끝난 반입니다</b><br>'
+    // 수료와 졸업은 열리는 것이 똑같지만, 학부모께 보일 말은 다르다.
+    const 졸업 = String((st && st.approvalStatus) || '').trim() === '졸업';
+    box.innerHTML = '<b style="color:#8a6d3b;">🎓 ' + (졸업 ? '졸업한 학생 계정입니다' : '수강이 끝난 반입니다') + '</b><br>'
       + '지난 리포트·성적·출석은 그대로 보실 수 있어요. 수업 영상은 재원 중일 때만 열립니다.'
       + (남은재원 ? '' : '<br>다시 등록하시면 바로 이 계정 그대로 이어집니다.');
     box.style.display = 'block';
