@@ -5,7 +5,7 @@
 //   ⚠️ 대상 결정은 서버가 함 — 클라(admin.html)는 "어느 반"만 알려줌. 임의 폰 목록 발송 차단.
 //   공개 자료(전체 공개)·리포트는 이 엔드포인트 대상 아님(호출부가 class-shared 업로드에서만 호출).
 //   best-effort: 실패해도 등록/업로드는 이미 끝났으니 알림만 조용히 실패.
-import { normalizePhone } from './_auth.js';
+import { normalizePhone, isCompleted } from './_auth.js';
 import { listStudents } from './_db.js';
 import { sendPushToUsers, isKstQuietHours } from './_push.js';
 import { safeError } from './_errors.js';
@@ -28,7 +28,14 @@ export async function onRequest(context) {
 
   try {
     const all = await listStudents(env);
-    const inClass = (all || []).filter(s => (s.academy || '') === academy && (s.className || '') === className);
+    // 🎓 2026-08-10 — 수료생 제외. **서버가 막아야 하는 자리**다.
+    //   반은 살아 있고 학생만 그만둔 경우(중도 이탈 → 수료), 그 반에 자료를 올릴 때마다
+    //   **그만둔 아이 학부모께 "새 수업자료가 올라왔어요" 푸시가 나간다.** 발송은 되돌릴 수 없다.
+    //   admin.html 명단에서 수료생을 감춰도 이 API는 "반 이름"만 받아 서버가 대상을 정하므로(위 주석)
+    //   화면 쪽 필터가 여기까지 닿지 않는다 — 그래서 여기서 다시 건다.
+    //   ⚠️ 재등록 공지(notices)는 일부러 수료생을 포함한다. 그건 "돌아오세요"가 목적이고 이건 "오늘 수업자료"다.
+    const inClass = (all || []).filter(s => (s.academy || '') === academy && (s.className || '') === className
+      && !isCompleted(s.approvalStatus));
     // 학부모만 — 정규화한 학부모 폰(포털이 푸시 구독에 쓰는 키와 동일 형식: 010-1234-5678).
     const phones = [...new Set(inClass.map(s => normalizePhone(s.parentPhone)).filter(Boolean))];
     if (!phones.length) return Response.json({ ok: true, targeted: 0, note: '대상 학부모 없음' });
