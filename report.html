@@ -258,9 +258,14 @@
       const studentInfo = Array.isArray(rData) ? null : rData.student;
 
       let videos = [];
+      // 🎓 수료(종강)면 서버(class-videos.js)가 403 + reason:'completed' 를 준다.
+      //    그냥 videos=[] 로 두면 "영상이 원래 없던 반"과 구별이 안 돼서 학부모가 고장으로 오해한다.
+      //    리포트·성적은 그대로 나오므로, 영상만 닫혔다는 걸 한 줄로 알려준다.
+      let 영상잠김 = false;
       try {
         const vData = await vRes.json();
         if (vRes.ok && vData.ok && Array.isArray(vData.videos)) videos = vData.videos;
+        else if (vRes.status === 403 && vData && vData.reason === 'completed') 영상잠김 = true;
       } catch (_) {}
 
       const pdfs = pdfRes.ok ? await pdfRes.json() : [];
@@ -321,7 +326,12 @@
       });
       allLessons = Object.values(map).sort((a,b) => (b.date||'').localeCompare(a.date||''));
 
-      $('resultArea').innerHTML = '';
+      $('resultArea').innerHTML = 영상잠김
+        ? '<div style="background:#FBF6EC;border:1px solid #E6D6B4;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:0.82rem;line-height:1.6;color:#6B5836;">'
+          + '<b style="color:#8a6d3b;">🎓 수강이 끝난 반입니다</b><br>'
+          + '수업 영상은 재원 중일 때만 볼 수 있어요. 지난 리포트·성적·출결은 그대로 보실 수 있습니다.'
+          + '</div>'
+        : '';
       if (!allLessons.length) {
         if (pdfs.length === 0 && classFiles.length === 0) {
           $('reportList').innerHTML = '<div class="state-box"><div class="state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8A2.5 2.5 0 0 1 6 5.5h4.2L12 8h6a2.5 2.5 0 0 1 2.5 2.5V17A2.5 2.5 0 0 1 18 19.5H6A2.5 2.5 0 0 1 3.5 17z"/></svg></div><p>등록된 수업이 없습니다.</p></div>';

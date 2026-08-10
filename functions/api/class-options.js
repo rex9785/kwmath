@@ -1,4 +1,5 @@
-import { listStudents } from './_db.js';
+import { listStudents, setApprovalStatusBulk } from './_db.js';
+import { isEnrolled, isCompleted, STATUS_COMPLETED } from './_auth.js';
 import { logAudit } from './_auditlog.js';
 // 🛡️ §11-16 — 이 파일은 _lockout.js 를 쓰지 않는다.
 //    「코드로 반 찾기(GET ?code=)」를 원장 전용으로 잠갔기 때문에(아래 onRequest 참고)
@@ -7,12 +8,17 @@ import { logAudit } from './_auditlog.js';
 //    ⚠️ ?code= 를 다시 공개로 되돌린다면 반드시 _lockout.js 의 gate* 잠금을 함께 걸 것.
 // /api/class-options
 //   GET  — 공개 (누구나 호출). R2의 학원/반 옵션 + 실제 학생 데이터에서 사용 중인 옵션 합집합 반환
-//   POST — admin only. body: { action: 'add-class'|'delete-class'|'add-academy'|'delete-academy'|'set-schedule', academy, className?, schedule? }
+//   POST — admin only. body: { action: 'add-class'|'delete-class'|'add-academy'|'delete-academy'|'set-schedule'|'archive-class'|'unarchive-class', academy, className?, schedule? }
 //
 // 저장 위치: R2 key `auth/class-options.json`
 // 형식: { academies: [...], classes: { [academy]: [class1, ...] },
 //         codes: { "학원/반": "12345" },
-//         schedules: { "학원/반": { days: [1,3,5], start: "09:30", end: "13:30", clinic?: { days, start, end } } } }
+//         schedules: { "학원/반": { days: [1,3,5], start: "09:30", end: "13:30", clinic?: { days, start, end } } },
+//         archived: { "학원/반": { at: ISO, students: [id...] } } }
+// 🏷️ archived — 「반 종강」(2026-08-10). 반을 지우지 않고 접는다. 종강하면 반코드 폐기 · 수업시간표 해제 ·
+//    그 반 재원생 전원 자동 '수료'. 출결·성적·리포트는 하나도 건드리지 않는다.
+//    students 는 **이번 종강이 실제로 수료로 바꾼 학생 id**만 담는다 — 「종강 취소」가 딱 그 사람만 되돌리기 위함.
+//    (원래부터 수료였던 학생까지 되살리면 안 되므로, 목록 없이 되돌리는 건 불가능하다.)
 //   ⏰ schedules — 수업 요일(0=일 ~ 6=토)·시작/종료 시각(KST, HH:MM). 관리자 알림(리포트 미생성·출결 미입력 체크)의 기준 데이터.
 //      clinic(선택) — 클리닉/보충 시간 블록. 예: 세정 시동반 본수업 월수금 09:30~13:00 + 클리닉 월수금 14:00~16:00.
 // R2에 없으면 학생 데이터에서 시드(seed)
@@ -31,6 +37,32 @@ const DEFAULT_OPTIONS = {
 function isAdmin(request, env) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   return !!env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
+}
+
+// 🏷️ 종강한 반인가? — saved.archived 는 { "학원/반": {...} } 맵이다.
+function isArchivedKey(saved, key) {
+  return !!(saved && saved.archived && saved.archived[key]);
+}
+
+// 🏷️ 반 이름 기수 표기 — 2026-08-10 관우T 확정.
+//   1학기 `26-1` · 여름방학 `26-s` · 2학기 `26-2` · 겨울방학 `26-w`(시작 연도 기준). 예) `시동반 (26-2)`
+//
+// ⚠️ 그냥 .sort() 하면 문자열 알파벳 순이라 `26-1 · 26-2 · 26-s · 26-w` 가 된다.
+//    실제 시간 순은 `26-1 → 26-s → 26-2 → 26-w`. 표기는 그대로 두고 **정렬 키만** 여기서 만든다.
+//    (표기를 시간순으로 정렬되게 바꾸자는 안은 기각 — 관우T가 읽을 이름이 우선이다.)
+const SEASON_RANK = { '1': 1, 's': 2, '2': 3, 'w': 4 };
+function seasonKey(name) {
+  const m = String(name || '').match(/(\d{2})\s*-\s*([12swSW])(?![0-9])/);
+  if (!m) return null;
+  return Number(m[1]) * 10 + (SEASON_RANK[m[2].toLowerCase()] || 9);
+}
+// 기수 표기가 없는 옛 반이 먼저, 그다음 기수 오름차순(오래된 것 → 최근). 같으면 이름순.
+function compareClassNames(a, b) {
+  const ka = seasonKey(a), kb = seasonKey(b);
+  if (ka === null && kb !== null) return -1;
+  if (ka !== null && kb === null) return 1;
+  if (ka !== null && kb !== null && ka !== kb) return ka - kb;
+  return String(a).localeCompare(String(b), 'ko');
 }
 
 async function loadOptions(env) {
@@ -73,6 +105,13 @@ function ensureCodes(saved) {
   for (const acad of (saved.academies || [])) {
     for (const cls of (saved.classes[acad] || [])) {
       const key = acad + '/' + cls;
+      // 🔴 종강한 반에는 코드를 다시 발급하지 않는다.
+      //    이 3줄을 빼먹으면 archive-class 가 코드를 지워도 **다음 GET 한 번에 새 코드가 도로 발급**돼
+      //    종강이 조용히 무력화된다(에러도 안 난다 — 반코드만 새 번호로 되살아난다).
+      if (isArchivedKey(saved, key)) {
+        if (saved.codes[key]) { delete saved.codes[key]; changed = true; }
+        continue;
+      }
       validKeys.add(key);
       if (!saved.codes[key]) {
         const code = genCode(existing);
@@ -114,24 +153,33 @@ function validSchedule(s) {
   return main;
 }
 
-// 학생 데이터에서 실제 사용 중인 학원/반 추출 (active만)
 // 학생 데이터(D1)에서 실제 사용 중인 학원/반 추출
+//
+// 🏷️ 2026-08-10 — 세 가지 수를 따로 센다. 셋을 하나로 합치면 반드시 사고가 난다.
+//   counts     = **재원생만**(승인 또는 빈 값). 화면의 「학생 N명」과 사람이 판단할 때 쓰는 수.
+//   completed  = **수료생**. 「수료 M명」 배지. 종강한 반에 남아 있는 사람들이다.
+//   countsAll  = 대기중·거부까지 **전부**. 삭제 안전장치(delete-class/delete-academy) 전용.
+//
+// ⚠️ 삭제 게이트에 counts(재원)를 쓰면 안 된다. 수료생만 남은 반이 "0명"으로 보여
+//    반이 지워지고, 그 반의 출결·리포트가 어느 반 것인지 가리키는 이름이 사라진다.
+// ⚠️ academies/classes 는 **상태와 무관하게 전부** 담는다. 수료생 반 이름이 목록에서 사라지면
+//    관리자 화면의 반 드롭다운이 그 학생을 첫 번째 반으로 조용히 옮겨 저장해 버린다.
 async function getUsedFromStudents(env) {
-  const used = { academies: new Set(), classes: {}, counts: {} };
+  const used = { academies: new Set(), classes: {}, counts: {}, completed: {}, countsAll: {} };
   try {
     const students = await listStudents(env);
     for (const s of students) {
       const acad = s.academy || '';
       const cls  = s.className || '';
-      if (acad) {
-        used.academies.add(acad);
-        if (!used.classes[acad]) used.classes[acad] = new Set();
-        if (cls) {
-          used.classes[acad].add(cls);
-          const key = acad + '/' + cls;
-          used.counts[key] = (used.counts[key] || 0) + 1;
-        }
-      }
+      if (!acad) continue;
+      used.academies.add(acad);
+      if (!used.classes[acad]) used.classes[acad] = new Set();
+      if (!cls) continue;
+      used.classes[acad].add(cls);
+      const key = acad + '/' + cls;
+      used.countsAll[key] = (used.countsAll[key] || 0) + 1;
+      if (isEnrolled(s.approvalStatus))       used.counts[key]    = (used.counts[key] || 0) + 1;
+      else if (isCompleted(s.approvalStatus)) used.completed[key] = (used.completed[key] || 0) + 1;
     }
   } catch (_) {}
   return used;
@@ -144,12 +192,16 @@ function mergeOptions(saved, used) {
     const savedCls = new Set(saved.classes?.[acad] || []);
     const usedCls = used.classes[acad] || new Set();
     const allCls = new Set([...savedCls, ...usedCls]);
-    result.classes[acad] = Array.from(allCls).sort();
+    result.classes[acad] = Array.from(allCls).sort(compareClassNames);
   }
   result.academies = Array.from(allAcademies).sort();
   result.counts = used.counts;
+  result.completed = used.completed;
+  result.countsAll = used.countsAll;
   result.codes = saved.codes || {};
   result.schedules = saved.schedules || {};
+  // 🏷️ 종강한 반 키 목록 — admin.html 이 「지난 반」으로 접는 근거. 목록에서 빼지는 않는다.
+  result.archived = Object.keys(saved.archived || {});
   return result;
 }
 
@@ -231,9 +283,21 @@ export async function onRequest({ request, env }) {
     // 🔒 인원 수(counts)·반코드(codes)는 admin 전용 — 비로그인 공개 노출 차단.
     //    학원/반 "이름"은 등록 폼에 필요해서 공개 유지.
     if (!isAdmin(request, env)) {
+      // 🏷️ 종강한 반은 공개 목록(등록 폼)에서 아예 뺀다 — 지난 반에 새로 가입 신청이 붙지 않게.
+      //    반코드도 이미 폐기돼 있으니 이건 2차 방어다. 삭제하는 게 아니라 안 보여줄 뿐.
+      //    (merged.archived 를 지우기 **전에** 걸러야 한다. 순서를 뒤집으면 필터가 빈 목록으로 도는데 에러는 안 난다.)
+      const archivedSet = new Set(merged.archived || []);
+      if (archivedSet.size) {
+        for (const acad of Object.keys(merged.classes)) {
+          merged.classes[acad] = (merged.classes[acad] || []).filter(c => !archivedSet.has(acad + '/' + c));
+        }
+      }
       delete merged.counts;
+      delete merged.completed;
+      delete merged.countsAll;
       delete merged.codes;
       delete merged.schedules;  // 수업 시간표(내부 운영 정보)도 admin 전용
+      delete merged.archived;
     }
     return Response.json(merged);
   }
@@ -292,6 +356,7 @@ export async function onRequest({ request, env }) {
       delete saved.classes[academy];
       if (saved.codes) for (const k of Object.keys(saved.codes)) { if (k.startsWith(academy + '/')) delete saved.codes[k]; }
       if (saved.schedules) for (const k of Object.keys(saved.schedules)) { if (k.startsWith(academy + '/')) delete saved.schedules[k]; }
+      if (saved.archived) for (const k of Object.keys(saved.archived)) { if (k.startsWith(academy + '/')) delete saved.archived[k]; }
       await saveOptions(env, saved);
       await logAudit(env, request, {
         action: 'class.academy.delete', target: academy, targetName: academy,
@@ -312,6 +377,15 @@ export async function onRequest({ request, env }) {
 
     if (action === 'add-class') {
       if (!academy || !className) return Response.json({ error: 'academy, className 둘 다 필요' }, { status: 400 });
+      // 🏷️ 종강한 반과 이름이 같으면 막는다. 조용히 되살리면 「지난 반」에 새 학생이 섞이고,
+      //    수업영상 매칭(학원+반 이름)이 옛 기수 영상을 새 학생에게 그대로 열어준다.
+      if (isArchivedKey(saved, academy + '/' + className)) {
+        return Response.json({
+          error: `[${academy} · ${className}] 은 종강된 반입니다. 그 반을 다시 열려면 「종강 취소」를 누르시고, `
+            + `새 학기 반이라면 기수를 붙여 새 이름으로 만들어 주세요. (예: ${className.replace(/\s*\(\d{2}-[12sw]\)\s*$/i, '')} (26-2))`,
+          archived: true,
+        }, { status: 409 });
+      }
       if (!saved.academies.includes(academy)) saved.academies.push(academy);
       if (!saved.classes[academy]) saved.classes[academy] = [];
       if (!saved.classes[academy].includes(className)) saved.classes[academy].push(className);
@@ -342,15 +416,26 @@ export async function onRequest({ request, env }) {
       if (!academy || !className) return Response.json({ error: 'academy, className 둘 다 필요' }, { status: 400 });
       const used = await getUsedFromStudents(env);
       const key = academy + '/' + className;
-      const count = used.counts[key] || 0;
+      // 🔴 삭제 게이트는 **countsAll**(대기중·거부·수료 전부)을 본다. counts(재원)로 보면
+      //    수료생만 남은 종강 반이 "0명"으로 보여 지워지고, 그 학생들의 출결·리포트가
+      //    어느 반 것인지 가리키던 이름이 사라진다.
+      const count = used.countsAll[key] || 0;
       if (count > 0) {
-        return Response.json({ error: `[${academy} · ${className}]에 학생 ${count}명이 있어서 삭제할 수 없습니다. (먼저 이동하거나 퇴원 처리)` }, { status: 409 });
+        const 재원 = used.counts[key] || 0;
+        const 수료 = used.completed[key] || 0;
+        const 내역 = 수료 > 0 ? ` (재원 ${재원}명 · 수료 ${수료}명)` : '';
+        return Response.json({
+          error: `[${academy} · ${className}]에 학생 ${count}명이 있어서 삭제할 수 없습니다.${내역}`
+            + (수료 > 0 ? ' 수료생이 있는 반은 지우지 마세요 — 「종강」으로 접으면 목록에서 내려가고 기록은 그대로 남습니다.' : ' (먼저 이동하거나 퇴원 처리)'),
+        }, { status: 409 });
       }
       const 코드전 = (전체전.codes || {})[key] || null;
       const 시간표전 = (전체전.schedules || {})[key] || null;
       saved.classes[academy] = (saved.classes[academy] || []).filter(c => c !== className);
       if (saved.codes) delete saved.codes[academy + '/' + className];
       if (saved.schedules) delete saved.schedules[academy + '/' + className];
+      // 반이 사라지면 「지난 반」 표시도 같이 사라져야 한다 — 안 지우면 없는 반이 archived 에 영영 남는다.
+      if (saved.archived) delete saved.archived[key];
       await saveOptions(env, saved);
       await logAudit(env, request, {
         action: 'class.delete', target: key, targetName: className,
@@ -368,11 +453,124 @@ export async function onRequest({ request, env }) {
       return Response.json({ ok: true, action, academy, className });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🏷️ 반 종강 (2026-08-10, 관우T 확정) — 「퇴원」을 대신하는 학기 마감 도구.
+    //
+    //   왜 만들었나: 학기가 끝나면 안 다니는 학생이 생기는데, 그동안은 학생 행을 지우는 것
+    //   말고는 방법이 없었다. 그런데 그 행 하나가 ① 로그인 열쇠 ② 수업 명단 ③ 반 소속을
+    //   동시에 쥐고 있어서, 지우는 순간 셋이 한꺼번에 끊겼다 — 앱이 아예 안 열리고,
+    //   그동안 쌓인 리포트도 학부모 눈에서 사라졌다.
+    //
+    //   종강이 하는 일 — 지우는 건 하나도 없다:
+    //     · 반코드 폐기        → 그 코드로는 더 이상 가입 안 됨
+    //     · 수업시간표 해제    → 출결·리포트 미입력 리마인드가 이 반을 그만 찾음
+    //     · 재원생 전원 '수료' → 앱 로그인·리포트·성적은 그대로, 수업영상만 잠김
+    //     · 「지난 반」으로 접힘 → 관리자 목록과 등록 폼에서 내려감
+    //   출결·학습기록·리포트·성적은 **단 하나도 건드리지 않는다.**
+    //
+    //   ⚠️ 대기중·거부 학생은 손대지 않는다. 승인 흐름은 종강과 별개 문제다.
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (action === 'archive-class') {
+      if (!academy || !className) return Response.json({ error: 'academy, className 둘 다 필요' }, { status: 400 });
+      const key = academy + '/' + className;
+      if (isArchivedKey(saved, key)) {
+        return Response.json({ error: `[${academy} · ${className}] 은 이미 종강된 반입니다.` }, { status: 409 });
+      }
+      if (!(saved.classes[academy] || []).includes(className)) {
+        return Response.json({ error: `[${academy} · ${className}] 반이 없습니다.` }, { status: 404 });
+      }
+
+      // 이번 종강이 실제로 바꾼 사람만 기록한다 — 원래부터 수료였던 학생까지 되살리면 안 되므로.
+      const students = await listStudents(env);
+      const 대상 = students.filter(s =>
+        (s.academy || '') === academy && (s.className || '') === className && isEnrolled(s.approvalStatus));
+      const 바꾼결과 = await setApprovalStatusBulk(env, 대상.map(s => s.id), STATUS_COMPLETED);
+      if (!바꾼결과.ok) {
+        // R2를 건드리기 **전에** 멈춘다. 반은 접혔는데 학생은 재원인 어중간한 상태를 만들지 않기 위함.
+        return Response.json({ error: '학생 수료 처리 중 오류 — 종강을 취소했습니다: ' + (바꾼결과.error || '알 수 없음') }, { status: 500 });
+      }
+
+      const 코드전 = (전체전.codes || {})[key] || null;
+      const 시간표전 = (전체전.schedules || {})[key] || null;
+      saved.archived = saved.archived || {};
+      saved.archived[key] = {
+        at: new Date().toISOString(),
+        students: 대상.map(s => s.id),
+        prevCode: 코드전 || null,
+        prevSchedule: 시간표전 || null,
+      };
+      if (saved.codes) delete saved.codes[key];
+      if (saved.schedules) delete saved.schedules[key];
+      await saveOptions(env, saved);
+      await logAudit(env, request, {
+        action: 'class.archive', target: key, targetName: className,
+        summary: '반 종강 [' + academy + ' · ' + className + '] — 재원생 ' + 대상.length + '명 수료 처리 · 반코드 '
+          + (코드전 || '(없었음)') + ' 폐기' + (시간표전 ? ' · 수업시간표 해제' : ''),
+        detail: {
+          학원: academy, 반: className,
+          수료로바뀐학생: 대상.map(s => ({ id: s.id, 이름: s.name || '', 전: s.approvalStatus || '(빈값)' })),
+          실제변경행수: 바꾼결과.changed,
+          폐기된반코드: 코드전 || '(없었음)',
+          해제된수업시간표: 시간표전 || '(설정 안 돼 있었음)',
+          지운것: '없음 — 출결·학습기록·리포트·성적은 그대로다',
+          영향: '이 반 학생은 앱 로그인·리포트·성적은 되고 수업영상만 잠긴다 · 이 반코드로는 가입 불가 · 리마인드 대상에서 빠짐',
+          되돌리기: '「종강 취소」(unarchive-class) — 이번에 바뀐 ' + 대상.length + '명만 재원으로 되돌린다',
+        },
+      });
+      return Response.json({ ok: true, action, academy, className, completed: 대상.length });
+    }
+
+    // 🏷️ 종강 취소 — 잘못 눌렀을 때. 이번 종강이 수료로 바꾼 그 사람들만 정확히 되돌린다.
+    //   ⚠️ "그 반의 수료생 전원"을 되돌리면 안 된다. 종강 전부터 개별 수료였던 학생까지 재원으로 살아난다.
+    if (action === 'unarchive-class') {
+      if (!academy || !className) return Response.json({ error: 'academy, className 둘 다 필요' }, { status: 400 });
+      const key = academy + '/' + className;
+      const meta = (saved.archived || {})[key];
+      if (!meta) return Response.json({ error: `[${academy} · ${className}] 은 종강된 반이 아닙니다.` }, { status: 404 });
+
+      const 되돌릴ids = Array.isArray(meta.students) ? meta.students : [];
+      const 되돌린결과 = await setApprovalStatusBulk(env, 되돌릴ids, '승인');
+      if (!되돌린결과.ok) {
+        return Response.json({ error: '학생 복귀 처리 중 오류 — 종강 취소를 멈췄습니다: ' + (되돌린결과.error || '알 수 없음') }, { status: 500 });
+      }
+
+      delete saved.archived[key];
+      if (!(saved.classes[academy] || []).includes(className)) {
+        if (!saved.academies.includes(academy)) saved.academies.push(academy);
+        if (!saved.classes[academy]) saved.classes[academy] = [];
+        saved.classes[academy].push(className);
+      }
+      if (meta.prevSchedule) { saved.schedules = saved.schedules || {}; saved.schedules[key] = meta.prevSchedule; }
+      // 🔑 반코드는 **새 번호로** 발급된다(ensureCodes). 옛 코드를 되살리지 않는 건 일부러다 —
+      //    종강 안내와 함께 옛 코드가 이미 밖으로 돌았을 수 있다.
+      ensureCodes(saved);
+      await saveOptions(env, saved);
+      await logAudit(env, request, {
+        action: 'class.unarchive', target: key, targetName: className,
+        summary: '반 종강 취소 [' + academy + ' · ' + className + '] — 학생 ' + 되돌릴ids.length + '명 재원 복귀 · 반코드 '
+          + (saved.codes[key] || '(발급 실패)') + ' 새로 발급' + (meta.prevSchedule ? ' · 수업시간표 복원' : ''),
+        detail: {
+          학원: academy, 반: className,
+          종강했던시각: meta.at || '(기록 없음)',
+          재원으로되돌린학생id: 되돌릴ids,
+          실제변경행수: 되돌린결과.changed,
+          반코드: { 종강전: meta.prevCode || '(없었음)', 지금: saved.codes[key] || '(발급 실패)' },
+          주의: '되돌린 건 이번 종강이 수료로 바꾼 학생뿐 — 그 전부터 수료였던 학생은 그대로다',
+          반코드가바뀐이유: '종강 안내와 함께 옛 코드가 밖으로 돌았을 수 있어 일부러 새 번호로 발급한다',
+        },
+      });
+      return Response.json({ ok: true, action, academy, className, restored: 되돌릴ids.length, code: saved.codes[key] || null });
+    }
+
     // ⏰ 수업 스케줄 설정/해제 — body.schedule = { days, start, end } 또는 null(해제)
     if (action === 'set-schedule') {
       if (!academy || !className) return Response.json({ error: 'academy, className 둘 다 필요' }, { status: 400 });
       const exists = (saved.classes[academy] || []).includes(className);
       if (!exists) return Response.json({ error: `[${academy} · ${className}] 반이 없습니다. 먼저 반을 추가하세요.` }, { status: 404 });
+      // 종강한 반에 수업시간을 다시 걸면 리마인드가 되살아난다 — 끝난 반 출결을 매주 재촉하게 된다.
+      if (isArchivedKey(saved, academy + '/' + className)) {
+        return Response.json({ error: `[${academy} · ${className}] 은 종강된 반이라 수업시간을 설정할 수 없습니다. 먼저 「종강 취소」를 눌러 주세요.` }, { status: 409 });
+      }
       saved.schedules = saved.schedules || {};
       const skey = academy + '/' + className;
       const 시간표전 = (전체전.schedules || {})[skey] || null;
@@ -417,7 +615,7 @@ export async function onRequest({ request, env }) {
       return Response.json({ ok: true, action, academy, className, schedule: sch });
     }
 
-    return Response.json({ error: 'action: add-class | delete-class | add-academy | delete-academy | set-schedule' }, { status: 400 });
+    return Response.json({ error: 'action: add-class | delete-class | archive-class | unarchive-class | add-academy | delete-academy | set-schedule' }, { status: 400 });
   }
 
   return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
@@ -432,7 +630,11 @@ export async function resolveClassCode(env, code) {
   if (ensureCodes(saved)) await saveOptions(env, saved);
   for (const acad of saved.academies) {
     for (const cls of (saved.classes[acad] || [])) {
-      if (saved.codes[acad + '/' + cls] === codeQ) return { academy: acad, className: cls };
+      const key = acad + '/' + cls;
+      // 🏷️ 종강한 반의 코드로는 가입되지 않는다. ensureCodes 가 이미 코드를 지우므로 실제로는
+      //    여기까지 오지 않지만, 가입 관문이라 한 겹 더 둔다.
+      if (isArchivedKey(saved, key)) continue;
+      if (saved.codes[key] === codeQ) return { academy: acad, className: cls };
     }
   }
   return null;

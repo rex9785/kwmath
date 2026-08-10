@@ -192,6 +192,9 @@
           <div style="flex:1;min-width:0;">
             <div id="welcomeMsg" style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:var(--text);margin-bottom:5px;"></div>
             <div id="welcomePhone" style="font-size:12px;color:var(--text-light);"></div>
+            <!-- 🎓 수료(종강) 안내 — 지금 보고 있는 자녀가 수료 상태일 때만 뜬다.
+                 계정은 그대로 살아 있고 수업 영상만 닫히는 구조라, 아무 말이 없으면 "앱이 고장났다"로 읽힌다. -->
+            <div id="completedNotice" style="display:none;margin-top:7px;font-size:11.5px;line-height:1.55;color:#6B5836;background:#FBF6EC;border:1px solid #E6D6B4;border-radius:9px;padding:7px 10px;"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end;">
             <div id="ddayBadges" style="display:none;flex-direction:column;gap:6px;align-items:flex-end;"></div>
@@ -881,6 +884,26 @@
   }
 
   // ════════ 환영 메시지 + 자녀 선택 ════════
+  // 🎓 수료 판정은 화면 어디서든 이 함수 하나로 한다.
+  //   /api/auth/me 는 isCompleted 를 붙여 주지만 /api/auth/login 은 approvalStatus 원본만 준다.
+  //   둘 중 하나만 보면 "로그인 직후엔 배지가 없다가 새로고침하면 생기는" 이상한 화면이 된다.
+  function isDoneStudent(s) {
+    return !!(s && (s.isCompleted === true || String(s.approvalStatus || '').trim() === '수료'));
+  }
+
+  // 지금 보고 있는 자녀 기준으로 안내를 켠다/끈다. 자녀를 바꿔도 다시 불러야 한다.
+  function syncCompletedNotice() {
+    const box = $('completedNotice');
+    if (!box) return;
+    const st = selectedStudent || currentStudents[0];
+    if (!isDoneStudent(st)) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const 남은재원 = currentStudents.filter(s => !isDoneStudent(s)).length;
+    box.innerHTML = '<b style="color:#8a6d3b;">🎓 수강이 끝난 반입니다</b><br>'
+      + '지난 리포트·성적·출석은 그대로 보실 수 있어요. 수업 영상은 재원 중일 때만 열립니다.'
+      + (남은재원 ? '' : '<br>다시 등록하시면 바로 이 계정 그대로 이어집니다.');
+    box.style.display = 'block';
+  }
+
   function renderWelcome() {
     const first = currentStudents[0];
     const name = first ? first.name : '';
@@ -901,6 +924,7 @@
       $('welcomeMsg').textContent = '환영합니다';
     }
     $('welcomePhone').textContent = [first && first.academy, first && first.className, currentPhone].filter(Boolean).join(' · ');
+    syncCompletedNotice();
     renderDdays();
     loadStudyPushPref();
   }
@@ -997,7 +1021,9 @@
       const acadCls = [s.academy, s.className].filter(Boolean).join(' · ');
       const schoolGrade = [s.school, s.grade].filter(Boolean).join(' · ');
       const meta = acadCls ? acadCls + (schoolGrade ? ' / ' + schoolGrade : '') : schoolGrade;
-      return `<option value="${i}">${s.name || '—'}${meta ? ' (' + meta + ')' : ''}</option>`;
+      // 🎓 = 수료(지난 반). 재원 자녀와 섞여 있을 때 어느 쪽을 보고 있는지 여기서 바로 구분된다.
+      const done = isDoneStudent(s) ? '🎓 ' : '';
+      return `<option value="${i}">${done}${s.name || '—'}${meta ? ' (' + meta + ')' : ''}</option>`;
     }).join('');
     sel.value = '0';
     selectedStudent = currentStudents[0];
@@ -1008,6 +1034,7 @@
     selectedStudent = currentStudents[idx];
     // 메인 페이지에서 기능 버튼 누를 때 학생 이름이 자동으로 적용되게 할 예정 (Phase 3에서 query string 또는 sessionStorage로 넘김)
     sessionStorage.setItem('kwmath_selected_student', JSON.stringify(selectedStudent));
+    try { syncCompletedNotice(); } catch (_) {}   // 수료 자녀 ↔ 재원 자녀 전환 — 안내도 같이 바뀌어야 한다
     try { loadStatStrip(); } catch (_) {}
     try { loadHero(); } catch (_) {}          // 새 리포트 줄도 이 자녀 기준으로 다시 판정
     try { loadClinicReviewCard(); } catch (_) {}

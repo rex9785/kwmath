@@ -7,6 +7,41 @@ export const ACCOUNTS_DB = '893a626479514059ae309a269b3661b5';
 export const STUDENTS_DB = '559465b73e2f4b76b7df441fd0058bfb';
 export const TOKEN_TTL_DAYS = 30;
 
+// ── 🎓 2026-08-10 — 학생 상태(`students.approval_status`)의 단일 정의 ──
+//   왜 생겼나: 학기가 끝나면 안 오는 학생을 「퇴원」시켰는데, 퇴원은 students 행을 실제로 DELETE 하는 일이라
+//   ① 로그인 열쇠 ② 수업 명단 ③ 반 소속이 한꺼번에 끊겼다. 앱에서 튕겨 나가니 재등록·특강 모집을 알릴
+//   채널이 그 자리에서 사라졌다. 그래서 「수료」를 만들었다 — 행은 남기고 명단에서만 뺀다.
+//
+//   '' (빈 값) : 승인 시스템 도입 전 옛 학생. 재원생으로 친다.
+//   '대기중'   : 가입 신청했고 원장 승인 대기. 로그인 불가.
+//   '승인'     : 재원생.
+//   '거부'     : 등록 거부. 로그인 불가.
+//   '수료'     : 다녔던 학생. **로그인 되고 본인 리포트·성적은 계속 보이지만, 수업영상은 잠긴다.**
+//              명단·출결·집계·알림의 기본 대상에서는 빠진다.
+export const STATUS_ACTIVE    = '승인';
+export const STATUS_PENDING   = '대기중';
+export const STATUS_REJECTED  = '거부';
+export const STATUS_COMPLETED = '수료';
+
+const 상태 = (v) => String(v || '').trim();
+
+// 앱에 들어올 수 있는가 (로그인·토큰 검증)
+// 🔴 login.js 와 auth/me.js **둘 다** 이 함수를 써야 한다. 한 곳만 고치면 "로그인은 되는데 빈 화면"이 된다.
+export function canSignIn(approvalStatus) {
+  const s = 상태(approvalStatus);
+  return s === '' || s === STATUS_ACTIVE || s === STATUS_COMPLETED;
+}
+
+// 지금 다니는 학생인가 (명단·출결·집계·알림·수업영상의 기본 대상)
+export function isEnrolled(approvalStatus) {
+  const s = 상태(approvalStatus);
+  return s === '' || s === STATUS_ACTIVE;
+}
+
+export function isCompleted(approvalStatus) {
+  return 상태(approvalStatus) === STATUS_COMPLETED;
+}
+
 // 🔄 2026-07-29 — 로그인 유지(슬라이딩 갱신).
 //   예전: 로그인하고 30일이 지나면 매일 쓰고 있어도 예고 없이 로그아웃됐습니다.
 //   지금: 접속할 때마다 만료를 다시 30일 뒤로 밉니다 → 계속 쓰는 분은 영원히 로그인 유지.
@@ -176,6 +211,9 @@ export async function revokeTokensForPhone(env, phone) {
 // ── 이 번호에 연결된 학생이 하나도 안 남았을 때만 폐기 (형제 로그인 보호) ──
 //   퇴원/거부 처리 뒤에 부른다. 형제가 아직 다니면 부모 계정은 그대로 써야 하므로 토큰을 살린다.
 //   반환: { revoked, kept, error }
+//   🔴 2026-08-10 — 아래 SELECT에 `AND approval_status = '승인'` 같은 조건을 **붙이지 말 것.**
+//     수료생은 students 행이 그대로 남아 있어야 여기서 "아직 쓰는 번호"로 잡히고 토큰이 유지된다.
+//     조건을 붙이면 수료 처리하는 순간 앱에서 튕겨나가, 「수료해도 앱은 계속 쓴다」는 설계가 통째로 무의미해진다.
 export async function revokeTokensIfUnused(env, phone) {
   if (!phone) return { revoked: 0, kept: false };
   try {
@@ -292,12 +330,23 @@ export async function resolveStudent(env, phone, studentName) {
   }
   if (!studentName || !studentName.trim()) {
     // 학생 이름 명시 안 됐으면 첫 번째 자녀 사용
-    return { ok: true, student: students[0], students };
+    // 🎓 2026-08-10 — 단, **재원 중인 자녀를 먼저** 고른다.
+    //   수료 행이 남기 시작하면서, 겸반·형제로 여러 행이 있을 때 id 순 첫 행이 수료생일 수 있게 됐다.
+    //   그러면 이름을 안 넘긴 화면(영상·출결 등)이 멀쩡히 다니는 자녀 대신 수료생을 집어
+    //   "영상이 잠겼다"고 보여준다. 재원생이 하나도 없을 때만 수료생으로 떨어진다.
+    const 재원 = students.find(s => isEnrolled(s.approvalStatus));
+    return { ok: true, student: 재원 || students[0], students };
   }
-  const target = students.find(s => s.name === studentName.trim());
-  if (!target) {
+  // 🎓 2026-08-10 — 이름을 받은 경로도 **재원 행을 먼저** 고른다. (위 무명 경로와 같은 이유·같은 규칙)
+  //   겸반이면 같은 이름의 students 행이 여러 개다. 「시동반 (26-1)=수료 · 공통수학2 (26-2)=재원」인 학생이
+  //   find() 로 수료 행에 먼저 걸리면, 멀쩡히 다니는 아이 화면에 "수강이 끝난 반입니다"가 뜨고 영상이 잠긴다.
+  //   report.html·출결·성적 화면은 전부 ?name= 으로 오므로 **여기가 실제 경로**다. 위만 고치면 못 막는다.
+  //   재원 행이 하나도 없을 때만(전부 수료) 첫 행으로 떨어진다 — 그때는 잠기는 게 맞다.
+  const matches = students.filter(s => s.name === studentName.trim());
+  if (!matches.length) {
     return { ok: false, students, error: '이 학생 정보에 접근할 권한이 없습니다.' };
   }
+  const target = matches.find(s => isEnrolled(s.approvalStatus)) || matches[0];
   return { ok: true, student: target, students };
 }
 

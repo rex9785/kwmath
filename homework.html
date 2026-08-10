@@ -70,6 +70,10 @@
   .thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;}
   .thumb .rm{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(20,10,12,.62);color:#fff;border:none;font-size:0.9rem;line-height:22px;text-align:center;cursor:pointer;padding:0;}
   .thumb .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-light);font-size:0.7rem;}
+  /* PDF 칸 — 썸네일을 못 만드니 아이콘+파일명 카드로 대신한다(빈 <img>면 깨진 사진으로 보인다) */
+  .thumb .fc{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px;box-sizing:border-box;cursor:pointer;background:var(--bg2);text-align:center;}
+  .thumb .fc .fi{font-size:1.5rem;line-height:1;}
+  .thumb .fc .fn{font-size:0.6rem;color:var(--text-light);line-height:1.3;word-break:break-all;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 
   .field label{display:block;font-size:0.78rem;font-weight:700;color:var(--text-light);margin:14px 0 5px;}
   .field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.9rem;font-family:inherit;min-height:60px;resize:vertical;outline:none;color:var(--text);}
@@ -140,23 +144,25 @@
       <div class="d-wait" id="dWait">⏳ 제출 완료 · 선생님 확인을 기다리는 중이에요.</div>
 
       <div class="up-card">
-        <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
+        <!-- accept에 MIME(application/pdf)과 확장자(.pdf)를 같이 적는다 — 안드로이드 일부 기기가
+             MIME만으론 PDF를 안 보여준다. image/* 만 있으면 선택창에 사진첩밖에 안 뜬다. -->
+        <input type="file" id="fileInput" accept="image/*,application/pdf,.pdf" multiple style="display:none;">
         <div class="pick-btn" id="pickBtn">
           <div class="pi">🖼️</div>
-          <div class="pt">사진 선택하기</div>
-          <div class="ps">여러 장 한꺼번에 고를 수 있어요</div>
+          <div class="pt">사진 · PDF 선택하기</div>
+          <div class="ps">여러 개 한꺼번에 고를 수 있어요</div>
         </div>
         <div class="prev-grid" id="prevGrid"></div>
         <div class="field">
           <label for="noteInput">메모 (선택)</label>
           <textarea id="noteInput" placeholder="선생님께 남길 말이 있으면 적어주세요 (선택)"></textarea>
         </div>
-        <button class="btn-primary" id="upBtn" disabled>사진을 선택해 주세요</button>
+        <button class="btn-primary" id="upBtn" disabled>사진이나 PDF를 선택해 주세요</button>
         <div class="up-hint" id="upHint"></div>
       </div>
 
-      <div class="section-label">제출한 사진 <span class="cnt" id="subCnt"></span></div>
-      <div id="photoGrid" class="photo-grid"><div class="state-box"><p>아직 제출한 사진이 없어요.</p></div></div>
+      <div class="section-label">제출한 것 <span class="cnt" id="subCnt"></span></div>
+      <div id="photoGrid" class="photo-grid"><div class="state-box"><p>아직 제출한 것이 없어요.</p></div></div>
     </div>
   </div>
 
@@ -196,6 +202,35 @@
   function openLightbox(src){ $('lightboxImg').src = src; $('lightbox').style.display = 'flex'; }
   $('lightbox').addEventListener('click', function(){ this.style.display='none'; $('lightboxImg').src=''; });
 
+  // ── 사진 / PDF 구분 ──
+  // 제출물은 사진 아니면 PDF 둘 뿐(서버도 그 둘만 받는다). PDF는 썸네일을 만들 수 없으니
+  // 미리보기·목록에서 <img> 대신 파일 카드로 그린다. 빈 <img>를 두면 깨진 사진으로 보인다.
+  function isPdfFile(f){
+    return (f && f.type || '').toLowerCase() === 'application/pdf' || /\.pdf$/i.test((f && f.name) || '');
+  }
+  function isPdfKey(k){ return /\.pdf$/i.test(String(k || '')); }
+  // 저장 키는 'homework/…/<타임스탬프>_<난수>_원래이름' 꼴 → 보여줄 땐 원래 이름만
+  function keyName(k){ return String(k || '').split('/').pop().replace(/^\d{10,}_[a-z0-9]{1,8}_/, ''); }
+  // 서버 isAllowedUpload()와 같은 판정. HEIC는 브라우저가 빈 타입으로 넘기므로 확장자로 보조 판정한다
+  function isAllowedPick(f){
+    var t = (f && f.type || '').toLowerCase();
+    if (t.indexOf('image/') === 0 || t === 'application/pdf') return true;
+    return /\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|pdf)$/i.test((f && f.name) || '');
+  }
+  // PDF 열기 — 토큰이 필요해 URL로 바로 못 연다. fetch 후 blob으로 넘긴다(반자료 다운로드와 같은 방식).
+  function openFile(key){
+    fetch('/api/homework?photo=1&key=' + encodeURIComponent(key), { headers: authHeaders() })
+      .then(function(r){ return r.ok ? r.blob() : Promise.reject(); })
+      .then(function(b){
+        var u = URL.createObjectURL(b);
+        var a = document.createElement('a');
+        a.href = u; a.download = keyName(key) || 'homework.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(u); }, 4000);
+      })
+      .catch(function(){ showToast('파일을 열 수 없어요.'); });
+  }
+
   // ══════════════ 목록 ══════════════
   var assignments = [];
   function loadList(){
@@ -219,13 +254,13 @@
       var badge = done
         ? (a.checked
             ? '<span class="badge b-done">✅ 선생님 확인 완료</span>'
-            : '<span class="badge b-done">✓ 제출 '+ a.myPhotoCount +'장</span>')
+            : '<span class="badge b-done">✓ 제출 '+ a.myPhotoCount +'개</span>')
         : '<span class="badge b-todo">미제출</span>';
       var due = a.dueDate ? ('<span class="a-due">📅 '+ esc(a.dueDate) +'까지</span>') : '';
       return '<div class="a-card" data-id="'+ a.id +'">' +
         '<div class="a-top"><div class="a-title">'+ esc(a.title) +'</div></div>' +
         (a.detail ? '<div class="a-detail">'+ esc(a.detail) +'</div>' : '') +
-        '<div class="a-foot">'+ badge + due +'<span class="a-go">사진 올리기 →</span></div>' +
+        '<div class="a-foot">'+ badge + due +'<span class="a-go">과제 올리기 →</span></div>' +
         '</div>';
     }).join('');
     Array.prototype.forEach.call(document.querySelectorAll('.a-card'), function(el){
@@ -279,17 +314,25 @@
       .then(function(j){
         if (!j.ok){ $('photoGrid').innerHTML = '<div class="state-box"><p>'+ (j.error||'오류') +'</p></div>'; return; }
         var keys = j.photoKeys || [];
-        $('subCnt').textContent = keys.length ? ('· ' + keys.length + '장') : '';
+        var hasPdf = keys.some(isPdfKey);
+        $('subCnt').textContent = keys.length ? ('· ' + keys.length + (hasPdf ? '개' : '장')) : '';
         renderStamp(j, keys.length);
-        if (!keys.length){ $('photoGrid').innerHTML = '<div class="state-box"><p>아직 제출한 사진이 없어요.</p></div>'; return; }
+        if (!keys.length){ $('photoGrid').innerHTML = '<div class="state-box"><p>아직 제출한 것이 없어요.</p></div>'; return; }
         $('photoGrid').innerHTML = keys.map(function(k){
-          return '<div class="thumb" data-key="'+ esc(k) +'"><img alt="제출 사진"><button class="rm" title="삭제">×</button></div>';
+          var inner = isPdfKey(k)
+            ? '<div class="fc"><div class="fi">📄</div><div class="fn">'+ esc(keyName(k)) +'</div></div>'
+            : '<img alt="제출 사진">';
+          return '<div class="thumb" data-key="'+ esc(k) +'">'+ inner +'<button class="rm" title="삭제">×</button></div>';
         }).join('');
         Array.prototype.forEach.call($('photoGrid').querySelectorAll('.thumb'), function(el){
           var k = el.getAttribute('data-key');
           var img = el.querySelector('img');
-          loadImg(img, k);
-          img.addEventListener('click', function(){ if (img.src) openLightbox(img.src); });
+          if (img){
+            loadImg(img, k);
+            img.addEventListener('click', function(){ if (img.src) openLightbox(img.src); });
+          } else {
+            el.querySelector('.fc').addEventListener('click', function(){ openFile(k); });
+          }
           el.querySelector('.rm').addEventListener('click', function(ev){ ev.stopPropagation(); deletePhoto(k); });
         });
       })
@@ -297,7 +340,7 @@
   }
 
   function deletePhoto(key){
-    if (!confirm('이 사진을 삭제할까요?')) return;
+    if (!confirm(isPdfKey(key) ? '이 PDF를 삭제할까요?' : '이 사진을 삭제할까요?')) return;
     fetch('/api/homework?key=' + encodeURIComponent(key) + (nameQ('&') ? ('&'+nameQ('')) : ''), { method:'DELETE', headers: authHeaders() })
       .then(function(r){ return r.json(); })
       .then(function(j){ if (j.ok){ showToast('삭제했어요.'); loadPhotos(); } else { showToast(j.error||'삭제 실패'); } })
@@ -310,29 +353,40 @@
     var files = Array.prototype.slice.call(e.target.files || []);
     e.target.value = '';
     if (!files.length) return;
-    var MAX = 50;
+    var MAX = 50, rejected = 0;
     for (var i=0;i<files.length;i++){
-      if (picked.length >= MAX){ showToast('한 번에 최대 '+MAX+'장까지 올릴 수 있어요.'); break; }
+      if (picked.length >= MAX){ showToast('한 번에 최대 '+MAX+'개까지 올릴 수 있어요.'); break; }
+      // accept를 무시하고 아무 파일이나 넘기는 기기가 있다 → 여기서 한 번 더 거른다.
+      // (서버도 막지만, 다 올리고 나서 실패하는 것보다 고르는 자리에서 알려주는 게 낫다)
+      if (!isAllowedPick(files[i])){ rejected++; continue; }
       picked.push(files[i]);
     }
+    if (rejected) showToast('사진과 PDF만 올릴 수 있어요. ' + rejected + '개는 뺐어요.');
     renderPreview();
     renderUpBtn();
   });
   function renderPreview(){
     var g = $('prevGrid');
     g.innerHTML = picked.map(function(f, i){
-      return '<div class="thumb" data-i="'+ i +'"><img src="'+ URL.createObjectURL(f) +'" alt="선택 사진"><button class="rm" title="빼기">×</button></div>';
+      var inner = isPdfFile(f)
+        ? '<div class="fc"><div class="fi">📄</div><div class="fn">'+ esc(f.name || 'PDF') +'</div></div>'
+        : '<img src="'+ URL.createObjectURL(f) +'" alt="선택 사진">';
+      return '<div class="thumb" data-i="'+ i +'">'+ inner +'<button class="rm" title="빼기">×</button></div>';
     }).join('');
     Array.prototype.forEach.call(g.querySelectorAll('.thumb'), function(el){
       var i = Number(el.getAttribute('data-i'));
-      el.querySelector('img').addEventListener('click', function(){ openLightbox(this.src); });
+      var img = el.querySelector('img');
+      if (img) img.addEventListener('click', function(){ openLightbox(this.src); });
       el.querySelector('.rm').addEventListener('click', function(){ picked.splice(i,1); renderPreview(); renderUpBtn(); });
     });
   }
   function renderUpBtn(){
     var b = $('upBtn');
-    if (!picked.length){ b.disabled = true; b.textContent = '사진을 선택해 주세요'; $('upHint').textContent=''; }
-    else { b.disabled = false; b.textContent = '이 사진 ' + picked.length + '장 제출하기'; $('upHint').textContent = '큰 사진은 자동으로 압축해서 올려요.'; }
+    if (!picked.length){ b.disabled = true; b.textContent = '사진이나 PDF를 선택해 주세요'; $('upHint').textContent=''; return; }
+    var hasPdf = picked.some(isPdfFile);
+    b.disabled = false;
+    b.textContent = hasPdf ? ('이 파일 ' + picked.length + '개 제출하기') : ('이 사진 ' + picked.length + '장 제출하기');
+    $('upHint').textContent = hasPdf ? 'PDF는 그대로, 큰 사진은 자동으로 압축해서 올려요.' : '큰 사진은 자동으로 압축해서 올려요.';
   }
 
   // ── 이미지 축소(canvas). HEIC 등 디코딩 실패하면 원본 사용 ──
@@ -362,29 +416,40 @@
     var files = picked.slice();
     var total = files.length, doneN = 0, note = $('noteInput').value || '';
     var BATCH = 5;
+    var unit = files.some(isPdfFile) ? '개' : '장';
+
+    // PDF는 압축을 안 하고 원본 그대로 올라간다(최대 15MB). 5개를 한 요청에 묶으면
+    // 요청이 75MB까지 불어나 통째로 실패한다 → PDF는 한 번에 하나씩 보낸다.
+    function batchSizeAt(start){
+      if (isPdfFile(files[start])) return 1;
+      var n = 0;
+      while (n < BATCH && start + n < files.length && !isPdfFile(files[start + n])) n++;
+      return n;
+    }
 
     function sendBatch(start){
       if (start >= files.length){
         uploading = false;
-        showToast('제출 완료! (' + total + '장)');
+        showToast('제출 완료! (' + total + unit + ')');
         picked = []; renderPreview(); renderUpBtn();
         loadPhotos();
         return;
       }
-      var slice = files.slice(start, start + BATCH);
+      var slice = files.slice(start, start + batchSizeAt(start));
       b.innerHTML = '<span class="spin"></span>올리는 중 (' + Math.min(start+slice.length,total) + '/' + total + ')';
       Promise.all(slice.map(shrink)).then(function(shrunk){
         var fd = new FormData();
         fd.append('assignment_id', String(curId));
         if (start === 0 && note) fd.append('note', note);
-        shrunk.forEach(function(f){ fd.append('file', f, f.name || 'photo.jpg'); });
+        // 이름이 빈 파일에 'photo.jpg'를 붙이면 PDF가 .jpg 키로 저장돼 목록에서 깨진 사진이 된다
+        shrunk.forEach(function(f){ fd.append('file', f, f.name || (isPdfFile(f) ? 'homework.pdf' : 'photo.jpg')); });
         // 다자녀 학부모 식별은 ?name= 쿼리로 보냄 — requireStudentAccess는 URL 쿼리에서만 name을 읽음(폼 바디 X).
         var upUrl = '/api/homework' + (selectedName ? ('?name=' + encodeURIComponent(selectedName)) : '');
         return fetch(upUrl, { method:'POST', headers: authHeaders(), body: fd });
       }).then(function(r){ return r.json(); }).then(function(j){
         if (!j.ok){ uploading=false; b.disabled=false; renderUpBtn(); showToast(j.error || '업로드 실패'); return; }
         doneN += slice.length;
-        sendBatch(start + BATCH);
+        sendBatch(start + slice.length);
       }).catch(function(){ uploading=false; b.disabled=false; renderUpBtn(); showToast('네트워크 오류로 중단됐어요. 다시 시도해 주세요.'); });
     }
     sendBatch(0);

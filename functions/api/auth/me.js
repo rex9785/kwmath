@@ -4,7 +4,7 @@
 // portal 페이지가 새로고침 시 토큰 유효성 + 자녀 목록 갱신용
 
 import {
-  requireAuth, findAccountByPhone, fetchStudentsByPhone, jsonError,
+  requireAuth, findAccountByPhone, fetchStudentsByPhone, jsonError, canSignIn, isCompleted,
 } from '../_auth.js';
 
 // 포털 '관리자' 카드 노출 허용 번호 — 이 계정으로 포털 로그인 시에만 관리자 진입 카드가 보임
@@ -27,20 +27,25 @@ export async function onRequest({ request, env }) {
     return jsonError('계정은 있으나 학원에 등록된 학생 정보가 없습니다. 관우T께 문의해주세요.', 401);
   }
 
-  // 승인된 학생만 통과 (대기중/거부 제외, 빈 값은 옛 학생이므로 통과)
-  const approvedStudents = students.filter(s => {
-    const status = s.approvalStatus || '';
-    return status === '' || status === '승인';
-  });
+  // 승인된 학생 + 🎓 수료생 통과 (대기중/거부 제외, 빈 값은 옛 학생이므로 통과)
+  // 🔴 이 필터는 auth/login.js 와 **쌍**이다. 한 곳만 고치면 "로그인은 되는데 앱이 빈 화면"이 된다.
+  const approvedStudents = students.filter(s => canSignIn(s.approvalStatus));
   if (!approvedStudents.length) {
     return jsonError('학원 등록이 아직 승인되지 않았거나 거부됐습니다. 관우T께 문의해주세요.', 403);
   }
+
+  // 🎓 수료 여부를 화면이 알아야 「지난 반」 배지를 달고 영상 카드를 감출 수 있다.
+  //    서버(class-videos.js)에서도 따로 막지만, 화면에 안 보이는 게 먼저다.
+  const withFlags = approvedStudents.map(s => ({ ...s, isCompleted: isCompleted(s.approvalStatus) }));
+  const activeCount = withFlags.filter(s => !s.isCompleted).length;
 
   return Response.json({
     ok: true,
     phone: auth.phone,
     mustChangePassword: !!account.mustChangePassword,
-    students: approvedStudents,
+    students: withFlags,
+    // 재원 중인 자녀가 하나도 없으면 앱 전체가 「수료 모드」다 — 포털이 이 값으로 안내 문구를 고른다.
+    allCompleted: activeCount === 0,
     isAdmin: ADMIN_PHONES.includes(onlyDigits(auth.phone)),
   });
 }

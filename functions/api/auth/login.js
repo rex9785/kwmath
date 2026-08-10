@@ -7,7 +7,7 @@
 
 import {
   normalizePhone, verifyPassword, issueToken, touchLastLogin,
-  findAccountByPhone, fetchStudentsByPhone, jsonError,
+  findAccountByPhone, fetchStudentsByPhone, jsonError, canSignIn, isCompleted,
 } from '../_auth.js';
 import { issueAdminSession, issueStaffSession } from '../_admin.js';
 import { getStaffRecord } from '../_staff.js';
@@ -267,10 +267,11 @@ export async function onRequest({ request, env }) {
 
   // ⚠️ 승인 대기 방어 — 연결된 학생이 다 "대기중" 또는 "거부" 상태면 로그인 거절
   // 빈 값(옛 학생, 승인 시스템 도입 전)은 자동으로 통과
-  const approvedStudents = students.filter(s => {
-    const status = s.approvalStatus || '';
-    return status === '' || status === '승인';
-  });
+  // 🎓 2026-08-10 — '수료'도 통과시킨다. 학기가 끝나 안 나오는 학생도 본인 리포트·성적은 계속 봐야 한다
+  //   (수업영상만 잠긴다 — class-videos.js). 예전엔 이 학생들을 퇴원 처리해 students 행을 지웠고,
+  //   그러면 위 「좀비 계정 방어」에 걸려 앱에서 통째로 튕겨 나갔다.
+  // 🔴 이 필터는 auth/me.js 와 **쌍**이다. 한 곳만 고치면 "로그인은 되는데 앱이 빈 화면"이 된다.
+  const approvedStudents = students.filter(s => canSignIn(s.approvalStatus));
   if (!approvedStudents.length) {
     const pendingCount = students.filter(s => s.approvalStatus === '대기중').length;
     // 📓 "신청했는데 왜 안 들어가져요" 문의의 나머지 절반이 여기다. 자녀별 상태를 통째로 남긴다.
@@ -316,6 +317,7 @@ export async function onRequest({ request, env }) {
       이번호의역할: (approvedStudents[0] && approvedStudents[0].role) === 'student' ? '학생 본인' : '학부모(또는 기타)',
       연결된학생: approvedStudents.slice(0, 20).map(s => ({
         학생id: String(s.id), 이름: s.name || '', 학원: s.academy || '', 반: s.className || '', 학교: s.school || '', 학년: s.grade || '',
+        수료: isCompleted(s.approvalStatus) ? '예 — 리포트·성적만 열림(수업영상 잠김)' : undefined,
       })),
       숨겨진학생수: students.length - approvedStudents.length,
       직전누적실패: 전누적실패 + '회' + (전누적실패 ? ' (이번 성공으로 초기화됨)' : ''),

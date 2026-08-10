@@ -46,15 +46,30 @@ function jsonErr(msg, status = 400) { return Response.json({ error: msg }, { sta
 function nowIso() { return new Date().toISOString(); }
 
 function safeName(name) {
-  return String(name || 'photo').replace(/[^a-zA-Z0-9가-힣.\-_]/g, '_').slice(0, 80) || 'photo';
+  const clean = String(name || 'photo').replace(/[^a-zA-Z0-9가-힣.\-_]/g, '_');
+  if (clean.length <= 80) return clean || 'photo';
+  // 80자로 자를 때 확장자까지 잘려 나가면 안 된다. 키가 '.pdf'로 안 끝나면 화면이
+  // PDF인 줄 모르고 <img>로 그려서 깨진 사진이 된다(파일명 긴 아이패드 내보내기가 실제로 그렇다).
+  const m = clean.match(/\.[a-zA-Z0-9]{1,5}$/);
+  const ext = m ? m[0] : '';
+  return (clean.slice(0, 80 - ext.length) + ext) || 'photo';
 }
 
-function isImage(file) {
+function isPdfName(name) {
+  return /\.pdf$/.test(String(name || '').toLowerCase());
+}
+
+// 과제 제출로 받아주는 것 = 사진 + PDF.
+// PDF는 2026-08-09 추가 — 아이패드 필기·스캔본을 학생들이 사진으로 쪼개 올리던 문제 때문.
+// hwp·docx 등 문서 전반은 일부러 계속 막아 둔다. 미리보기가 안 돼서 선생님이 내려받아
+// 열기 전엔 뭘 냈는지 알 수 없고, 과제 확인 화면이 「보고 도장 찍는」 흐름이라 어긋난다.
+function isAllowedUpload(file) {
   const t = (file && file.type || '').toLowerCase();
   if (t.startsWith('image/')) return true;
+  if (t === 'application/pdf') return true;
   // 일부 브라우저가 HEIC를 빈 타입으로 넘김 → 확장자로 보조 판정
   const n = (file && file.name || '').toLowerCase();
-  return /\.(jpg|jpeg|png|gif|webp|heic|heif|bmp)$/.test(n);
+  return /\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|pdf)$/.test(n);
 }
 
 function parseKeys(row) {
@@ -138,17 +153,22 @@ export async function onRequest(context) {
           const access = await requireStudentAccess(env, request);
           if (!access.ok) return access.response;
           if (String(meta.studentId) !== String(access.student.id)) {
-            return jsonErr('본인 과제 사진만 볼 수 있어요.', 403);
+            return jsonErr('본인이 낸 것만 볼 수 있어요.', 403);
           }
         }
         const object = await env.BUCKET.get(key);
-        if (!object) return jsonErr('사진을 찾을 수 없어요.', 404);
+        if (!object) return jsonErr('파일을 찾을 수 없어요.', 404);
         const fileName = (key.split('/').pop() || 'photo').replace(/[\r\n"]/g, '');
-        const contentType = object.httpMetadata?.contentType || 'image/jpeg';
+        // 저장 키는 '<타임스탬프>_<난수>_원래이름' 꼴. 내려줄 땐 앞머리를 떼고 원래 이름만 준다
+        // (PDF를 저장하면 파일명이 그대로 보이므로 '1754..._a1b2c3_숙제.pdf'가 되면 흉하다).
+        const cleanName = fileName.replace(/^\d{10,}_[a-z0-9]{1,8}_/, '') || fileName;
+        const contentType = object.httpMetadata?.contentType ||
+          (isPdfName(fileName) ? 'application/pdf' : 'image/jpeg');
         return new Response(object.body, {
           status: 200,
           headers: {
             'Content-Type': contentType,
+            'Content-Disposition': "inline; filename*=UTF-8''" + encodeURIComponent(cleanName),
             'Cache-Control': 'private, max-age=3600',
           },
         });
@@ -396,9 +416,9 @@ export async function onRequest(context) {
       if (!visibleToStudent(assignment, student)) return jsonErr('제출 대상이 아닌 과제입니다.', 403);
 
       const files = form.getAll('file').filter(f => f && typeof f !== 'string');
-      if (!files.length) return jsonErr('사진을 한 장 이상 선택해 주세요.', 400);
+      if (!files.length) return jsonErr('사진이나 PDF를 하나 이상 선택해 주세요.', 400);
       if (files.length > MAX_PER_UPLOAD) {
-        return jsonErr('한 번에 최대 ' + MAX_PER_UPLOAD + '장까지 올릴 수 있어요.', 400);
+        return jsonErr('한 번에 최대 ' + MAX_PER_UPLOAD + '개까지 올릴 수 있어요.', 400);
       }
 
       // 기존 제출 사진
@@ -407,20 +427,21 @@ export async function onRequest(context) {
       ).bind(aid, student.id).first();
       const existingKeys = parseKeys(existing);
       if (existingKeys.length + files.length > MAX_TOTAL_PER_STUDENT) {
-        return jsonErr('이 과제에 올릴 수 있는 총 장수(' + MAX_TOTAL_PER_STUDENT + '장)를 넘었어요. 필요 없는 사진을 지운 뒤 올려 주세요.', 400);
+        return jsonErr('이 과제에 올릴 수 있는 총 개수(' + MAX_TOTAL_PER_STUDENT + '개)를 넘었어요. 필요 없는 것을 지운 뒤 올려 주세요.', 400);
       }
 
       // 각 파일 R2 업로드
       const newKeys = [];
       for (const file of files) {
-        if (!isImage(file)) return jsonErr('이미지 파일만 올릴 수 있어요.', 400);
+        if (!isAllowedUpload(file)) return jsonErr('사진(jpg·png·heic 등)과 PDF만 올릴 수 있어요.', 400);
         if (file.size > MAX_FILE_BYTES) {
-          return jsonErr('사진 한 장이 너무 큽니다(최대 15MB): ' + (file.name || ''), 400);
+          return jsonErr('파일 하나가 너무 큽니다(최대 15MB): ' + (file.name || ''), 400);
         }
         const key = 'homework/' + aid + '/' + student.id + '/' +
           Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + safeName(file.name);
         await env.BUCKET.put(key, file.stream(), {
-          httpMetadata: { contentType: file.type || 'image/jpeg' },
+          // PDF를 image/jpeg로 저장하면 나중에 내려줄 때 브라우저가 깨진 사진으로 읽는다.
+          httpMetadata: { contentType: file.type || (isPdfName(file.name) ? 'application/pdf' : 'image/jpeg') },
         });
         newKeys.push(key);
       }
@@ -454,8 +475,8 @@ export async function onRequest(context) {
         actorName: student.name || '',
         target: 'assignment/' + aid,
         targetName: student.name || '',
-        summary: '[' + (student.name || student.id) + '] 과제 [' + (assignment.title || aid) + '] 사진 '
-          + newKeys.length + '장 제출 (누적 ' + allKeys.length + '장)'
+        summary: '[' + (student.name || student.id) + '] 과제 [' + (assignment.title || aid) + '] 사진·PDF '
+          + newKeys.length + '개 제출 (누적 ' + allKeys.length + '개)'
           + (existing && existing.checked_at ? ' · 기존 확인✓ 자동 해제' : ''),
         detail: {
           과제id: Number(aid), 과제제목: assignment.title || '', 학생id: student.id,
@@ -541,7 +562,7 @@ export async function onRequest(context) {
       if (!access.ok) return access.response;
       const student = access.student;
       if (String(meta.studentId) !== String(student.id)) {
-        return jsonErr('본인 과제 사진만 삭제할 수 있어요.', 403);
+        return jsonErr('본인이 낸 것만 삭제할 수 있어요.', 403);
       }
       const row = await env.DB.prepare(
         'SELECT * FROM homework_submissions WHERE assignment_id=? AND student_id=?'

@@ -4,7 +4,7 @@ import { safeError } from './_errors.js';
 //   ?name=홍길동  ← 자녀 여러 명일 때만 필요. 한 명이면 생략 OK
 // 학생의 학원/반 영상 목록 반환 + 접근 로그 저장
 
-import { requireStudentAccess } from './_auth.js';
+import { requireStudentAccess, isCompleted } from './_auth.js';
 import { absenceLockContext, isLocked } from './_makeup.js';
 import { logAudit } from './_auditlog.js';
 
@@ -31,6 +31,33 @@ export async function onRequest({ request, env }) {
     actorRole: role || 'unknown',
     actorName: name || '',
   };
+
+  // 🎓 2026-08-10 — 수료생은 수업영상을 못 본다 (관우T 확정: 유예 없이 «즉시 잠금»).
+  //   왜: 리포트·성적은 「본인이 만든 기록」이라 계속 보여주는 게 맞지만, 수업영상은 매주 새로 쌓이는 자산이다.
+  //   유예를 두면 "안 다녀도 볼 게 있다"가 되어 재등록을 미루는 이유가 된다.
+  //   🔴 반 이름 재사용 방지와 **둘 다** 있어야 막힌다: 영상 매칭은 학원 + 반 이름으로만 하므로,
+  //     수료생이 「시동반」이라는 같은 이름을 달고 남아 있으면 다음 학기 새 영상까지 매칭된다.
+  //     그래서 반 이름에 기수를 붙인다(시동반 (26-2)). 여기 잠금은 그 위의 2차 방어선이다.
+  if (isCompleted(access.student.approvalStatus)) {
+    await logAudit(env, request, {
+      ...행위자,
+      action: 'video.list.completed',
+      target: String(access.student.id || ''), targetName: name || '',
+      summary: '수업영상 열람 차단(수료) — [' + (name || '이름없음') + '] ' + (academy || '') + ' · ' + (className || ''),
+      detail: {
+        학생: { 학생ID: access.student.id, 이름: name, 학원: academy || '(빈칸)', 반: className || '(빈칸)', 상태: '수료' },
+        누가열었나: role === 'parent' ? '학부모' : role === 'student' ? '학생' : (role || '알 수 없음'),
+        로그인번호: phone || '(없음)',
+        해석: '이 반은 종강했고 학생은 수료 상태다. 수업영상은 재원생 전용이다.',
+        여전히보이는것: '리포트 · 성적 · 오답 · 출결 기록은 그대로 열린다(본인이 만든 기록이므로)',
+        되돌리려면: '관리자 화면에서 이 학생을 새 반에 배정하면 그 반의 영상이 다시 보인다',
+      },
+    });
+    return Response.json({
+      error: '수강이 끝난 반입니다. 수업 영상은 재원 중일 때만 볼 수 있어요. 리포트와 성적은 그대로 보실 수 있습니다.',
+      reason: 'completed',
+    }, { status: 403 });
+  }
 
   if (!academy) {
     // 📓 "영상이 하나도 안 보여요" 신고의 1순위 원인. 학생 정보에 학원이 비어 있으면 매칭 자체가 불가능하다.

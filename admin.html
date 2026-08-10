@@ -917,6 +917,8 @@
             style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;outline:none;width:160px;">
           <!-- ⚠️ 살펴볼 학생만 — 해당자가 0명이면 JS가 숨긴다(syncRiskFilterBtn). 늘 떠 있는 0은 눈이 무시한다. -->
           <button type="button" id="riskFilterBtn" class="edit-btn" onclick="toggleRiskOnly()" style="white-space:nowrap;display:none;"></button>
+          <!-- 🏁 수료생(종강한 반) 보기 — 기본 숨김. 해당자가 없으면 버튼 자체가 안 뜬다. -->
+          <button type="button" id="completedFilterBtn" class="edit-btn" onclick="toggleShowCompleted()" style="white-space:nowrap;display:none;"></button>
           <button id="studentViewToggle" class="edit-btn" onclick="toggleStudentView()" style="white-space:nowrap;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>반별로 보기</button>
           <span id="studentCount" style="font-size:0.82rem;color:var(--text-light);white-space:nowrap;"></span>
         </div>
@@ -955,14 +957,14 @@
         </div>
       </div>
 
-      <!-- 일괄 선택 바 (시즌 전환용) -->
+      <!-- 일괄 선택 바 (일괄 반 배정용) -->
       <div id="bulkActionBar" style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#FFF8F0 0%,#FAEEDA 100%);border:1.5px solid #E8C56C;border-radius:10px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:#854F0B;">
           <input type="checkbox" id="bulkSelectAll" onchange="toggleSelectAllStudents(this.checked)" style="width:18px;height:18px;cursor:pointer;">
           <span>전체 선택</span>
         </label>
         <span style="color:#854F0B;font-size:0.82rem;">선택: <b id="bulkSelectedCount">0</b>명</span>
-        <button class="edit-btn" onclick="openSeasonTransitionModal()" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap;margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>시즌 전환 · 일괄 이동</button>
+        <button class="edit-btn" onclick="openSeasonTransitionModal()" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap;margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>일괄 반 배정</button>
         <button class="edit-btn" onclick="clearBulkSelection()" style="white-space:nowrap;">선택 해제</button>
       </div>
       <div id="studentList"><div class="empty">불러오는 중...</div></div>
@@ -1246,24 +1248,20 @@
   </div>
 </div>
 
-<!-- 시즌 전환 · 일괄 이동 모달 -->
+<!-- 일괄 반 배정 모달 -->
+<!-- 🔴 2026-08-10 — 「시즌 전환」 모드(새 반 추가 + 옛 반 학생 행 삭제)를 제거했다.
+     라벨엔 "옛 시즌 데이터는 archived로 보존"이라 적혀 있었지만 거짓이었다 — 출결·학습기록이 통째로 지워졌다.
+     옛 반 정리는 이제 「반 종강」이 맡는다. 이 모달은 **추가만** 하는 도구다. 서버도 transition을 400으로 거부한다. -->
 <div class="ec-modal-bg" id="seasonTransitionModal">
   <div class="ec-modal" style="max-width:480px;">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>시즌 전환 · 일괄 이동</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>일괄 반 배정</h3>
     <div class="ec-sub">
-      선택한 <b id="stmCount">0</b>명을 새 반으로 이동합니다.
+      선택한 <b id="stmCount">0</b>명을 새 반에 <b>추가</b>합니다. 지금 다니는 반은 그대로 유지돼요.
       <div id="stmSelectedPreview" style="margin-top:8px;padding:8px 10px;background:#f9f3f5;border-radius:8px;font-size:0.78rem;color:#666;max-height:80px;overflow-y:auto;"></div>
     </div>
-    <label>모드</label>
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
-      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;font-size:0.88rem;">
-        <input type="radio" name="stmMode" value="transition" checked style="width:auto;">
-        <span><b>시즌 전환</b> — 새 반 추가 + 옛 반 퇴원 (옛 시즌 데이터는 archived로 보존)</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;font-size:0.88rem;">
-        <input type="radio" name="stmMode" value="add-only" style="width:auto;">
-        <span><b>추가만</b> — 옛 반 유지 (특강/보강 추가)</span>
-      </label>
+    <div style="margin-bottom:14px;padding:9px 11px;background:#f4f7f4;border-left:3px solid #7a9a7a;border-radius:6px;font-size:0.8rem;color:#4a5a4a;line-height:1.55;">
+      옛 반은 여기서 정리하지 않습니다. 학기가 끝나면 <b>반 관리에서 「종강」</b>으로 접어 주세요 —
+      남아 있던 학생은 <b>수료</b>로 바뀌고 출결·성적·리포트는 그대로 남습니다.
     </div>
     <label>새 학원</label>
     <select id="stmAcademy" onchange="stmUpdateClassOptions()"></select>
@@ -1602,10 +1600,12 @@
   //   왜 필요한가: 출결 테이블에는 옛 기록이 남아 있을 수 있는데(전입·재등록·마이그레이션 잔여),
   //   그걸 그대로 세면 홈에 뜬 "살펴볼 학생 5명"을 눌렀을 때 목록엔 3명만 나온다.
   //   숫자와 목록이 어긋나면 그 숫자를 다시는 안 믿는다. 그래서 세는 기준을 한 곳으로 묶는다.
+  //   🏁 2026-08-10 — '수료'(종강한 반 학생)도 뺀다. 안 빼면 끝난 반 학생이 「연속 결석」으로
+  //      경보에 올라온다. 수업이 없으니 결석이 쌓이는 건 당연하고, 손쓸 방법도 없다.
   function enrolledIdSet(students) {
     if (!Array.isArray(students)) return null;
     return new Set(students
-      .filter(s => s && s.approvalStatus !== '대기중' && s.approvalStatus !== '거부')
+      .filter(s => s && s.approvalStatus !== '대기중' && s.approvalStatus !== '거부' && s.approvalStatus !== '수료')
       .map(s => String(s.id)));
   }
 
@@ -1679,6 +1679,14 @@
       + (r.length > 1 ? ' +' + (r.length - 1) : '') + '</span>';
   }
 
+  // 🎓 수료 배지 — 반이 종강했거나 개별 수료 처리된 학생. 퇴원과 다르다: 계정은 살아 있다.
+  function completedBadge(s) {
+    if (!s || String(s.approvalStatus || '').trim() !== '수료') return '';
+    return '<span title="수료 — 앱 로그인·리포트·성적은 그대로 열려 있고 수업 영상만 잠깁니다"'
+      + ' style="background:#F5EFE3;color:#8a6d3b;border:1px solid #e0c98f;padding:2px 8px;border-radius:20px;'
+      + 'font-size:0.68rem;font-weight:700;margin-left:6px;white-space:nowrap;">🎓 수료</span>';
+  }
+
   // 학생 목록 상단 필터 칩 — 해당자가 있을 때만 나타난다(0명이면 아예 안 보임).
   function syncRiskFilterBtn() {
     const btn = document.getElementById('riskFilterBtn');
@@ -1694,6 +1702,24 @@
 
   function toggleRiskOnly() {
     riskOnly = !riskOnly;
+    if (typeof renderStudentsView === 'function') renderStudentsView();
+  }
+
+  // 🏁 수료생 보기 토글 (2026-08-10) — 종강한 반 학생은 기본으로 감춘다.
+  //   퇴원과 다르다: 수료생은 계정이 살아 있고 앱에서 리포트·성적을 계속 본다. 여기서만 안 보일 뿐이다.
+  let showCompleted = false;
+  function syncCompletedFilterBtn(n) {
+    const btn = document.getElementById('completedFilterBtn');
+    if (!btn) return;
+    if (!n) { btn.style.display = 'none'; showCompleted = false; return; }
+    btn.style.display = '';
+    btn.title = '종강한 반 학생입니다. 앱 로그인·리포트·성적은 그대로 열려 있고 수업 영상만 잠깁니다.';
+    btn.textContent = (showCompleted ? '🙈 수료생 숨기기' : '🎓 수료생 보기 ' + n);
+    btn.style.borderColor = showCompleted ? '#8a6d3b' : 'var(--border)';
+    btn.style.color = showCompleted ? '#8a6d3b' : '';
+  }
+  function toggleShowCompleted() {
+    showCompleted = !showCompleted;
     if (typeof renderStudentsView === 'function') renderStudentsView();
   }
 
@@ -3894,6 +3920,21 @@
     }
     return out;
   }
+  // 🏁 2026-08-10 — 「학생을 **넣을** 반」을 고르는 드롭다운 전용. 종강한 반을 뺀 목록.
+  //    getAllClassOptionsByAcademy() 는 그대로 둔다 — 반 관리·지난 영상 조회·공지 대상처럼
+  //    **끝난 반도 보여야 하는 자리**가 있기 때문이다. 여기서 갈라 쓰는 게 맞다.
+  //    (수료생에게 재등록 공지를 보내는 건 이 설계의 목적 중 하나라, 공지 대상 목록은 일부러 안 건드렸다.)
+  function getActiveClassOptionsByAcademy() {
+    const all = getAllClassOptionsByAcademy();
+    const archived = (_classOptionsCache && _classOptionsCache.archived) || [];
+    if (!archived.length) return all;
+    const archivedSet = new Set(archived);
+    const out = {};
+    for (const [acad, list] of Object.entries(all)) {
+      out[acad] = (list || []).filter(c => !archivedSet.has(acad + '/' + c));
+    }
+    return out;
+  }
   function getAllAcademies() {
     if (_classOptionsCache && Array.isArray(_classOptionsCache.academies)) {
       return _classOptionsCache.academies;
@@ -3935,12 +3976,15 @@
       });
   }
 
-  // 반/학원 학생 수 (서버에서 받은 counts 사용)
+  // 반/학원 학생 수 — **재원생만**(서버 counts 와 같은 정의). 수료생은 별도로 센다.
+  //   서버가 counts(재원) · completed(수료) · countsAll(전부) 셋을 따로 준다. 여기서 섞으면
+  //   "학생 0명"으로 보여 지워선 안 될 반이 지워진다.
   function getClassStudentCount(acad, cls) {
     if (_classOptionsCache && _classOptionsCache.counts) {
       return _classOptionsCache.counts[acad + '/' + cls] || 0;
     }
-    return (allStudents || []).filter(s => s.academy === acad && s.className === cls).length;
+    const 재원 = (st) => { const v = String(st || '').trim(); return v === '' || v === '승인'; };
+    return (allStudents || []).filter(s => s.academy === acad && s.className === cls && 재원(s.approvalStatus)).length;
   }
 
   // ─── 반 관리 패널 ───
@@ -3981,13 +4025,22 @@
             <button class="del-btn" ${canDeleteAcad ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteAcademy('${esc(acad).replace(/'/g,'\\x27')}')" title="${canDeleteAcad ? '학원 삭제' : '학생 있어서 삭제 불가'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>학원 삭제</button>
           </div>
         </div>`;
+      // 🏷️ 2026-08-10 — 종강한 반은 「지난 반」으로 접어 아래로 내린다. 목록에서 지우는 게 아니다.
+      //    (지우면 그 반 학생의 출결·리포트가 어느 반 것인지 가리키던 이름이 사라진다.)
+      const archivedSet = new Set(data.archived || []);
+      const activeCls = classes.filter(c => !archivedSet.has(acad + '/' + c));
+      const pastCls   = classes.filter(c =>  archivedSet.has(acad + '/' + c));
       if (!classes.length) {
         html += '<div style="color:#999;font-size:0.82rem;padding:4px 8px;">반 없음</div>';
       } else {
+        if (!activeCls.length) html += '<div style="color:#999;font-size:0.82rem;padding:4px 8px;">진행 중인 반 없음 (아래 「지난 반」 참고)</div>';
         html += '<div style="display:flex;flex-direction:column;gap:5px;padding-left:6px;">';
-        for (const cls of classes) {
+        for (const cls of activeCls) {
           const cnt = getClassStudentCount(acad, cls);
-          const canDelete = cnt === 0;
+          // 수료생은 재원 수(cnt)에 안 들어간다. 삭제 가능 판정은 **수료까지 포함한 전체**로 봐야 한다.
+          const done = ((data.completed || {})[acad + '/' + cls]) || 0;
+          const total = ((data.countsAll || {})[acad + '/' + cls]);
+          const canDelete = ((total === undefined) ? (cnt + done) : total) === 0;
           const code = (data.codes || {})[acad + '/' + cls] || '—';
           const sched = (data.schedules || {})[acad + '/' + cls] || null;
           const schedLabel = formatClassSchedule(sched);
@@ -3998,12 +4051,37 @@
             <span>${esc(cls)}
               <span onclick="copyClassCode('${esc(code).replace(/'/g,'\\x27')}')" title="탭하면 복사" style="display:inline-block;margin-left:6px;background:#E8EAF6;color:#283593;font-weight:800;font-size:0.78rem;letter-spacing:1px;padding:1px 7px;border-radius:5px;cursor:pointer;font-family:monospace;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>${esc(code)}</span>
               <span onclick="openScheduleModal('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="수업 요일·시간 설정" style="display:inline-block;margin-left:6px;${schedStyle}font-weight:700;font-size:0.78rem;padding:1px 7px;border-radius:5px;cursor:pointer;">🕘 ${esc(schedLabel)}</span>
-              <span style="color:#888;font-size:0.78rem;margin-left:6px;">학생 ${cnt}명</span>
+              <span style="color:#888;font-size:0.78rem;margin-left:6px;">학생 ${cnt}명</span>${done ? `<span style="color:#8a6d3b;font-size:0.78rem;margin-left:5px;">· 수료 ${done}명</span>` : ''}
             </span>
-            <button class="del-btn" ${canDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${canDelete ? '반 삭제' : '학생 있어서 삭제 불가'}" style="padding:4px 10px;font-size:0.78rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>삭제</button>
+            <span style="display:flex;gap:6px;flex:0 0 auto;">
+            <button onclick="archiveClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="학기 마감 — 학생은 수료로, 기록은 그대로" style="background:#fff;color:#8a6d3b;border:1.5px solid #e0c98f;border-radius:6px;padding:4px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;">🏁 종강</button>
+            <button class="del-btn" ${canDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${canDelete ? '반 삭제' : '학생 있어서 삭제 불가 — 종강으로 접으세요'}" style="padding:4px 10px;font-size:0.78rem;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>삭제</button>
+            </span>
           </div>`;
         }
         html += '</div>';
+        // 🗂 지난 반 — 접어 둔다. 열면 「종강 취소」와, 학생이 0명일 때만 「삭제」가 보인다.
+        if (pastCls.length) {
+          html += `<details style="margin-top:8px;"><summary style="cursor:pointer;color:#8a8f98;font-size:0.8rem;font-weight:700;padding:4px 6px;list-style:none;">🗂 지난 반 ${pastCls.length}개 — 종강 (탭하면 펼침)</summary>
+            <div style="display:flex;flex-direction:column;gap:5px;padding:6px 0 0 6px;">`;
+          for (const cls of pastCls) {
+            const pCnt  = getClassStudentCount(acad, cls);
+            const pDone = ((data.completed || {})[acad + '/' + cls]) || 0;
+            const pAll  = ((data.countsAll || {})[acad + '/' + cls]);
+            const pCanDelete = ((pAll === undefined) ? (pCnt + pDone) : pAll) === 0;
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f2f2f4;border-radius:6px;font-size:0.85rem;opacity:0.85;">
+              <span style="color:#666;">${esc(cls)}
+                <span style="display:inline-block;margin-left:6px;background:#e8e5de;color:#8a6d3b;font-weight:700;font-size:0.74rem;padding:1px 7px;border-radius:5px;">종강</span>
+                <span style="color:#888;font-size:0.78rem;margin-left:6px;">수료 ${pDone}명${pCnt ? ' · 재원 ' + pCnt + '명' : ''}</span>
+              </span>
+              <span style="display:flex;gap:6px;flex:0 0 auto;">
+              <button onclick="unarchiveClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="종강을 되돌린다 — 종강 때 수료로 바뀐 학생만 재원 복귀" style="background:#fff;color:#3949AB;border:1.5px solid #c5cae9;border-radius:6px;padding:4px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;">↩ 종강 취소</button>
+              <button class="del-btn" ${pCanDelete ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"'} onclick="deleteClass('${esc(acad).replace(/'/g,'\\x27')}', '${esc(cls).replace(/'/g,'\\x27')}')" title="${pCanDelete ? '반 삭제' : '학생이 남아 있어 삭제 불가 (지난 반은 그냥 두셔도 됩니다)'}" style="padding:4px 10px;font-size:0.78rem;">삭제</button>
+              </span>
+            </div>`;
+          }
+          html += '</div></details>';
+        }
       }
       html += '</div>';
     }
@@ -4134,7 +4212,10 @@
     } catch (e) { showToast('반코드: ' + code); }
   }
   async function deleteClass(academy, className) {
-    if (!confirm('[' + academy + ' · ' + className + '] 반을 삭제할까요?\n(드롭다운 옵션에서만 사라집니다. 옛 데이터는 보존됨)')) return;
+    if (!confirm('[' + academy + ' · ' + className + '] 반을 삭제할까요?\n\n'
+      + '드롭다운 옵션에서만 사라집니다. 옛 데이터는 보존됩니다.\n'
+      + '반코드는 폐기되고, 같은 이름으로 다시 만들면 코드는 새 번호가 됩니다.\n\n'
+      + '※ 학기가 끝나서 정리하시는 거라면 삭제 말고 「🏁 종강」을 쓰세요.')) return;
     try {
       const res = await fetch('/api/class-options', {
         method: 'POST',
@@ -4149,6 +4230,62 @@
       showToast('🗑 [' + academy + ' · ' + className + '] 삭제됨');
       await loadClassOptionsFromServer();
       renderClassManager();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+  // ─── 🏁 반 종강 / ↩ 종강 취소 (2026-08-10) ───
+  // 「퇴원」을 대신하는 학기 마감 도구. 지우는 게 아니라 접는 것 —
+  // 학생 행을 지우면 로그인·수업명단·반 소속이 한꺼번에 끊겨서, 학부모 앱이 통째로 닫히고
+  // 그동안 쌓인 리포트도 눈앞에서 사라진다. 종강은 그중 「수업영상」 하나만 닫는다.
+  async function archiveClass(academy, className) {
+    const cnt = getClassStudentCount(academy, className);
+    if (!confirm(
+      '[' + academy + ' · ' + className + '] 반을 종강할까요?\n\n'
+      + '· 지금 다니는 학생 ' + cnt + '명이 「수료」로 바뀝니다\n'
+      + '· 앱 로그인 · 리포트 · 성적은 그대로 보입니다\n'
+      + '· 수업 영상만 잠깁니다\n'
+      + '· 반코드가 폐기되고 수업시간표가 해제됩니다\n'
+      + '· 이 반은 「지난 반」으로 접힙니다\n\n'
+      + '출결 · 학습기록 · 리포트 · 성적은 하나도 지워지지 않습니다.\n'
+      + '잘못 누르셨다면 「종강 취소」로 되돌릴 수 있습니다.'
+    )) return;
+    try {
+      const res = await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'archive-class', academy: academy, className: className }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '종강 실패')); return; }
+      showToast('🏁 [' + className + '] 종강 — 학생 ' + (data.completed || 0) + '명 수료 처리 (기록은 그대로)');
+      await loadClassOptionsFromServer();
+      renderClassManager();
+      // 학생 상태가 바뀌었으니 명단도 다시 읽는다. 안 하면 화면엔 아직 「승인」으로 보인다.
+      try { await loadStudents(); } catch (_) {}
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+  async function unarchiveClass(academy, className) {
+    if (!confirm(
+      '[' + academy + ' · ' + className + '] 종강을 취소할까요?\n\n'
+      + '· 이번 종강 때 수료로 바뀐 학생만 다시 재원이 됩니다\n'
+      + '  (그 전부터 수료였던 학생은 그대로입니다)\n'
+      + '· 반코드는 새 번호로 발급됩니다 — 옛 번호는 되살리지 않습니다'
+    )) return;
+    try {
+      const res = await fetch('/api/class-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'unarchive-class', academy: academy, className: className }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { showToast('❌ ' + (data.error || '종강 취소 실패')); return; }
+      showToast('↩ [' + className + '] 종강 취소 — 학생 ' + (data.restored || 0) + '명 복귀 · 🔑 새 반코드 ' + (data.code || '-'));
+      await loadClassOptionsFromServer();
+      renderClassManager();
+      try { await loadStudents(); } catch (_) {}
     } catch (e) {
       showToast('네트워크 오류: ' + e.message);
     }
@@ -4223,7 +4360,8 @@
     } catch (_) {}
   }
 
-  // ─── 시즌 전환 모달 ───
+  // ─── 일괄 반 배정 모달 (옛 이름: 시즌 전환) ───
+  // 함수 이름은 호출부가 여러 군데라 그대로 두되, 동작은 '추가만'으로 고정됐다. 2026-08-10.
   function openSeasonTransitionModal() {
     if (bulkSelectedIds.size === 0) { showToast('학생을 먼저 선택하세요 (체크박스)'); return; }
     const ids = Array.from(bulkSelectedIds);
@@ -4244,7 +4382,7 @@
   }
   function stmUpdateClassOptions() {
     const acad = document.getElementById('stmAcademy').value;
-    const dyn = getAllClassOptionsByAcademy();
+    const dyn = getActiveClassOptionsByAcademy();  // 🏁 종강한 반으로는 일괄 배정 못 하게
     const opts = dyn[acad] || [];
     const sel = document.getElementById('stmClass');
     sel.innerHTML = opts.map(c => '<option value="' + c + '">' + c + '</option>').join('')
@@ -4262,7 +4400,9 @@
     }
   }
   async function submitSeasonTransition() {
-    const mode = (document.querySelector('input[name="stmMode"]:checked') || {}).value || 'transition';
+    // 🔴 2026-08-10 — 모드 선택을 없앴다. 'add-only'(추가만) 고정.
+    //    예전 'transition' 은 옛 반 학생 행을 지우면서 출결·학습기록을 통째로 날렸다. 서버도 이제 400으로 막는다.
+    const mode = 'add-only';
     const academy = document.getElementById('stmAcademy').value;
     let className = document.getElementById('stmClass').value;
     let isNewClass = false;
@@ -4279,10 +4419,9 @@
     const ids = Array.from(bulkSelectedIds);
     if (!ids.length) { showToast('선택된 학생이 없습니다'); return; }
 
-    const modeLabel = mode === 'transition' ? '시즌 전환 (옛 반 퇴원 + 새 반)' : '추가만 (옛 반 유지)';
-    if (!confirm(ids.length + '명을 [' + academy + ' · ' + className + ']로 ' + modeLabel + '?\n\n실행하면 되돌릴 수 없어요. 계속할까요?')) return;
+    if (!confirm(ids.length + '명을 [' + academy + ' · ' + className + ']에 추가할까요?\n\n지금 다니는 반은 그대로 유지됩니다. 지워지는 건 없어요.')) return;
 
-    showToast('⏳ 일괄 이동 처리 중... (' + ids.length + '명)');
+    showToast('⏳ 일괄 반 배정 처리 중... (' + ids.length + '명)');
     try {
       const moves = ids.map(id => ({ sourceStudentId: id, targetAcademy: academy, targetClassName: className }));
       const res = await fetch('/api/admin-bulk-move', {
@@ -4292,10 +4431,10 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        showToast('❌ 일괄 이동 실패: ' + (data.error || res.status));
+        showToast('❌ 일괄 반 배정 실패: ' + (data.error || res.status));
         return;
       }
-      let msg = '✅ ' + data.succeeded + '/' + data.total + '명 이동 완료';
+      let msg = '✅ ' + data.succeeded + '/' + data.total + '명 배정 완료';
       if (data.failed > 0) {
         const failedNames = data.results.filter(r => !r.ok).map(r => '· ' + (r.name || r.sourceStudentId.slice(0,8)) + ': ' + r.error).join('\n');
         msg += ' (실패 ' + data.failed + '명)';
@@ -4366,10 +4505,17 @@
     renderPendingApproval();
     // 2) 일반 목록은 승인된 + 옛 학생 (대기중/거부 제외)
     const approved = (allStudents || []).filter(s => s.approvalStatus !== '대기중' && s.approvalStatus !== '거부');
-    // 동명이인 점검 — 같은 이름 재원생이 둘 이상이면 상단에 경보(리포트/alias가 이름으로 매칭돼 오귀속 위험)
+    // 🏁 2026-08-10 — 수료생(종강한 반)은 기본으로 감춘다. 명단은 "지금 가르치는 사람"이어야 한다.
+    //    지우는 게 아니라 접는 것 — 버튼 한 번이면 다시 보인다.
+    const completedList = approved.filter(s => s.approvalStatus === '수료');
+    syncCompletedFilterBtn(completedList.length);
+    const roster = showCompleted ? approved : approved.filter(s => s.approvalStatus !== '수료');
+    // 동명이인 점검 — 같은 이름이 둘 이상이면 상단에 경보(리포트/alias가 이름으로 매칭돼 오귀속 위험)
+    //   ⚠️ 여기엔 **수료생도 넣는다**(roster 아님). 리포트는 이름으로 붙기 때문에, 수료생과 이름이 겹치면
+    //      새 학생 리포트가 수료생 기록에 붙을 수 있다. 화면에서 감췄다고 위험이 사라지는 게 아니다.
     renderDuplicateNames(approved);
     const q = (document.getElementById('studentSearch')?.value || '').toLowerCase();
-    let filtered = !q ? approved : approved.filter(s =>
+    let filtered = !q ? roster : roster.filter(s =>
       (s.name||'').toLowerCase().includes(q)
       || (s.school||'').toLowerCase().includes(q)
       || (s.academy||'').toLowerCase().includes(q)
@@ -4934,7 +5080,7 @@
           <input type="checkbox" class="student-bulk-cb" data-id="${s.id}" ${isChecked ? 'checked' : ''} onchange="onStudentCheckbox('${s.id}', this.checked)" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
           <div>
           <strong>${escapeHtml(s.name || '—')}</strong>
-          ${riskBadge(s)}
+          ${riskBadge(s)}${completedBadge(s)}
           <span style="font-size:0.82rem;color:var(--text-light);margin-left:8px;">${escapeHtml(s.academy || '')}${s.className?' / '+escapeHtml(s.className):''}</span>
           <span class="student-card-chevron">▼</span>
           </div>
@@ -4969,7 +5115,10 @@
           <span class="go-row-label">관리:</span>
           <button class="del-btn" style="border-color:#3949AB;color:#3949AB;" onclick="event.stopPropagation();openEditClassModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg>학원/반</button>
           <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>다른 반</button>
-          <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
+          ${String(s.approvalStatus || '').trim() === '수료'
+                ? `<button class="del-btn" style="border-color:#3949AB;color:#3949AB;" title="다시 다니게 됐을 때 — 수업 영상이 도로 열립니다" onclick="event.stopPropagation();restoreStudent('${jsArg(s.id)}','${jsArg(s.name)}')">↩ 재원 복귀</button>`
+                : `<button class="del-btn" style="border-color:#e0c98f;color:#8a6d3b;" title="그만뒀을 때 — 앱·리포트는 그대로 두고 수업 영상만 잠급니다" onclick="event.stopPropagation();completeStudent('${jsArg(s.id)}','${jsArg(s.name)}')">🎓 수료 처리</button>`}
+              <button class="del-btn" title="⚠️ 계정과 기록까지 지웁니다. 그냥 그만둔 학생은 「🎓 수료 처리」를 쓰세요" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
         </div>
         </div>
     </div>`;
@@ -5043,7 +5192,10 @@
               <button class="del-btn" style="border-color:#2a7a2a;color:#2a7a2a;" onclick="event.stopPropagation();openAddEnrollmentModal('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.academy)}','${jsArg(s.className)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M12 5v14M5 12h14"></path></svg>다른 반</button>
               ${s.parentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학부모 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.parentPhone) + '\x27, \x27학부모\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>학부모 비번</button>' : ''}
               ${s.studentPhone ? '<button class="del-btn" style="border-color:var(--border);color:var(--text-light);" title="학생 비밀번호를 0000으로 초기화" onclick="event.stopPropagation();resetPassword(\x27' + jsArg(s.studentPhone) + '\x27, \x27학생\x27)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><circle cx="8.5" cy="12" r="3.5"></circle><path d="M12 12h8.5M17.5 12v3"></path></svg>학생 비번</button>' : ''}
-              <button class="del-btn" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
+              ${String(s.approvalStatus || '').trim() === '수료'
+                ? `<button class="del-btn" style="border-color:#3949AB;color:#3949AB;" title="다시 다니게 됐을 때 — 수업 영상이 도로 열립니다" onclick="event.stopPropagation();restoreStudent('${jsArg(s.id)}','${jsArg(s.name)}')">↩ 재원 복귀</button>`
+                : `<button class="del-btn" style="border-color:#e0c98f;color:#8a6d3b;" title="그만뒀을 때 — 앱·리포트는 그대로 두고 수업 영상만 잠급니다" onclick="event.stopPropagation();completeStudent('${jsArg(s.id)}','${jsArg(s.name)}')">🎓 수료 처리</button>`}
+              <button class="del-btn" title="⚠️ 계정과 기록까지 지웁니다. 그냥 그만둔 학생은 「🎓 수료 처리」를 쓰세요" onclick="event.stopPropagation();deleteStudent('${jsArg(s.id)}','${jsArg(s.name)}','${jsArg(s.className)}','${jsArg(s.academy)}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"></path></svg>퇴원처리</button>
             </div>
             <div class="mkwrap-admin" style="display:none;margin-top:9px;padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
           </div>
@@ -5719,6 +5871,54 @@
     }
   }
 
+  // ─── 🎓 수료 처리 / ↩ 재원 복귀 (2026-08-10) ──────────────────
+  //   퇴원처리(위)와의 차이가 이 기능의 존재 이유다.
+  //     퇴원처리 = students 행을 지운다 → 로그인 열쇠·수업 명단·반 소속이 한꺼번에 끊긴다.
+  //                그만둔 학생 집에서 앱을 열면 "등록된 학생 정보가 없습니다" 가 뜬다.
+  //     수료 처리 = approval_status 를 '수료' 로만 바꾼다 → 로그인·지난 리포트·성적은 그대로,
+  //                수업 영상만 잠긴다(class-videos.js 가 403). 학원을 나가도 앱은 남는다.
+  //   ⚠️ 여기서 계정 삭제·토큰 폐기를 절대 하지 말 것. 수료생을 「없는 사람」으로 치면
+  //      앱에서 튕겨나가고 이 설계 전체가 무의미해진다. (_auth.js 의 revokeTokensIfUnused 주석 참고)
+  async function completeStudent(studentId, name) {
+    if (!studentId) return;
+    const ok = confirm(
+      '🎓 [' + name + '] 학생을 수료 처리할까요?\n\n' +
+      '· 계정·지난 리포트·성적·출결 기록은 그대로 남습니다 (앱 계속 사용 가능)\n' +
+      '· 수업 영상만 잠깁니다\n' +
+      '· 명단·출결·「연속 결석」 경보에서 빠집니다\n' +
+      '· 다시 다니게 되면 「↩ 재원 복귀」 한 번으로 되돌아옵니다\n\n' +
+      '(기록까지 지우려면 이게 아니라 「퇴원처리」입니다)'
+    );
+    if (!ok) return;
+    await setStudentCompletion(studentId, name, 'complete');
+  }
+
+  async function restoreStudent(studentId, name) {
+    if (!studentId) return;
+    const ok = confirm('↩ [' + name + '] 학생을 재원으로 되돌릴까요?\n\n· 수업 영상이 다시 열립니다\n· 명단·출결에 다시 나타납니다');
+    if (!ok) return;
+    await setStudentCompletion(studentId, name, 'restore');
+  }
+
+  async function setStudentCompletion(studentId, name, action) {
+    try {
+      const res = await fetch('/api/admin-approve-student', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ studentId: String(studentId), action: action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast('❌ ' + (action === 'complete' ? '수료 처리' : '재원 복귀') + ' 실패: ' + (data.error || data.message || res.status));
+        return;
+      }
+      showToast((action === 'complete' ? '🎓 ' : '↩ ') + name + ' — ' + (data.message || (action === 'complete' ? '수료 처리 완료' : '재원 복귀 완료')));
+      if (typeof loadStudents === 'function') await loadStudents();
+    } catch (e) {
+      showToast('네트워크 오류: ' + e.message);
+    }
+  }
+
   // ─── 반별 빠른 출석 ─────────────────────────
   function todayStr() {
     const d = new Date();
@@ -5890,9 +6090,15 @@
     const opts = _classOptionsCache || {};
     const classes = opts.classes || {};
     const schedules = opts.schedules || {};
+    // 🏁 2026-08-10 — 종강한 반은 「오늘 할 일」에서 통째로 뺀다.
+    //    종강하면 시간표가 해제되므로 today 에는 어차피 안 뜨지만, hasDays 가 false 라서
+    //    **「⏰ 요일 미설정 반」 목록으로 흘러들어 영원히 쌓인다.** 그게 관우T가 걱정한 "죽은 반이 쌓인다" 바로 그 증상이다.
+    const archivedSet = new Set(opts.archived || []);
     const byKey = {};
     for (const s of (allStudents || [])) {
       if (!s.academy || !s.className) continue;
+      // 🎓 수료생 제외 — 카드의 인원수·출결 집계가 아래 명단(renderAttendanceList)과 어긋나면 안 된다.
+      if (String(s.approvalStatus || '').trim() === '수료') continue;
       const k = s.academy + '/' + s.className;
       (byKey[k] = byKey[k] || []).push(s);
     }
@@ -5903,6 +6109,7 @@
     }
     const today = [], clinicOnly = [], unset = [];
     for (const k of Array.from(keys).sort()) {
+      if (archivedSet.has(k)) continue;
       const i = k.indexOf('/');
       const acad = k.slice(0, i), cls = k.slice(i + 1);
       const sch = schedules[k] || null;
@@ -5981,7 +6188,10 @@
     const sumEl  = document.getElementById('qaSummary');
     if (!sumEl || !acadEl || !clsEl) return;
     const acad = acadEl.value, cls = clsEl.value;
-    const targets = (allStudents||[]).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
+    // 🎓 수료생 제외 — renderAttendanceList(6542)와 **같은 조건이어야 한다.**
+    //    여기만 빠뜨리면 명단엔 5명인데 요약은 8명(미체크 3)으로 떠서, 매번 있지도 않은 미체크를 찾게 된다.
+    const targets = (allStudents||[]).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls)
+      && String(s.approvalStatus || '').trim() !== '수료');
     if (!targets.length) { sumEl.innerHTML = '<span style="color:var(--text-light);">대상 학생 없음</span>'; return; }
     const _t = qaTally(targets);
     const counts = _t.counts, hwAvg = _t.hwAvg, hwN = _t.hwN;
@@ -6004,7 +6214,11 @@
     const acad = acadArg || (document.getElementById('qaAcademy') || {}).value || '';
     const cls  = clsArg  || (document.getElementById('qaClass')   || {}).value || '';
     if (!acad || !cls) { showToast('학원과 반을 먼저 선택하세요'); return; }
-    const targets = (allStudents||[]).filter(s => s.academy === acad && s.className === cls);
+    // 🎓 수료생 제외 — 여기가 셋 중 **가장 위험한 자리**다.
+    //    ① 반 전체를 한 번에 찍는 쓰기 경로이고 ② 결석·지각·병결이면 **학부모께 푸시가 나간다.**
+    //    끝난 반 학생이 섞여 있으면 그만둔 아이 학부모께 "오늘 결석입니다" 알림이 간다 — 되돌릴 수 없다.
+    const targets = (allStudents||[]).filter(s => s.academy === acad && s.className === cls
+      && String(s.approvalStatus || '').trim() !== '수료');
     if (!targets.length) { showToast('해당 반에 학생이 없습니다'); return; }
     const date = qaDate();
     if (!confirm(acad + ' / ' + cls + ' (' + targets.length + '명)을 모두 [' + status + '] 처리할까요?\n' + date + ' 날짜로 기록됩니다.')) return;
@@ -6351,7 +6565,11 @@
     const acad = (document.getElementById('qaAcademy')?.value || '');
     const cls  = (document.getElementById('qaClass')?.value || '');
     // 학원/반 필터 우선 적용 (선택돼있으면), 그 다음 이름 검색
-    let filtered = (allStudents || []).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls));
+    // 🎓 수료생은 출석 명단에서 뺀다. 여기는 「보는」 화면이 아니라 출·지·결을 **찍는** 화면이라,
+    //    끝난 반 학생이 섞여 있으면 안 다니는 아이 출결이 기록된다.
+    //    (기록 자체는 그대로 남는다 — 출석 현황·리포트에서는 여전히 보인다)
+    let filtered = (allStudents || []).filter(s => (!acad || s.academy === acad) && (!cls || s.className === cls)
+      && String(s.approvalStatus || '').trim() !== '수료');
     // 🗓 아무것도 안 고르고 검색도 안 했으면 '그날 수업 있는 반' 학생만 기본 표시.
     //    (매번 학원·반을 고르게 하지 않기 위함 — 2026-07-31 관우T 요청)
     let banner = '';
@@ -6602,7 +6820,9 @@
   }
   function ecmUpdateClassOptions(presetClass) {
     const acad = document.getElementById('ecmAcademy').value;
-    const dyn = (typeof getAllClassOptionsByAcademy === 'function') ? getAllClassOptionsByAcademy() : {};
+    // 🏁 종강한 반은 후보에서 뺀다. 단 바로 아래 presetClass 보정이 있어서
+    //    **이미 그 종강 반에 속한 학생의 현재 반은 계속 보인다** (안 그러면 반이 멋대로 바뀐 것처럼 보인다).
+    const dyn = (typeof getActiveClassOptionsByAcademy === 'function') ? getActiveClassOptionsByAcademy() : {};
     const opts = (dyn[acad] || CLASS_OPTIONS_BY_ACADEMY[acad] || []);
     const sel = document.getElementById('ecmClass');
     // presetClass 가 dynamic options에 없으면 추가
@@ -6643,7 +6863,7 @@
   }
   function aemUpdateClassOptions() {
     const acad = document.getElementById('aemAcademy').value;
-    const dyn = getAllClassOptionsByAcademy();
+    const dyn = getActiveClassOptionsByAcademy();  // 🏁 종강한 반에 「다른 반 추가」로 밀어넣지 못하게
     const opts = (dyn[acad] || []);
     const sel = document.getElementById('aemClass');
     sel.innerHTML = '<option value="">반 선택</option>' + opts.map(c => '<option value="' + c + '">' + c + '</option>').join('')

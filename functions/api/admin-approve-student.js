@@ -1,7 +1,9 @@
 // POST /api/admin-approve-student (admin only) — Cloudflare D1 (이전엔 Notion)
-// body: { studentId (D1 id), action: 'approve'|'reject' }
-//   approve: 승인 상태→'승인' + 동명이인 alias 자동 부여 + 학부모/학생 계정 생성(초기 0000)
-//   reject : 학생 레코드 삭제
+// body: { studentId (D1 id), action: 'approve'|'reject'|'complete'|'restore' }
+//   approve : 승인 상태→'승인' + 동명이인 alias 자동 부여 + 학부모/학생 계정 생성(초기 0000)
+//   reject  : 학생 레코드 삭제
+//   complete: 승인 상태→'수료' (2026-08-10) — 한 명만 중간에 그만둘 때. 지우는 건 하나도 없다.
+//   restore : 수료→'승인' 재원 복귀. 다시 들어온 학생.
 import { normalizePhone, findAccountByPhone, createAccount, revokeTokensIfUnused } from './_auth.js';
 import { getStudentById, setApprovalStatus, deleteStudent } from './_db.js';
 import { safeError } from './_errors.js';
@@ -47,7 +49,9 @@ export async function onRequest(context) {
   const action = (body.action || '').toString();
 
   if (!body.studentId || !Number.isFinite(studentId)) return Response.json({ error: 'studentId 필수' }, { status: 400 });
-  if (!['approve', 'reject'].includes(action)) return Response.json({ error: 'action은 approve 또는 reject' }, { status: 400 });
+  if (!['approve', 'reject', 'complete', 'restore'].includes(action)) {
+    return Response.json({ error: 'action은 approve · reject · complete · restore 중 하나' }, { status: 400 });
+  }
 
   try {
     const st = await getStudentById(env, studentId);
@@ -82,6 +86,47 @@ export async function onRequest(context) {
       });
       return Response.json({ ok: true, action: 'reject', name, studentId: String(studentId),
         message: '[' + name + '] 등록 신청이 거부되었습니다.' });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // === 🎓 수료 / 재원 복귀 (개별) === 2026-08-10
+    //   반 전체는 「반 종강」(class-options.js 의 archive-class)이 한 번에 처리한다.
+    //   여기는 한 명만 학기 중간에 그만두거나, 그만뒀던 학생이 다시 들어올 때 쓴다.
+    //
+    //   ⚠️ 여기서 revokeTokensIfUnused 를 부르지 말 것. 수료는 「나가라」가 아니라 「수업만 끝났다」다.
+    //      토큰을 폐기하면 학부모 앱이 그 자리에서 튕겨, 지금까지 쌓인 리포트도 눈앞에서 사라진다.
+    //      그 순간 「수료 상태」 설계 전체가 무의미해진다.
+    //   ⚠️ 계정 생성·alias 부여·승인 푸시도 여기서는 하지 않는다. 상태 한 칸만 바꾼다.
+    // ═══════════════════════════════════════════════════════════════════════
+    if (action === 'complete' || action === 'restore') {
+      const 새상태 = (action === 'complete') ? '수료' : '승인';
+      const r = await setApprovalStatus(env, studentId, 새상태);
+      if (!r.ok) return safeError(r.error || 'setApprovalStatus failed', env, { message: '상태 변경에 실패했습니다.' });
+      await logAudit(env, request, {
+        action: (action === 'complete') ? 'student.complete' : 'student.restore',
+        target: String(studentId),
+        targetName: name,
+        summary: '[' + name + '] ' + (action === 'complete' ? '수료 처리' : '재원 복귀')
+          + ' (' + (r.before || '(빈값)') + ' → ' + 새상태 + ')'
+          + (st.academy || st.className ? ' · ' + [st.academy, st.className].filter(Boolean).join(' · ') : ''),
+        detail: {
+          studentId,
+          승인상태: { 전: r.before, 후: 새상태 },
+          학원: st.academy || '', 반: st.className || '',
+          지운것: '없음 — 출결·학습기록·리포트·성적·계정·로그인 토큰 모두 그대로',
+          영향: (action === 'complete')
+            ? '앱 로그인·리포트·성적은 계속 열린다. 수업영상만 잠기고, 관리자 명단·출결·살펴볼학생 집계에서 빠진다.'
+            : '수업영상이 다시 열리고 관리자 명단·출결 대상으로 돌아온다.',
+          비고: '반 전체를 정리하려면 이게 아니라 「반 관리 → 🏁 종강」을 쓴다',
+        },
+      });
+      return Response.json({
+        ok: true, action, name, studentId: String(studentId),
+        before: r.before, after: 새상태,
+        message: '[' + name + '] ' + (action === 'complete'
+          ? '수료 처리 완료 — 앱 로그인·리포트·성적은 그대로 열려 있고 수업영상만 잠깁니다.'
+          : '재원 복귀 완료 — 수업영상이 다시 열립니다.'),
+      });
     }
 
     // === APPROVE ===

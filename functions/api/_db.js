@@ -342,6 +342,22 @@ export async function setApprovalStatus(env, id, status) {
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
+// 🏷️ 반 종강(class-options.js 의 archive-class)에서 쓴다 — 한 반 학생 전원을 한 번에 '수료'로 바꾼다.
+//   ⚠️ setApprovalStatus 를 20번 도는 대신 batch 로 한 번에 보낸다. 개별 호출은 학생 1명당
+//      SELECT+UPDATE 2회라, 20명이면 요청 하나가 D1 왕복 40번이 된다.
+//   ⚠️ before 값은 여기서 돌려주지 않는다 — 호출부가 이미 학생 목록을 들고 있고,
+//      감사 로그에 남길 "전" 값은 그쪽이 더 정확하다.
+export async function setApprovalStatusBulk(env, ids, status) {
+  const list = (ids || []).filter(v => v !== undefined && v !== null && v !== '');
+  if (!list.length) return { ok: true, changed: 0 };
+  try {
+    const stmts = list.map(id => env.DB.prepare('UPDATE students SET approval_status=? WHERE id=?').bind(status, id));
+    const res = await env.DB.batch(stmts);
+    const changed = (res || []).reduce((n, r) => n + ((r && r.meta && r.meta.changes) || 0), 0);
+    return { ok: true, changed };
+  } catch (e) { return { ok: false, error: e.message, changed: 0 }; }
+}
+
 // ════════════ 리포트 ════════════
 export async function getReportsForStudent(env, opts) {
   opts = opts || {};

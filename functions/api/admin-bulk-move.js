@@ -1,8 +1,20 @@
 // POST /api/admin-bulk-move (admin only) — Cloudflare D1 (이전엔 Notion)
-// body: { moves: [{ sourceStudentId, targetAcademy, targetClassName }], mode: 'transition'|'add-only' }
-//   transition: 새 enrollment 생성 + 옛 enrollment 삭제(그 출결/공부 포함)
-//   add-only  : 새 enrollment 생성만
-import { getStudentById, createStudent, deleteStudent } from './_db.js';
+// body: { moves: [{ sourceStudentId, targetAcademy, targetClassName }], mode: 'add-only' }
+//   add-only : 새 enrollment 생성만. 옛 등록은 손대지 않는다.
+//
+// 🔴 2026-08-10 — 'transition' 모드를 제거했다 (관우T 지시: "안 쓸 거면 없앤다").
+//   무엇이었나: 새 반에 행을 만들고 **옛 반 학생 행을 삭제**하던 모드. 화면엔 "옛 시즌 데이터는
+//   archived로 보존"이라 적혀 있었지만 거짓이었다 — archiveEnrollment() 가
+//   DELETE FROM attendance → DELETE FROM study_sessions → deleteStudent() 순으로 돌고
+//   student_archive(퇴원 아카이브)를 거치지 않았다. 성적(exam_scores)은 student_id 기준이라
+//   새 행에 안 딸려와 고아가 됐다. 즉 반 이동 한 번에 몇 달치 출결이 통째로 사라지는 버튼이었다.
+//   게다가 화면 라디오 기본값도, 이 파일의 mode 기본값도 둘 다 'transition' 이었다.
+//   왜 없앴나: 옛 반 정리는 이제 「반 종강」(class-options.js action:'archive-class')이 맡는다.
+//   종강하면 그 반 학생은 '수료'로 바뀌고 행은 남는다 — 지우지 않고도 반이 접힌다.
+//   되살리려면: 이 파일의 git 이력에 archiveEnrollment() 원본이 남아 있다. 다만 되살리기 전에
+//   "출결·학습기록을 student_archive 없이 지워도 되는가"를 먼저 답해야 한다. 답은 아니오였다.
+//   근거·설계: 인수인계/현재상태_수료상태_반종강_설계_20260810.md §3
+import { getStudentById, createStudent } from './_db.js';
 import { safeError } from './_errors.js';
 import { logAudit } from './_auditlog.js';
 
@@ -78,45 +90,8 @@ async function copyEnrollment(env, sourceId, academy, className) {
     동명이인목록: 후보.length ? 후보.map((x) => ({ id: String(x.id), 이름: x.name })) : undefined };
 }
 
-// ⚠️ 이름은 archive지만 실제로는 **삭제**다 — 출결·학습기록·학생 레코드가 통째로 사라진다.
-//    (퇴원 아카이브(student_archive)로 가지 않는다.) 반 이동 한 번에 몇 달치 출결이 없어질 수 있으므로,
-//    지우기 전에 몇 건이 사라지는지 세고, 지워진 학생 레코드 전체를 로그에 남긴다.
-async function archiveEnrollment(env, request, studentId) {
-  try {
-    let attCount = 0, studyCount = 0, attRows = [];
-    try {
-      const { results } = await env.DB.prepare(
-        'SELECT date, status, homework, homework_note, note, method FROM attendance WHERE student_id = ? ORDER BY date'
-      ).bind(studentId).all();
-      attRows = results || [];
-      attCount = attRows.length;
-    } catch (_) {}
-    try {
-      const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM study_sessions WHERE student_id = ?').bind(studentId).first();
-      studyCount = (c && c.n) || 0;
-    } catch (_) {}
-
-    await env.DB.prepare('DELETE FROM attendance WHERE student_id = ?').bind(studentId).run();
-    await env.DB.prepare('DELETE FROM study_sessions WHERE student_id = ?').bind(studentId).run();
-    const d = await deleteStudent(env, studentId);
-
-    await logAudit(env, request, {
-      action: 'enrollment.delete',
-      target: String(studentId),
-      targetName: (d.before && d.before.name) || '',
-      summary: '반 이동(transition) — 옛 등록 삭제: 출결 ' + attCount + '건 · 학습 ' + studyCount + '건 · 학생레코드 1건',
-      // 출결 원본은 200건까지만 담는다(로그 1건이 지나치게 커지는 걸 막되, 건수는 위에 정확히 남김).
-      detail: {
-        studentId, 출결삭제: attCount, 학습삭제: studyCount,
-        지워진학생: d.before || null,
-        지워진출결: attRows.slice(0, 200),
-        출결일부만저장: attCount > 200,
-        결과: d.ok ? 'ok' : (d.error || '삭제 실패'),
-      },
-    });
-    return d.ok ? { ok: true, attCount, studyCount } : { ok: false, error: d.error || '삭제 실패' };
-  } catch (e) { return { ok: false, error: e.message }; }
-}
+// 🗑️ archiveEnrollment() 는 2026-08-10 삭제됐다. 위 헤더 주석 참고 — 이름은 archive였지만 실제로는
+//    출결·학습기록·학생 행을 통째로 지우는 함수였다. 이 자리에 다시 만들지 말 것.
 
 export async function onRequest({ request, env }) {
   if (request.method !== 'POST') return Response.json({ error: 'POST만 허용' }, { status: 405 });
@@ -125,8 +100,17 @@ export async function onRequest({ request, env }) {
   let body = {};
   try { body = await request.json(); } catch {}
   const moves = Array.isArray(body.moves) ? body.moves : [];
-  const mode  = (body.mode || 'transition').toString();
-  if (!['transition', 'add-only'].includes(mode)) return Response.json({ error: 'mode는 transition 또는 add-only' }, { status: 400 });
+  // 🔴 기본값이 'transition'(삭제 모드)이었다 → 'add-only'로 바꿨다. mode를 안 보내는 옛 호출부가
+  //    있어도 이제는 아무것도 지우지 않는다. 안전한 쪽이 기본값이어야 한다.
+  const mode  = (body.mode || 'add-only').toString();
+  if (mode === 'transition') {
+    return Response.json({
+      error: '「시즌 전환(옛 등록 삭제)」 모드는 2026-08-10 제거됐습니다. 옛 반은 지우지 말고 「반 종강」으로 접어 주세요 — '
+        + '종강하면 그 반 학생은 수료로 바뀌고 출결·학습기록은 그대로 남습니다.',
+      removedMode: 'transition',
+    }, { status: 400 });
+  }
+  if (mode !== 'add-only') return Response.json({ error: "mode는 'add-only'만 허용됩니다" }, { status: 400 });
   if (!moves.length) return Response.json({ error: 'moves 비어있음' }, { status: 400 });
 
   const results = [];
@@ -145,7 +129,7 @@ export async function onRequest({ request, env }) {
       const copyResult = await copyEnrollment(env, src, acad, cls);
       if (!copyResult.ok) {
         // 👥 동명이인 때문에 멈춘 건 "실패"라기보다 판단이 필요한 상황이다 — 로그에 왜 멈췄는지 남긴다.
-        //   (transition 모드에서 여기서 멈추면 옛 등록은 그대로 살아 있다. 데이터가 사라지진 않는다.)
+        //   (여기서 멈춰도 옛 등록은 그대로 살아 있다. 이 API는 이제 아무것도 지우지 않는다.)
         if (copyResult.판정 === 'ambiguous') {
           await logAudit(env, request, {
             action: 'student.move.ambiguous',
@@ -177,24 +161,13 @@ export async function onRequest({ request, env }) {
         });
       }
 
-      if (mode === 'transition') {
-        const archiveResult = await archiveEnrollment(env, request, src);
-        if (!archiveResult.ok) {
-          results.push({ sourceStudentId: String(src), name: copyResult.name, ok: false, partial: true,
-            newEnrollmentId: copyResult.newEnrollmentId,
-            error: '새 enrollment 생성됐지만 옛 enrollment 삭제 실패: ' + archiveResult.error });
-          failed++; continue;
-        }
-      }
-
       // 한 명 옮길 때마다 1건씩 남긴다 — 나중에 "누가 언제 이 학생을 어디서 어디로 옮겼나"를 찾을 때
       //   전체 배치 1건만 남아 있으면 학생 이름으로 검색이 안 된다.
       await logAudit(env, request, {
         action: 'student.move',
         target: String(src),
         targetName: copyResult.name || '',
-        summary: '[' + (copyResult.name || src) + '] 반 이동 → ' + acad + ' · ' + cls
-          + (mode === 'transition' ? ' (옛 등록 삭제)' : ' (기존 등록 유지)'),
+        summary: '[' + (copyResult.name || src) + '] 반 배정 → ' + acad + ' · ' + cls + ' (기존 등록 유지)',
         detail: { 방식: mode, 원본학생id: src, 새등록id: copyResult.newEnrollmentId, 이동후학원: acad, 이동후반: cls },
       });
 
