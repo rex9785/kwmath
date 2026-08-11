@@ -418,7 +418,18 @@
       goalRows.push(['수강 목적', s.goals.map(g => `<span class="badge-chip">${escapeHtml(g)}</span>`).join('')]);
     }
     if (s.weakness) goalRows.push(['취약 단원', escapeHtml(s.weakness)]);
-    if (s.notes)    goalRows.push(['특이사항', escapeHtml(s.notes)]);
+    // 📓 2026-08-11 — 데모(설명회 체험용) 계정만 특이사항을 고정 문구로 덮어 보여준다.
+    //   이유: notes는 API로 지우거나 바꿀 방법이 없다(me-update.js·admin-update-student-class.js 둘 다 append만 함).
+    //         그래서 앱 세팅 중 쌓인 작업 기록이 학생 화면에 그대로 노출됐다. 화면 표시만 갈아끼우는 조치다.
+    //   범위: 학생 id 18(데모계정) 한 명뿐 — 실제 학생의 특이사항은 종전과 100% 동일하게 보인다.
+    //   되돌리기: 아래 DEMO_NOTES_ID 줄과 삼항식만 지우면 원래 동작으로 복귀.
+    const DEMO_NOTES_ID = '18';
+    if (s.notes) {
+      const notesText = (String(s.id) === DEMO_NOTES_ID)
+        ? '[설명회 체험용 계정] 실제 학생 화면과 동일한 구성입니다.'
+        : s.notes;
+      goalRows.push(['특이사항', escapeHtml(notesText)]);
+    }
     const goalHtml = goalRows.length ? `
       <div class="card">
         <div class="card-label">${kwIco('target',15)} 목표 · 학습</div>
