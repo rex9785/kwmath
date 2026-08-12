@@ -1,7 +1,9 @@
 import { safeError } from './_errors.js';
 import { logAudit } from './_auditlog.js';
-import { bearerFromRequest, verifyToken, fetchStudentsByPhone } from './_auth.js';
+import { bearerFromRequest, verifyToken, fetchStudentsByPhone, isCompleted } from './_auth.js';
 // GET  /api/video-access?code=XXX               → 영상 URL 반환
+//   Authorization: Bearer <userToken> — 🎓 2026-08-12부터 **필수**. 수료·졸업 학생을 여기서도 막기 위해서다.
+//     (원장은 Bearer <ADMIN_PASSWORD> 로 통과 — 코드가 살아 있는지 직접 확인할 길은 남겨 둔다.)
 // POST /api/video-access { code, name, via }     → 접근 기록 저장
 //   Authorization: Bearer <userToken> (선택) — 있으면 학부모/학생 계정 식별해 로그에 기록
 
@@ -28,6 +30,56 @@ export async function onRequest({ request, env }) {
     }
 
     try {
+      // ── 🎓 2026-08-12 — 여기서부터 신원을 본다 (수료·졸업 영상 잠금) ──────────────
+      //   관우T 확정(2026-08-10 · 재제안 금지): 「수료생 수업영상 = **즉시 잠금**」. 30일/60일/영구 열람은 기각.
+      //   그런데 그 잠금은 `class-videos.js`(로그인 후 목록)에만 들어갔고 **이 GET 에는 없었다.**
+      //   실제 사고: 조에스더(세정학원 ▸ 썸머 시동반)를 2026-08-10 수료 처리했는데,
+      //   수료 전에 손에 넣은 옛 수업코드로는 이 API 가 영상 주소를 계속 내줬다.
+      //   목록만 막고 코드를 안 막으면 「즉시 잠금」이 반쪽이다.
+      //
+      //   🔴 예전 주석은 "무인증이 의도된 설계"였다 — 그 설계의 **실사용자를 전수로 세어 보니 0명**이었다.
+      //     이 GET 을 부르는 곳은 `report.html` 과 `video.html` 의 `unlockVideo()` 둘뿐이고,
+      //     두 화면 다 시작하자마자 토큰이 없으면 `/portal` 로 튕긴다(`report.html:207` · `video.html:150`).
+      //     MathOS 는 이 API 를 안 쓴다(관리자용 `/api/video-list` 프록시를 쓴다).
+      //   ⇒ 익명 통로를 남겨 두면 **Authorization 헤더만 빼면 가드를 그냥 통과**하므로 잠금이 장식이 된다.
+      //     그래서 토큰을 필수로 올렸다. 단 조용히 죽이지 않고 `video.access.denied` 로 **소리 나게** 남긴다 —
+      //     내가 못 찾은 익명 사용자가 정말 있으면 이 로그에 뜬다(그게 되돌릴 근거가 된다).
+      const bearer = bearerFromRequest(request);
+      const 원장  = !!(env.ADMIN_PASSWORD && bearer && bearer === env.ADMIN_PASSWORD);
+      const 신원  = (!원장 && bearer) ? await verifyToken(env, bearer) : null;
+      const 내학생 = (신원 && 신원.phone) ? await fetchStudentsByPhone(env, 신원.phone) : [];
+
+      if (!원장 && (!신원 || !내학생.length)) {
+        const 학생없음 = !!신원 && !내학생.length;
+        const 사유 = !bearer ? '토큰 없음(로그인 안 함)'
+          : !신원 ? '토큰이 만료됐거나 폐기됨'
+          : '이 휴대폰에 연결된 학생이 없음';
+        await logAudit(env, request, {
+          action: 'video.access.denied',
+          target: code,
+          actorRole: 학생없음 ? 'unknown' : 'anon',
+          summary: '수업코드 [' + code + '] 조회 거부 — ' + 사유,
+          detail: {
+            입력한코드: code,
+            사유,
+            로그인번호: (신원 && 신원.phone) || '(없음)',
+            해석: '2026-08-12부터 이 조회에는 로그인 토큰이 필요하다(수료·졸업 잠금을 여기서도 걸기 위해). '
+              + '앱의 두 화면은 이미 로그인 뒤에만 열리므로 정상 경로면 여기 올 일이 없다 — '
+              + 'API 를 직접 불렀거나, 내가 못 찾은 익명 사용 경로가 남아 있다는 뜻이다.',
+            효과: '영상 주소가 나가지 않음(코드가 실제로 있는지도 알려주지 않는다 — R2 조회 전에 잘랐다)',
+            되돌리려면: '이 기록이 실제 학생·학부모에게서 반복되면 「토큰 필수」를 풀고 '
+              + '「토큰이 있을 때만 검사」로 낮춘다(그 경우 헤더를 빼면 뚫린다는 점은 감수하는 것).',
+          },
+        });
+        return Response.json({
+          error: 학생없음
+            ? '이 휴대폰에 연결된 학생이 없습니다. 관우T께 문의해주세요.'
+            : (bearer ? '로그인이 만료됐습니다. 앱에서 다시 로그인한 뒤 눌러주세요.'
+                      : '수업 영상은 로그인 후에 볼 수 있습니다. 앱에서 로그인한 뒤 다시 눌러주세요.'),
+          reason: 학생없음 ? 'no-student' : 'auth',
+        }, { status: 학생없음 ? 403 : 401 });
+      }
+
       const obj = await env.BUCKET.get(`video-codes/${code}.json`);
       if (!obj) {
         // 🔴 2026-08-03 (§11-9 ⓒ) — "없는 코드"라고 바로 자르지 않고 **대체 표식**을 먼저 본다.
@@ -103,7 +155,59 @@ export async function onRequest({ request, env }) {
         return Response.json({ error: '비활성화된 코드입니다.' }, { status: 403 });
       }
 
+      // 🎓 2026-08-12 — 수료·졸업이면 여기서 막는다 (`class-videos.js` 의 목록 잠금과 똑같은 규칙·똑같은 문구).
+      //   ⚠️ `=== '수료'` 로 직접 비교하지 말 것 — 졸업생이 그냥 통과한다. 판정은 `isCompleted()` 하나로(_auth.js).
+      //   🔴 겸반 주의: 「시동반=수료 · 공통수학2=재원」인 학생을 통째로 막으면 **다니는 반 영상까지 잠긴다.**
+      //     그래서 이 영상의 **학원+반과 같은 행**만 골라 그 행의 상태로 판정한다.
+      //     (⚠️ 영상 레코드의 학원 필드는 `academy` 가 아니라 `school` 이다 — 설계문서 §8.)
+      //     반 이름이 바뀌어 한 행도 안 맞으면 그 사람의 모든 행으로 판정한다(전부 수료·졸업일 때만 막힌다).
+      //   🔴 `every` 인 이유: 형제가 한 계정을 쓰면 행이 여러 개다. **한 명이라도 재원이면 열어 준다** —
+      //     잘못 막아서 생기는 민원(다니는 아이가 못 봄)이 잘못 열어서 생기는 손해보다 크다.
+      if (!원장) {
+        const 같음 = (a, b) => String(a || '').trim() === String(b || '').trim();
+        const 반행 = 내학생.filter((s) => 같음(s.academy, data.school) && 같음(s.className, data.class_name));
+        const 판정대상 = 반행.length ? 반행 : 내학생;
+        if (판정대상.every((s) => isCompleted(s.approvalStatus))) {
+          // 판정은 isCompleted, 기록은 원문 — '수료'를 박아두면 졸업생이 막힌 기록까지 "수료"로 남는다.
+          const 끝난상태 = String(판정대상[0].approvalStatus || '').trim() || '수료';
+          await logAudit(env, request, {
+            actor: 신원.phone,
+            actorRole: 판정대상[0].role || 'unknown',
+            actorName: 판정대상[0].name || '',
+            action: 'video.access.completed',
+            target: code, targetName: data.title || '',
+            summary: '수업코드 [' + code + '] 조회 차단(' + 끝난상태 + ') — ['
+              + (판정대상[0].name || '이름없음') + '] ' + (data.school || '') + ' · ' + (data.class_name || ''),
+            detail: {
+              입력한코드: code,
+              영상: { 제목: data.title || '', 날짜: data.date || '', 학원: data.school || '', 반: data.class_name || '' },
+              학생: 판정대상.map((s) => ({
+                학생ID: String(s.id), 이름: s.name, 학원: s.academy || '', 반: s.className || '', 상태: s.approvalStatus || '',
+              })),
+              판정근거: 반행.length
+                ? '이 영상의 학원+반과 같은 행으로 판정'
+                : '이 영상의 반과 맞는 행이 하나도 없어 이 사람의 모든 행으로 판정(반 이름이 바뀌었을 수 있다)',
+              로그인번호: 신원.phone,
+              해석: '이 학생은 ' + 끝난상태 + ' 상태다. 목록(class-videos)은 2026-08-10부터 막혀 있었지만, '
+                + '수료 전에 받아 둔 옛 수업코드로 들어오는 이 경로가 2026-08-12까지 열려 있었다.',
+              여전히보이는것: '리포트 · 성적 · 오답 · 출결 기록은 그대로 열린다(본인이 만든 기록이므로)',
+              효과: '영상 주소가 나가지 않음',
+              남은구멍: '이미 복사해 둔 유튜브 주소는 이 가드가 못 막는다 — 끊으려면 유튜브에서 '
+                + '「비공개」로 바꿔야 한다(admin.html 의 「🔒 유튜브」 버튼). 일부공개엔 만료도 도메인 제한도 없다.',
+            },
+          });
+          return Response.json({
+            error: '수강이 끝난 반입니다. 수업 영상은 재원 중일 때만 볼 수 있어요. 리포트와 성적은 그대로 보실 수 있습니다.',
+            reason: 'completed',
+          }, { status: 403 });
+        }
+      }
+
       await logAudit(env, request, {
+        // 🎓 2026-08-12 — 이제 이 조회에도 신원이 실린다. 예전 이 자리의 로그는 「누구인지 알 수 없음」이었다.
+        ...(원장
+          ? { actorRole: 'admin', actorName: '원장' }
+          : { actor: 신원.phone, actorRole: 내학생[0].role || 'unknown', actorName: 내학생[0].name || '' }),
         action: 'video.access.view',
         target: code, targetName: data.title || '',
         summary: '수업코드 [' + code + ']로 영상 주소 받아감 — ' + (data.title || '제목없음')
@@ -115,7 +219,13 @@ export async function onRequest({ request, env }) {
             반: data.class_name || '', 유튜브: data.youtube_url || '',
           },
           지금까지열람횟수: data.access_count || 0,
-          인증: '이 조회는 로그인 없이 코드만으로 열린다 — 누구인지는 기기·접속국가로만 짐작할 수 있다(아래 기기 칸 참고)',
+          인증: 원장
+            ? '원장 비밀번호(ADMIN_PASSWORD)로 조회 — 코드 점검용 통로다'
+            : '로그인 토큰으로 신원 확인됨 (2026-08-12부터 이 조회는 로그인 필수)',
+          누가: 원장 ? '원장' : {
+            로그인번호: 신원.phone,
+            연결된학생: 내학생.map((s) => s.name + '(' + (s.approvalStatus || '재원') + ' · ' + (s.className || '반없음') + ')').join(', '),
+          },
           효과: '영상 주소가 이 기기로 나갔다(열람 횟수는 별도 POST 요청이 들어와야 올라간다)',
         },
       });

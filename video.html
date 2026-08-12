@@ -269,12 +269,18 @@
     const code = input.trim().toUpperCase();
     if (code !== (expectedCode || '').toUpperCase()) { alert('수업코드가 일치하지 않습니다.'); return; }
     try {
-      const res = await fetch('/api/video-access?code=' + encodeURIComponent(code));
+      // 🎓 2026-08-12 — 토큰을 같이 보낸다. 예전엔 이 GET 만 신원 없이 나가서, 수료 처리된 학생이
+      //   수료 전에 받아 둔 옛 수업코드로 영상을 계속 열 수 있었다(목록은 막혔는데 코드는 안 막혔다).
+      //   이제 서버가 수료·졸업이면 403, 토큰이 없거나 만료면 401 로 돌려준다.
+      const res = await fetch('/api/video-access?code=' + encodeURIComponent(code), { headers: authHeaders() });
       const data = await res.json();
       // 2026-08-03 (§11-9 ⓒ) — 대체된 옛 코드면 서버가 이유를 문장으로 보내준다(data.replaced).
       //   그럴 땐 '영상을 불러오지 못했습니다:' 를 앞에 붙이지 말고 그 문장을 그대로 보여준다.
+      // 🎓 2026-08-12 — data.reason 이 있을 때도 마찬가지다(completed · auth · no-student).
+      //   서버가 이미 학부모께 드릴 완성된 문장을 보내는데 앞에 '불러오지 못했습니다'를 붙이면
+      //   「수강이 끝나서 안 열린다」가 「앱이 고장났다」로 읽혀 문의 전화가 온다.
       if (!res.ok || !data.youtube_url) {
-        alert(data.replaced ? data.error : '영상을 불러오지 못했습니다: ' + (data.error || res.status));
+        alert((data.replaced || data.reason) ? data.error : '영상을 불러오지 못했습니다: ' + (data.error || res.status));
         return;
       }
       fetch('/api/video-access', {

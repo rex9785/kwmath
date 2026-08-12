@@ -6,6 +6,7 @@
 // pageId는 문자열로 와도 숫자로 변환해서 D1 조회.
 
 import { listStudentsByName, createReport, updateReport, deleteReport, getReportByStudentAndDate } from './_db.js';
+import { isCompleted } from './_auth.js';   // 🎓 2026-08-12 — 수료·졸업 가드 (아래 POST 참조). `=== '수료'` 직접 비교 금지
 import { safeError } from './_errors.js';
 import { sendPushToUsers } from './_push.js';   // 🔔 2026-07-30 — 웹푸시+FCM 병행 (push-send 경유 시 FCM 미발송 버그 수정)
 import { logAudit, diffFields } from './_auditlog.js';
@@ -57,6 +58,39 @@ export async function onRequest({ request, env }) {
     //   덮어쓰기(복구 불가)보다 두 건 쌓기(수동 삭제로 복구 가능)를 택한다.
     const 동명이인 = await listStudentsByName(env, studentName);
     const 이름모호 = 동명이인.length > 1;
+
+    // 🎓 2026-08-12 — 수료·졸업 학생에게는 새 리포트를 만들지 않는다 (서버 2차 방어선).
+    //   [실제 사고] 조에스더 8/10 13:41 수료 처리 → **8/12 16:43 리포트가 그대로 생성되고
+    //     학부모께 "📋 새 수업 리포트가 올라왔어요" 푸시까지 나갔다.** 발송은 되돌릴 수 없다.
+    //   [원인] 이 API는 학생 상태를 한 번도 안 봤다. 대상 명단을 만드는 쪽(MathOS)이
+    //     학원+반으로만 걸렀고, 2026-08-10 수료 스윕은 kwmath 서버 안만 훑어서 그 프로그램이 범위 밖이었다.
+    //   [왜 서버에서도 막나] 명단을 만드는 클라이언트는 언제든 또 생긴다(MathOS·관리자 화면·나중의 무엇).
+    //     화면에서 막은 것과 서버에서 막은 것은 다른 일이다 — notify-class-materials 와 같은 교훈.
+    //   [겸반은 통과시킨다] 「시동반=수료 · 공통수학2=재원」인 학생은 지금도 다니는 사람이다.
+    //     그래서 **같은 이름 행이 전부 수료·졸업일 때만** 막는다. 한 행이라도 재원이면 정상 작성.
+    //   [명단에 없는 이름은 통과] reports 는 이름으로만 학생과 이어지고, 명단 밖 이름으로 쓰는 경로가
+    //     원래 열려 있었다. 여기서 같이 막으면 이번 사고와 무관한 기능이 조용히 죽는다.
+    //   [기각] `allowCompleted` 강제 플래그 — 부르는 화면이 하나도 없는 죽은 우회로가 된다.
+    //     정말 써야 하면 「↩ 재원 복귀」 → 작성 → 다시 수료가 흔적이 남는 정직한 경로다. 안내문에 그렇게 적었다.
+    if (동명이인.length && 동명이인.every((s) => isCompleted(s.approvalStatus))) {
+      const 상태 = String(동명이인[0].approvalStatus || '').trim() || '수료';
+      await logAudit(env, request, {
+        action: 'report.create.blocked',
+        target: String(동명이인[0].id || ''), targetName: studentName,
+        summary: '리포트 작성 차단(' + 상태 + ') — [' + studentName + ' · ' + date + '] 수업이 끝난 학생',
+        detail: {
+          학생: studentName, 수업일: date, 상태,
+          해당행: 동명이인.map((s) => ({ id: String(s.id), 학원: s.academy || '', 반: s.className || '', 상태: s.approvalStatus || '' })),
+          효과: '리포트가 만들어지지 않았고 학부모 푸시도 나가지 않았다',
+          보낸내용: { 수업내용: content || '', 숙제: homework || '', 특이사항: notes || '' },
+        },
+      });
+      return Response.json({
+        error: '「' + studentName + '」 학생은 ' + 상태 + ' 처리돼 있어 새 리포트를 만들지 않았습니다. '
+          + '아직 다니는 학생이면 kwmath 관리자 → 학생 관리에서 「↩ 재원 복귀」 후 다시 올려주세요.',
+        blocked: 'completed', status: 상태,
+      }, { status: 409 });
+    }
 
     // ── 재업로드 중복 가드: 같은 학생+같은 날짜 리포트가 이미 있으면 새로 쌓지 않고 그 행을 갱신 ──
     //    (7/01 실사고: MathOS에서 두 번 올려 학생당 2건 누적 → 수동 삭제. 이제 두 번 눌러도 최신 내용 1건.)
