@@ -32,7 +32,10 @@ import {
 } from './_lockout.js';
 
 // 잠글 주소들. kwmath.co.kr/hyochan 처럼 확장자 없이도 열린다(Pages 기본 동작).
-const SLUGS = new Set(['hyochan', 'seoyul', 'chaeeun', 'jihwan']);
+//   2026-08-12 관우T 지시: 송효찬만 올린다. 나머지 세 명은 사본을 지웠으므로 여기서도 뺀다.
+//   여기 남겨두면 /seoyul 같은 주소가 비밀번호 화면을 띄워 「다른 문서도 있다」고 알려주는 꼴이 된다.
+//   나중에 추가할 땐 이 Set 에 slug 를 넣고 같은 이름의 html 을 kwmath/ 에 두면 끝.
+const SLUGS = new Set(['hyochan']);
 
 const DEFAULT_PIN = '4550';
 const GATE_NAME = 'consult';          // gate_lockouts 카운터 이름(다른 관문과 안 섞임)
