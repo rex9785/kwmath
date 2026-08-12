@@ -160,6 +160,79 @@ ol.clean li{margin-bottom:6px}
 .foot{background:var(--ink);color:#c9cbd2;padding:34px 56px;font-size:12.5px;line-height:1.8}
 .foot b{color:#fff}
 
+/* ===== 섹션 요약 시각자료 =====
+   각 섹션 첫머리에 그 섹션의 결론을 그림 한 장으로 올린다(관우T 지시, 2026-08-12).
+   숫자는 전부 같은 섹션 본문에 이미 있는 값이며, 여기서 새로 계산하지 않는다.
+   차트는 CSS+인라인 SVG만 쓴다 — 이 리포트는 weasyprint로 PDF를 굽기 때문에 JS 차트는 렌더되지 않는다.
+   SVG는 클래스 대신 presentation attribute(fill=·stroke=)로 칠한다(weasyprint가 SVG 안 CSS var를 못 읽음).
+   font-weight:750은 weasyprint가 무시하므로 새 규칙에는 700/800만 쓴다. */
+.viz{border:1px solid var(--line);border-radius:5px;background:#fff;padding:20px 22px 18px;margin:0 0 30px}
+.viz .vt{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.14em;color:var(--brand);background:var(--brand-light);padding:4px 9px;border-radius:2px;margin-bottom:10px}
+.viz .vh{font-size:18.5px;font-weight:800;letter-spacing:-.02em;margin:0 0 4px;line-height:1.4;padding:0;border:0}
+.viz .vc{font-size:12.5px;color:var(--ink-3);margin:0 0 20px}
+.viz .vc2{font-size:12.5px;color:var(--ink-3);margin:26px 0 20px;padding-top:20px;border-top:1px solid var(--line-2)}
+.viz figure{margin:0}
+.viz svg{display:block;width:100%;height:auto}
+
+/* 히트맵 — 전역 th/td 규칙(테두리·nowrap·vertical-align)을 눌러야 칸이 안 깨진다 */
+.hm{width:100%;border-collapse:separate;border-spacing:3px;font-size:12.5px;table-layout:fixed;margin:0}
+.hm th{font-size:11.5px;font-weight:700;color:var(--ink-3);padding:0 0 4px;text-align:center;background:none;border:0;white-space:normal}
+.hm th.rh{text-align:left;width:88px}
+.hm td{text-align:center;padding:9px 2px;border:0;border-radius:3px;font-weight:800;font-size:13px;vertical-align:middle}
+.hm td.rh{text-align:left;font-weight:700;font-size:12.5px;color:var(--ink-2);background:none;padding-left:0}
+.hm tbody tr:hover{background:none}
+.c1{background:#e7f0f6;color:#0d5c8a}
+.c2{background:#f6e6e6;color:#a02020}
+.c3{background:#a02020;color:#fff}
+.c15{background:#f6eee6;color:#8a5a00}
+.cn{background:var(--line-2);color:#b9bcc4}
+.hmleg{font-size:11.5px;color:var(--ink-3);margin:10px 0 0}
+.hmleg i{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin:0 4px 0 12px}
+.hmleg i:first-of-type{margin-left:0}
+
+/* 만점자 격차 게이지 — 눈금은 0에서 만점까지 전체. 격차를 확대하지 않는다 */
+.gg{margin:0 0 14px}
+.gg .gl{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:5px}
+.gg .gl b{font-weight:800}
+.gg .gl span{font-size:12px;color:var(--ink-3)}
+.gtrack{height:26px;background:var(--line-2);border-radius:3px;overflow:hidden;position:relative}
+.gfill{height:100%;background:var(--brand);border-radius:3px 0 0 3px}
+.gloss{position:absolute;top:0;right:0;height:100%;background:repeating-linear-gradient(45deg,#e6b8bf,#e6b8bf 3px,#f3dade 3px,#f3dade 6px)}
+
+/* 최저 조건별 정원 막대 — 3열 폭은 오른쪽 설명이 단어 중간에서 잘리지 않는 최소값 */
+.qb{display:grid;grid-template-columns:92px 1fr 152px;gap:0 12px;align-items:center;margin-bottom:11px}
+.qb .qk{font-size:13.5px;font-weight:800;text-align:right}
+.qb .qk em{display:block;font-style:normal;font-size:11px;font-weight:700;color:var(--ink-3);margin-top:-3px}
+.qtrack{height:30px;background:var(--line-2);border-radius:3px;overflow:hidden}
+.qfill{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:9px;color:#fff;font-size:12.5px;font-weight:800;border-radius:3px}
+.qb .qs{font-size:11.5px;line-height:1.45}
+.qb .qs b{font-size:12.5px}
+
+/* 245명 스택 + 열쇠 괄호 — 괄호 막대가 위 스택 칸과 정확히 맞아야 하므로 flex 축소를 막는다 */
+.stack{display:flex;height:44px;border-radius:4px;overflow:hidden;margin-bottom:4px}
+.stack div{display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;line-height:1.25;text-align:center}
+.axis{display:flex;font-size:11px;color:var(--ink-3);margin-bottom:16px}
+.axis div{text-align:center;line-height:1.4;padding-top:3px}
+.brkrow{display:flex;align-items:center;margin-bottom:9px;font-size:12.5px}
+.brkrow>div{flex:0 0 auto}
+.brkrow>span{flex:1 1 auto}
+.brkbar{height:15px;border-radius:3px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;white-space:nowrap}
+
+/* 배분안 × 시나리오 카드 매트릭스 */
+.mx{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;margin:0}
+.mx th{background:var(--paper);border-top:2px solid var(--ink);border-bottom:1px solid var(--line);padding:9px 8px;font-weight:700;font-size:11.5px;color:var(--ink-2);text-align:center;line-height:1.45;white-space:normal}
+.mx th.mh{text-align:left;width:150px}
+.mx td{border-bottom:1px solid var(--line-2);padding:12px 8px;text-align:center;vertical-align:middle}
+.mx td.mh{text-align:left;font-size:12.5px;line-height:1.5}
+.mx td.mh b{font-size:13.5px}
+.mx td.mh em{font-style:normal;color:var(--ink-3);font-size:11.5px}
+.cards{display:flex;gap:3px;justify-content:center;margin-bottom:5px}
+.cards i{display:block;width:13px;height:18px;border-radius:2px}
+.on{background:var(--brand)}
+.off{background:#fff;border:1px dashed #c6c8cf}
+.cnum{font-size:12px;font-weight:800;color:var(--ink-2)}
+.cnum.hi{color:var(--brand)}
+
 @page{size:A4;margin:17mm 0 13mm}
 @media print{
   body{background:#fff;font-size:10.5pt}
@@ -183,7 +256,7 @@ ol.clean li{margin-bottom:6px}
   section{page-break-before:always;page-break-inside:auto;padding:0 0 8px;border-top:none}
   section:first-of-type{page-break-before:avoid}
   /* 표지는 재단선까지 꽉 차게 — @page의 위 17mm·아래 13mm 여백을 음수 마진으로 덮고, z-index로 상단 러닝헤드(.print-head) 위에 얹는다.
-     아래 좌표는 「서지환/책 표지 디자인 요청.pdf」(관우T 시안)를 150dpi로 렌더해 mm로 실측한 값이다.
+     아래 좌표는 관우T가 준 표지 디자인 시안 PDF를 150dpi로 렌더해 mm로 실측한 값이다.
      flex 중앙정렬은 재현이 안 맞아서 인쇄에서만 절대 배치로 고정한다 — 값을 바꾸면 시안과 어긋난다. */
   .bookcover{position:relative;z-index:2;min-height:0;height:297mm;margin:-17mm 0 -13mm;padding:0;display:block;page-break-after:always;page-break-inside:avoid;border-top:none}
   .bc-logo{position:absolute;left:22mm;top:26.0mm;width:66mm;height:13.4mm;margin:0}
@@ -197,6 +270,10 @@ ol.clean li{margin-bottom:6px}
   .sec-no,h3.sec,h4,h5,caption{page-break-after:avoid}
   h3.sec+.sub{page-break-before:avoid}
   .box,.stat,.src{page-break-inside:avoid}
+  .viz{page-break-inside:avoid}
+  .viz .vh{page-break-after:avoid}
+  /* 섹션 꼬리에 「note + 출처」 두 줄만 남는 고아 쪽 방지(§8-C P-5-C) — 46쪽 채움률 14.6%→31.5% */
+  .note{page-break-before:avoid}
   .box.brk{page-break-inside:auto}
   table{page-break-inside:auto}
   thead{display:table-header-group}
@@ -219,6 +296,31 @@ ol.clean li{margin-bottom:6px}
   .cover-meta,.grid2,.grid3,.grid4{grid-template-columns:1fr 1fr}
   nav ul{padding:0 20px}
   table{font-size:11.5px}
+}
+/* 휴대폰 — 요약 그림이 깨지는 자리만 손본다. 이 블록은 종이(weasyprint)에 적용되지 않는다:
+   A4 폭이 794px이라 걸릴 것 같지만, 실측 결과 위 820px 블록도 PDF에 안 먹었다
+   (.cover h1이 인쇄값 30px=22.5pt로 나옴 — 뒤에 온 28px 규칙이 이겼다면 21pt였어야 함).
+   그래도 이 블록을 고친 뒤에는 PDF를 다시 구워 md5가 그대로인지 확인할 것. */
+@media (max-width:560px){
+  .viz{padding:16px 15px 14px}
+  .viz .vh{font-size:16.5px}
+  .viz .vc,.viz .vc2{font-size:12px;margin-bottom:16px}
+  /* 넓은 SVG는 줄이면 글자가 5px이 된다 — 가로 스크롤로 원래 크기를 지킨다 */
+  .viz figure{overflow-x:auto}
+  .viz svg{min-width:500px}
+  .hm th.rh,.hm td.rh{width:64px;font-size:11.5px}
+  .hm td{font-size:12px;padding:8px 1px}
+  .gg .gl{flex-wrap:wrap;font-size:12.5px}
+  /* 3열(라벨·막대·설명)을 2행으로 접는다. 안 접으면 막대 폭이 38px로 눌려 안의 숫자가 잘린다 */
+  .qb{grid-template-columns:84px 1fr;gap:0 10px;margin-bottom:15px}
+  .qb .qs{grid-column:1 / -1;margin-top:5px}
+  /* table-layout:fixed라 첫 열을 줄여야 카드 6장이 들어갈 폭이 남는다 */
+  .mx th.mh,.mx td.mh{width:78px}
+  .mx th{font-size:10.5px;padding:8px 4px}
+  .mx td{padding:10px 4px}
+  .mx td.mh{font-size:11.5px}
+  .cards{gap:2px}
+  .cards i{width:9px;height:13px}
 }
 </style>
 </head>
@@ -368,6 +470,70 @@ ol.clean li{margin-bottom:6px}
 <h3 class="sec">내신 정밀진단 — 1.27을 분해합니다</h3>
 <p class="sub">1.27은 실점 다섯 곳이 만든 숫자입니다. 어느 과목에서 어떻게 깎였고, 그 손실이 대학 점수로는 얼마인지까지 내려갑니다.</p>
 
+<div class="viz">
+  <span class="vt">한 장 요약</span>
+  <div class="vh">3년 동안 1등급이 아니었던 칸은 다섯 개입니다</div>
+  <p class="vc">과목 × 학기 · 석차등급 · 회색은 석차등급이 매겨지지 않은 학기</p>
+  <figure>
+  <table class="hm">
+    <thead><tr><th class="rh"></th><th>1학년 1학기</th><th>1학년 2학기</th><th>2학년 1학기</th><th>2학년 2학기</th><th>3학년 1학기</th></tr></thead>
+    <tbody>
+      <tr><td class="rh">국어</td><td class="c1">1.00</td><td class="c1">1.00</td><td class="c2">2.00</td><td class="c1">1.00</td><td class="cn">·</td></tr>
+      <tr><td class="rh">영어</td><td class="c1">1.00</td><td class="c1">1.00</td><td class="c1">1.00</td><td class="c2">2.00</td><td class="cn">·</td></tr>
+      <tr><td class="rh">수학</td><td class="c1">1.00</td><td class="c1">1.00</td><td class="c1">1.00</td><td class="c1">1.00</td><td class="c3">3.00</td></tr>
+      <tr><td class="rh">사회</td><td class="c1">1.00</td><td class="c15">1.50</td><td class="cn">·</td><td class="cn">·</td><td class="cn">·</td></tr>
+      <tr><td class="rh">과학</td><td class="c1">1.00</td><td class="c1">1.00</td><td class="c2">2.00</td><td class="c1">1.00</td><td class="cn">·</td></tr>
+    </tbody>
+  </table>
+  </figure>
+  <p class="hmleg"><i class="c1"></i>1등급<i class="c15"></i>1.50<i class="c2"></i>2등급<i class="c3"></i>3등급<i class="cn"></i>석차등급 없음</p>
+
+  <p class="vc2">같은 성적을 학기 순서로 놓으면 — 전 교과 단위가중 평균등급 · 위쪽이 좋은 등급</p>
+  <figure>
+  <svg viewBox="0 0 720 268" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">
+    <line x1="80" y1="30" x2="690" y2="30" stroke="#f0f1f4" stroke-width="1"/>
+    <line x1="80" y1="75" x2="690" y2="75" stroke="#f0f1f4" stroke-width="1"/>
+    <line x1="80" y1="120" x2="690" y2="120" stroke="#f0f1f4" stroke-width="1"/>
+    <line x1="80" y1="165" x2="690" y2="165" stroke="#f0f1f4" stroke-width="1"/>
+    <line x1="80" y1="210" x2="690" y2="210" stroke="#e3e4e8" stroke-width="1"/>
+    <text x="70" y="34" text-anchor="end" font-size="11" fill="#6b6e78">1.0</text>
+    <text x="70" y="79" text-anchor="end" font-size="11" fill="#6b6e78">1.5</text>
+    <text x="70" y="124" text-anchor="end" font-size="11" fill="#6b6e78">2.0</text>
+    <text x="70" y="169" text-anchor="end" font-size="11" fill="#6b6e78">2.5</text>
+    <text x="70" y="214" text-anchor="end" font-size="11" fill="#6b6e78">3.0</text>
+
+    <line x1="80" y1="54.3" x2="690" y2="54.3" stroke="#862633" stroke-width="1" stroke-dasharray="5 4" opacity=".6"/>
+    <text x="690" y="50" text-anchor="end" font-size="11" font-weight="700" fill="#862633">전 학년 1.27</text>
+
+    <polyline points="80,30 225,41.7 370,76.8 515,48 660,210" fill="none" stroke="#862633" stroke-width="2.4" stroke-linejoin="round"/>
+
+    <circle cx="80"  cy="30"   r="9"   fill="#fff" stroke="#862633" stroke-width="2.4"/>
+    <circle cx="225" cy="41.7" r="9"   fill="#fff" stroke="#862633" stroke-width="2.4"/>
+    <circle cx="370" cy="76.8" r="9"   fill="#fff" stroke="#862633" stroke-width="2.4"/>
+    <circle cx="515" cy="48"   r="9"   fill="#fff" stroke="#862633" stroke-width="2.4"/>
+    <circle cx="660" cy="210"  r="4.5" fill="#862633" stroke="#862633" stroke-width="2.4"/>
+
+    <text x="80"  y="18" text-anchor="middle" font-size="12" font-weight="800" fill="#1b1b1f">1.00</text>
+    <text x="225" y="30" text-anchor="middle" font-size="12" font-weight="800" fill="#1b1b1f">1.13</text>
+    <text x="370" y="65" text-anchor="middle" font-size="12" font-weight="800" fill="#1b1b1f">1.52</text>
+    <text x="515" y="36" text-anchor="middle" font-size="12" font-weight="800" fill="#1b1b1f">1.20</text>
+    <text x="671" y="214" text-anchor="start" font-size="12" font-weight="800" fill="#a02020">3.00</text>
+
+    <text x="80"  y="232" text-anchor="middle" font-size="11.5" fill="#3f4149">1학년 1학기</text>
+    <text x="225" y="232" text-anchor="middle" font-size="11.5" fill="#3f4149">1학년 2학기</text>
+    <text x="370" y="232" text-anchor="middle" font-size="11.5" fill="#3f4149">2학년 1학기</text>
+    <text x="515" y="232" text-anchor="middle" font-size="11.5" fill="#3f4149">2학년 2학기</text>
+    <text x="660" y="232" text-anchor="middle" font-size="11.5" fill="#3f4149">3학년 1학기</text>
+
+    <text x="80"  y="248" text-anchor="middle" font-size="10.5" fill="#6b6e78">30단위</text>
+    <text x="225" y="248" text-anchor="middle" font-size="10.5" fill="#6b6e78">30단위</text>
+    <text x="370" y="248" text-anchor="middle" font-size="10.5" fill="#6b6e78">30단위</text>
+    <text x="515" y="248" text-anchor="middle" font-size="10.5" fill="#6b6e78">30단위</text>
+    <text x="660" y="248" text-anchor="middle" font-size="10.5" font-weight="800" fill="#a02020">4단위</text>
+  </svg>
+  </figure>
+</div>
+
 <div class="box tint">
   <span class="bt">계산에 쓴 기준</span>
   <p>아래 모든 수치는 <b>학교생활기록부 교과 성적 원본</b>만을 근거로 합니다.
@@ -430,6 +596,43 @@ ol.clean li{margin-bottom:6px}
 <span class="sec-no">SECTION 03</span>
 <h3 class="sec">반영교과가 숫자를 바꿉니다 — 1.25와 1.29 사이</h3>
 <p class="sub">대학마다 성적에 넣는 교과가 다릅니다. 같은 학생부인데 어떤 대학에서는 1.25이고 어떤 대학에서는 1.29입니다. 지원 후보 네 대학은 모두 높은 쪽입니다.</p>
+
+<div class="viz">
+  <span class="vt">한 장 요약</span>
+  <div class="vh">같은 학생부인데 대학에 따라 1.25에서 1.30까지 흩어집니다</div>
+  <p class="vc">반영교과 조합별 단위가중 평균등급 · 원의 크기는 그 조합을 쓰는 대학 수</p>
+  <figure>
+  <svg viewBox="0 0 720 200" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">
+    <line x1="60" y1="112" x2="680" y2="112" stroke="#e3e4e8" stroke-width="1.5"/>
+    <line x1="60" y1="107" x2="60" y2="117" stroke="#e3e4e8" stroke-width="1.5"/>
+    <line x1="680" y1="107" x2="680" y2="117" stroke="#e3e4e8" stroke-width="1.5"/>
+    <text x="60"  y="134" text-anchor="middle" font-size="11" fill="#6b6e78">1.24</text>
+    <text x="680" y="134" text-anchor="middle" font-size="11" fill="#6b6e78">1.31</text>
+
+    <circle cx="149" cy="86"  r="6.8"  fill="#fff" stroke="#9a9da6" stroke-width="2"/>
+    <text x="149" y="70" text-anchor="middle" font-size="11.5" font-weight="800" fill="#3f4149">1.25</text>
+    <text x="149" y="56" text-anchor="middle" font-size="10.5" fill="#6b6e78">국영수 · 8곳</text>
+
+    <circle cx="149" cy="138" r="7.3"  fill="#fff" stroke="#9a9da6" stroke-width="2"/>
+    <text x="149" y="163" text-anchor="middle" font-size="11.5" font-weight="800" fill="#3f4149">1.25</text>
+    <text x="149" y="177" text-anchor="middle" font-size="10.5" fill="#6b6e78">국영수사 · 11곳</text>
+
+    <circle cx="326" cy="112" r="8.9"  fill="#fff" stroke="#6b6e78" stroke-width="2"/>
+    <text x="326" y="90" text-anchor="middle" font-size="11.5" font-weight="800" fill="#3f4149">1.27</text>
+    <text x="326" y="76" text-anchor="middle" font-size="10.5" fill="#6b6e78">전 교과 · 24곳</text>
+
+    <circle cx="503" cy="112" r="15.2" fill="#862633" stroke="#862633" stroke-width="2"/>
+    <text x="503" y="82" text-anchor="middle" font-size="14" font-weight="800" fill="#862633">1.29</text>
+    <text x="503" y="68" text-anchor="middle" font-size="10.5" font-weight="700" fill="#862633">국영수사과 · 125곳</text>
+    <text x="503" y="34" text-anchor="middle" font-size="11.5" font-weight="800" fill="#862633">지원 후보 네 곳 전부 이 자리</text>
+    <text x="503" y="150" text-anchor="middle" font-size="10.5" fill="#862633">의·치대 원서의 실제 좌표</text>
+
+    <circle cx="591" cy="112" r="10"   fill="#fff" stroke="#9a9da6" stroke-width="2"/>
+    <text x="591" y="163" text-anchor="middle" font-size="11.5" font-weight="800" fill="#3f4149">1.30</text>
+    <text x="591" y="177" text-anchor="middle" font-size="10.5" fill="#6b6e78">국영수과 · 36곳</text>
+  </svg>
+  </figure>
+</div>
 
 <table>
 <caption>반영교과 조합별 평균등급 · 단위가중</caption>
@@ -514,6 +717,26 @@ ol.clean li{margin-bottom:6px}
 <span class="sec-no">SECTION 05</span>
 <h3 class="sec">대학별 환산점 시뮬레이션</h3>
 <p class="sub">대학은 등급을 그대로 쓰지 않고 각자의 환산표에 넣어 점수로 바꿉니다. 요강에 공표된 환산식에 이 학생의 실제 등급을 대입했습니다.</p>
+
+<div class="viz">
+  <span class="vt">한 장 요약</span>
+  <div class="vh">내신 만점자와 이 학생의 거리는 총점의 0.5% 안쪽입니다</div>
+  <p class="vc">각 대학 총점 대비 · 빗금은 만점자와의 격차 · 눈금은 0에서 만점까지</p>
+  <figure>
+    <div class="gg">
+      <div class="gl"><b>전남대학교</b> <span>881.74 / 885 · 격차 −3.26점 (0.37%)</span></div>
+      <div class="gtrack"><div class="gfill" style="width:99.63%"></div><div class="gloss" style="width:0.37%"></div></div>
+    </div>
+    <div class="gg">
+      <div class="gl"><b>조선대학교</b> <span>498.84 / 500 · 격차 −1.16점 (0.23%)</span></div>
+      <div class="gtrack"><div class="gfill" style="width:99.77%"></div><div class="gloss" style="width:0.23%"></div></div>
+    </div>
+    <div class="gg">
+      <div class="gl"><b>원광대학교</b> <span>587.46 / 590 · 격차 −2.54점 (0.43%)</span></div>
+      <div class="gtrack"><div class="gfill" style="width:99.57%"></div><div class="gloss" style="width:0.43%"></div></div>
+    </div>
+  </figure>
+</div>
 
 <h4>각 대학이 쓰는 환산식 (요강 원문)</h4>
 <table>
@@ -692,6 +915,34 @@ ol.clean li{margin-bottom:6px}
 <span class="sec-no">SECTION 07</span>
 <h3 class="sec">수능최저 — 당락이 갈리는 자리</h3>
 <p class="sub">내신 1.27을 들고도 원서를 못 쓰는 이유가 여기 있고, 그것을 뒤집는 방법도 여기 있습니다.</p>
+
+<div class="viz">
+  <span class="vt">한 장 요약</span>
+  <div class="vh">정원 덩어리는 3합 5에 있고, 지금 서 있는 자리는 3합 6입니다</div>
+  <p class="vc">최저 조건별로 걸려 있는 모집인원 · 국어 2 · 수학 2 · 영어 2 기준 판정</p>
+  <figure>
+    <div class="qb">
+      <div class="qk">3합 5<em>의예과</em></div>
+      <div class="qtrack"><div class="qfill" style="width:100%;background:var(--bad)">164명</div></div>
+      <div class="qs" style="color:var(--bad)"><b>지금 X</b><br>전남대 86 · 조선대 68<br>원광대 10</div>
+    </div>
+    <div class="qb">
+      <div class="qk">3합 6<em>의·치·한의예</em></div>
+      <div class="qtrack"><div class="qfill" style="width:54.27%;background:var(--ok)">89명</div></div>
+      <div class="qs" style="color:var(--ok)"><b>이미 O</b><br>의예 42 · 치의예 32<br>한의예 15</div>
+    </div>
+    <div class="qb">
+      <div class="qk">3합 7<em>공과대학</em></div>
+      <div class="qtrack"><div class="qfill" style="width:33.54%;background:var(--ok)">21 · 34명</div></div>
+      <div class="qs" style="color:var(--ok)"><b>이미 O</b><br>고려대 학교추천<br>기계 21 · 전기전자 34</div>
+    </div>
+    <div class="qb">
+      <div class="qk">4합 5 · 6<em>의예과</em></div>
+      <div class="qtrack"><div class="qfill" style="width:23.78%;background:#b9bcc4">39명</div></div>
+      <div class="qs" style="color:var(--ink-3)"><b>닫힘</b><br>전북대 일반 21<br>지역인재1유형 18</div>
+    </div>
+  </figure>
+</div>
 
 <div class="box tint">
   <span class="bt">계산에 쓴 기준 — 이제 전부 확정입니다</span>
@@ -985,6 +1236,42 @@ ol.clean li{margin-bottom:6px}
 <h3 class="sec">호남권 의·치 전형 전체 지도</h3>
 <p class="sub">다섯 곳 밖에도 자리가 있습니다. 이 학생의 자격으로 지원할 수 있는 호남권 의과대학·치과대학 전형은 아래가 전부이고, 색은 지금 판정 그대로입니다.</p>
 
+<div class="viz">
+  <span class="vt">한 장 요약</span>
+  <div class="vh">영어 1등급은 164명을, 화학 1등급은 78명을 엽니다</div>
+  <p class="vc">이 학생이 지원할 수 있는 호남권 의과대학 자리 245명 전체 · 왼쪽부터 3합 5 세 자리</p>
+  <figure>
+    <div class="stack">
+      <div style="width:35.10%;background:#862633">전남대 86</div>
+      <div style="width:27.76%;background:#a13f4c">조선대 68</div>
+      <div style="width:4.08%;background:#bd6873;font-size:10px">10</div>
+      <div style="width:17.14%;background:#1f6f4a">3합 6 · 42</div>
+      <div style="width:15.92%;background:#b9bcc4">닫힘 39</div>
+    </div>
+    <div class="axis">
+      <div style="width:35.10%">3합 5</div>
+      <div style="width:27.76%">3합 5</div>
+      <div style="width:4.08%">3합 5</div>
+      <div style="width:17.14%">이미 충족</div>
+      <div style="width:15.92%">4합</div>
+    </div>
+
+    <div class="brkrow">
+      <div class="brkbar" style="width:66.94%;background:#862633">영어 1등급 → 164명</div>
+      <span style="margin-left:10px;color:var(--ink-3)">전체 245명의 3분의 2</span>
+    </div>
+    <div class="brkrow">
+      <div style="width:35.10%"></div>
+      <div class="brkbar" style="width:31.84%;background:#8a5a00">화학 1등급 → 78명</div>
+      <span style="margin-left:10px;color:var(--ink-3)">전남대 86명만 닫힌 채</span>
+    </div>
+    <div class="brkrow">
+      <div style="width:66.94%"></div>
+      <div class="brkbar" style="width:17.14%;background:#1f6f4a;font-size:10px">지금 열림</div>
+    </div>
+  </figure>
+</div>
+
 <table>
 <caption>티어 배치 · 현재(국2·수2·영2 · 탐구는 화학만 학습) 기준</caption>
 <thead><tr><th>대학</th><th>전형</th><th class="ctr">인원</th><th class="ctr">최저</th><th class="ctr">현재</th><th class="ctr">영어 1등급<br>이면</th><th class="ctr">티어</th></tr></thead>
@@ -1123,6 +1410,42 @@ ol.clean li{margin-bottom:6px}
 <span class="sec-no">SECTION 12</span>
 <h3 class="sec">수시 여섯 장을 어떻게 나눌 것인가</h3>
 <p class="sub">여기서 순서를 거꾸로 놓는 경우가 많습니다. 원서는 9월에 쓰고, 최저는 11월에 결정됩니다.</p>
+
+<div class="viz">
+  <span class="vt">한 장 요약</span>
+  <div class="vh">수능이 어떻게 나오든 몇 장이 살아남는지</div>
+  <p class="vc">세 배분안 × 세 시나리오 · 채워진 카드는 최저를 충족해 심사까지 가는 원서</p>
+  <figure>
+  <table class="mx">
+    <thead><tr>
+      <th class="mh">배분안</th>
+      <th>지금 그대로<br><span style="font-weight:600">국2 · 수2 · 영2</span></th>
+      <th>화학만 1등급<br><span style="font-weight:600">조선대 · 원광대가 열림</span></th>
+      <th>영어 1등급<br><span style="font-weight:600">세 대학이 동시에 열림</span></th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td class="mh"><b>A · 공격형</b><br><em>상 3 · 중 2 · 하 1</em></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i><i class="off"></i><i class="off"></i></div><span class="cnum">3장</span></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i></div><span class="cnum">5장</span></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><span class="cnum hi">6장</span></td>
+      </tr>
+      <tr>
+        <td class="mh"><b>B · 균형형</b><br><em>상 2 · 중 3 · 하 1</em></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i><i class="off"></i></div><span class="cnum">4장</span></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i></div><span class="cnum">5장</span></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><span class="cnum hi">6장</span></td>
+      </tr>
+      <tr>
+        <td class="mh"><b>C · 안정형</b><br><em>상 1 · 중 3 · 하 2</em></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="off"></i></div><span class="cnum">5장</span></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><span class="cnum hi">6장</span></td>
+        <td><div class="cards"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><span class="cnum hi">6장</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </figure>
+</div>
 
 <div class="box warn">
   <span class="bt">원서를 쓰는 시점에는 최저를 맞췄는지 아무도 모릅니다</span>
@@ -1298,6 +1621,47 @@ ol.clean li{margin-bottom:6px}
 <span class="sec-no">SECTION 14</span>
 <h3 class="sec">지금 결정해야 할 것</h3>
 <p class="sub">앞서 열어 두었던 항목은 대부분 확정됐습니다 — 탐구는 화학 하나, 수학은 미적분, 진로선택은 전부 A, 교내 추천은 전부 가능, 지역의사 의무복무는 감수. 남은 것은 아래 셋입니다.</p>
+
+<div class="viz">
+  <span class="vt">한 장 요약</span>
+  <div class="vh">여섯 칸은 9월 11일에 잠기고, 수능은 그로부터 69일 뒤입니다</div>
+  <p class="vc">2026년 8월 10일 기준 · 원서접수까지 28일 · 수능까지 101일</p>
+  <figure>
+  <svg viewBox="0 0 720 156" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">
+    <rect x="40" y="62" width="620" height="10" rx="5" fill="#f0f1f4"/>
+    <rect x="40" y="62" width="141" height="10" rx="5" fill="#862633"/>
+    <rect x="181" y="62" width="20" height="10" fill="#8a5a00"/>
+    <rect x="201" y="62" width="348" height="10" fill="#d8dade"/>
+    <rect x="549" y="62" width="111" height="10" rx="5" fill="#c9ccd2"/>
+    <rect x="549" y="62" width="40" height="10" fill="#c9ccd2"/>
+
+    <circle cx="40"  cy="67" r="6.5" fill="#862633"/>
+    <circle cx="181" cy="67" r="6.5" fill="#8a5a00"/>
+    <circle cx="201" cy="67" r="6.5" fill="#8a5a00"/>
+    <circle cx="549" cy="67" r="8"   fill="#a02020"/>
+    <circle cx="660" cy="67" r="6.5" fill="#1f6f4a"/>
+
+    <text x="40" y="46" text-anchor="start" font-size="12" font-weight="800" fill="#862633">8월 10일</text>
+    <text x="40" y="32" text-anchor="start" font-size="11" fill="#6b6e78">리포트 기준일</text>
+
+    <text x="191" y="46" text-anchor="middle" font-size="12" font-weight="800" fill="#8a5a00">9월 7일 – 11일</text>
+    <text x="191" y="32" text-anchor="middle" font-size="11" fill="#6b6e78">수시 원서접수 · 여섯 칸 확정</text>
+
+    <text x="549" y="46" text-anchor="middle" font-size="12.5" font-weight="800" fill="#a02020">11월 19일</text>
+    <text x="549" y="32" text-anchor="middle" font-size="11" fill="#6b6e78">수능</text>
+
+    <text x="660" y="46" text-anchor="end" font-size="12" font-weight="800" fill="#1f6f4a">12월 11일</text>
+    <text x="660" y="32" text-anchor="end" font-size="11" fill="#6b6e78">성적 통지</text>
+
+    <text x="110" y="93" text-anchor="middle" font-size="11.5" font-weight="700" fill="#862633">28일</text>
+    <text x="375" y="93" text-anchor="middle" font-size="11.5" fill="#6b6e78">최저 충족 여부를 모르는 채로 기다리는 69일</text>
+    <text x="604" y="93" text-anchor="middle" font-size="11.5" fill="#6b6e78">22일</text>
+
+    <rect x="201" y="110" width="348" height="30" rx="3" fill="#fdf4e3"/>
+    <text x="375" y="129" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5a00">여섯 칸은 9월 11일 18시에 잠깁니다</text>
+  </svg>
+  </figure>
+</div>
 
 <div class="box ok">
   <span class="bt">확정되어 계산에 들어간 것</span>
