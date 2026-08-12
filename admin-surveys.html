@@ -109,6 +109,11 @@
   .wrank .wrank-tog{ margin-left:auto; font-size:0.82rem; font-weight:700; color:var(--primary); white-space:nowrap; }
   .wrank[open] .wrank-open{ display:none; }
   .wrank:not([open]) .wrank-close{ display:none; }
+  /* 정답 뱃지 — 오답률 보며 바로 수업하려고 문항 옆에 정답을 붙인다(2026-08-12 관우T). 객관식은 번호(①②③)만. */
+  .wrank .wr-ans{ flex:0 0 auto; max-width:44%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                  font-size:0.8rem; font-weight:700; color:var(--primary); background:var(--primary-light);
+                  border-radius:6px; padding:1px 7px; }
+  .wrank .wr-ans math-field[read-only]{ font-size:0.92rem; }
   .qres{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px; margin-bottom:11px; }
   .qres h4{ margin:0 0 9px; font-size:0.95rem; }
   .bar{ margin:6px 0; }
@@ -1119,9 +1124,11 @@
           responses.forEach(function(r){ if(isRight(q, (r.answers||{})[q.id])===true) ok++; });
           var wrong = responses.length - ok;
           // 라벨의 「문항 N」은 원본 문항 순서(o.i)로 만든다 — 서술형이 섞여 있어도 번호가 밀리지 않게.
-          return { label:(q.label||('문항 '+(o.i+1))), wrong:wrong, rate: responses.length?Math.round(wrong/responses.length*100):0, idx:o.i };
+          return { label:(q.label||('문항 '+(o.i+1))), wrong:wrong, rate: responses.length?Math.round(wrong/responses.length*100):0, idx:o.i, ans:answerBadge(q) };
         });
-      wstat.sort(function(a,b){ return (b.rate-a.rate) || (b.wrong-a.wrong) || (a.idx-b.idx); });
+      // 정렬: 오답률 높은 순 → 같으면 「문항 번호 내림차순」(2026-08-12 관우T: 보통 뒤로 갈수록 어려우니
+      //       오답률이 같으면 뒷번호를 위에 둔다). rate는 반올림값이라 동률 판정 전 실제 오답 수로 한 번 더 가른다.
+      wstat.sort(function(a,b){ return (b.rate-a.rate) || (b.wrong-a.wrong) || (b.idx-a.idx); });
       if(wstat.length){
         var wrongQn = wstat.filter(function(s){ return s.wrong>0; }).length;
         var wc = document.createElement('div'); wc.className='card';
@@ -1136,9 +1143,10 @@
           wh += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;' + (zero?'opacity:0.5;':'') + '">'
               +   '<span style="flex:0 0 22px;height:22px;border-radius:7px;background:' + (zero?'var(--text-light,#8a807a)':(i===0?'var(--danger,#C5221F)':'var(--primary)')) + ';color:#fff;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;">' + (i+1) + '</span>'
               +   '<div style="flex:1;min-width:0;">'
-              +     '<div style="display:flex;justify-content:space-between;gap:8px;font-size:0.86rem;margin-bottom:4px;">'
-              +       '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;">' + esc(s.label) + '</span>'
-              +       '<span style="flex:0 0 auto;font-weight:800;color:' + (zero?'var(--text-light)':'#C5221F') + ';">' + s.rate + '%<span style="color:var(--text-light);font-weight:600;font-size:0.8rem;"> (' + s.wrong + '/' + responses.length + ')</span></span>'
+              +     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:0.86rem;margin-bottom:4px;">'
+              +       '<span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;">' + esc(s.label) + '</span>'
+              +       (s.ans ? '<span class="wr-ans">정답 ' + s.ans + '</span>' : '')
+              +       '<span style="flex:0 0 auto;margin-left:auto;font-weight:800;color:' + (zero?'var(--text-light)':'#C5221F') + ';">' + s.rate + '%<span style="color:var(--text-light);font-weight:600;font-size:0.8rem;"> (' + s.wrong + '/' + responses.length + ')</span></span>'
               +     '</div>'
               +     '<div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;"><div style="width:' + s.rate + '%;height:100%;border-radius:6px;background:linear-gradient(90deg,#E8746F,#C5221F);"></div></div>'
               +   '</div>'
@@ -1262,6 +1270,29 @@
       if(s==='') return '<span class="sub">(무응답)</span>';
       if(window.customElements && customElements.get('math-field')) return '<math-field read-only>'+esc(s)+'</math-field>';
       return esc(s);
+    }
+    // 🎯 오답률 순위에 붙는 「정답」 뱃지 (2026-08-12 관우T — 오답률 보면서 바로 수업하려고).
+    //   객관식은 선택지 번호만(①②③) 보여 달라는 선택. 단답·수식은 답을 그대로.
+    //   correct 저장 형태는 saveBuilder(1034~1043) 기준: single·dropdown = 선택지 '문자열', multi = 문자열 배열,
+    //   short·math = 문자열. 번호는 options.indexOf 로 되찾고, 못 찾으면(선택지를 나중에 고친 경우 등) 글자 그대로.
+    function circNo(n){ return (n>=1 && n<=15) ? String.fromCharCode(0x245F + n) : ('(' + n + ')'); }
+    function optNo(q, v){
+      var i = Array.isArray(q.options) ? q.options.indexOf(v) : -1;
+      return i>=0 ? circNo(i+1) : esc(String(v));
+    }
+    function answerBadge(q){
+      if(q.correct==null || q.correct==='') return '';
+      // OX형(single + 고정 선택지 O/X)만은 번호(②)가 아니라 글자 그대로 — 「정답 ②」는 읽어도 뜻이 안 통한다.
+      if(isOXQuestion(q)) return esc(String(q.correct));
+      if(q.type==='single' || q.type==='dropdown') return optNo(q, q.correct);
+      if(q.type==='multi'){
+        var cs = Array.isArray(q.correct) ? q.correct : [q.correct];
+        if(!cs.length) return '';
+        return cs.map(function(v){ return optNo(q, v); }).join('·');
+      }
+      // 단답·수식은 입력칸이 통합돼 있어 type이 'short'여도 LaTeX가 들어 있을 수 있다 → 역슬래시가 보이면 수식으로 렌더.
+      if(q.type==='math' || (q.type==='short' && /\\/.test(String(q.correct)))) return fmtMathA(q.correct);
+      return esc(String(q.correct));
     }
 
     // ── 테스트 공통 헬퍼: 정오 판정(표시용) · O/X 버튼 · 채점 저장 ──
