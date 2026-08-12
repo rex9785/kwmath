@@ -15,6 +15,7 @@ import {
 import { getStaffRecord } from './api/_staff.js';
 import { normalizePhone, verifyToken } from './api/_auth.js';
 import { logEvent, classifyPath } from './api/_eventlog.js';
+import { consultSlugOf, handleConsultGate } from './api/_consult.js';
 
 const PRIMARY_ORIGIN = 'https://kwmath.co.kr';
 
@@ -105,6 +106,27 @@ export async function onRequest(context) {
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
       },
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔒 2026-08-12 — 입시컨설팅 리포트 비밀번호 관문 (관우T 지시: 비밀번호 4550)
+  //   대상은 _consult.js 의 SLUGS 네 개뿐. **그 외 요청은 여기서 아무 일도 일어나지 않는다**
+  //   (consultSlugOf 가 문자열 비교 한 번으로 null 을 돌려주고 끝) → 사이트 나머지에 영향 0.
+  //   관문 코드가 터지면 **문을 닫는다**(fail-closed). 비공개 문서는 열리는 쪽이 사고다.
+  // ═══════════════════════════════════════════════════════════════════════════
+  let consultSlug = null;
+  try { consultSlug = consultSlugOf(new URL(context.request.url).pathname); } catch (_) { consultSlug = null; }
+  if (consultSlug) {
+    let gateRes;
+    try {
+      gateRes = await handleConsultGate(context, consultSlug);
+    } catch (_) {
+      return new Response('일시적인 오류입니다. 잠시 후 다시 시도해주세요.', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+    if (gateRes) return gateRes;   // 잠금해제 화면 · 통과 직후 되돌리기 · 잠김 안내
   }
 
   // 관리자/조교 세션 토큰 → 다운스트림엔 Bearer ADMIN_PASSWORD로 번역.
@@ -216,6 +238,14 @@ export async function onRequest(context) {
   const response = forwardRequest ? await context.next(forwardRequest) : await context.next();
   const newResponse = new Response(response.body, response);
   newResponse.headers.set('Access-Control-Allow-Origin', acao);
+
+  // 🔒 관문을 통과해 실제 리포트를 내보내는 응답 — 검색엔진 차단 + 중간 캐시 저장 금지.
+  //   (통행증 쿠키가 유효한 사람만 여기에 온다. 공용 PC 뒤로가기로 남는 것도 막는다.)
+  if (consultSlug) {
+    newResponse.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+    newResponse.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+    newResponse.headers.set('Referrer-Policy', 'no-referrer');
+  }
 
   // 🔄 원장·조교 로그인 유지 — 갱신된 토큰을 응답헤더로 내려보낸다.
   //   받는 쪽 = /session-keep.js (localStorage 'kwmath_admin_token'에 덮어씀).
