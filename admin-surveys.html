@@ -122,6 +122,22 @@
                    padding:9px 32px 9px 12px; color:var(--text); cursor:pointer;
                    -webkit-appearance:none; -moz-appearance:none; appearance:none;
                    background:#fff url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' fill='none' stroke='%23862633' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 11px center; }
+  /* 목록을 반별로 묶기 — 반 머리줄을 누르면 그 반 것만 쫙 펼쳐진다(2026-08-14 관우T: "반별로 묶어줘 드롭다운식으로").
+     ⚠️ 여기는 「목록 화면」이다. 결과 화면 안쪽의 반 고르기(.clsPick)와는 다른 자리다 — 헷갈리지 말 것. */
+  .clsGrp{ margin-bottom:13px; }
+  .clsGrp > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:9px;
+                     background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 15px;
+                     font-weight:700; font-size:0.97rem; }
+  .clsGrp > summary::-webkit-details-marker{ display:none; }
+  .clsGrp > summary::marker{ content:''; }
+  .clsGrp[open] > summary{ border-radius:12px 12px 0 0; border-bottom-color:transparent;
+                           background:var(--primary-light); color:var(--primary); }
+  .clsGrp .g-caret{ flex:0 0 auto; transition:transform .15s; }
+  .clsGrp[open] .g-caret{ transform:rotate(180deg); }
+  .clsGrp .g-cnt{ margin-left:auto; font-size:0.79rem; font-weight:700; color:var(--text-light); white-space:nowrap; }
+  .clsGrp[open] .g-cnt{ color:var(--primary); }
+  .clsGrp .g-body{ border:1px solid var(--line); border-top:none; border-radius:0 0 12px 12px;
+                   background:var(--bg); padding:12px 12px 2px; }
   .qres{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px; margin-bottom:11px; }
   .qres h4{ margin:0 0 9px; font-size:0.95rem; }
   .bar{ margin:6px 0; }
@@ -438,6 +454,40 @@
     });
   }
 
+  // ── 목록을 반별로 묶는다 (2026-08-14 관우T: "반별로 묶어줘 드롭다운식으로") ──
+  //   묶는 기준은 응답자가 아니라 **그 테스트의 대상 반**(audClass, "학원|반" 형식 · 2026-07-16 규칙).
+  //   대상 반이 여럿이거나 아예 없는 항목은 어느 반 칸에 넣어도 거짓이 되므로 따로 모아 맨 끝에 둔다.
+  var GRP_MULTI = 'multi', GRP_NONE = 'none';
+  /* ⚠️ 아래는 편집 도구가 문자열 안에 제어문자(U+0001·U+0002)를 흘려 넣은 흔적이다. 값은 바로 위에서 다시 정했으니
+     동작에는 영향이 없다. 이 주석 줄은 통째로 지워도 된다 — 제어문자가 섞여 있어 자동 치환으로는 못 지운다: 'multi', GRP_NONE = 'none'; */
+  function listGroupKey(s){
+    var cs = (s.audClass || []).filter(function(c){ return !!c; });
+    if(cs.length !== 1) return cs.length > 1 ? GRP_MULTI : GRP_NONE;
+    var k = cs[0];
+    // ⚠️ 2026-07-16 규칙 이전에 만든 항목은 반 이름만 있고 「학원|」이 없다(실측: id 7 「썸머 공통수학2반」, 2026-07-14).
+    //    그대로 두면 같은 반이 「세정학원 › 썸머 공통수학2반」과 「썸머 공통수학2반」 두 줄로 갈라진다.
+    //    그 항목이 스스로 들고 있는 audAcademy가 딱 하나면 그걸 붙여 한 줄로 모은다(추측이 아니라 그 항목의 값이다).
+    //    학원이 없거나 둘 이상이면 어느 학원인지 단정할 수 없으므로 이름 그대로 따로 둔다.
+    if(k.indexOf('|') < 0){
+      var ac = (s.audAcademy || []).filter(function(a){ return !!a; });
+      if(ac.length === 1) return ac[0] + '|' + k;
+    }
+    return k;
+  }
+  function listGroupLabel(k){
+    if(k === GRP_MULTI) return '여러 반';
+    if(k === GRP_NONE) return '반 지정 없음';
+    var i = k.indexOf('|');
+    return i < 0 ? k : (k.slice(0, i) + ' › ' + k.slice(i + 1));
+  }
+  // 접고 편 상태는 기억한다 — 매번 같은 반을 다시 펼치게 만들지 않으려고.
+  var LIST_OPEN_KEY = 'kwSurveyListOpen';
+  function listOpenState(){
+    try{ var v = JSON.parse(localStorage.getItem(LIST_OPEN_KEY) || 'null'); return (v && typeof v === 'object') ? v : null; }
+    catch(e){ return null; }
+  }
+  function listOpenSave(o){ try{ localStorage.setItem(LIST_OPEN_KEY, JSON.stringify(o)); }catch(e){} }
+
   function renderList(items){
     if(!items.length){
       viewEl.innerHTML = isStaff
@@ -446,7 +496,51 @@
       return;
     }
     viewEl.innerHTML = '';
+
+    var order = [], bucket = {};
     items.forEach(function(s){
+      var k = listGroupKey(s);
+      if(!bucket[k]){ bucket[k] = []; order.push(k); }
+      bucket[k].push(s);
+    });
+
+    // 묶을 게 하나뿐이면 머리줄은 군더더기다 — 예전처럼 그냥 나열한다.
+    if(order.length < 2){
+      items.forEach(function(s){ viewEl.appendChild(listCard(s)); });
+      return;
+    }
+
+    // 실제 반이 먼저, 「여러 반」 → 「반 지정 없음」이 뒤. 반끼리는 서버가 준 순서(최근 만든 순)를 그대로 둔다.
+    var rank = function(k){ return k === GRP_NONE ? 2 : (k === GRP_MULTI ? 1 : 0); };
+    order.sort(function(a, b){ return rank(a) - rank(b); });
+
+    var saved = listOpenState();
+    order.forEach(function(k, gi){
+      var arr = bucket[k];
+      var openN = arr.filter(function(s){ return s.status === 'open'; }).length;
+      // 처음 열 땐 맨 위(가장 최근에 쓴 반)만 펼친다. 그 뒤로는 접고 편 상태를 그대로 되살린다.
+      var isOpen = (saved && (k in saved)) ? !!saved[k] : (gi === 0);
+      var d = document.createElement('details');
+      d.className = 'clsGrp';
+      if(isOpen) d.open = true;
+      d.innerHTML = '<summary>'
+        + '<svg class="g-caret" width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1.5L6 6.5L11 1.5"></path></svg>'
+        + '<span>' + esc(listGroupLabel(k)) + '</span>'
+        + '<span class="g-cnt">' + arr.length + '개' + (openN ? ' · 진행중 ' + openN : '') + '</span>'
+        + '</summary><div class="g-body"></div>';
+      var body = d.querySelector('.g-body');
+      arr.forEach(function(s){ body.appendChild(listCard(s)); });
+      d.addEventListener('toggle', function(){
+        var cur = listOpenState() || {};
+        cur[k] = d.open;
+        listOpenSave(cur);
+      });
+      viewEl.appendChild(d);
+    });
+  }
+
+  // 카드 한 장 만들기. 예전엔 renderList 안에서 바로 붙였지만, 이제 반별 묶음(.g-body) 밑에도 붙여야 해서 떼어냈다.
+  function listCard(s){
       var card = document.createElement('div'); card.className = 'card';
       var h = '';
       h += '<div class="row1"><span class="nm">' + esc(s.title) + '</span>';
@@ -479,8 +573,7 @@
         }).catch(function(){ toast('변경 실패'); });
       });
       card.querySelector('[data-act="del"]').addEventListener('click', function(){ askDelete(s); });
-      viewEl.appendChild(card);
-    });
+      return card;
   }
 
   // ─────────────── 삭제 (성적표 점수 처리를 그때 고른다) ───────────────
