@@ -1,15 +1,54 @@
 # kwmath.co.kr — 관우수학
+#
+# 2026-08-14 — 확장자 없는 주소(Clean URL) 구멍을 메웠다.
+#   Cloudflare Pages는 `foo.html`을 `/foo`로도 서빙하는데, 아래 목록이 `.html`만 막고 있어서
+#   구글이 `/admin`을 그대로 크롤·색인했다. (구글 서치콘솔 실측: 색인된 페이지 2장 중 1장이 `/admin`)
+#   robots.txt의 Disallow는 **접두어 일치**이므로 확장자를 떼고 적으면 `/portal`과 `/portal.html`이 함께 걸린다.
+#
+# ⚠️ 이미 색인된 `/admin`은 Disallow로 못 내린다 — 크롤을 막으면 구글이 페이지 안의 noindex를 못 읽고
+#    검색결과에 URL만 남는 역효과가 난다. 그래서 `/admin`은 일부러 **열어 두고**(Allow)
+#    `admin.html`의 `<meta name="robots" content="noindex,nofollow">`로 내린다.
+#    구글에서 `/admin`이 사라진 걸 확인한 뒤 아래 `# Disallow: /admin` 주석을 풀 것.
+#
+# ⚠️ dongil · dongil-2 · dandae · hyochan · guide · guide-features · push-help 은
+#    **noindex 메타로만 막고 여기에 Disallow를 넣지 않는다** — 2026-08-06 관우T 결정이다.
+#    상담 때 링크로 열어 보여 드리는 페이지라 URL 직접 접속은 살아 있어야 하고,
+#    Disallow를 걸면 크롤이 막혀 정작 noindex가 안 읽힌다. (00_START_HERE.md 2026-08-06 3차 절)
+#
+#    반대로 surveys · admin-log · admin-inquiries · admin-surveys 도 noindex 메타를 달고 있지만
+#    아래 Disallow 목록에 **일부러 넣었다**. 이쪽은 로그인 뒤에만 열리는 내부 화면이고
+#    구글 색인에 오른 적이 없다(2026-08-14 서치콘솔 색인 2장 = `/` 와 `/admin`) — 내릴 것이 없으니
+#    크롤을 아예 막는 쪽이 강하다. 규칙은 「이미 색인된 페이지엔 Disallow 금지」이지
+#    「noindex면 무조건 열어 둔다」가 아니다.
+
 User-agent: *
 Disallow: /api/
-Disallow: /admin.html
-Disallow: /portal.html
-Disallow: /me.html
-Disallow: /report.html
-Disallow: /attendance.html
-Disallow: /study.html
-Disallow: /test-results.html
-Disallow: /class.html
-Disallow: /video.html
-Disallow: /qr-poster.html
+
+# 이미 색인돼 있어 일부러 열어 둔다 (위 ⚠️ 참고). 색인에서 빠지면 Disallow로 바꿀 것.
+Allow: /admin
+# Disallow: /admin
+
+# 관리자·조교 화면 (`Disallow: /admin-`이 `Allow: /admin`보다 길어서 우선한다)
+Disallow: /admin-
+Disallow: /staff
+Disallow: /clinic
+Disallow: /register-staff
+
+# 학생·학부모 전용 화면
+Disallow: /portal
+Disallow: /me
+Disallow: /report
+Disallow: /attendance
+Disallow: /study
+Disallow: /test-results
+Disallow: /class
+Disallow: /video
+Disallow: /homework
+Disallow: /my-scores
+Disallow: /qna
+Disallow: /surveys
+
+# 내부 도구
+Disallow: /qr-poster
 
 Sitemap: https://kwmath.co.kr/sitemap.xml

@@ -114,6 +114,14 @@
                   font-size:0.8rem; font-weight:700; color:var(--primary); background:var(--primary-light);
                   border-radius:6px; padding:1px 7px; }
   .wrank .wr-ans math-field[read-only]{ font-size:0.92rem; }
+  /* 반 고르기 — 지금 보고 있는 반이 떠 있고, 누르면 반 목록이 쫙 펼쳐진다(2026-08-14 관우T).
+     고르면 아래 결과 전체(오답률 순위·채점 대기·응답자별 점수·문항별 집계)가 그 반만으로 다시 계산된다. */
+  .clsPick{ display:flex; align-items:center; gap:8px; margin:2px 0 12px; }
+  .clsPick .lb{ flex:0 0 auto; font-size:0.84rem; font-weight:700; color:var(--text-light); }
+  .clsPick select{ width:auto; min-width:150px; max-width:100%; flex:0 1 auto; font-size:0.95rem; font-weight:700;
+                   padding:9px 32px 9px 12px; color:var(--text); cursor:pointer;
+                   -webkit-appearance:none; -moz-appearance:none; appearance:none;
+                   background:#fff url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' fill='none' stroke='%23862633' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 11px center; }
   .qres{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 15px; margin-bottom:11px; }
   .qres h4{ margin:0 0 9px; font-size:0.95rem; }
   .bar{ margin:6px 0; }
@@ -1071,12 +1079,92 @@
   // ─────────────── 결과 ───────────────
   var _openResp = [];   // 응답자별 점수에서 펼쳐둔 응답 id (재렌더 시 유지)
   var _editResp = null; // ✏️ 답 수정 중인 응답 id (재렌더 시 폼 유지)
+  var _clsFilter = '*'; // 지금 보고 있는 반. '*' = 전체 · '' = 반 미확인 · 그 밖엔 '학원|반'
+  var _clsMap = null;   // 응답 id → 반 키 (학생 명단과 맞춰본 결과)
+  var _allResp = [];    // 반 필터를 걸기 전 전체 응답 — 재렌더·응답 삭제·반 목록은 늘 이걸 기준으로
+  var _students = null; // /api/students 캐시 (결과 화면을 여러 번 열어도 한 번만 받는다)
+
+  // ── 반 묶기 ─────────────────────────────────────────────────────────────
+  //  응답 행에는 반이 없다(survey_responses = 전화·이름·답·점수뿐). 그래서 학생 명단을 받아
+  //  「응답한 번호(없으면 이름) → 그 학생의 반」으로 되짚는다. 못 되짚은 응답은 「반 미확인」에 모은다.
+  function loadStudents(){
+    if(_students) return Promise.resolve(_students);
+    var opts = { headers:{} };
+    if(token) opts.headers['Authorization'] = 'Bearer ' + token;
+    return fetch('/api/students', opts)
+      .then(function(r){ return r.ok ? r.json() : []; })
+      .then(function(list){ _students = Array.isArray(list) ? list : []; return _students; })
+      .catch(function(){ _students = []; return _students; });   // 못 받아도 결과 화면은 열려야 한다 (반 고르기만 빠짐)
+  }
+  function onlyDigits(v){ return String(v==null?'':v).replace(/\D/g,''); }
+  function buildClassIndex(responses){
+    var byPhone = {}, byName = {};
+    (_students||[]).forEach(function(s){
+      // 학생이 자기 번호로 냈을 수도, 학부모 번호로 로그인해 냈을 수도 있다 — 서버 조회와 같게 둘 다 건다.
+      [s.studentPhone, s.parentPhone].forEach(function(p){
+        var d = onlyDigits(p); if(!d) return;
+        (byPhone[d] = byPhone[d] || []).push(s);
+      });
+      var n = String(s.name||'').trim();
+      if(n) (byName[n] = byName[n] || []).push(s);
+    });
+    var map = {};
+    responses.forEach(function(r){
+      var st = null;
+      var cand = byPhone[onlyDigits(r.respondentPhone)] || [];
+      if(cand.length === 1) st = cand[0];
+      else if(cand.length > 1){
+        // 형제가 학부모 번호 하나를 같이 쓰면 후보가 여럿 → 응답에 적힌 이름으로 가른다.
+        var nm = String(r.respondentName||'').trim();
+        var hit = cand.filter(function(s){ return String(s.name||'').trim() === nm; });
+        if(hit.length === 1) st = hit[0];
+      }
+      if(!st){
+        // 조교 계정엔 학생 목록의 연락처가 가려져 온다(students.js STAFF_HIDDEN) → 번호로는 영영 못 맞춘다. 이름으로 한 번 더.
+        var byn = byName[String(r.respondentName||'').trim()] || [];
+        if(byn.length === 1) st = byn[0];   // 동명이인이면 아무도 고르지 않는다 — 엉뚱한 반에 넣느니 미확인이 낫다.
+      }
+      map[r.id] = (st && st.className) ? ((st.academy||'') + '|' + st.className) : '';
+    });
+    return map;
+  }
+  function clsKeyOf(r){ return (_clsMap && _clsMap[r.id]) || ''; }
+  function clsNameOf(k){ var i = k.indexOf('|'); return i < 0 ? k : k.slice(i+1); }
+  function clsAcaOf(k){ var i = k.indexOf('|'); return i < 0 ? '' : k.slice(0, i); }
+  // 실제로 응답이 나온 반만 모은다(가나다순 · 「반 미확인」은 늘 맨 끝).
+  // 다른 학원에 같은 이름 반이 있으면 그 둘만 학원 이름을 덧붙인다(대상 지정과 같은 규칙 — 2026-07-16).
+  function classGroups(responses){
+    var cnt = {}, order = [];
+    responses.forEach(function(r){
+      var k = clsKeyOf(r);
+      if(cnt[k] === undefined){ cnt[k] = 0; order.push(k); }
+      cnt[k]++;
+    });
+    var nameCnt = {};
+    order.forEach(function(k){ if(k){ var n = clsNameOf(k); nameCnt[n] = (nameCnt[n]||0) + 1; } });
+    order.sort(function(a,b){
+      if(!a) return 1;
+      if(!b) return -1;
+      return clsNameOf(a).localeCompare(clsNameOf(b), 'ko');
+    });
+    return order.map(function(k){
+      var nm = clsNameOf(k);
+      return { key:k, label:(k ? (nm + (nameCnt[nm] > 1 ? (' · ' + clsAcaOf(k)) : '')) : '반 미확인'), n:cnt[k] };
+    });
+  }
+
   function loadResults(id){
     setMode('results');
     _openResp = [];
     _editResp = null;
+    _clsFilter = '*';   // 새로 열면 늘 전체부터 (2026-08-14 관우T)
+    _clsMap = null;
     viewEl.innerHTML = '<div class="state">불러오는 중…</div>';
-    api('GET', '?admin=1&id=' + id).then(function(r){ return r.json(); }).then(function(data){
+    Promise.all([
+      api('GET', '?admin=1&id=' + id).then(function(r){ return r.json(); }),
+      loadStudents()
+    ]).then(function(out){
+      var data = out[0];
       if(!data || !data.ok){ viewEl.innerHTML = '<div class="state">' + esc((data&&data.error)||'불러오지 못했어요.') + '</div>'; return; }
       renderResults(data.survey, data.responses || []);
     }).catch(function(){ viewEl.innerHTML = '<div class="state">네트워크 오류로 불러오지 못했어요.</div>'; });
@@ -1084,6 +1172,18 @@
 
   function renderResults(survey, responses){
     var qs = survey.questions || [];
+    // ── 반 고르기 — 여기 한 곳에서만 거른다 ──
+    //   아래 전 구간(오답률 순위·분모·평균·채점 대기·응답자별 점수·문항별 집계·CSV)이 이 responses 하나를 쓰므로,
+    //   고른 반만 남겨서 넘기면 화면 전체가 그 반 기준으로 다시 계산된다. 전체 목록은 _allResp 에 남겨 둔다.
+    //   ⚠️ 이 함수를 다시 부를 땐 반드시 renderResults(survey, _allResp) — 걸러진 배열을 되먹이면 다른 반이 사라진다.
+    _allResp = responses;
+    _clsMap = buildClassIndex(responses);
+    var groups = (survey.anonymous || !responses.length) ? [] : classGroups(responses);
+    var hasPick = groups.length >= 2;   // 반이 하나뿐이면(또는 익명이라 못 가리면) 고를 게 없으니 안 띄운다
+    var pickOk = false, pickLabel = '';
+    groups.forEach(function(g){ if(g.key === _clsFilter){ pickOk = true; pickLabel = g.label; } });
+    if(!hasPick || (_clsFilter !== '*' && !pickOk)){ _clsFilter = '*'; pickLabel = ''; }   // 고르던 반의 응답이 다 지워진 경우
+    if(_clsFilter !== '*') responses = responses.filter(function(r){ return clsKeyOf(r) === _clsFilter; });
     viewEl.innerHTML = '';
     var top = document.createElement('div'); top.className = 'card';
     var th = '<div class="row1"><span class="nm">' + esc(survey.title) + '</span>';
@@ -1100,10 +1200,29 @@
       if(cntS) th += '<br>평균 점수 <b>' + (sumS/cntS).toFixed(1) + '</b>' + (maxS!=null?(' / ' + maxS + '점'):'점');
     }
     th += '</div>';
+    // 반이 떠 있고, 누르면 반 목록이 쫙 펼쳐진다 — 고르면 아래 결과 전체가 그 반만으로 다시 계산 (2026-08-14 관우T)
+    if(hasPick){
+      th += '<div class="clsPick"><span class="lb">반</span><select id="clsSel" aria-label="반 고르기">'
+          + '<option value="*"' + (_clsFilter==='*' ? ' selected' : '') + '>전체 (' + _allResp.length + '명)</option>';
+      groups.forEach(function(g){
+        th += '<option value="g:' + escAttr(g.key) + '"' + (_clsFilter===g.key ? ' selected' : '') + '>' + esc(g.label) + ' (' + g.n + '명)</option>';
+      });
+      th += '</select></div>';
+    }
     th += '<div class="acts"><button class="b-ghost" id="csvBtn">CSV 내려받기</button></div>';
     top.innerHTML = th;
     viewEl.appendChild(top);
-    top.querySelector('#csvBtn').addEventListener('click', function(){ downloadCsv(survey, responses); });
+    top.querySelector('#csvBtn').addEventListener('click', function(){ downloadCsv(survey, responses, pickLabel); });
+    if(hasPick){
+      top.querySelector('#clsSel').addEventListener('change', function(){
+        var v = this.value;
+        _clsFilter = (v === '*') ? '*' : v.slice(2);
+        _openResp = []; _editResp = null;   // 반을 바꾸면 펼쳐둔 답안·수정 폼은 닫는다 (다른 반 것이 남으면 헷갈린다)
+        var y = window.scrollY;
+        renderResults(survey, _allResp);
+        window.scrollTo(0, y);
+      });
+    }
 
     if(!responses.length){
       var e = document.createElement('div'); e.className = 'state'; e.textContent = '아직 응답이 없어요.';
@@ -1342,7 +1461,7 @@
               if(!d || !d.ok){ toast((d && d.error) || '채점 저장 실패'); return; }
               r.manual = d.manual || {}; r.score = d.score; r.maxScore = d.maxScore;
               var y = window.scrollY;
-              renderResults(survey, responses);
+              renderResults(survey, _allResp);
               window.scrollTo(0, y);
             }).catch(function(){ toast('채점 저장 실패'); });
         });
@@ -1526,7 +1645,7 @@
           var ix = _openResp.indexOf(rid);
           if(ix>=0) _openResp.splice(ix,1); else _openResp.push(rid);
           var y = window.scrollY;
-          renderResults(survey, responses);
+          renderResults(survey, _allResp);
           window.scrollTo(0, y);
         });
       });
@@ -1535,13 +1654,13 @@
         b.addEventListener('click', function(ev){
           ev.stopPropagation();
           _editResp = parseInt(b.dataset.editstart,10);
-          var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+          var y = window.scrollY; renderResults(survey, _allResp); window.scrollTo(0, y);
         });
       });
       sc.querySelectorAll('[data-editcancel]').forEach(function(b){
         b.addEventListener('click', function(ev){
           ev.stopPropagation(); _editResp = null;
-          var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+          var y = window.scrollY; renderResults(survey, _allResp); window.scrollTo(0, y);
         });
       });
       sc.querySelectorAll('[data-editsave]').forEach(function(b){
@@ -1567,7 +1686,7 @@
               r.answers = d.answers || r.answers; r.score = d.score; r.maxScore = d.maxScore; r.manual = d.manual || {};
               _editResp = null;
               toast('답을 수정했어요' + (survey.quiz ? ' — 재채점 완료' : ''));
-              var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+              var y = window.scrollY; renderResults(survey, _allResp); window.scrollTo(0, y);
             }).catch(function(){ toast('저장 실패'); b.disabled = false; b.textContent = '저장'; });
         });
       });
@@ -1575,7 +1694,8 @@
         b.addEventListener('click', function(ev){
           ev.stopPropagation();
           var rid = parseInt(b.dataset.resub,10);
-          var r = null, idx = -1; responses.forEach(function(x,i){ if(x.id===rid){ r = x; idx = i; } });
+          // 반 필터가 걸려 있으면 responses 는 걸러낸 사본이다 — 지우는 건 반드시 전체 목록(_allResp) 쪽이어야 한다.
+          var r = null, idx = -1; _allResp.forEach(function(x,i){ if(x.id===rid){ r = x; idx = i; } });
           if(!r) return;
           var who = survey.anonymous ? '이 응답' : ('"' + (r.respondentName || '이름 없음') + '" 응답');
           var msg = who + '을 삭제할까요?\n\n· 답안·점수가 지워지고, 그 학생이 처음부터 다시 제출할 수 있게 돼요.'
@@ -1585,11 +1705,11 @@
           api('DELETE', '?id=' + survey.id + '&responseId=' + rid)
             .then(function(x){ return x.json(); }).then(function(d){
               if(!d || !d.ok){ toast((d && d.error) || '삭제 실패'); return; }
-              responses.splice(idx, 1);
+              _allResp.splice(idx, 1);
               var ix = _openResp.indexOf(rid); if(ix >= 0) _openResp.splice(ix, 1);
               if(_editResp === rid) _editResp = null;
               toast('응답을 삭제했어요 — 학생이 다시 제출할 수 있어요');
-              var y = window.scrollY; renderResults(survey, responses); window.scrollTo(0, y);
+              var y = window.scrollY; renderResults(survey, _allResp); window.scrollTo(0, y);
             }).catch(function(){ toast('삭제 실패'); });
         });
       });
@@ -1695,7 +1815,8 @@
     if(/[",\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
     return s;
   }
-  function downloadCsv(survey, responses){
+  // clsLabel: 반을 골라 둔 상태면 그 반 이름 — 내려받은 파일이 어느 반 것인지 이름만 보고 알게(2026-08-14).
+  function downloadCsv(survey, responses, clsLabel){
     var qs = survey.questions || [];
     var header = ['시각'];
     if(!survey.anonymous) header.push('이름');
@@ -1712,7 +1833,7 @@
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (survey.title||'survey').replace(/[\\/:*?"<>|]/g,'_') + '.csv';
+    a.download = ((survey.title||'survey') + (clsLabel ? ('_' + clsLabel) : '')).replace(/[\\/:*?"<>|]/g,'_') + '.csv';
     document.body.appendChild(a); a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }

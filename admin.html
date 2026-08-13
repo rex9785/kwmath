@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- 2026-08-14 추가. 구글이 이 화면을 색인해 두고 있었다(서치콘솔 확인: 색인된 2장 중 1장이 /admin).
+     robots.txt는 `/admin.html`만 막고 있었는데 Cloudflare Pages가 확장자 없는 `/admin`으로도 서빙해 그물에 안 걸렸다.
+     ⚠️ 이미 색인된 페이지는 Disallow로 못 내린다 — 크롤이 막히면 구글이 이 noindex를 못 읽고 검색결과에 URL만 남는다.
+     그래서 robots.txt는 `/admin`을 일부러 열어 두고(Allow) 이 메타로 내린다. 구글에서 빠진 걸 확인한 뒤
+     robots.txt의 주석 처리된 `Disallow: /admin` 줄을 풀 것. 상세: 인수인계/00_START_HERE.md 2026-08-14 검색노출 절. -->
+<meta name="robots" content="noindex,nofollow">
 <title>관리자 페이지 | LKW math LAB</title>
 <!-- 설치형 PWA (관리자 앱) -->
 <meta name="theme-color" content="#2A4A8C">
