@@ -1,6 +1,9 @@
 // POST /api/notify-class-materials (admin only)
 // 반 전용 수업자료(class/{학원}_{반}/…)가 올라오면 → 그 반 학생의 "학부모" 폰으로 푸시 1회.
-//   body: { academy, className, date?, count? }
+//   body: { academy, className, date?, count?, dryRun? }
+//   🔎 2026-08-13 — dryRun:true 면 **아무것도 안 보내고** 대상 인원수만 돌려준다.
+//      admin.html이 발송 전 확인창("○○반 학부모 N명에게 보낼까요?")에 쓴다. 발송은 되돌릴 수 없으므로
+//      화면이 스스로 명단을 세지 않는다 — 수료생 제외 규칙(아래)이 서버에만 있어서 화면이 세면 숫자가 어긋난다.
 //   대상: listStudents 중 academy+className 일치 학생의 parentPhone(정규화). 학부모만(관우T 지시 2026-07-14).
 //   ⚠️ 대상 결정은 서버가 함 — 클라(admin.html)는 "어느 반"만 알려줌. 임의 폰 목록 발송 차단.
 //   공개 자료(전체 공개)·리포트는 이 엔드포인트 대상 아님(호출부가 class-shared 업로드에서만 호출).
@@ -24,6 +27,7 @@ export async function onRequest(context) {
   const className = String(body.className || '').trim();
   const date = String(body.date || '').trim();
   const count = Number(body.count) || 0;
+  const dryRun = body.dryRun === true;   // 🔎 확인창용 — 대상만 세고 발송은 안 함 (기본 false = 종전 동작)
   if (!academy || !className) return Response.json({ error: 'academy·className 필수' }, { status: 400 });
 
   try {
@@ -38,6 +42,9 @@ export async function onRequest(context) {
       && !isCompleted(s.approvalStatus));
     // 학부모만 — 정규화한 학부모 폰(포털이 푸시 구독에 쓰는 키와 동일 형식: 010-1234-5678).
     const phones = [...new Set(inClass.map(s => normalizePhone(s.parentPhone)).filter(Boolean))];
+    // 🔎 dryRun — 여기서 끝. sendPushToUsers를 부르기 **전에** 돌려보내야 확인창이 의미가 있다.
+    //   night도 같이 준다 — 확인창에 "지금 보냄"인지 "오전 7시에 모아 보냄"인지 미리 알려주기 위함.
+    if (dryRun) return Response.json({ ok: true, dryRun: true, targeted: phones.length, night: isKstQuietHours() });
     if (!phones.length) return Response.json({ ok: true, targeted: 0, note: '대상 학부모 없음' });
 
     const nice = date && date.length >= 10 ? date.slice(5).replace('-', '/') : date;   // 2026-07-14 → 07/14

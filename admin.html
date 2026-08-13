@@ -1152,6 +1152,17 @@
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">수업 날짜</label>
             <input id="csDate" type="date" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;">
             <p style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">파일은 <code>class/{학원}_{반}/{MMDD}/</code> 폴더에 자동 저장됩니다</p>
+            <!-- 🔔 2026-08-13 — 여태 반별 수업자료를 올리면 **무조건** 그 반 학부모 폰으로 푸시가 나갔다(선택권 없음).
+                 관우T 지시: "내가 보낼지 말지 설정할 수 있어야 겠다".
+                 · 기본은 켜짐 = 지금까지의 동작 유지(끄는 걸 깜빡해서 알림이 안 나가는 사고를 막는다).
+                 · 대신 발송 직전에 "몇 명에게 보낼지" 확인창을 띄운다 — 발송은 되돌릴 수 없다(관우T 확정 2026-08-13).
+                 · 매번 기본값(켜짐)으로 돌아온다. 기억 안 함(관우T 확정) — 예전에 꺼둔 걸 잊고 계속 안 나가는 게 더 위험. -->
+            <label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:10px;background:var(--bg,#faf7f5);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;">
+              <input id="csNotify" type="checkbox" checked style="margin-top:2px;width:16px;height:16px;flex:0 0 auto;cursor:pointer;accent-color:var(--primary);">
+              <span style="font-size:0.85rem;font-weight:600;color:var(--text);line-height:1.45;">🔔 학부모에게 알림 보내기
+                <span style="display:block;font-size:0.76rem;font-weight:400;color:var(--text-light);margin-top:2px;">끄면 알림 없이 조용히 올라갑니다 · 켜면 업로드 뒤 보낼 인원을 확인하고 발송합니다 (야간 23~7시는 오전 7시에 모아 발송)</span>
+              </span>
+            </label>
           </div>
           <div id="reportStudentWrap" style="display:none;">
             <label style="font-size:0.85rem;font-weight:600;color:var(--text-light);display:block;margin-bottom:6px;">학원</label>
@@ -3784,25 +3795,70 @@
       if (document.getElementById('viewFolder').value === folder) loadFiles();
 
       // 반 수업자료면 그 반 "학부모"에게 "새 수업자료" 알림 1회 (best-effort — 업로드 성공엔 영향 없음)
+      // 🔔 2026-08-13 — 여태 여기서 **무조건** 나갔다. 이제 #csNotify 체크박스로 관우T가 정한다(관우T 지시).
+      //   ⚠️ 알림 여부와 **업로드 성패는 완전히 별개**다. 아래 어느 갈래로 가도 파일은 이미 올라가 있다.
       if (folderSel === 'class-shared') {
-        try {
-          const acad = document.getElementById('csAcademy').value;
-          const cls  = document.getElementById('csClass').value;
-          const csd  = document.getElementById('csDate').value;
-          const nres = await fetch('/api/notify-class-materials', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
-            body: JSON.stringify({ academy: acad, className: cls, date: csd, count: successCount }),
-          });
-          const nd = await nres.json().catch(() => ({}));
-          if (nd && nd.ok && nd.targeted) {
-            // 밤(KST 23~7시)엔 즉시 발송이 아니라 아침 07시에 모아 보냄 → 토스트를 정직하게 구분.
-            showToast(nd.night
-              ? ('🌙 지금은 야간(23~7시)이라 ' + cls + ' 학부모 ' + nd.targeted + '명 알림을 오전 7시에 모아 보낼게요.')
-              : ('🔔 ' + cls + ' 학부모 ' + nd.targeted + '명에게 알림을 보냈어요.'));
-          }
-        } catch (_) { /* 알림 실패는 업로드 성공에 영향 없음 */ }
+        const wantNotify = !!(document.getElementById('csNotify') || {}).checked;
+        const acad = document.getElementById('csAcademy').value;
+        const cls  = document.getElementById('csClass').value;
+        const csd  = document.getElementById('csDate').value;
+        const notifyBody = { academy: acad, className: cls, date: csd, count: successCount };
+
+        if (!wantNotify) {
+          // 체크 해제 → API를 **아예 호출하지 않는다**. 화면만 감추고 서버는 보내는 어긋남을 원천 차단.
+          showToast('🔕 알림 없이 올렸어요 — 학부모 푸시는 나가지 않았습니다.');
+        } else {
+          try {
+            // ① dryRun — 발송 없이 "몇 명에게 갈지"만 서버에 묻는다.
+            //    화면이 직접 세지 않는 이유: 수료생 제외 규칙이 서버에만 있어 숫자가 어긋난다.
+            let targeted = null, night = false;
+            try {
+              const dres = await fetch('/api/notify-class-materials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+                body: JSON.stringify(Object.assign({}, notifyBody, { dryRun: true })),
+              });
+              const dd = await dres.json().catch(() => ({}));
+              if (dd && dd.ok) { targeted = Number(dd.targeted) || 0; night = !!dd.night; }
+            } catch (_) { /* 인원 확인 실패 → 인원 없이 확인만 받는다(아래 targeted === null 갈래) */ }
+
+            if (targeted === 0) {
+              // 보낼 곳이 없는데 "보낼까요?"를 묻는 건 거짓 확인창이다. 바로 알리고 끝낸다.
+              showToast('ℹ️ ' + cls + '에 알림 받을 학부모 연락처가 없어 발송하지 않았습니다.');
+            } else {
+              // ② 확인창 — 발송은 되돌릴 수 없다(관우T 확정 2026-08-13).
+              const 인원 = (targeted === null) ? '학부모' : ('학부모 ' + targeted + '명');
+              const 시점 = night ? '\n\n🌙 지금은 야간(23~7시)이라 오전 7시에 모아 보냅니다.' : '';
+              const 진행 = confirm('🔔 ' + cls + ' ' + 인원 + '에게\n「📚 새 수업자료가 올라왔어요」 알림을 보낼까요?' + 시점
+                + '\n\n※ 보낸 알림은 되돌릴 수 없습니다.\n[취소]를 눌러도 파일은 그대로 올라가 있고, 알림만 안 나갑니다.');
+              if (!진행) {
+                showToast('🔕 알림은 보내지 않았어요 — 파일은 정상 업로드됐습니다.');
+              } else {
+                // ③ 실제 발송 (dryRun 없이 = 종전 동작 그대로)
+                const nres = await fetch('/api/notify-class-materials', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+                  body: JSON.stringify(notifyBody),
+                });
+                const nd = await nres.json().catch(() => ({}));
+                if (nd && nd.ok && nd.targeted) {
+                  // 밤(KST 23~7시)엔 즉시 발송이 아니라 아침 07시에 모아 보냄 → 토스트를 정직하게 구분.
+                  showToast(nd.night
+                    ? ('🌙 지금은 야간(23~7시)이라 ' + cls + ' 학부모 ' + nd.targeted + '명 알림을 오전 7시에 모아 보낼게요.')
+                    : ('🔔 ' + cls + ' 학부모 ' + nd.targeted + '명에게 알림을 보냈어요.'));
+                } else {
+                  // 보냈다고 착각하면 안 된다 — 서버가 0명/실패를 돌려준 경우를 그대로 알린다.
+                  showToast('⚠️ 알림이 발송되지 않았습니다 (파일 업로드는 정상). 필요하면 다시 시도해 주세요.');
+                }
+              }
+            }
+          } catch (_) { /* 알림 실패는 업로드 성공에 영향 없음 */ }
+        }
       }
+      // 🔁 다음 업로드를 위해 체크박스를 기본값(켜짐)으로 되돌린다 — "기억 안 함"(관우T 확정 2026-08-13).
+      //   예전에 꺼둔 걸 잊고 계속 알림이 안 나가는 쪽이 더 위험하다는 판단.
+      const csn = document.getElementById('csNotify');
+      if (csn) csn.checked = true;
     }
   }
 
