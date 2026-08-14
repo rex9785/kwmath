@@ -9,6 +9,32 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://t1.kakaocdn.net https://developers.kakao.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://www.instagram.com https://www.facebook.com; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'
 
+# ══════════════════════════════════════════════════════════════════════════
+# 🔒 2026-08-14 — 검색엔진 영구 차단 (X-Robots-Tag)
+#   관우T 질문: "admin 뜨는 게 6개월만 임시로 막는 거면 영영 안 올라오게 할 수는 없어?"
+#
+#   서치콘솔 「삭제 요청」은 6개월짜리 커튼일 뿐이다. 색인에서 **영구히** 빼는 길은 하나뿐 —
+#   크롤러가 그 주소를 **다시 방문해서 noindex를 직접 읽게** 하는 것이다.
+#   그래서 robots.txt에서 /admin·/reviews는 일부러 열어 두고(Disallow 금지) 여기서 내린다.
+#
+#   왜 HTML 안의 <meta name="robots">만으로는 부족한가:
+#     meta 태그는 크롤러가 HTML을 끝까지 받아 파싱해야 보인다. 응답이 잘리거나 파서가 약하면 놓친다.
+#     X-Robots-Tag는 **HTTP 응답 헤더**라 본문을 열기 전에 읽힌다. 구글이 공식 지원하고,
+#     HTML이 아닌 응답(파일 등)에도 붙는다. meta와 헤더 둘 다 두는 게 표준적인 이중 잠금이다.
+#     (같은 수법을 functions/_middleware.js 245행에서 컨설팅 리포트에 이미 쓰고 있다.)
+#
+#   ⚠️ 공개 페이지에 실수로 걸리면 그 페이지가 검색에서 통째로 사라진다. 접두어를 반드시 확인할 것.
+#      지금 공개 목록: / · register · lectures · analysis · dongduk · syllabus · consulting
+#      · consulting-sample · materials · install · privacy · terms — `admin`·`reviews`로 시작하는 것 없음.
+#   ⚠️ 이 헤더는 「내려 달라」는 요청이지 접근 차단이 아니다. 크롤러가 무시하면 그만이다.
+#      진짜 차단은 미로그인 요청에 페이지 자체를 안 주는 것인데, 로그인 토큰이 localStorage에 있어
+#      서버가 요청만 보고는 로그인 여부를 못 가린다 → 구조 변경이 필요해 지금은 안 한다.
+#      (2026-08-14 실측: 미로그인 /admin에서 새는 개인정보 0건. UI 껍데기뿐이라 급하지 않다.)
+/admin*
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+/reviews*
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
 # HTML 페이지 — 캐시는 저장하되 매번 변경 여부 체크 (변경 없으면 304, 빠름)
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
