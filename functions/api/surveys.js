@@ -254,10 +254,9 @@ function stripCorrect(questions) {
   });
 }
 
-// 텍스트 정답 비교용 정규화(대소문자·앞뒤·연속공백 무시)
-function normText(s) {
-  return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
-}
+// 옛 normText(텍스트 일치 전용)는 지웠다 — 정답 비교는 아래 sameAnswer 하나로만 한다.
+//   직접 normText(a)===normText(정답)으로 비교하면 단위·수식 동치가 빠져 그 화면에서만 오답이 된다.
+//   (2026-08-14 · 실제로 admin-report.html이 그래서 \frac34를 오답으로 보이고 있었다)
 
 // ── math(수식) 정답 채점 — 순수 JS, 외부 의존성 없음(Cloudflare Worker 안전, eval 미사용) ──
 //   형태가 달라도 수학적으로 같으면 정답: 2/4=1/2, √8=2√2, 0.5=1/2, ∛8=2 등.
@@ -402,11 +401,13 @@ function stripUnit(s) {
     .replace(/\\(?:circ|degree)/g, '°')
     .replace(/\\%/g, '%')
     .replace(/[\s,]+$/, '');
+  // 천 단위 쉼표는 표기 차이일 뿐 — 1,000 = 1000. 좌표 (3,4)는 이 꼴에 안 맞아 건드리지 않는다.
+  const unComma = function (x) { return /^-?[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?$/.test(x) ? x.replace(/,/g, '') : x; };
   const m = t.match(UNIT_RE);
-  if (!m) return t;
+  if (!m) return unComma(t);
   const head = t.slice(0, t.length - m[0].length).replace(/\s+$/, '');
   if (!/[0-9]/.test(head)) return t;   // 숫자가 없으면 단위가 아니라 낱말 답이다
-  return head;
+  return unComma(head);
 }
 // 정답 비교의 단일 출처 — 텍스트 일치 · 수식 동치 · 단위만 다른 경우.
 //   mathOnly=true면 텍스트 일치는 건너뛴다(math 문항은 수식 동치로만 판정).

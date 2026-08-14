@@ -6,7 +6,15 @@
      네이버는 이 사이트맵을 2026-07-03부터 갖고 있었는데도 20일간 유입이 30회에 그쳤다 — 리다이렉트 주소만 받아 간 것이 원인 후보다.
      그래서 대표 주소를 확장자 없는 쪽으로 못 박고(각 html의 <link rel="canonical">), 사이트맵도 같은 형태로 맞췄다.
      ⚠️ 다시 손댈 때: 사이트맵과 canonical은 반드시 같은 형태여야 한다. 한쪽만 .html로 되돌리면 서로 다른 주소를 가리키게 되어 원래 문제로 돌아간다.
-     기각한 안: .html 쪽을 대표로 삼기 → 내부 메뉴 링크가 전부 확장자 없는 형태라 링크를 12개 페이지에서 다 고쳐야 하고, 구글이 이미 색인한 형태와도 어긋난다. -->
+     기각한 안: .html 쪽을 대표로 삼기 → 내부 메뉴 링크가 전부 확장자 없는 형태라 링크를 12개 페이지에서 다 고쳐야 하고, 구글이 이미 색인한 형태와도 어긋난다.
+
+     ⚠️ 2026-08-14 같은 날 /reviews 제거. 관우T가 주소를 눌러 보시고 「포털 로그인 화면으로 간다」고 알려 주셔서 잡혔다.
+        reviews.html 183행에 `if (!token) { location.replace('/portal?next=/reviews'); }` 가드가 있다 = 로그인해야 열리는 화면이다.
+        검색엔진에 제출하면 크롤러가 받는 건 후기 내용이 아니라 로그인 화면이고, 「리디렉션됨」으로 색인에서 빠진다.
+        ⚠️ 새 주소를 여기 추가할 때는 확장자 형태만 보지 말고 **미로그인 상태에서 실제로 열리는지** 먼저 확인할 것.
+        판별법: 그 html에 `kwmath_portal_token` + `location.replace('/portal`가 함께 있으면 로그인 전용이다.
+        (materials.html은 토큰을 쓰지만 페이지 가드는 없고 반전용·리포트 **파일 다운로드**에만 쓴다 → 공개 페이지가 맞아 남겨 둔다.)
+        보류한 안: /reviews를 미로그인도 읽을 수 있게 열기 → 학원 검색에서 후기 페이지는 값이 크지만 학생·학부모 후기 공개 범위는 관우T 결정 사항이라 손대지 않았다. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://kwmath.co.kr/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://kwmath.co.kr/register</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
@@ -16,7 +24,7 @@
   <url><loc>https://kwmath.co.kr/syllabus</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://kwmath.co.kr/consulting</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://kwmath.co.kr/consulting-sample</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://kwmath.co.kr/reviews</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <!-- /reviews 는 로그인 전용이라 뺐다 (위 ⚠️ 참고). 공개로 바꾸기 전에는 되살리지 말 것. -->
   <url><loc>https://kwmath.co.kr/materials</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>
   <url><loc>https://kwmath.co.kr/install</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://kwmath.co.kr/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
