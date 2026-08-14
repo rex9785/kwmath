@@ -124,6 +124,33 @@
   .toast{ position:fixed; left:50%; bottom:80px; transform:translateX(-50%); background:#241318; color:#fff;
           padding:11px 18px; border-radius:10px; font-size:0.88rem; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50; }
   .toast.show{ opacity:0.95; }
+  /* 제출 확인 시트 — 실수 제출 방지 (2026-08-14 관우T) */
+  .cfBack{ position:fixed; inset:0; background:rgba(36,19,24,0.42); z-index:300; display:none; opacity:0; transition:opacity .2s; }
+  .cfBack.on{ display:block; }
+  .cfBack.show{ opacity:1; }
+  .cfSheet{ position:fixed; left:0; right:0; bottom:0; z-index:301; background:#fff; display:none;
+            border-radius:20px 20px 0 0; box-shadow:0 -8px 34px rgba(0,0,0,0.18);
+            padding:14px 18px calc(env(safe-area-inset-bottom) + 22px);
+            transform:translateY(110%); transition:transform .24s cubic-bezier(.2,.8,.3,1); }
+  .cfSheet.on{ display:block; }
+  .cfSheet.show{ transform:translateY(0); }
+  .cfInner{ max-width:640px; margin:0 auto; }
+  .cfGrip{ width:38px; height:4px; border-radius:999px; background:var(--line); margin:0 auto 16px; }
+  .cfTitle{ font-size:1.15rem; font-weight:800; text-align:center; margin-bottom:7px; }
+  .cfDesc{ font-size:0.88rem; color:var(--text-light); text-align:center; line-height:1.55; margin-bottom:16px; }
+  .cfWarn{ border:1px solid #F0DDBE; background:#FEF9EF; border-radius:12px; padding:12px 14px; margin-bottom:16px; }
+  .cfWarn .h{ display:flex; align-items:center; gap:6px; font-size:0.88rem; font-weight:800; color:#8a6d00; margin-bottom:8px; }
+  .cfWarn .h svg{ flex:0 0 auto; }
+  .cfNos{ display:flex; flex-wrap:wrap; gap:6px; }
+  .cfNo{ display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:26px; padding:0 8px;
+         border-radius:8px; background:#fff; border:1px solid #EBD9B8; color:#7a5f00;
+         font-family:var(--serif); font-size:0.82rem; font-weight:700; }
+  .cfRow{ display:flex; gap:10px; }
+  .cfRow button{ border-radius:12px; padding:15px 8px; font-size:1rem; font-weight:800; font-family:inherit;
+                 cursor:pointer; letter-spacing:-0.01em; white-space:nowrap; }
+  .cfCancel{ flex:1.35; border:1.5px solid var(--line); background:#fff; color:var(--text); }
+  .cfGo{ flex:1; border:none; background:var(--primary); color:#fff; }
+  .cfGo:disabled{ opacity:0.45; }
   .hidden{ display:none !important; }
   /* 상단 통합 네비 (홈 + 메뉴 드롭다운) */
   .kwnav{ display:flex; align-items:center; gap:8px; }
@@ -179,6 +206,40 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- ═══ 제출 확인 시트 (2026-08-14 관우T) ═══
+     학생이 실수로 '답안 제출'을 눌러 미완성 답안이 그대로 저장되는 사고를 막는다.
+     지금까지는 사고가 나면 관우T가 admin-surveys에서 응답을 손으로 지워(재제출 허용) 줬는데,
+     인원이 늘면 그 방식은 감당이 안 된다. 그래서 사후 수습이 아니라 제출 앞단에서 막는다.
+
+     ⚠️ 지우거나 약하게 바꾸지 말 것 — 아래 두 장치가 이 시트의 핵심이다.
+       ① 시트가 올라오는 동안(0.45초) 시트·배경이 pointer-events:none 이고 확인 버튼도 disabled 다.
+          원래 제출 버튼을 두 번 두드렸을 때 두 번째 탭이 확인 버튼으로 '관통'하는 것을 막기 위함이다.
+       ② 취소(1.35)가 제출(1)보다 넓다. 버튼 줄의 가로 중앙이 취소 영역 안에 들어오게 한 것이라,
+          화면 아래쪽 한가운데를 아무렇게나 눌러도 제출이 아니라 취소가 눌린다. 비율을 뒤집지 말 것.
+
+     ⚠️ 여기서 막는 것은 '누르는 실수'까지다. 제출이 끝난 뒤 답을 고치는 길은 일부러 열지 않았다.
+        제출 즉시 점수와 오답의 정답이 화면에 뜨므로(renderQuizResult), 사후 수정을 허용하면
+        정답을 보고 다시 내는 부정행위 경로가 된다. 사후 구제는 지금처럼 관우T의 '재제출 허용'만이 길이다. -->
+<div class="cfBack" id="cfBack"></div>
+<div class="cfSheet" id="cfSheet" role="dialog" aria-modal="true" aria-labelledby="cfTitle">
+  <div class="cfInner">
+    <div class="cfGrip"></div>
+    <div class="cfTitle" id="cfTitle">답안을 제출할까요?</div>
+    <div class="cfDesc" id="cfDesc">제출하면 답을 고칠 수 없어요.</div>
+    <div class="cfWarn hidden" id="cfWarn">
+      <div class="h">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2z"></path><path d="M12 10v4M12 17.2v.1"></path></svg>
+        <span id="cfWarnH">아직 답하지 않은 문항이 있어요</span>
+      </div>
+      <div class="cfNos" id="cfNos"></div>
+    </div>
+    <div class="cfRow">
+      <button type="button" class="cfCancel" id="cfCancel">돌아가기</button>
+      <button type="button" class="cfGo" id="cfGo">제출할게요</button>
+    </div>
+  </div>
+</div>
 
 <!-- 수식(math) 문제 응시·표시용 — MathLive 웹컴포넌트. 로드 실패 시 math 문항은 일반 입력칸으로 폴백.
      버전 고정(@0.110.0): 미고정 +esm은 최신판이 조용히 바뀌며 기기별(특히 iOS) 회귀를 만들 수 있어 고정. -->
@@ -469,7 +530,95 @@
     window.scrollTo(0,0);
   }
 
-  function submit(){
+  // ─────────────── 제출 확인 시트 (2026-08-14 관우T) ───────────────
+  //   '답안 제출' 버튼은 이제 곧바로 서버로 쏘지 않고 askSubmit()으로 한 번 멈춰 선다.
+  //   실제 전송은 학생이 시트에서 '제출할게요'를 누른 뒤에만 doSubmit()으로 일어난다.
+  //   (동작 불변 원칙: 필수 문항 검사·전송 로직은 그대로다. 앞에 확인 한 겹만 붙었다.)
+  var cfBack   = document.getElementById('cfBack');
+  var cfSheet  = document.getElementById('cfSheet');
+  var cfGoBtn  = document.getElementById('cfGo');
+  var cfTimer  = null;   // 확인 버튼 지연 활성 타이머
+  var cfCloseT = null;   // 닫힘 애니메이션이 끝난 뒤 display:none 으로 되돌리는 타이머
+
+  // 화면의 실제 입력값을 answers에 다시 반영 — 아이폰(iOS WKWebView)에서 input 이벤트가
+  // 늦거나 누락되는 경우 대비. updateProgress·doSubmit이 쓰던 것과 같은 처리다.
+  function syncFromScreen(){
+    try{
+      document.querySelectorAll('[data-ans-qid]').forEach(function(el){
+        var qid = el.getAttribute('data-ans-qid');
+        if(qid && el.value != null) answers[qid] = el.value;
+      });
+    }catch(e){}
+  }
+
+  // 아직 안 푼 문항의 '화면 번호' 목록.
+  //   ⚠️ 번호는 questions 배열 순서 + 1 이다. 화면의 문항 번호는 .q 카드에 걸린 CSS counter(qnum)로
+  //      찍히는데 그 카드도 같은 배열을 순서대로 돌며 만들어지므로 둘이 항상 일치한다.
+  //      renderForm의 순회 순서를 바꾸면 이 번호도 같이 틀어진다.
+  function unansweredNos(){
+    var qs = (current && current.questions) || [], out = [];
+    for(var i=0;i<qs.length;i++){
+      var a = answers[qs[i].id];
+      var empty = (qs[i].type==='multi') ? (!a || !a.length) : (a===''||a==null);
+      if(empty) out.push(i+1);
+    }
+    return out;
+  }
+
+  function closeSheet(){
+    clearTimeout(cfTimer); clearTimeout(cfCloseT);
+    cfBack.classList.remove('show'); cfSheet.classList.remove('show');
+    // ⚠️ 이 타이머는 반드시 붙잡아 둔다. 닫자마자(240ms 안에) 제출을 다시 누르면
+    //    앞서 예약된 이 타이머가 '방금 새로 연 시트'의 .on 을 벗겨 화면에서 지워버린다.
+    cfCloseT = setTimeout(function(){ cfBack.classList.remove('on'); cfSheet.classList.remove('on'); }, 240);
+  }
+
+  function askSubmit(){
+    syncFromScreen();
+    // 수식 키패드가 떠 있으면 내린다 — 화면 아래 절반을 덮고 있어서 시트와 겹친다.
+    try{ if(window.mathVirtualKeyboard && window.mathVirtualKeyboard.visible) window.mathVirtualKeyboard.hide(); }catch(e){}
+    var qs = (current && current.questions) || [];
+    // 필수 문항 미응답은 예전과 똑같이 여기서 막는다 — 시트를 띄우기 전에.
+    for(var i=0;i<qs.length;i++){
+      var q = qs[i]; if(!q.required) continue;
+      var a = answers[q.id];
+      var empty = (q.type==='multi') ? (!a || !a.length) : (a===''||a==null);
+      if(empty){ toast('"' + q.label + '" 문항에 답해 주세요.'); return; }
+    }
+    var isQuiz = !!(current && current.quiz);
+    document.getElementById('cfTitle').textContent = isQuiz ? '답안을 제출할까요?' : '응답을 제출할까요?';
+    document.getElementById('cfDesc').textContent  = isQuiz
+      ? '제출하면 바로 채점되고, 답은 고칠 수 없어요.'
+      : '제출하면 답을 고칠 수 없어요.';
+    // 안 푼 문항이 있으면 몇 번인지까지 짚어 준다 — '몇 개 남았다'만으로는 어디로 돌아갈지 모른다.
+    var warn = document.getElementById('cfWarn');
+    var left = unansweredNos();
+    if(left.length){
+      document.getElementById('cfWarnH').textContent = '아직 답하지 않은 문항이 ' + left.length + '개 있어요';
+      document.getElementById('cfNos').innerHTML =
+        left.map(function(n){ return '<span class="cfNo">' + n + '번</span>'; }).join('');
+      warn.classList.remove('hidden');
+    } else {
+      warn.classList.add('hidden');
+    }
+    // 열기 — 올라오는 동안(0.45초)은 어떤 탭도 받지 않는다(더블탭 관통 차단).
+    clearTimeout(cfCloseT);   // 직전 닫힘의 잔여 타이머가 이 시트를 도로 지우지 못하게
+    cfBack.classList.add('on'); cfSheet.classList.add('on');
+    cfBack.style.pointerEvents = 'none'; cfSheet.style.pointerEvents = 'none';
+    cfGoBtn.disabled = true;
+    requestAnimationFrame(function(){ cfBack.classList.add('show'); cfSheet.classList.add('show'); });
+    clearTimeout(cfTimer);
+    cfTimer = setTimeout(function(){
+      cfBack.style.pointerEvents = ''; cfSheet.style.pointerEvents = '';
+      cfGoBtn.disabled = false;
+    }, 450);
+  }
+
+  cfBack.addEventListener('click', closeSheet);
+  document.getElementById('cfCancel').addEventListener('click', closeSheet);
+  cfGoBtn.addEventListener('click', function(){ closeSheet(); doSubmit(); });
+
+  function doSubmit(){
     // 아이폰(iOS WKWebView) 대비 — 수식(math-field)·단답 입력칸의 input 이벤트가 늦거나 누락돼도,
     // 제출 시점의 화면 실제 값을 answers에 다시 반영. (갤럭시는 이미 이벤트로 채워져 있어 무해)
     try{
@@ -563,7 +712,7 @@
   }
 
   backBtn.addEventListener('click', loadList);
-  submitBtn.addEventListener('click', submit);
+  submitBtn.addEventListener('click', askSubmit);   // 확인 시트를 거쳐 doSubmit()으로 간다 (2026-08-14)
   // 답 입력·선택 시 진행 표시 갱신 — 문항별 기존 핸들러를 건드리지 않게 상위에서 위임 처리한다.
   ['input','change','click'].forEach(function(ev){
     viewEl.addEventListener(ev, function(){ setTimeout(updateProgress, 0); }, true);
