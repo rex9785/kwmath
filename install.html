@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>이관우 수학연구소 어플 설치</title>
+<!-- 2026-08-14 추가. 실측: Cloudflare Pages는 /install.html을 /install로 리다이렉트한다 — 실제 주소는 확장자 없는 쪽이다.
+     그런데 sitemap.xml은 .html 주소를 싣고 있었다 = 검색엔진에 「리다이렉트되는 주소」를 제출한 셈이었다.
+     대표 주소는 확장자 없는 쪽으로 통일 — 내부 메뉴 링크와 구글이 실제로 색인한 형태가 그쪽이라서. sitemap.xml도 같은 날 맞췄다. -->
+<link rel="canonical" href="https://kwmath.co.kr/install">
 
 <!-- PWA (install 페이지에서도 등록되면 그 자체가 설치 신호) -->
 <link rel="manifest" href="/manifest.json?v=3">

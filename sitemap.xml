@@ -1,16 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 2026-08-14 수정. 주소를 전부 확장자 없는 형태(/analysis)로 바꿨다.
+     이유(2026-08-14 라이브 실측): Cloudflare Pages는 /analysis.html을 /analysis로 **리다이렉트**한다(fetch redirected=true, final=/analysis).
+     즉 이 사이트의 실제 주소는 확장자 없는 쪽이고, 지금까지 사이트맵은 12개 전부 「리다이렉트되는 주소」를 검색엔진에 제출하고 있었다.
+     구글이 색인한 2장이 `/` 와 `/admin`(둘 다 확장자 없는 형태)뿐이었던 것과 앞뒤가 맞는다.
+     네이버는 이 사이트맵을 2026-07-03부터 갖고 있었는데도 20일간 유입이 30회에 그쳤다 — 리다이렉트 주소만 받아 간 것이 원인 후보다.
+     그래서 대표 주소를 확장자 없는 쪽으로 못 박고(각 html의 <link rel="canonical">), 사이트맵도 같은 형태로 맞췄다.
+     ⚠️ 다시 손댈 때: 사이트맵과 canonical은 반드시 같은 형태여야 한다. 한쪽만 .html로 되돌리면 서로 다른 주소를 가리키게 되어 원래 문제로 돌아간다.
+     기각한 안: .html 쪽을 대표로 삼기 → 내부 메뉴 링크가 전부 확장자 없는 형태라 링크를 12개 페이지에서 다 고쳐야 하고, 구글이 이미 색인한 형태와도 어긋난다. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://kwmath.co.kr/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://kwmath.co.kr/register.html</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://kwmath.co.kr/lectures.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://kwmath.co.kr/analysis.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://kwmath.co.kr/dongduk.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://kwmath.co.kr/syllabus.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://kwmath.co.kr/consulting.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://kwmath.co.kr/consulting-sample.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://kwmath.co.kr/reviews.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://kwmath.co.kr/materials.html</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://kwmath.co.kr/install.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://kwmath.co.kr/privacy.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
-  <url><loc>https://kwmath.co.kr/terms.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://kwmath.co.kr/register</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://kwmath.co.kr/lectures</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://kwmath.co.kr/analysis</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://kwmath.co.kr/dongduk</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://kwmath.co.kr/syllabus</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kwmath.co.kr/consulting</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://kwmath.co.kr/consulting-sample</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://kwmath.co.kr/reviews</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kwmath.co.kr/materials</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://kwmath.co.kr/install</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://kwmath.co.kr/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://kwmath.co.kr/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>
