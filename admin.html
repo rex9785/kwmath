@@ -912,7 +912,7 @@
         </div>
       </div>
       <div style="font-size:0.82rem;color:var(--text-light);margin-bottom:14px;line-height:1.6;">
-        반을 클릭하면 그 반의 리포트가 날짜순으로 펼쳐집니다. 각 리포트에서 ✏️ 수정 / 🗑 삭제 가능 (삭제는 Notion 휴지통, 30일 내 복구 가능).
+        반을 클릭하면 그 반의 리포트가 날짜순으로 펼쳐집니다. 각 리포트에서 ✏️ 수정 / 🗑 삭제 가능 (삭제는 영구 삭제 — 화면에서 되돌릴 수 없습니다).
       </div>
       <div id="reportGroupList"><div class="empty">불러오는 중...</div></div>
     </div>
@@ -2783,7 +2783,7 @@
   async function deleteReport(id) {
     const r = allReportsAdmin.find(x => x.id === id);
     const label = r ? `${r.studentName} (${r.date})` : '이 리포트';
-    if (!confirm(`⚠️ "${label}" 리포트를 삭제하시겠습니까?\n\n• Notion 휴지통으로 이동 (30일 내 복구 가능)\n• 학부모는 즉시 더 이상 볼 수 없습니다`)) return;
+    if (!confirm(`⚠️ "${label}" 리포트를 삭제하시겠습니까?\n\n• 영구 삭제입니다 — 이 화면에서 되돌릴 수 없습니다\n• 학부모 앱에서 즉시 사라집니다\n• 지워진 내용은 서버 변경기록에만 남습니다 (복구하려면 별도 요청 필요)`)) return;
     try {
       const res = await fetch('/api/reports-write', {
         method: 'DELETE',
