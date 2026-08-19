@@ -614,6 +614,14 @@
           <button type="button" class="admin-card" onclick="location.href='/admin-homework'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h2L9 4.5h6l1.5 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.4"></circle></svg></span><b>과제 제출함<i class="cbadge" id="bdgHomework"></i><i class="go-out">↗</i></b><span>학생이 올린 숙제 사진</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-makeup'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"></rect><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"></path></svg></span><b>인강 신청·해제<i class="go-out">↗</i></b><span>결석일 영상·자료 잠금 해제</span></button>
           <button type="button" class="admin-card" onclick="openSection('reports')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg></span><b>리포트 조회</b><span>학생 리포트</span></button>
+          <!-- ▼▼▼ LIFELOG(생활기록) — 되돌릴 때 이 카드 한 장만 지우면 됩니다 (2026-08-19 신설) ▼▼▼
+               학생 한 명 전용 기능. 대상 지정·해제와 퇴원 정리도 저 안에서 한다.
+               ⚠️ 여기에 학생 실명을 적지 말 것 — admin.html은 미로그인 상태에서도 소스가 그대로 읽힌다.
+                  실명은 functions/(서빙 안 됨)와 인수인계 문서에만 둔다.
+               카드는 항상 보인다 — 대상 학생을 저기서 지정하기 때문에 숨기면 들어갈 입구가 없어진다.
+               열람 범위는 "학생 본인 + 관우T"라서 조교는 서버가 막는다(눌러도 로그인 화면). -->
+          <button type="button" class="admin-card" onclick="location.href='/admin-lifelog'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7.5a2.5 2.5 0 0 0 5 0V3"></path><path d="M8.5 10.5V21"></path><path d="M17.5 3c-1.3 1.7-1.9 3.7-1.9 5.6V13h3.4"></path><path d="M19 13v8"></path></svg></span><b>생활기록<i class="go-out">↗</i></b><span>식사·운동 사진 · 아침 출석</span></button>
+          <!-- ▲▲▲ LIFELOG 끝 ▲▲▲ -->
         </div>
       </div>
       <div class="menu-sec sec3">
@@ -913,6 +921,20 @@
       </div>
       <div style="font-size:0.82rem;color:var(--text-light);margin-bottom:14px;line-height:1.6;">
         반을 클릭하면 그 반의 리포트가 날짜순으로 펼쳐집니다. 각 리포트에서 ✏️ 수정 / 🗑 삭제 가능 (삭제는 영구 삭제 — 화면에서 되돌릴 수 없습니다).
+      </div>
+      <!-- 🔙 2026-08-16 — MathOS 업로드 되돌리기.
+           왜 여기 있나: 잘못 올린 걸 깨닫는 자리가 바로 이 화면(리포트 조회)이다.
+           별도 탭으로 빼면 급할 때 못 찾는다. 평소엔 접어 두고, 눌러야 목록을 불러온다.
+           ⚠️ 이 상자는 리포트 삭제(🗑)와 다르다. 삭제는 지우기만 하고, 되돌리기는
+              **그 업로드가 덮어쓴 옛 리포트와 자동삭제된 옛 영상까지 되살린다.** -->
+      <div id="undoBox" style="border:1.5px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden;">
+        <button type="button" onclick="toggleUndoBox()"
+          style="width:100%;display:flex;align-items:center;gap:8px;padding:11px 14px;background:var(--bg-soft,#FAF7F5);border:none;cursor:pointer;font-family:inherit;font-size:0.85rem;text-align:left;color:var(--text);">
+          <span style="font-weight:700;">🔙 MathOS 업로드 되돌리기</span>
+          <span style="color:var(--text-light);font-size:0.78rem;">학원·반을 잘못 고른 채 올렸을 때 — 덮인 리포트·지워진 영상까지 되살립니다</span>
+          <span id="undoBoxCaret" style="margin-left:auto;color:var(--text-light);">▾</span>
+        </button>
+        <div id="undoBoxBody" style="display:none;padding:14px;border-top:1.5px solid var(--border);"></div>
       </div>
       <div id="reportGroupList"><div class="empty">불러오는 중...</div></div>
     </div>
@@ -2268,6 +2290,169 @@
   //   escapeAttr(')→&#39;)을 쓰면 브라우저가 속성을 디코딩할 때 다시 '가 되어 코드가 깨진다.
   //   그래서 따옴표는 \x27(JS escape)로 넣고, HTML을 깨는 " < 만 엔티티로 막는다.
   function jsArg(s){ return String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,'\\x27').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🔙 MathOS 업로드 되돌리기 (2026-08-16)
+  //   MathOS가 업로드 직전에 찍어 둔 스냅샷(/api/undo-upload)을 읽어,
+  //   "무엇을 지우고 무엇을 되살릴지"를 먼저 보여 준 뒤에만 실행한다.
+  //   미리보기와 실행은 **서버에서 같은 함수(buildPlan)** 로 계산한다 — 화면과 실제가 갈리지 않게.
+  // ══════════════════════════════════════════════════════════════════════════
+  let undoBoxLoaded = false;
+
+  function toggleUndoBox(){
+    const body = document.getElementById('undoBoxBody');
+    const caret = document.getElementById('undoBoxCaret');
+    if (!body) return;
+    const 열림 = body.style.display !== 'none';
+    body.style.display = 열림 ? 'none' : 'block';
+    if (caret) caret.textContent = 열림 ? '▾' : '▴';
+    // 접혀 있을 땐 아무것도 안 부른다 — 이 목록은 R2를 훑어서 값이 싸지 않다.
+    if (!열림 && !undoBoxLoaded) loadUndoList();
+  }
+
+  async function loadUndoList(){
+    const body = document.getElementById('undoBoxBody');
+    body.innerHTML = '<div class="empty">불러오는 중...</div>';
+    try {
+      const res = await fetch('/api/undo-upload?list=1&limit=20', {
+        headers: { 'Authorization': 'Bearer ' + adminToken }, cache: 'no-store',
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || '목록을 불러오지 못했습니다');
+      undoBoxLoaded = true;
+      const rows = d.rows || [];
+      if (!rows.length) {
+        body.innerHTML = '<div class="empty">아직 되돌릴 수 있는 업로드가 없습니다.<br>'
+          + '<span style="font-size:0.78rem;">MathOS에서 「홈페이지 업로드」를 하면 여기에 쌓입니다. '
+          + '(MathOS를 새 버전으로 껐다 켠 뒤부터)</span></div>';
+        return;
+      }
+      body.innerHTML = rows.map(r => undoRowHtml(r)).join('');
+    } catch(e) {
+      body.innerHTML = '<div style="color:var(--danger,#B3261E);font-size:0.83rem;">오류: '
+        + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  function undoRowHtml(r){
+    const 언제 = r.created_at ? new Date(r.created_at).toLocaleString('ko') : '';
+    const 되돌림 = !!r.undone_at;
+    const 뱃지 = [];
+    if (r.overwrote) 뱃지.push('<span style="color:#7A4F00;">덮어씀 ' + r.overwrote + '건</span>');
+    if (r.replaced_video) 뱃지.push('<span style="color:#7A4F00;">옛 영상 ' + r.replaced_video + '건 밀어냄</span>');
+    return `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;${되돌림 ? 'opacity:.55;' : ''}">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:0.86rem;">${escapeHtml(r.school || '')} ${escapeHtml(r.class_name || '')}</b>
+          <span style="font-size:0.78rem;color:var(--text-light);">수업일 ${escapeHtml(r.lesson_date || '')} · 학생 ${r.student_count || 0}명 · 올린 때 ${escapeHtml(언제)}</span>
+          ${뱃지.length ? '<span style="font-size:0.75rem;">' + 뱃지.join(' · ') + '</span>' : ''}
+          <span style="margin-left:auto;">
+            ${되돌림
+              ? '<span style="font-size:0.78rem;color:var(--text-light);">✔ ' + escapeHtml(String(r.undone_at).slice(0,16).replace('T',' ')) + ' 되돌림</span>'
+              : `<button type="button" class="del-btn" onclick="openUndoPlan('${jsArg(r.undo_id)}')">되돌리기 미리보기</button>`}
+          </span>
+        </div>
+        <div id="undoPlan-${escapeAttr(r.undo_id)}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);"></div>
+      </div>`;
+  }
+
+  async function openUndoPlan(undoId){
+    const box = document.getElementById('undoPlan-' + undoId);
+    if (!box) return;
+    if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    box.innerHTML = '<div class="empty">지금 홈페이지 상태를 확인하는 중...</div>';
+    try {
+      const res = await fetch('/api/undo-upload?id=' + encodeURIComponent(undoId), {
+        headers: { 'Authorization': 'Bearer ' + adminToken }, cache: 'no-store',
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || '미리보기를 만들지 못했습니다');
+      box.innerHTML = undoPlanHtml(d, false)
+        + `<div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+             <button type="button" class="del-btn" id="undoRunBtn-${escapeAttr(undoId)}"
+               style="border-color:var(--danger,#B3261E);color:var(--danger,#B3261E);"
+               onclick="runUndoPlan('${jsArg(undoId)}')">🔙 위 내용대로 되돌리기</button>
+             <span style="font-size:0.78rem;color:var(--text-light);">실행하면 학부모 앱에서 즉시 바뀝니다. 복원은 알림을 다시 보내지 않습니다.</span>
+           </div>`;
+    } catch(e) {
+      box.innerHTML = '<div style="color:var(--danger,#B3261E);font-size:0.83rem;">오류: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  // done=false → 미리보기(무엇을 할 것인가) / done=true → 실행 결과(무엇을 했는가)
+  //   같은 함수로 그리는 이유: 두 화면이 갈리면 "미리보기엔 있었는데 결과엔 없다"를 눈치채지 못한다.
+  function undoPlanHtml(d, done){
+    const 아이콘 = { delete:'🗑', restore:'↩', skip:'—' };
+    const 색 = { delete:'var(--danger,#B3261E)', restore:'#1B7F4F', skip:'var(--text-light)' };
+    const 말 = { delete:'삭제', restore:'복원', skip:'그대로 둠' };
+
+    const rows = (d.reports || []).map(r => {
+      const 결과 = !done ? '' :
+        (r.result === 'ok' ? ' <b style="color:#1B7F4F;">→ 완료</b>'
+         : r.result === 'fail' ? ' <b style="color:var(--danger,#B3261E);">→ 실패: ' + escapeHtml(r.error || '') + '</b>'
+         : ' <span style="color:var(--text-light);">→ 건너뜀</span>');
+      return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">
+        <span style="color:${색[r.action]};font-weight:700;">${아이콘[r.action]} ${escapeHtml(r.name)}</span>
+        <span style="color:var(--text-light);"> · ${말[r.action]} — ${escapeHtml(r.note)}</span>${결과}
+        ${r.warn ? '<div style="margin-top:2px;color:#7A4F00;font-size:0.76rem;">⚠️ ' + escapeHtml(r.warn) + '</div>' : ''}
+        ${r.preview ? '<div style="margin-top:2px;color:var(--text-light);font-size:0.74rem;">되돌릴 내용: ' + escapeHtml(r.preview) + '…</div>' : ''}
+      </div>`;
+    }).join('');
+
+    const v = d.video || {};
+    const 영상줄 = [];
+    if (v.delete) 영상줄.push('<span style="color:var(--danger,#B3261E);">🗑 이번에 만든 수업코드 <b>' + escapeHtml(v.delete) + '</b> 삭제</span>'
+      + (done ? ' <b>→ ' + escapeHtml((v.result || {}).delete || '') + '</b>' : ''));
+    if (v.restore) 영상줄.push('<span style="color:#1B7F4F;">↩ 지워졌던 옛 수업코드 <b>' + escapeHtml(v.restore.code) + '</b> 되살림</span>'
+      + (done ? ' <b>→ ' + escapeHtml((v.result || {}).restore || '') + '</b>' : ''));
+    if (!영상줄.length) 영상줄.push('<span style="color:var(--text-light);">이번 업로드에서 영상은 건드리지 않았습니다.</span>');
+
+    return `
+      <div style="font-size:0.8rem;color:var(--text-light);margin-bottom:8px;">
+        <b style="color:var(--text);">${escapeHtml(d.school || '')} ${escapeHtml(d.class_name || '')}</b> · 수업일 ${escapeHtml(d.lesson_date || '')}
+        ${d.uploaded_at ? ' · 업로드 ' + escapeHtml(new Date(d.uploaded_at).toLocaleString('ko')) : ''}
+      </div>
+      <div style="font-size:0.8rem;font-weight:700;margin:10px 0 3px;">📋 리포트 — 삭제 ${d.delete_count}건 · 복원 ${d.restore_count}건 · 그대로 ${d.skip_count}건</div>
+      ${rows || '<div style="font-size:0.82rem;color:var(--text-light);">처리할 리포트가 없습니다.</div>'}
+      <div style="font-size:0.8rem;font-weight:700;margin:10px 0 3px;">🎬 수업 영상</div>
+      <div style="font-size:0.82rem;">${영상줄.join('<br>')}</div>
+      ${(d.warnings || []).length ? `
+        <div style="margin-top:10px;border:1px solid #E5C158;border-radius:8px;padding:9px;background:#FFF9E8;">
+          <div style="font-size:0.79rem;font-weight:700;color:#7A4F00;margin-bottom:3px;">⚠️ 자동으로 못 하는 것</div>
+          ${(d.warnings || []).map(w => '<div style="font-size:0.76rem;color:#7A4F00;">· ' + escapeHtml(w) + '</div>').join('')}
+        </div>` : ''}
+      ${(d.irreversible || []).length ? `
+        <div style="margin-top:8px;border:1px solid var(--danger,#B3261E);border-radius:8px;padding:9px;background:#FBE4E1;">
+          <div style="font-size:0.79rem;font-weight:700;color:#7A1F15;margin-bottom:3px;">🔴 되돌려도 원래대로 돌아오지 않는 것</div>
+          ${(d.irreversible || []).map(w => '<div style="font-size:0.76rem;color:#7A1F15;">· ' + escapeHtml(w) + '</div>').join('')}
+        </div>` : ''}`;
+  }
+
+  async function runUndoPlan(undoId){
+    const box = document.getElementById('undoPlan-' + undoId);
+    const btn = document.getElementById('undoRunBtn-' + undoId);
+    if (!confirm('되돌리기를 실행합니다.\n\n• 위 미리보기 그대로 실행됩니다\n• 학부모 앱에서 즉시 바뀝니다\n• 복원은 알림을 다시 보내지 않습니다\n\n계속할까요?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = '되돌리는 중...'; }
+    try {
+      const res = await fetch('/api/undo-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ action: 'run', undo_id: undoId, confirm: true }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || '되돌리기에 실패했습니다');
+      box.innerHTML = undoPlanHtml(d, true)
+        + '<div style="margin-top:10px;font-size:0.82rem;font-weight:700;color:#1B7F4F;">✔ 되돌리기 완료 — 리포트 '
+        + (d.done || 0) + '건 처리' + (d.failed ? ', 실패 ' + d.failed + '건' : '') + '</div>';
+      showToast('되돌리기 완료 — 리포트 ' + (d.done || 0) + '건 처리');
+      undoBoxLoaded = false;
+      loadAllReports();          // 리포트 목록도 새로 읽어야 화면이 진실을 보여 준다
+    } catch(e) {
+      if (btn) { btn.disabled = false; btn.textContent = '🔙 위 내용대로 되돌리기'; }
+      alert('되돌리기 실패\n\n' + e.message);
+    }
+  }
 
   let adminNoticeFilter = 'all';
   async function loadAdminNotices() {

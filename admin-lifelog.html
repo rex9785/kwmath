@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<!--
+  ══════════════════════════════════════════════════════════════════════════
+  LIFELOG · 생활기록 관리 (원장 전용)  — 2026-08-19 신설
+  한 학생만을 위한 임시 기능입니다. 퇴원 시 원복 방법:
+    1) 이 화면 맨 아래 「전체 삭제(원복)」 실행 → 사진·기록·기기 전부 삭제
+    2) 이 파일(admin-lifelog.html) · lifelog.html · functions/api/lifelog.js 삭제
+    3) portal.html · admin.html · functions/_middleware.js 의 LIFELOG 마커 블록 삭제
+  자세한 절차 → 인수인계/생활기록_원복절차.md
+  ══════════════════════════════════════════════════════════════════════════
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>생활기록 관리 | 관리자</title>
+<meta name="theme-color" content="#862633">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--primary:#862633;--primary-light:#F9ECED;--primary-mid:#A83040;--text:#241318;--text-light:#9A8C85;--bg:#FFF;--bg2:#FAF9F6;--border:#E9E1D9;--ok:#1E7E45;--ok-light:#E6F4EA;--danger:#B02347;--gold-line:#DEC98F;--hairline:#F1EAE2;}
+  body{font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-0.01em;color:var(--text);background:var(--bg2);min-height:100vh;word-break:keep-all;overflow-wrap:break-word;}
+  .topbar{background:var(--primary);color:#fff;padding:max(14px,env(safe-area-inset-top,14px)) 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:0.95rem;font-weight:900;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
+  .page{max-width:900px;margin:0 auto;padding:22px 16px 90px;}
+  .section-label{font-size:0.78rem;font-weight:800;color:var(--primary);letter-spacing:0.5px;margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+  .section-label .cnt{color:var(--text-light);font-weight:600;letter-spacing:0;}
+
+  .card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:16px;box-shadow:0 2px 10px rgba(70,20,35,.05);margin-bottom:12px;}
+  .card.danger{border-color:#F0C9D3;background:#FFF9FA;}
+  .field{margin-bottom:11px;}
+  .field label{display:block;font-size:0.76rem;font-weight:700;color:var(--text-light);margin-bottom:5px;}
+  .field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.9rem;font-family:inherit;background:#fff;outline:none;color:var(--text);}
+  .field input:focus,.field select:focus{border-color:var(--primary);}
+  .field .hint{font-size:0.72rem;color:var(--text-light);margin-top:4px;line-height:1.6;}
+  .row2{display:flex;gap:10px;flex-wrap:wrap;}
+  .row2 .field{flex:1;min-width:130px;}
+  .btn-primary{background:var(--primary);color:#fff;border:none;padding:11px 18px;border-radius:11px;font-size:0.88rem;font-weight:800;cursor:pointer;font-family:inherit;}
+  .btn-primary:hover{background:var(--primary-mid);}
+  .btn-primary:disabled{opacity:.55;cursor:not-allowed;}
+  .btn-primary.full{width:100%;margin-top:4px;}
+  .btn-mini{background:#fff;border:1.5px solid var(--border);color:var(--text-light);padding:6px 12px;border-radius:8px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn-mini:hover{border-color:var(--primary);color:var(--primary);}
+  .btn-mini.danger{color:var(--danger);border-color:#EFCAD4;}
+  .btn-mini.danger:hover{border-color:var(--danger);background:#FFF3F6;}
+  .btn-danger{background:var(--danger);color:#fff;border:none;padding:11px 18px;border-radius:11px;font-size:0.88rem;font-weight:800;cursor:pointer;font-family:inherit;width:100%;}
+  .btn-danger:disabled{opacity:.45;cursor:not-allowed;}
+
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:0.69rem;font-weight:800;padding:3px 9px;border-radius:11px;}
+  .b-on{background:var(--ok-light);color:var(--ok);}
+  .b-off{background:#F1EDE7;color:#8A7C74;}
+  .b-cnt{background:var(--primary-light);color:var(--primary);}
+  .b-wait{background:#FFF4DA;color:#8A6D1B;}
+
+  /* 대상 학생 */
+  .target-on{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .target-name{font-size:1.05rem;font-weight:900;}
+  .target-sub{font-size:0.78rem;color:var(--text-light);}
+  .sum{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);font-size:0.78rem;color:var(--text-light);}
+  .sum b{color:var(--text);font-weight:800;}
+  .picklist{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;}
+  .pickrow{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--hairline);cursor:pointer;}
+  .pickrow:last-child{border-bottom:none;}
+  .pickrow:hover{background:var(--primary-light);}
+  .pickrow .pn{font-weight:800;font-size:0.88rem;}
+  .pickrow .pm{font-size:0.74rem;color:var(--text-light);margin-left:auto;text-align:right;}
+
+  /* 기기 */
+  .codebox{background:var(--primary-light);border:1.5px dashed var(--primary);border-radius:12px;padding:14px;text-align:center;margin-bottom:12px;}
+  .codebox .cv{font-size:2rem;font-weight:900;letter-spacing:6px;color:var(--primary);font-variant-numeric:tabular-nums;}
+  .codebox .cl{font-size:0.76rem;color:var(--text-light);margin-top:6px;line-height:1.6;}
+  .devrow{display:flex;align-items:center;gap:9px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:#fff;flex-wrap:wrap;}
+  .devrow .dn{font-weight:800;font-size:0.88rem;}
+  .devrow .dm{font-size:0.74rem;color:var(--text-light);width:100%;line-height:1.55;}
+
+  /* 기록 */
+  .daybox{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:10px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
+  .dayhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+  .daydate{font-size:0.95rem;font-weight:900;}
+  .slot{border-top:1px dashed var(--border);margin-top:10px;padding-top:10px;}
+  .slot .st{font-size:0.8rem;font-weight:800;color:var(--primary);margin-bottom:4px;}
+  .slot .sc{font-size:0.84rem;line-height:1.65;white-space:pre-wrap;color:var(--text);}
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:9px;}
+  .thumb{position:relative;aspect-ratio:1;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;}
+  .thumb .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-light);font-size:0.7rem;}
+  .thumb .dl{position:absolute;bottom:3px;right:3px;width:24px;height:24px;border-radius:6px;background:rgba(20,10,12,.62);color:#fff;border:none;font-size:0.82rem;line-height:24px;text-align:center;cursor:pointer;padding:0;}
+
+  .state-box{text-align:center;padding:30px 20px;color:var(--text-light);}
+  .state-box .si{font-size:1.8rem;margin-bottom:8px;}
+  .state-box p{font-size:0.85rem;line-height:1.7;}
+  #loading{text-align:center;padding:60px 20px;color:var(--text-light);font-size:0.9rem;}
+  #login{max-width:340px;margin:60px auto;}
+  #login h2{font-size:1.05rem;font-weight:800;margin-bottom:14px;text-align:center;}
+  #loginErr{color:#B02347;font-size:0.82rem;font-weight:600;margin-top:8px;min-height:18px;text-align:center;}
+
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#241318;color:#fff;padding:11px 18px;border-radius:10px;font-size:0.84rem;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:200;max-width:90%;text-align:center;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #lightbox{position:fixed;inset:0;background:rgba(10,5,7,.92);display:none;align-items:center;justify-content:center;z-index:300;padding:20px;}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:8px;}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  /* 상단 통합 네비 */
+  .kwnav{display:flex;align-items:center;gap:8px;}
+  .kwnav-home{display:inline-flex;align-items:center;gap:5px;background:var(--primary);color:#fff;font-weight:800;font-size:0.84rem;text-decoration:none;padding:8px 13px;border-radius:9px;font-family:inherit;white-space:nowrap;line-height:1;}
+  .kwnav-mw{position:relative;}
+  .kwnav-toggle{display:inline-flex;align-items:center;gap:5px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);font-weight:800;font-size:0.84rem;padding:6px 13px;border-radius:9px;cursor:pointer;font-family:inherit;white-space:nowrap;line-height:1.25;}
+  .kwnav-pop{position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.16);padding:6px;min-width:196px;z-index:200;display:none;}
+  .kwnav-pop.show{display:block;}
+  .kwnav-pop a{display:block;text-decoration:none;color:var(--text);font-weight:700;font-size:0.86rem;padding:9px 12px;border-radius:8px;white-space:nowrap;}
+  .kwnav-pop a:hover{background:var(--primary-light);}
+  .kwnav-pop a.cur{background:var(--primary-light);color:var(--primary);cursor:default;}
+  .kwnav-pop a.kwnav-logout{color:var(--text-light);border-top:1px solid var(--border);margin-top:4px;}
+  .kwnav-pop a.kwnav-logout:hover{background:#FBE6E6;color:#b3261e;}
+  .kwnav--light .kwnav-home{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;}
+  .kwnav--light .kwnav-toggle{background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);color:#fff;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="topbar-title">🍚 생활기록 관리</span>
+    <div class="kwnav kwnav--light" id="kwnav">
+      <a class="kwnav-home" id="kwnavHome" href="/admin">🏠 홈</a>
+      <div class="kwnav-mw">
+        <button class="kwnav-toggle" type="button" id="kwnavToggle" aria-haspopup="true" aria-expanded="false">☰ 메뉴</button>
+        <div class="kwnav-pop" id="kwnavPop" role="menu">
+          <a role="menuitem" href="/admin-lifelog" data-p="/admin-lifelog">🍚 생활기록</a>
+          <a role="menuitem" href="/admin-homework" data-p="/admin-homework">📸 과제 관리</a>
+          <a role="menuitem" href="#" class="kwnav-logout" id="kwnavLogout">🚪 로그아웃</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page">
+    <div id="loading">불러오는 중…</div>
+
+    <div id="login" style="display:none;">
+      <div class="card">
+        <h2>관리자 로그인</h2>
+        <div class="field"><label for="pw">비밀번호</label><input type="password" id="pw" placeholder="관리자 비밀번호"></div>
+        <button class="btn-primary full" id="loginBtn">로그인</button>
+        <div id="loginErr"></div>
+      </div>
+    </div>
+
+    <div id="main" style="display:none;">
+
+      <!-- ① 대상 학생 -->
+      <div class="section-label">① 대상 학생</div>
+      <div class="card" id="targetCard"></div>
+
+      <!-- ② 학원 기기 -->
+      <div class="section-label">② 학원 기기 <span class="cnt" id="devCnt"></span></div>
+      <div class="card">
+        <div id="codeArea"></div>
+        <div class="row2">
+          <div class="field" style="flex:2;"><label for="devLabel">기기 이름</label><input type="text" id="devLabel" placeholder="예: 학원 폰 · 데스크 태블릿" maxlength="40"></div>
+          <div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end;"><button class="btn-primary" id="codeBtn" style="margin-bottom:0;">등록코드 발급</button></div>
+        </div>
+        <div class="field" style="margin-bottom:0;"><div class="hint">
+          등록 방법 — 학원 폰(또는 태블릿)에서 <b>학생 계정으로 로그인</b> 한 다음 <b>생활기록 화면</b>을 열고, 출석 카드 아래 「학원 기기 등록」을 눌러 위 6자리 코드를 넣으면 됩니다. 코드는 30분간 한 번만 씁니다.<br>
+          등록된 기기가 아니면 출석 버튼이 눌리지 않습니다. 코드를 복사해 다른 폰에 넣어도, 등록할 때 찍힌 <b>기기 기종</b>이 달라 막힙니다.
+        </div></div>
+        <div id="devList" style="margin-top:12px;"></div>
+      </div>
+
+      <!-- ③ 기록 보기 -->
+      <div class="section-label">③ 기록 보기</div>
+      <div class="card">
+        <div class="row2">
+          <div class="field"><label for="fFrom">시작일</label><input type="date" id="fFrom"></div>
+          <div class="field"><label for="fTo">종료일</label><input type="date" id="fTo"></div>
+          <div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;">
+            <button class="btn-primary" id="qBtn" style="margin-bottom:0;">조회</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-mini" data-range="7">최근 7일</button>
+          <button class="btn-mini" data-range="30">최근 30일</button>
+          <button class="btn-mini" data-range="month">이번 달</button>
+          <button class="btn-mini" data-range="all">전체</button>
+        </div>
+      </div>
+      <div id="entryArea"></div>
+
+      <!-- ④ 내보내기 -->
+      <div class="section-label">④ 내보내기</div>
+      <div class="card">
+        <button class="btn-primary full" id="expBtn">📦 엑셀 + 사진 ZIP 받기</button>
+        <div class="hint" style="margin-top:8px;">위 ③에서 고른 기간이 그대로 담깁니다. 엑셀의 「사진파일」 칸에 적힌 경로가 ZIP 안 사진 위치와 같아, 표에서 본 줄의 사진을 바로 찾을 수 있습니다. 한 번에 사진 250장 · 45MB까지입니다.</div>
+      </div>
+
+      <!-- ⑤ 원복 -->
+      <div class="section-label">⑤ 퇴원 처리 (되돌리기)</div>
+      <div class="card danger">
+        <div style="font-size:0.85rem;line-height:1.75;margin-bottom:12px;">
+          이 학생의 <b>식사·운동 기록, 사진 전부, 출석 기록, 등록 기기</b>를 지우고 표를 통째로 없앱니다. <b>되돌릴 수 없습니다.</b><br>
+          기존 출석부(출석 현황)와 과제방은 건드리지 않습니다 — 생활기록 출석은 처음부터 따로 쌓입니다.<br>
+          <b>먼저 ④에서 자료를 받아 두시는 것을 권합니다.</b>
+        </div>
+        <div class="field"><label for="purgeIn">확인 — 아래 칸에 <b>DELETE</b> 라고 적어 주세요</label><input type="text" id="purgeIn" placeholder="DELETE" autocomplete="off"></div>
+        <button class="btn-danger" id="purgeBtn" disabled>전체 삭제 (원복)</button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="lightbox"><img id="lightboxImg" src="" alt=""></div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
+  function show(id, on){ var e = $(id); if(e) e.style.display = on ? '' : 'none'; }
+  function authHeaders(extra){ var h = extra || {}; if (token) h['Authorization'] = 'Bearer ' + token; return h; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var toastTimer;
+  function showToast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); }, 2800); }
+  function openLightbox(src){ $('lightboxImg').src=src; $('lightbox').style.display='flex'; }
+  $('lightbox').addEventListener('click', function(){ this.style.display='none'; $('lightboxImg').src=''; });
+
+  // 날짜 도구 (KST 기준 — 서버가 KST로 날짜를 끊는다)
+  function kstToday(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10); }
+  function shiftYmd(ymd, days){
+    var t = Date.parse(ymd + 'T00:00:00+09:00');
+    if (isNaN(t)) return ymd;
+    return new Date(t + days*86400000 + 9*3600*1000).toISOString().slice(0,10);
+  }
+  function dowKo(ymd){
+    var t = Date.parse(ymd + 'T00:00:00+09:00');
+    if (isNaN(t)) return '';
+    return ['일','월','화','수','목','금','토'][new Date(t + 9*3600*1000).getUTCDay()];
+  }
+  function fmtWhen(iso){
+    if(!iso) return '';
+    var t = Date.parse(iso); if (isNaN(t)) return esc(iso);
+    var d = new Date(t + 9*3600*1000);
+    return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+' '+('0'+d.getUTCHours()).slice(-2)+':'+('0'+d.getUTCMinutes()).slice(-2);
+  }
+
+  // 인증 실패 처리 공통 fetch
+  // ⚠️ lifelog.js 는 조교를 403으로 돌려보낸다(401이 아님). 둘 다 로그인 화면으로 보낸다.
+  async function api(path, opts){
+    opts = opts || {}; opts.headers = authHeaders(opts.headers || {});
+    opts.credentials = 'same-origin';
+    var r = await fetch(path, opts);
+    if (r.status === 401 || r.status === 403){
+      try{ sessionStorage.removeItem('kwmath_admin_pw'); }catch(_){}
+      var had = token; token = null;
+      showLogin(had ? '원장 계정으로 로그인해 주세요.' : '');
+      throw new Error('401');
+    }
+    return r;
+  }
+  function showLogin(err){ show('loading', false); show('main', false); show('login', true); $('loginErr').textContent = err || ''; var p=$('pw'); if(p) p.focus(); }
+  function doLogin(){ token = ($('pw').value || '').trim(); if(!token) return; sessionStorage.setItem('kwmath_admin_pw', token); load(); }
+  $('loginBtn').addEventListener('click', doLogin);
+  $('pw').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+
+  async function post(action, body){
+    var r = await api('/api/lifelog?admin=1&action=' + action, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {})
+    });
+    return await r.json().catch(function(){ return { error:'응답을 읽지 못했습니다.' }; });
+  }
+
+  // 토큰 보호 이미지 (헤더 fetch → objectURL)
+  var urlCache = {};
+  function photoUrl(key){
+    return fetch('/api/lifelog?photo=1&key=' + encodeURIComponent(key), { headers: authHeaders(), credentials:'same-origin' })
+      .then(function(r){ return r.ok ? r.blob() : Promise.reject(new Error('img')); })
+      .then(function(b){ var u = URL.createObjectURL(b); urlCache[key]=u; return u; });
+  }
+  function loadImg(imgEl, key){
+    if (urlCache[key]){ imgEl.src = urlCache[key]; return; }
+    photoUrl(key).then(function(u){ imgEl.src = u; })
+      .catch(function(){ if(imgEl.parentNode) imgEl.parentNode.innerHTML = '<div class="ph">✕</div>'; });
+  }
+  function keyName(k){ return String(k||'').split('/').pop().replace(/^\d{10,}_[a-z0-9]{1,8}_/, ''); }
+  function downloadKey(key){
+    (urlCache[key] ? Promise.resolve(urlCache[key]) : photoUrl(key))
+      .then(function(u){ var a=document.createElement('a'); a.href=u; a.download=(keyName(key)||'photo.jpg'); document.body.appendChild(a); a.click(); a.remove(); })
+      .catch(function(){ showToast('다운로드 실패'); });
+  }
+
+  // ══════════════ 상태 ══════════════
+  var CFG = null;        // 설정 + 기기 + 요약
+  var DATA = null;       // 기간 기록
+  var students = null;   // 대상 지정용 목록 (필요할 때만 불러온다)
+  var picking = false;
+
+  async function load(){
+    show('login', false); show('main', false); show('loading', true);
+    $('loading').textContent = '불러오는 중…';
+    var r;
+    try { r = await api('/api/lifelog?admin=1'); }
+    catch(e){ if(String(e.message)!=='401') $('loading').textContent='네트워크 오류. 새로고침 해주세요.'; return; }
+    var j = await r.json().catch(function(){ return null; });
+    if (!j || !j.ok){ $('loading').textContent = (j && j.error) || '불러오지 못했습니다.'; return; }
+    CFG = j;
+    show('loading', false); show('main', true);
+    if (!$('fFrom').value){ $('fFrom').value = (CFG.counts && CFG.counts.firstDate) || (CFG.today || kstToday()).slice(0,8) + '01'; }
+    if (!$('fTo').value){ $('fTo').value = CFG.today || kstToday(); }
+    renderTarget(); renderDevices();
+    if (CFG.enabled) loadEntries(); else $('entryArea').innerHTML = '';
+  }
+
+  // ── ① 대상 학생 ──
+  function renderTarget(){
+    var box = $('targetCard');
+    if (CFG.enabled && CFG.target){
+      var c = CFG.counts || {};
+      box.innerHTML =
+        '<div class="target-on">' +
+          '<span class="target-name">' + esc(CFG.target.name) + '</span>' +
+          '<span class="target-sub">' + esc([CFG.target.academy, CFG.target.className].filter(Boolean).join(' · ')) + '</span>' +
+          '<span class="badge b-on">기능 켜짐</span>' +
+          '<button class="btn-mini danger" id="clearBtn" style="margin-left:auto;">대상 해제</button>' +
+        '</div>' +
+        '<div class="sum">' +
+          '<span>기록 <b>' + (c.entries||0) + '</b>칸</span>' +
+          '<span>사진 <b>' + (c.photos||0) + '</b>장</span>' +
+          '<span>출석 <b>' + (c.checkins||0) + '</b>일</span>' +
+          (c.firstDate ? ('<span>기간 <b>' + esc(c.firstDate) + ' ~ ' + esc(c.lastDate) + '</b></span>') : '') +
+        '</div>';
+      $('clearBtn').addEventListener('click', clearTarget);
+      return;
+    }
+    box.innerHTML =
+      '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">' +
+        '<span class="badge b-off">기능 꺼짐</span>' +
+        '<span style="font-size:0.84rem;color:var(--text-light);">대상 학생을 지정하면 그 학생 화면에만 「생활기록」이 나타납니다.</span>' +
+      '</div>' +
+      '<div class="field" style="margin-top:12px;margin-bottom:0;">' +
+        '<label for="sq">학생 찾기</label>' +
+        '<input type="text" id="sq" placeholder="이름을 적어 주세요" autocomplete="off">' +
+        '<div class="hint">같은 이름이 여럿이면 학원·반으로 구분해 골라 주세요. 학생번호로 지정하므로 동명이인이 섞이지 않습니다.</div>' +
+      '</div>' +
+      '<div id="pickWrap"></div>';
+    $('sq').addEventListener('input', onSearch);
+    $('sq').addEventListener('focus', onSearch);
+  }
+
+  async function onSearch(){
+    var q = ($('sq').value || '').trim();
+    if (!students){
+      if (picking) return;
+      picking = true;
+      try {
+        var r = await api('/api/students');
+        students = await r.json().catch(function(){ return []; });
+        if (!Array.isArray(students)) students = [];
+      } catch(e){ picking = false; return; }
+      picking = false;
+    }
+    var list = q ? students.filter(function(s){ return String(s.name||'').indexOf(q) >= 0; }) : students.slice(0, 12);
+    var wrap = $('pickWrap');
+    if (!wrap) return;
+    if (!list.length){ wrap.innerHTML = '<div class="hint" style="margin-top:8px;">찾는 학생이 없습니다.</div>'; return; }
+    wrap.innerHTML = '<div class="picklist">' + list.slice(0, 60).map(function(s){
+      return '<div class="pickrow" data-id="' + esc(s.id) + '" data-name="' + esc(s.name) + '">' +
+        '<span class="pn">' + esc(s.name) + '</span>' +
+        '<span class="pm">' + esc([s.academy, s.className, s.school, s.grade].filter(Boolean).join(' · ')) + '</span>' +
+      '</div>';
+    }).join('') + '</div>';
+    Array.prototype.forEach.call(wrap.querySelectorAll('.pickrow'), function(row){
+      row.addEventListener('click', function(){ setTarget(row.getAttribute('data-id'), row.getAttribute('data-name')); });
+    });
+  }
+
+  async function setTarget(id, name){
+    if (!confirm('[' + name + '] 학생에게 생활기록 기능을 켤까요?\n이 학생 화면에만 나타납니다.')) return;
+    var j = await post('set_target', { student_id: Number(id) });
+    if (!j.ok){ showToast(j.error || '지정하지 못했습니다.'); return; }
+    showToast('[' + name + '] 학생으로 켰습니다.');
+    students = null;
+    load();
+  }
+  async function clearTarget(){
+    if (!confirm('대상을 해제할까요?\n학생 화면에서 기능이 사라집니다. 지금까지 쌓인 기록·사진은 그대로 남습니다(지우려면 ⑤).')) return;
+    var j = await post('clear_target', {});
+    if (!j.ok){ showToast(j.error || '해제하지 못했습니다.'); return; }
+    showToast('해제했습니다.');
+    load();
+  }
+
+  // ── ② 기기 ──
+  function renderDevices(){
+    var devs = CFG.devices || [];
+    var enrolled = devs.filter(function(d){ return !!d.enrolledAt; });
+    $('devCnt').textContent = enrolled.length ? ('등록 ' + enrolled.length + '대') : '등록된 기기 없음';
+
+    // 아직 안 쓴 코드
+    var pending = devs.filter(function(d){ return !d.enrolledAt && d.code; });
+    $('codeArea').innerHTML = pending.map(function(d){
+      var left = '';
+      if (d.codeExpiresAt){
+        var m = Math.round((Date.parse(d.codeExpiresAt) - Date.now()) / 60000);
+        left = m > 0 ? (m + '분 남음') : '만료됨';
+      }
+      return '<div class="codebox">' +
+        '<div class="cv">' + esc(d.code) + '</div>' +
+        '<div class="cl">' + esc(d.label || '학원 기기') + ' · ' + esc(left) + '<br>학원 기기의 생활기록 화면에서 이 코드를 넣어 주세요.</div>' +
+      '</div>';
+    }).join('');
+
+    var box = $('devList');
+    if (!devs.length){ box.innerHTML = '<div class="hint">아직 등록된 기기가 없습니다. 위에서 코드를 발급해 주세요.</div>'; return; }
+    box.innerHTML = devs.map(function(d){
+      var st = d.enrolledAt
+        ? '<span class="badge b-on">등록됨</span>'
+        : '<span class="badge b-wait">코드 대기</span>';
+      var meta = d.enrolledAt
+        ? ('기종 ' + esc(d.model || '알 수 없음') + ' · 등록 ' + fmtWhen(d.enrolledAt) + (d.lastUsedAt ? (' · 최근 출석 ' + fmtWhen(d.lastUsedAt)) : ' · 아직 출석 사용 없음'))
+        : ('발급 ' + fmtWhen(d.createdAt) + (d.codeExpiresAt ? (' · 만료 ' + fmtWhen(d.codeExpiresAt)) : ''));
+      return '<div class="devrow">' +
+        '<span class="dn">' + esc(d.label || '학원 기기') + '</span>' + st +
+        '<button class="btn-mini danger" data-dev="' + d.id + '" style="margin-left:auto;">해제</button>' +
+        '<span class="dm">' + meta + '</span>' +
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-dev]'), function(b){
+      b.addEventListener('click', function(){ revokeDevice(b.getAttribute('data-dev')); });
+    });
+  }
+
+  $('codeBtn').addEventListener('click', async function(){
+    var btn = this; btn.disabled = true;
+    var j = await post('new_code', { label: ($('devLabel').value || '').trim() });
+    btn.disabled = false;
+    if (!j.ok){ showToast(j.error || '발급하지 못했습니다.'); return; }
+    $('devLabel').value = '';
+    showToast('코드 ' + j.code + ' — ' + (j.ttlMin || 30) + '분 안에 학원 기기에서 넣어 주세요.');
+    load();
+  });
+  async function revokeDevice(id){
+    if (!confirm('이 기기 등록을 해제할까요?\n해제하면 그 기기에서는 출석을 누를 수 없습니다.')) return;
+    var j = await post('revoke_device', { id: Number(id) });
+    if (!j.ok){ showToast(j.error || '해제하지 못했습니다.'); return; }
+    showToast('해제했습니다.');
+    load();
+  }
+
+  // ── ③ 기록 ──
+  function rangeQ(){
+    return 'from=' + encodeURIComponent($('fFrom').value || '') + '&to=' + encodeURIComponent($('fTo').value || '');
+  }
+  async function loadEntries(){
+    var area = $('entryArea');
+    area.innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
+    var r;
+    try { r = await api('/api/lifelog?admin=1&entries=1&' + rangeQ()); }
+    catch(e){ return; }
+    var j = await r.json().catch(function(){ return null; });
+    if (!j || !j.ok){ area.innerHTML = '<div class="state-box"><p>' + esc((j&&j.error)||'불러오지 못했습니다.') + '</p></div>'; return; }
+    DATA = j;
+    renderEntries();
+  }
+  function renderEntries(){
+    var area = $('entryArea');
+    var byDate = {};
+    (DATA.entries||[]).forEach(function(e){ (byDate[e.date] = byDate[e.date] || []).push(e); });
+    var chk = {};
+    (DATA.checkins||[]).forEach(function(c){ chk[c.date] = c; });
+    var dates = Object.keys(byDate).concat(Object.keys(chk)).filter(function(v,i,a){ return a.indexOf(v)===i; }).sort().reverse();
+
+    if (!dates.length){
+      area.innerHTML = '<div class="card"><div class="state-box"><div class="si">🍚</div><p>이 기간에 올라온 기록이 없습니다.</p></div></div>' + todayCheckinBar();
+      bindCheckin();
+      return;
+    }
+    area.innerHTML = todayCheckinBar() + dates.map(function(d){
+      var c = chk[d];
+      var items = (byDate[d] || []).slice().sort(function(a,b){
+        if (a.kind !== b.kind) return a.kind === 'meal' ? -1 : 1;
+        var order = ['아침','점심','저녁','간식','운동'];
+        return order.indexOf(a.slot) - order.indexOf(b.slot);
+      });
+      var head = '<div class="dayhead">' +
+        '<span class="daydate">' + esc(d.slice(5)) + ' (' + dowKo(d) + ')</span>' +
+        (c ? ('<span class="badge b-on">출석 ' + esc(c.time) + (c.source==='manual' ? ' · 수동' : '') + '</span>') : '<span class="badge b-off">출석 없음</span>') +
+        '<span class="badge b-cnt">' + items.length + '칸</span>' +
+        '<button class="btn-mini' + (c ? ' danger' : '') + '" data-chk="' + esc(d) + '" data-on="' + (c ? '0' : '1') + '" style="margin-left:auto;">' + (c ? '출석 취소' : '수동 출석') + '</button>' +
+      '</div>' +
+      (c && c.device ? ('<div class="target-sub">' + esc(c.device) + (c.model ? (' · ' + esc(c.model)) : '') + '</div>') : '');
+      var body = items.map(function(e){
+        return '<div class="slot">' +
+          '<div class="st">' + (e.kind==='meal'?'🍚 ':'💪 ') + esc(e.slot) + (e.photoCount ? (' · 사진 ' + e.photoCount + '장') : '') + '</div>' +
+          (e.content ? ('<div class="sc">' + esc(e.content) + '</div>') : '') +
+          (e.photos && e.photos.length ? ('<div class="photo-grid" data-keys="' + esc(e.photos.join('|')) + '"></div>') : '') +
+        '</div>';
+      }).join('');
+      return '<div class="daybox">' + head + body + '</div>';
+    }).join('');
+
+    // 사진 채우기 (헤더 인증이 필요해 src를 바로 못 넣는다)
+    Array.prototype.forEach.call(area.querySelectorAll('.photo-grid'), function(g){
+      var keys = (g.getAttribute('data-keys') || '').split('|').filter(Boolean);
+      g.innerHTML = keys.map(function(){ return '<div class="thumb"><img alt=""><button class="dl" title="내려받기">⤓</button></div>'; }).join('');
+      Array.prototype.forEach.call(g.querySelectorAll('.thumb'), function(t, i){
+        var img = t.querySelector('img');
+        loadImg(img, keys[i]);
+        img.addEventListener('click', function(){ if (img.src) openLightbox(img.src); });
+        t.querySelector('.dl').addEventListener('click', function(ev){ ev.stopPropagation(); downloadKey(keys[i]); });
+      });
+    });
+    bindCheckin();
+  }
+  function todayCheckinBar(){
+    var t = (CFG && CFG.today) || kstToday();
+    var has = (DATA && (DATA.checkins||[]).some(function(c){ return c.date === t; }));
+    return '<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+      '<span style="font-weight:800;font-size:0.9rem;">오늘 ' + esc(t.slice(5)) + ' (' + dowKo(t) + ')</span>' +
+      (has ? '<span class="badge b-on">출석 완료</span>' : '<span class="badge b-off">아직 출석 없음</span>') +
+      '<button class="btn-mini' + (has ? ' danger' : '') + '" data-chk="' + esc(t) + '" data-on="' + (has ? '0' : '1') + '" style="margin-left:auto;">' + (has ? '출석 취소' : '수동 출석 찍기') + '</button>' +
+    '</div>';
+  }
+  function bindCheckin(){
+    Array.prototype.forEach.call($('entryArea').querySelectorAll('[data-chk]'), function(b){
+      b.addEventListener('click', function(){ manualCheckin(b.getAttribute('data-chk'), b.getAttribute('data-on') === '1'); });
+    });
+  }
+  async function manualCheckin(date, on){
+    if (!confirm(date + ' 출석을 ' + (on ? '수동으로 찍을까요?\n(학원 기기 없이 원장이 직접 찍는 기록입니다.)' : '취소할까요?'))) return;
+    var j = await post('manual_checkin', { date: date, on: on });
+    if (!j.ok){ showToast(j.error || '처리하지 못했습니다.'); return; }
+    showToast(on ? '출석을 찍었습니다.' : '출석을 취소했습니다.');
+    load();
+  }
+
+  $('qBtn').addEventListener('click', function(){ loadEntries(); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-range]'), function(b){
+    b.addEventListener('click', function(){
+      var t = (CFG && CFG.today) || kstToday();
+      var k = b.getAttribute('data-range');
+      if (k === 'month'){ $('fFrom').value = t.slice(0,8) + '01'; $('fTo').value = t; }
+      else if (k === 'all'){ $('fFrom').value = (CFG && CFG.counts && CFG.counts.firstDate) || '2020-01-01'; $('fTo').value = t; }
+      else { $('fFrom').value = shiftYmd(t, -(Number(k)-1)); $('fTo').value = t; }
+      loadEntries();
+    });
+  });
+
+  // ── ④ 내보내기 ──
+  $('expBtn').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>만드는 중…';
+    try {
+      var r = await api('/api/lifelog?admin=1&export=1&' + rangeQ());
+      var ct = r.headers.get('content-type') || '';
+      if (!r.ok || ct.indexOf('application/zip') < 0){
+        var j = await r.json().catch(function(){ return null; });
+        showToast((j && j.error) || '내보내지 못했습니다.');
+        return;
+      }
+      // 파일명은 서버가 Content-Disposition 에 UTF-8 로 실어 준다
+      var cd = r.headers.get('content-disposition') || '';
+      var m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+      var fname = m ? decodeURIComponent(m[1]) : ('생활기록_' + ($('fFrom').value) + '_' + ($('fTo').value) + '.zip');
+      var blob = await r.blob();
+      var u = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href = u; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(u); }, 8000);
+      showToast('내려받았습니다.');
+    } catch(e){
+      if (String(e.message) !== '401') showToast('네트워크 오류로 중단됐습니다.');
+    } finally {
+      btn.disabled = false; btn.textContent = '📦 엑셀 + 사진 ZIP 받기';
+    }
+  });
+
+  // ── ⑤ 원복 ──
+  $('purgeIn').addEventListener('input', function(){
+    $('purgeBtn').disabled = (this.value.trim() !== 'DELETE');
+  });
+  $('purgeBtn').addEventListener('click', async function(){
+    if ($('purgeIn').value.trim() !== 'DELETE') return;
+    var c = CFG.counts || {};
+    if (!confirm('정말 지울까요?\n사진 ' + (c.photos||0) + '장 · 기록 ' + (c.entries||0) + '칸 · 출석 ' + (c.checkins||0) + '일이 사라집니다.\n되돌릴 수 없습니다.')) return;
+    if (!confirm('마지막 확인입니다.\n④에서 자료를 받아 두셨나요? 지금 지우면 복구할 수 없습니다.')) return;
+    var btn = this;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>지우는 중…';
+    try {
+      var r = await api('/api/lifelog?admin=1&purge=1&confirm=DELETE', { method:'DELETE' });
+      var j = await r.json().catch(function(){ return null; });
+      if (!j || !j.ok){ showToast((j && j.error) || '지우지 못했습니다.'); return; }
+      showToast('사진 ' + j.deletedPhotos + '장을 지웠습니다. 원래대로 돌아갔습니다.');
+      $('purgeIn').value = '';
+      load();
+    } catch(e){
+      if (String(e.message) !== '401') showToast('네트워크 오류로 중단됐습니다.');
+    } finally {
+      btn.disabled = true; btn.textContent = '전체 삭제 (원복)';
+    }
+  });
+
+  // 시작
+  if (!token) showLogin(''); else load();
+})();
+</script>
+<!-- 조교/원장 공통 상단 네비: 홈(역할별) + 메뉴 드롭다운 -->
+<script>
+(function(){
+  try{
+    var pw = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || '';
+    var home = /^ast_/.test(pw) ? '/staff-home' : '/admin';
+    var h = document.getElementById('kwnavHome'); if(h){ h.setAttribute('href', home); }
+    var path = (location.pathname || '').replace(/\.html$/,''); if(path.length > 1){ path = path.replace(/\/+$/,''); }
+    var pop = document.getElementById('kwnavPop');
+    if(pop){
+      var links = pop.querySelectorAll('a[data-p]');
+      for(var i=0;i<links.length;i++){
+        if(links[i].getAttribute('data-p') === path){ links[i].className = 'cur'; links[i].removeAttribute('href'); }
+      }
+    }
+    var tog = document.getElementById('kwnavToggle');
+    if(tog && pop){
+      tog.addEventListener('click', function(e){
+        e.stopPropagation();
+        var open = pop.classList.toggle('show');
+        tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function(ev){
+        if(!pop.contains(ev.target) && ev.target !== tog){ pop.classList.remove('show'); tog.setAttribute('aria-expanded','false'); }
+      });
+    }
+    var lo = document.getElementById('kwnavLogout');
+    if(lo){
+      lo.addEventListener('click', function(e){
+        e.preventDefault();
+        try{ sessionStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_pw'); localStorage.removeItem('kwmath_admin_token'); }catch(_){}
+        location.href = '/portal';
+      });
+    }
+  }catch(_){}
+})();
+</script>
+<script src="/kwnav.js?v=1"></script>
+</body>
+</html>

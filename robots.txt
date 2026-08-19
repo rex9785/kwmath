@@ -50,6 +50,12 @@ Disallow: /homework
 Disallow: /my-scores
 Disallow: /qna
 Disallow: /surveys
+# ▼▼▼ LIFELOG(생활기록) — 되돌릴 때 이 2줄만 지우면 됩니다 (2026-08-19 신설) ▼▼▼
+#   로그인 뒤에만 열리는 학생 화면이고, 오늘 새로 만든 주소라 사이트맵에도 없고 수집 요청을 한 적도 없다
+#   (실측: sitemap.xml에 lifelog 0건). 색인에 오른 적이 없으니 내릴 것도 없다 → 크롤을 아예 막는 쪽이 강하다.
+#   위 surveys·admin-log 와 같은 처리다. `/admin-lifelog`은 `Disallow: /admin-`에 이미 걸린다.
+Disallow: /lifelog
+# ▲▲▲ LIFELOG 끝 ▲▲▲
 # /reviews — 2026-08-14. 「수강 후기」라는 이름 때문에 공개 페이지로 착각해 사이트맵·canonical에 넣었다가 되돌렸다.
 #   reviews.html 183행 `location.replace('/portal?next=/reviews')` = 로그인 전용 화면이다.
 #

@@ -390,6 +390,19 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9B8AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;flex-shrink:0;"><path d="m9 5 7 7-7 7"/></svg>
     </a>
 
+    <!-- ▼▼▼ LIFELOG(생활기록) — 되돌릴 때 이 블록 전체를 지우면 됩니다 (2026-08-19 신설) ▼▼▼
+         한 학생 전용 기능이라 기본은 숨김. 아래 스크립트가 /api/lifelog?ping=1 로 물어본 뒤
+         "그 학생이 맞다(enabled:true)"일 때만 보여 준다. 다른 학생에겐 존재 자체가 안 보인다. -->
+    <a href="/lifelog" class="feat-btn feat-wide" data-feat="lifelog" id="lifelogFeatBtn" style="display:none;margin-bottom:24px;">
+      <span class="feat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);"><path d="M6 3v7.5a2.5 2.5 0 0 0 5 0V3"/><path d="M8.5 10.5V21"/><path d="M17.5 3c-1.3 1.7-1.9 3.7-1.9 5.6V13h3.4"/><path d="M19 13v8"/></svg></span>
+      <span style="flex:1;min-width:0;">
+        <span class="feat-title" style="display:block;">생활기록</span>
+        <span class="feat-desc" style="display:block;">아침 출석 · 식사와 운동 기록</span>
+      </span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9B8AC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;flex-shrink:0;"><path d="m9 5 7 7-7 7"/></svg>
+    </a>
+    <!-- ▲▲▲ LIFELOG 끝 ▲▲▲ -->
+
     <!-- 테스트·설문: 상시 카드/메뉴 자리 없음(의도된 설계). 열린 항목이 있을 때만 팝업+얇은 배너로 안내(아래 surveyBanner / surveyPopup). 재부활 금지. -->
     <!-- [주의] 질문방: 심사 중 숨김. QNA_ENABLED=true 면 JS가 display 해제해 노출. id·href·data-feat 유지 -->
     <a href="/qna" class="feat-btn feat-wide" data-feat="qna" id="qnaFeatBtn" style="display:none;margin-bottom:24px;">
@@ -776,6 +789,7 @@
     try { updateFaceLockLink(); } catch (_) {}                        // Face ID 잠금 링크 노출/문구 갱신
     try { if (window.KWNative) KWNative.clearBadge(); } catch (_) {}  // 앱 진입 시 아이콘 배지 클리어
     if (QNA_ENABLED) { const _q = document.getElementById('qnaFeatBtn'); if (_q) _q.style.display = ''; }
+    try { revealLifelog(); } catch (_) {}   // ← LIFELOG (되돌릴 때 이 줄과 아래 함수만 지우면 됩니다)
     if (mustChangePassword) {
       openPasswordModal(true);
     }
@@ -1044,6 +1058,7 @@
     try { loadHero(); } catch (_) {}          // 새 리포트 줄도 이 자녀 기준으로 다시 판정
     try { loadClinicReviewCard(); } catch (_) {}
     try { loadActionHomework(); } catch (_) {}   // 미제출 과제는 자녀마다 다르다
+    try { revealLifelog(); } catch (_) {}        // ← LIFELOG (되돌릴 때 이 줄만 지우면 됩니다)
   }
 
   // ════════ 비밀번호 변경 ════════
@@ -2084,6 +2099,32 @@
     if (cnt) { if (n > 0) { cnt.textContent = String(n); cnt.style.display = 'inline-block'; } else cnt.style.display = 'none'; }
     zone.style.display = n > 0 ? 'block' : 'none';
   }
+
+  // ▼▼▼ LIFELOG(생활기록) — 되돌릴 때 이 블록 전체를 지우면 됩니다 (2026-08-19 신설) ▼▼▼
+  //   한 학생 전용 기능이라 버튼은 기본이 숨김(style="display:none")이다.
+  //   서버에 "이 계정이 그 학생 본인이냐"만 물어보고(enabled), 맞을 때만 보여 준다.
+  //   ⚠️ 학부모 계정은 서버가 enabled:false 로 답한다 — 자녀 것이어도 버튼이 안 뜬다(열람 범위 확정 사항).
+  //   실패하면 조용히 숨긴 채로 둔다. 이 기능 하나 때문에 포털이 멈추면 안 된다.
+  let _lifelogSeq = 0;
+  async function revealLifelog(){
+    const btn = document.getElementById('lifelogFeatBtn');
+    if (!btn) return;
+    const seq = ++_lifelogSeq;
+    btn.style.display = 'none';           // 자녀를 바꿨을 때 이전 자녀의 버튼이 남지 않게 먼저 끈다
+    const st = selectedStudent || currentStudents[0];
+    const tk = currentToken || _actionToken();
+    if (!st || !tk) return;
+    try {
+      const q = st.name ? ('&name=' + encodeURIComponent(st.name)) : '';
+      const res = await fetch('/api/lifelog?ping=1' + q, { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (seq !== _lifelogSeq) return;    // 그 사이 자녀가 바뀌었으면 늦게 온 응답은 버린다
+      if (!res.ok) return;
+      const j = await res.json();
+      if (seq !== _lifelogSeq) return;
+      if (j && j.enabled === true) btn.style.display = '';
+    } catch (_) {}
+  }
+  // ▲▲▲ LIFELOG 끝 ▲▲▲
 
   // ─── 미제출 과제 줄 ───
   //   /homework 화면의 '미제출' 배지와 같은 기준을 쓴다(서버가 활성 과제 + 대상 학원/반만 내려줌).

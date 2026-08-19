@@ -50,6 +50,17 @@ const STAFF_GET_BLOCK = new Set([
   //    삭제된 데이터의 원본값(before)까지 전부 들어 있다. 조교가 보면 서로를 감시하게 되고
   //    before 에 담긴 학생 개인정보가 통째로 샌다. audit-log.js 안에서도 한 번 더 막는다(이중 잠금).
   '/api/audit-log',
+  // 🔴 2026-08-16 — MathOS 업로드 되돌리기. 스냅샷 안에 리포트 원문(학생별 수업내용·숙제)이
+  //    통째로 들어 있어 감사로그와 같은 등급이다. 게다가 GET ?id= 는 "무엇을 지우고 무엇을 되살릴지"
+  //    계획까지 돌려주므로, 목록만 봐도 어느 반이 언제 잘못 올라갔는지가 드러난다.
+  //    쓰기(POST)는 STAFF_WRITE_ALLOW 화이트리스트에 없어 이미 막히지만, GET은 여기서 막는다.
+  //    undo-upload.js 안에서도 한 번 더 막는다(이중 잠금).
+  '/api/undo-upload',
+  // ▼▼▼ LIFELOG(서지환 전용 생활기록) — 되돌릴 때 이 3줄만 지우면 됩니다 ▼▼▼
+  // 🔴 2026-08-19 — 열람 범위를 "학생 본인 + 관우T"로 못 박은 기능(식사 사진·운동 사진·출석).
+  //    조교 열람 대상이 아니다. lifelog.js 의 isAdminReq 안에서도 한 번 더 막는다(이중 잠금).
+  '/api/lifelog',
+  // ▲▲▲ LIFELOG 끝 ▲▲▲
   // '/api/surveys'는 staffAllowed 특례로 처리(조교=퀴즈만). surveys.js가 X-Staff-Phone로 quiz=1 전용 강제.
 ]);
 const STAFF_WRITE_ALLOW = new Set([
