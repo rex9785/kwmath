@@ -79,6 +79,18 @@
   .daybox{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:10px;box-shadow:0 2px 10px rgba(70,20,35,.05);}
   .dayhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
   .daydate{font-size:0.95rem;font-weight:900;}
+  /* ▼▼▼ LIFELOG 접기/펼치기 + 지각 (2026-08-19) ▼▼▼ */
+  .daybox.fold .daybody{display:none;}
+  .dayhead{cursor:pointer;user-select:none;}
+  .dayhead .caret{margin-left:auto;font-size:0.8rem;color:var(--text-light);transition:transform .15s;}
+  .daybox.fold .dayhead .caret{transform:rotate(-90deg);}
+  .dayline{font-size:0.78rem;color:var(--text-light);line-height:1.6;margin-top:2px;}
+  .dayline b{color:var(--text);font-weight:800;}
+  .b-late{background:#FBE6E6;color:#b3261e;}
+  .b-pen{background:#FFF3E0;color:#B35309;}
+  .b-ontime{background:#E7F5EC;color:#1E7A44;}
+  .dayhead .btn-mini{margin-left:0;}
+  /* ▲▲▲ LIFELOG 접기/펼치기 끝 ▲▲▲ */
   .slot{border-top:1px dashed var(--border);margin-top:10px;padding-top:10px;}
   .slot .st{font-size:0.8rem;font-weight:800;color:var(--primary);margin-bottom:4px;}
   .slot .sc{font-size:0.84rem;line-height:1.65;white-space:pre-wrap;color:var(--text);}
@@ -121,7 +133,9 @@
 </head>
 <body>
   <div class="topbar">
-    <span class="topbar-title">🍚 생활기록 관리</span>
+    <!-- ⚠️ 대상 학생 이름은 로그인 뒤 API 응답으로 채운다(ttlWho). 여기에 실명을 직접 적으면
+         미로그인 상태에서 이 파일 소스를 받아 보는 것만으로 이름이 새어 나간다. -->
+    <span class="topbar-title">🍚 생활기록 관리<em id="ttlWho" style="font-style:normal;font-weight:800;opacity:.82;"></em></span>
     <div class="kwnav kwnav--light" id="kwnav">
       <a class="kwnav-home" id="kwnavHome" href="/admin">🏠 홈</a>
       <div class="kwnav-mw">
@@ -315,6 +329,9 @@
     var box = $('targetCard');
     if (CFG.enabled && CFG.target){
       var c = CFG.counts || {};
+      var L = CFG.lateRule || { base:'08:00', unitSec:30, cap:0 };
+      // 상단 제목 옆 「· 서지환 전용」 — 소스에 실명을 박지 않으려고 여기서 채운다
+      var who = $('ttlWho'); if (who) who.textContent = ' · ' + CFG.target.name + ' 전용';
       box.innerHTML =
         '<div class="target-on">' +
           '<span class="target-name">' + esc(CFG.target.name) + '</span>' +
@@ -327,10 +344,26 @@
           '<span>사진 <b>' + (c.photos||0) + '</b>장</span>' +
           '<span>출석 <b>' + (c.checkins||0) + '</b>일</span>' +
           (c.firstDate ? ('<span>기간 <b>' + esc(c.firstDate) + ' ~ ' + esc(c.lastDate) + '</b></span>') : '') +
+        '</div>' +
+        // ▼▼▼ LIFELOG 지각 규칙 (2026-08-19) ▼▼▼
+        '<div class="sum" style="display:block;">' +
+          '<div style="font-weight:800;color:var(--text);margin-bottom:8px;">지각 벌칙</div>' +
+          '<div class="row2">' +
+            '<div class="field"><label for="lBase">기준 시각</label><input type="time" id="lBase" value="' + esc(L.base) + '"></div>' +
+            '<div class="field"><label for="lUnit">몇 초당 1개</label><input type="number" id="lUnit" min="1" max="3600" value="' + (L.unitSec||30) + '"></div>' +
+            '<div class="field"><label for="lCap">상한 (0=없음)</label><input type="number" id="lCap" min="0" max="9999" value="' + (L.cap||0) + '"></div>' +
+            '<div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end;"><button class="btn-primary" id="lSave" style="margin-bottom:0;">저장</button></div>' +
+          '</div>' +
+          '<div id="lHint" style="font-size:0.74rem;color:var(--text-light);line-height:1.7;margin-top:2px;"></div>' +
         '</div>';
+        // ▲▲▲ LIFELOG 지각 규칙 끝 ▲▲▲
       $('clearBtn').addEventListener('click', clearTarget);
+      $('lSave').addEventListener('click', saveLate);
+      ['lBase','lUnit','lCap'].forEach(function(id){ $(id).addEventListener('input', lateHint); });
+      lateHint();
       return;
     }
+    var who0 = $('ttlWho'); if (who0) who0.textContent = '';
     box.innerHTML =
       '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">' +
         '<span class="badge b-off">기능 꺼짐</span>' +
@@ -387,6 +420,53 @@
     if (!j.ok){ showToast(j.error || '해제하지 못했습니다.'); return; }
     showToast('해제했습니다.');
     load();
+  }
+
+  // ── 지각 벌칙 규칙 ──
+  // 관우T 규칙(2026-08-19): 아침 8시 기준, 그 뒤에 찍으면 30초당 운동 1개.
+  // 세 값(기준시각·단위초·상한)은 모두 화면에서 고칠 수 있게 했다 — 코드 수정 없이 관우T가 조절.
+  // 아래 lateCalc는 서버 lifelog.js의 lateOf()와 같은 식(올림)이다. 한쪽만 고치면 미리보기가 거짓말을 한다.
+  // ★ 확정(2026-08-19, 관우T): "상한 안두고 올림이 맞아" — 기본값 상한 0(무제한) · Math.ceil 유지. 재제안 금지.
+  function lateCalc(overSec, unitSec, cap){
+    if (overSec <= 0) return 0;
+    var n = Math.ceil(overSec / unitSec);
+    if (cap > 0 && n > cap) n = cap;
+    return n;
+  }
+  function lateHint(){
+    var el = $('lHint'); if (!el) return;
+    var b = ($('lBase').value || '').trim();
+    var u = Number($('lUnit').value);
+    var c = Number($('lCap').value);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(b) || !(u >= 1 && u <= 3600) || !(c >= 0 && c <= 9999)){
+      el.textContent = '기준 시각(08:00) · 단위(1~3600초) · 상한(0~9999)을 확인해 주세요.';
+      return;
+    }
+    u = Math.floor(u); c = Math.floor(c);
+    var ex = [60, 300, 600, 1800, 3600].map(function(s){
+      return (s/60) + '분 늦으면 ' + lateCalc(s, u, c) + '개';
+    }).join(' · ');
+    el.textContent =
+      b + ' 정각까지는 정시입니다. 1초라도 넘기면 ' + lateCalc(1, u, c) + '개부터 시작해 ' +
+      u + '초마다 1개씩 늘어납니다' + (c > 0 ? (' (최대 ' + c + '개에서 멈춤)') : ' (상한 없음)') + '.' +
+      '\n' + ex;
+    el.style.whiteSpace = 'pre-line';
+  }
+  async function saveLate(){
+    var b = ($('lBase').value || '').trim();
+    var u = Number($('lUnit').value);
+    var c = Number($('lCap').value);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(b)){ showToast('기준 시각을 08:00 처럼 적어 주세요.'); return; }
+    if (!(u >= 1 && u <= 3600)){ showToast('단위는 1~3600초 사이로 적어 주세요.'); return; }
+    if (!(c >= 0 && c <= 9999)){ showToast('상한은 0~9999 사이로 적어 주세요 (0이면 상한 없음).'); return; }
+    var btn = $('lSave'); btn.disabled = true;
+    var j = await post('set_late', { base: b, unitSec: Math.floor(u), cap: Math.floor(c) });
+    btn.disabled = false;
+    if (!j || !j.ok){ showToast((j && j.error) || '저장하지 못했습니다.'); return; }
+    CFG.lateRule = j.lateRule;
+    showToast('지각 규칙을 저장했습니다. 지난 기록도 새 기준으로 다시 셉니다.');
+    lateHint();
+    loadEntries();   // 이미 그려 둔 날짜 카드를 새 규칙으로 다시 계산해 그린다
   }
 
   // ── ② 기기 ──
@@ -461,6 +541,7 @@
     DATA = j;
     renderEntries();
   }
+  var OPENDAY = {};   // 펼쳐 둔 날짜 — 다시 그려도 그대로 열려 있게
   function renderEntries(){
     var area = $('entryArea');
     var byDate = {};
@@ -481,25 +562,69 @@
         var order = ['아침','점심','저녁','간식','운동'];
         return order.indexOf(a.slot) - order.indexOf(b.slot);
       });
+      // ▼▼▼ LIFELOG 요약 한 줄 (2026-08-19) — 접힌 상태에서 이 줄만 보고 판단하시게 ▼▼▼
+      var meals = items.filter(function(e){ return e.kind === 'meal'; });
+      var works = items.filter(function(e){ return e.kind !== 'meal'; });
+      var photos = items.reduce(function(n, e){ return n + (Number(e.photoCount) || (e.photos||[]).length || 0); }, 0);
+      var bits = [];
+      if (meals.length) bits.push('🍚 ' + meals.map(function(e){ return esc(e.slot); }).join('·'));
+      if (works.length) bits.push('💪 운동');
+      if (photos) bits.push('📷 ' + photos + '장');
+      if (!bits.length) bits.push('올린 기록 없음');
+      var lateB = '';
+      if (c && c.late){
+        lateB = '<span class="badge b-late">지각 ' + esc(c.lateText || '') + '</span>' +
+                '<span class="badge b-pen">운동 ' + (c.penalty||0) + '개' + (c.capped ? ' (상한)' : '') + '</span>';
+      } else if (c){
+        lateB = '<span class="badge b-ontime">정시</span>';
+      }
+      var open = !!OPENDAY[d];
       var head = '<div class="dayhead">' +
         '<span class="daydate">' + esc(d.slice(5)) + ' (' + dowKo(d) + ')</span>' +
         (c ? ('<span class="badge b-on">출석 ' + esc(c.time) + (c.source==='manual' ? ' · 수동' : '') + '</span>') : '<span class="badge b-off">출석 없음</span>') +
+        lateB +
         '<span class="badge b-cnt">' + items.length + '칸</span>' +
-        '<button class="btn-mini' + (c ? ' danger' : '') + '" data-chk="' + esc(d) + '" data-on="' + (c ? '0' : '1') + '" style="margin-left:auto;">' + (c ? '출석 취소' : '수동 출석') + '</button>' +
+        '<span class="caret">▼</span>' +
       '</div>' +
-      (c && c.device ? ('<div class="target-sub">' + esc(c.device) + (c.model ? (' · ' + esc(c.model)) : '') + '</div>') : '');
-      var body = items.map(function(e){
+      '<div class="dayline">' + bits.join(' &nbsp;·&nbsp; ') +
+        (c && c.device ? (' &nbsp;·&nbsp; ' + esc(c.device) + (c.model ? (' · ' + esc(c.model)) : '')) : '') +
+      '</div>';
+      // ▲▲▲ LIFELOG 요약 끝 ▲▲▲
+      var body = '<div class="daybody">' + items.map(function(e){
         return '<div class="slot">' +
           '<div class="st">' + (e.kind==='meal'?'🍚 ':'💪 ') + esc(e.slot) + (e.photoCount ? (' · 사진 ' + e.photoCount + '장') : '') + '</div>' +
           (e.content ? ('<div class="sc">' + esc(e.content) + '</div>') : '') +
           (e.photos && e.photos.length ? ('<div class="photo-grid" data-keys="' + esc(e.photos.join('|')) + '"></div>') : '') +
         '</div>';
-      }).join('');
-      return '<div class="daybox">' + head + body + '</div>';
+      }).join('') +
+        '<div class="slot" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+          '<span class="target-sub">출석 손보기</span>' +
+          '<button class="btn-mini' + (c ? ' danger' : '') + '" data-chk="' + esc(d) + '" data-on="' + (c ? '0' : '1') + '" style="margin-left:auto;">' + (c ? '출석 취소' : '수동 출석') + '</button>' +
+          (c ? ('<button class="btn-mini" data-retime="' + esc(d) + '">시각 고치기</button>') : '') +
+        '</div>' +
+      '</div>';
+      return '<div class="daybox' + (open ? '' : ' fold') + '" data-day="' + esc(d) + '">' + head + body + '</div>';
     }).join('');
 
-    // 사진 채우기 (헤더 인증이 필요해 src를 바로 못 넣는다)
-    Array.prototype.forEach.call(area.querySelectorAll('.photo-grid'), function(g){
+    // 접기/펼치기 — 펼칠 때 그 날 사진만 불러온다(전부 미리 받으면 통신비만 나간다)
+    Array.prototype.forEach.call(area.querySelectorAll('.daybox'), function(box){
+      var d = box.getAttribute('data-day');
+      var hd = box.querySelector('.dayhead');
+      if (hd) hd.addEventListener('click', function(){
+        var willOpen = box.classList.contains('fold');
+        box.classList.toggle('fold', !willOpen);
+        if (willOpen){ OPENDAY[d] = 1; fillPhotos(box); } else { delete OPENDAY[d]; }
+      });
+      if (!box.classList.contains('fold')) fillPhotos(box);
+    });
+    bindCheckin();
+  }
+
+  // 사진 채우기 (헤더 인증이 필요해 src를 바로 못 넣는다). 두 번 호출돼도 안전하게 done 표시.
+  function fillPhotos(scope){
+    Array.prototype.forEach.call(scope.querySelectorAll('.photo-grid'), function(g){
+      if (g.getAttribute('data-done') === '1') return;
+      g.setAttribute('data-done', '1');
       var keys = (g.getAttribute('data-keys') || '').split('|').filter(Boolean);
       g.innerHTML = keys.map(function(){ return '<div class="thumb"><img alt=""><button class="dl" title="내려받기">⤓</button></div>'; }).join('');
       Array.prototype.forEach.call(g.querySelectorAll('.thumb'), function(t, i){
@@ -509,27 +634,63 @@
         t.querySelector('.dl').addEventListener('click', function(ev){ ev.stopPropagation(); downloadKey(keys[i]); });
       });
     });
-    bindCheckin();
   }
   function todayCheckinBar(){
     var t = (CFG && CFG.today) || kstToday();
-    var has = (DATA && (DATA.checkins||[]).some(function(c){ return c.date === t; }));
+    var c = (DATA && (DATA.checkins||[]).filter(function(x){ return x.date === t; })[0]) || null;
+    var has = !!c;
+    // 오늘 줄에도 지각·벌칙을 그대로 보여 준다 (날짜 카드와 같은 값이어야 한다)
+    var lateB = '';
+    if (c && c.late){
+      lateB = '<span class="badge b-late">지각 ' + esc(c.lateText || '') + '</span>' +
+              '<span class="badge b-pen">운동 ' + (c.penalty||0) + '개' + (c.capped ? ' (상한)' : '') + '</span>';
+    } else if (c){
+      lateB = '<span class="badge b-ontime">정시</span>';
+    }
     return '<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
       '<span style="font-weight:800;font-size:0.9rem;">오늘 ' + esc(t.slice(5)) + ' (' + dowKo(t) + ')</span>' +
-      (has ? '<span class="badge b-on">출석 완료</span>' : '<span class="badge b-off">아직 출석 없음</span>') +
+      (has ? ('<span class="badge b-on">출석 ' + esc(c.time || '') + (c.source==='manual' ? ' · 수동' : '') + '</span>') : '<span class="badge b-off">아직 출석 없음</span>') +
+      lateB +
       '<button class="btn-mini' + (has ? ' danger' : '') + '" data-chk="' + esc(t) + '" data-on="' + (has ? '0' : '1') + '" style="margin-left:auto;">' + (has ? '출석 취소' : '수동 출석 찍기') + '</button>' +
+      (has ? ('<button class="btn-mini" data-retime="' + esc(t) + '">시각 고치기</button>') : '') +
     '</div>';
   }
   function bindCheckin(){
     Array.prototype.forEach.call($('entryArea').querySelectorAll('[data-chk]'), function(b){
-      b.addEventListener('click', function(){ manualCheckin(b.getAttribute('data-chk'), b.getAttribute('data-on') === '1'); });
+      b.addEventListener('click', function(ev){
+        ev.stopPropagation();   // 날짜 줄을 겸해서 눌러 접히지 않도록
+        manualCheckin(b.getAttribute('data-chk'), b.getAttribute('data-on') === '1');
+      });
+    });
+    Array.prototype.forEach.call($('entryArea').querySelectorAll('[data-retime]'), function(b){
+      b.addEventListener('click', function(ev){ ev.stopPropagation(); manualCheckin(b.getAttribute('data-retime'), true, true); });
     });
   }
-  async function manualCheckin(date, on){
-    if (!confirm(date + ' 출석을 ' + (on ? '수동으로 찍을까요?\n(학원 기기 없이 원장이 직접 찍는 기록입니다.)' : '취소할까요?'))) return;
-    var j = await post('manual_checkin', { date: date, on: on });
+  // on=true 로 찍을 때는 도착 시각을 물어본다 — 안 물으면 "지금 시각"이 도착 시각이 돼
+  // 저녁에 손으로 찍은 출석이 몇 시간 지각으로 계산된다.
+  async function manualCheckin(date, on, retime){
+    var payload = { date: date, on: on };
+    if (on){
+      var cur = (DATA && (DATA.checkins||[]).filter(function(c){ return c.date === date; })[0]) || null;
+      var t = prompt(
+        date + ' 도착 시각을 24시간제로 적어 주세요 (예: 08:14).\n' +
+        '비워 두면 ' + (retime ? '고치지 않습니다' : '지금 시각으로 넣습니다') + '.\n' +
+        '기준 ' + ((CFG && CFG.lateRule && CFG.lateRule.base) || '08:00') + ' 이후면 지각으로 계산됩니다.',
+        (cur && cur.time) || ''
+      );
+      if (t === null) return;
+      t = String(t).trim();
+      if (t){
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)){ showToast('08:14 처럼 적어 주세요.'); return; }
+        payload.time = t;
+      } else if (retime){ return; }
+      if (!retime && !confirm(date + ' 출석을 수동으로 찍을까요?\n(학원 기기 없이 원장이 직접 찍는 기록입니다.)')) return;
+    } else {
+      if (!confirm(date + ' 출석을 취소할까요?')) return;
+    }
+    var j = await post('manual_checkin', payload);
     if (!j.ok){ showToast(j.error || '처리하지 못했습니다.'); return; }
-    showToast(on ? '출석을 찍었습니다.' : '출석을 취소했습니다.');
+    showToast(on ? ('출석을 ' + (retime ? '고쳤습니다' : '찍었습니다') + (j.time ? (' (' + j.time + ')') : '')) : '출석을 취소했습니다.');
     load();
   }
 

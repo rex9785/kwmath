@@ -86,6 +86,31 @@
   .mrow .md{font-size:0.88rem;font-weight:800;min-width:78px;}
   .mrow .mt{font-size:0.76rem;color:var(--text-light);font-weight:700;flex:1;}
   .mrow .mc{font-size:0.72rem;font-weight:800;color:var(--ok);}
+  /* ▼▼▼ LIFELOG 날짜 드롭다운 + 지각 (2026-08-19) ▼▼▼ */
+  .mbox{background:#fff;border:1px solid var(--border);border-radius:11px;margin-bottom:7px;overflow:hidden;}
+  .mbox:hover{border-color:var(--primary);}
+  .mbox .mrow{border:none;border-radius:0;margin:0;background:none;flex-wrap:wrap;gap:6px 8px;}
+  .mbox .mrow .mt{min-width:96px;}
+  .mbox .mcar{font-size:0.7rem;color:var(--text-light);transition:transform .15s;margin-left:auto;}
+  .mbox.open .mcar{transform:rotate(180deg);}
+  .mdet{display:none;border-top:1px dashed var(--border);padding:11px 14px 13px;}
+  .mbox.open .mdet{display:block;}
+  .mdet .dl{display:flex;gap:8px;font-size:0.78rem;line-height:1.7;padding:3px 0;}
+  .mdet .dl .k{font-weight:800;color:var(--text-light);min-width:52px;flex:0 0 auto;}
+  .mdet .dl .v{color:var(--text);font-weight:600;word-break:break-word;}
+  .mdet .go{margin-top:9px;width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px;font-size:0.78rem;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer;}
+  .mdet .go:hover{border-color:var(--primary);color:var(--primary);}
+  .tag{display:inline-block;font-size:0.68rem;font-weight:800;padding:2px 7px;border-radius:999px;white-space:nowrap;}
+  .tag.late{background:#FBE6E6;color:#b3261e;}
+  .tag.pen{background:#FFF3E0;color:#B35309;}
+  .tag.ontime{background:var(--ok-light);color:var(--ok);}
+  .ck-pen{margin-top:10px;background:#FFF3E0;border:1px solid rgba(179,83,9,.22);border-radius:11px;padding:11px 13px;font-size:0.82rem;font-weight:800;color:#8a3f06;line-height:1.6;}
+  /* ▲▲▲ LIFELOG 날짜 드롭다운 끝 ▲▲▲ */
+  /* ▼▼▼ LIFELOG 보호자 보기 (2026-08-19) ▼▼▼ */
+  .ro-bar{display:flex;gap:9px;align-items:flex-start;background:var(--primary-light);border:1px solid rgba(134,38,51,.16);border-radius:12px;padding:12px 14px;margin-bottom:13px;font-size:0.8rem;font-weight:700;line-height:1.65;color:#6E1F2A;}
+  .ro-bar .ri{font-size:1rem;line-height:1.3;flex:0 0 auto;}
+  .ro-empty{padding:13px 15px;font-size:0.82rem;font-weight:700;color:var(--text-light);}
+  /* ▲▲▲ LIFELOG 보호자 보기 끝 ▲▲▲ */
   .state-box{text-align:center;padding:28px 20px;color:var(--text-light);}
   .state-box .si{font-size:1.8rem;margin-bottom:7px;}
   .state-box p{font-size:0.85rem;line-height:1.7;}
@@ -101,7 +126,9 @@
 </head>
 <body>
   <div class="topbar">
-    <a class="topbar-title" href="/portal.html">📔 생활기록</a>
+    <!-- ⚠️ #whoTag 에 학생 이름을 소스로 박지 말 것. 로그인 뒤 API 응답(student.name)으로 채운다.
+         이 파일은 미로그인 상태에서도 소스가 그대로 읽힌다(로그인 가드가 클라이언트 JS다). -->
+    <a class="topbar-title" href="/portal.html">📔 생활기록<span id="whoTag" style="font-weight:800;opacity:.82;"></span></a>
     <div class="kwnav kwnav--light" id="kwnav">
       <a class="kwnav-home" id="kwnavHome" href="/portal">🏠 홈</a>
       <div class="kwnav-mw">
@@ -125,6 +152,11 @@
     <div id="bootBox"><div class="state-box"><div class="si">⏳</div><p>불러오는 중…</p></div></div>
 
     <div id="mainWrap" style="display:none;">
+      <!-- 보호자로 들어왔을 때만 뜬다. 기록을 남기는 건 학생 본인 계정에서만 된다는 안내. -->
+      <div class="ro-bar" id="roBar" style="display:none;">
+        <span class="ri">👀</span>
+        <span>보호자 보기입니다. 자녀가 올린 기록과 사진을 보실 수 있고, <b>기록을 남기거나 고치는 것은 학생 본인 계정에서만</b> 됩니다.</span>
+      </div>
       <div class="ck" id="ckCard"></div>
 
       <div class="dnav">
@@ -198,6 +230,7 @@
   function monthFirst(s){ return s.slice(0,8) + '01'; }
 
   var DATA = null;         // 서버 응답
+  var RO = false;          // 보호자 보기(읽기 전용) — load() 에서 서버 canEdit 로 정한다
   var today = ymd(new Date());
   var curDate = today;
   var MEALS = ['아침','점심','저녁','간식'];
@@ -218,8 +251,15 @@
         }
         DATA = j;
         today = j.today || today;
+        // ▼ 제목 옆 소유자 표기 + 보호자 보기 판정 (2026-08-19)
+        //   canEdit 은 서버가 준다. 없으면(옛 응답) 학생 본인으로 본다 — 새 화면 + 옛 서버 조합에서
+        //   학생이 갑자기 아무것도 못 쓰게 되는 쪽이 더 나쁘다. 어차피 쓰기는 서버가 다시 막는다.
+        RO = (j.canEdit === false);
+        var who = (j.student && j.student.name) || '';
+        $('whoTag').textContent = who ? (RO ? (' · ' + who + ' 기록') : (' · ' + who + ' 전용')) : '';
         $('bootBox').style.display = 'none';
         $('mainWrap').style.display = 'block';
+        $('roBar').style.display = RO ? 'flex' : 'none';
         render();
       })
       .catch(function(){ $('bootBox').innerHTML = '<div class="state-box"><p>네트워크 오류로 불러오지 못했어요.</p></div>'; });
@@ -237,19 +277,43 @@
   // ══════════════ 그리기 ══════════════
   function render(){ renderCheckin(); renderDate(); renderSlots(); renderMonth(); }
 
+  // ▼▼▼ LIFELOG 지각 벌칙 표시 (2026-08-19) ▼▼▼
+  // 계산은 전부 서버(lifelog.js lateOf)가 한다. 여기서는 받아 온 값을 보여 주기만 한다.
+  function lateBase(){ return (DATA && DATA.lateRule && DATA.lateRule.base) || '08:00'; }
+  function lateUnit(){ return (DATA && DATA.lateRule && DATA.lateRule.unitSec) || 30; }
+  function lateTags(c){
+    if (!c) return '';
+    if (c.late) return '<span class="tag late">지각 ' + esc(c.lateText||'') + '</span> ' +
+                       '<span class="tag pen">운동 ' + (c.penalty||0) + '개</span>';
+    return '<span class="tag ontime">정시</span>';
+  }
+  // ▲▲▲ LIFELOG 지각 벌칙 표시 끝 ▲▲▲
+
   function renderCheckin(){
     var c = $('ckCard');
     var d = DATA.device || {};
     if (DATA.checkedInToday){
+      var L = DATA.todayLate || {};
       c.className = 'ck done';
-      c.innerHTML = '<div class="ck-done"><div class="ci">✅</div><div><div class="c1">오늘 출석했어요</div>' +
-        '<div class="c2">' + esc(DATA.today) + ' ' + esc(DATA.checkedInAt || '') + '</div></div></div>';
+      c.innerHTML = '<div class="ck-done"><div class="ci">' + (L.late ? '⏰' : '✅') + '</div><div>' +
+        '<div class="c1">' + (L.late ? ('오늘 ' + esc(L.lateText||'') + ' 늦었어요') : '오늘 제시간에 왔어요') + '</div>' +
+        '<div class="c2">' + esc(DATA.today) + ' ' + esc(DATA.checkedInAt || '') + ' 출석 · 기준 ' + esc(lateBase()) + '</div>' +
+        '</div></div>' +
+        (L.late ? ('<div class="ck-pen">오늘 벌칙 운동 <b>' + (L.penalty||0) + '개</b>' +
+          (L.capped ? ' (상한까지)' : '') + ' — ' + lateUnit() + '초 늦을 때마다 1개예요.</div>') : '');
       return;
     }
     c.className = 'ck';
+    // 보호자에게는 출석 버튼도, 기기 등록 버튼도 안 보여 준다 — 어차피 서버가 막고, 눌러 볼 일이 없다.
+    if (RO){
+      c.innerHTML = '<div class="ck-t">' + esc(DATA.today) + ' (' + esc(DATA.todayDow||'') + ') · 출석</div>' +
+        '<div class="ck-lock">아직 오늘 출석 기록이 없어요.<br>출석은 학원 기기에서 <b>학생 본인</b>이 누릅니다.</div>';
+      return;
+    }
     if (d.ok){
       c.innerHTML = '<div class="ck-t">' + esc(DATA.today) + ' (' + esc(DATA.todayDow||'') + ') · ' + esc(d.label || '학원 기기') + '</div>' +
-        '<button class="ck-big" type="button" id="ckBtn">오늘 출석하기</button>';
+        '<button class="ck-big" type="button" id="ckBtn">오늘 출석하기</button>' +
+        '<div class="ck-t" style="margin:9px 0 0;font-weight:700;">' + esc(lateBase()) + ' 까지는 정시예요. 넘기면 ' + lateUnit() + '초마다 벌칙 운동이 1개씩 늘어요.</div>';
       $('ckBtn').addEventListener('click', doCheckin);
     } else {
       c.innerHTML = '<div class="ck-t">' + esc(DATA.today) + ' (' + esc(DATA.todayDow||'') + ') · 출석</div>' +
@@ -320,6 +384,33 @@
     var cnt = e ? (e.photos||[]).length : 0;
     var state = e ? ((e.content ? '기록함' : '사진만') + (cnt ? (' · 사진 ' + cnt + '장') : '')) : '아직 없음';
     var pk = picked[k] || [];
+
+    // ▼ 보호자 보기 — 쓰기 UI를 아예 안 그린다(비활성이 아니라 없음).
+    //   숨기는 것만으로는 못 막지만, 서버 studentGate 가 진짜 잠금이고 여기는 안내다.
+    if (RO){
+      var rh = '<div class="slot' + (e ? ' has' : '') + (isOpen ? ' open' : '') + '" data-k="' + k + '">' +
+        '<div class="slot-head" data-k="' + k + '">' +
+          '<span class="se">' + (EMOJI[slot]||'📝') + '</span>' +
+          '<span class="sn">' + esc(slot) + '</span>' +
+          '<span class="ss">' + esc(state) + '</span>' +
+          '<span class="sg">' + (e ? (isOpen ? '▲' : '보기') : '') + '</span>' +
+        '</div>';
+      if (!e) rh += '<div class="ro-empty">아직 올린 기록이 없어요.</div>';
+      else {
+        if (e.content && !isOpen) rh += '<div class="slot-sum">' + esc(e.content) + '</div>';
+        if (cnt && !isOpen) rh += '<div class="grid" style="padding:0 15px 13px;">' + (e.photos||[]).map(function(key){
+          return '<div class="thumb" data-key="' + esc(key) + '"><img alt="기록 사진"></div>';
+        }).join('') + '</div>';
+        rh += '<div class="slot-body">';
+        if (cnt) rh += '<div class="grid">' + (e.photos||[]).map(function(key){
+          return '<div class="thumb" data-key="' + esc(key) + '"><img alt="기록 사진"></div>';
+        }).join('') + '</div>';
+        rh += '<div class="ro-empty" style="padding:4px 0 0;color:var(--text);font-weight:600;">' +
+          (e.content ? esc(e.content) : '(글 없이 사진만 올렸어요)') + '</div>';
+        rh += '</div>';
+      }
+      return rh + '</div>';
+    }
 
     var h = '<div class="slot' + (e ? ' has' : '') + (isOpen ? ' open' : '') + '" data-k="' + k + '">' +
       '<div class="slot-head" data-k="' + k + '">' +
@@ -482,16 +573,16 @@
   }
 
   // ── 이번 달 기록 ──
+  // ▼▼▼ LIFELOG 요약 한 줄 + 드롭다운 (2026-08-19) ▼▼▼
+  var MOPEN = {};   // 펼쳐 둔 날짜 — 다시 그려도 그대로 열려 있게
+  var SLOTORDER = ['아침','점심','저녁','간식','운동'];
+
   function renderMonth(){
     var byDate = {};
-    (DATA.entries||[]).forEach(function(e){
-      if (!byDate[e.date]) byDate[e.date] = { meal:0, work:0, photos:0 };
-      if (e.kind === 'meal') byDate[e.date].meal++; else byDate[e.date].work++;
-      byDate[e.date].photos += (e.photos||[]).length;
-    });
+    (DATA.entries||[]).forEach(function(e){ (byDate[e.date] = byDate[e.date] || []).push(e); });
     var ck = {};
-    (DATA.checkins||[]).forEach(function(c){ ck[c.date] = c.time || '출석'; });
-    Object.keys(ck).forEach(function(d){ if (!byDate[d]) byDate[d] = { meal:0, work:0, photos:0 }; });
+    (DATA.checkins||[]).forEach(function(c){ ck[c.date] = c; });
+    Object.keys(ck).forEach(function(d){ if (!byDate[d]) byDate[d] = []; });
 
     var dates = Object.keys(byDate).sort().reverse();
     $('monthCnt').textContent = dates.length ? ('· ' + dates.length + '일') : '';
@@ -500,24 +591,63 @@
       return;
     }
     $('monthWrap').innerHTML = dates.map(function(d){
-      var v = byDate[d];
+      var c = ck[d] || null;
+      var items = (byDate[d] || []).slice().sort(function(a,b){
+        return SLOTORDER.indexOf(a.slot) - SLOTORDER.indexOf(b.slot);
+      });
+      var photos = items.reduce(function(n, e){ return n + (e.photos||[]).length; }, 0);
+
+      // 접힌 줄 — 이것만 보고도 그날이 어땠는지 알게
       var bits = [];
-      if (v.meal) bits.push('식사 ' + v.meal);
-      if (v.work) bits.push('운동 ' + v.work);
-      if (v.photos) bits.push('사진 ' + v.photos + '장');
-      return '<div class="mrow" data-d="' + d + '">' +
-        '<span class="md">' + esc(d.slice(5).replace('-','/')) + ' (' + dowKo(d) + ')</span>' +
-        '<span class="mt">' + esc(bits.join(' · ') || '기록 없음') + '</span>' +
-        (ck[d] ? '<span class="mc">✅ ' + esc(ck[d]) + '</span>' : '') +
-        '</div>';
+      var meals = items.filter(function(e){ return e.kind === 'meal'; });
+      if (meals.length) bits.push('🍚 ' + meals.map(function(e){ return e.slot; }).join('·'));
+      if (items.some(function(e){ return e.kind !== 'meal'; })) bits.push('💪 운동');
+      if (photos) bits.push('📷 ' + photos + '장');
+      if (!bits.length) bits.push('기록 없음');
+
+      // 펼친 속 — 몇 시에 왔고 뭘 먹었는지
+      var det = '';
+      det += '<div class="dl"><span class="k">출석</span><span class="v">' +
+        (c ? (esc(c.time || '') + ' 도착' +
+              (c.late ? (' · 지각 ' + esc(c.lateText||'') + ' · 벌칙 운동 ' + (c.penalty||0) + '개' + (c.capped ? '(상한)' : ''))
+                      : ' · 정시')
+             ) : '출석 기록 없음') +
+        '</span></div>';
+      det += items.map(function(e){
+        var v = e.content ? esc(e.content) : '(글 없이 사진만)';
+        if ((e.photos||[]).length) v += ' <span style="color:var(--text-light);font-weight:700;">· 사진 ' + e.photos.length + '장</span>';
+        return '<div class="dl"><span class="k">' + (EMOJI[e.slot]||'📝') + ' ' + esc(e.slot) + '</span><span class="v">' + v + '</span></div>';
+      }).join('');
+      if (!items.length) det += '<div class="dl"><span class="k">기록</span><span class="v">이 날은 올린 게 없어요.</span></div>';
+      det += '<button class="go" type="button" data-go="' + esc(d) + '">' + (RO ? '이 날 기록 열어 보기' : '이 날 기록 열기 · 고치기') + '</button>';
+
+      return '<div class="mbox' + (MOPEN[d] ? ' open' : '') + '" data-d="' + esc(d) + '">' +
+        '<div class="mrow">' +
+          '<span class="md">' + esc(d.slice(5).replace('-','/')) + ' (' + dowKo(d) + ')</span>' +
+          '<span class="mt">' + esc(bits.join(' · ')) + '</span>' +
+          (c ? '<span class="mc">✅ ' + esc(c.time || '') + '</span>' : '') +
+          lateTags(c) +
+          '<span class="mcar">▼</span>' +
+        '</div>' +
+        '<div class="mdet">' + det + '</div>' +
+      '</div>';
     }).join('');
-    Array.prototype.forEach.call($('monthWrap').querySelectorAll('.mrow'), function(el){
-      el.addEventListener('click', function(){
-        curDate = el.getAttribute('data-d'); openKey=''; picked={};
+
+    Array.prototype.forEach.call($('monthWrap').querySelectorAll('.mbox'), function(box){
+      var d = box.getAttribute('data-d');
+      box.querySelector('.mrow').addEventListener('click', function(){
+        var willOpen = !box.classList.contains('open');
+        box.classList.toggle('open', willOpen);
+        if (willOpen) MOPEN[d] = 1; else delete MOPEN[d];
+      });
+      box.querySelector('[data-go]').addEventListener('click', function(ev){
+        ev.stopPropagation();
+        curDate = d; openKey=''; picked={};
         render(); window.scrollTo(0,0);
       });
     });
   }
+  // ▲▲▲ LIFELOG 요약 한 줄 + 드롭다운 끝 ▲▲▲
 
   load();
 })();

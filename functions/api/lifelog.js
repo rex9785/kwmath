@@ -22,7 +22,11 @@
 //   ⚠️ UA 전체가 아니라 '모델'만 본다 — OS 업데이트(안드로이드 16→17)로 UA 뒷자리가
 //      바뀌어도 출석이 막히면 안 되기 때문. describeDevice() 의 첫 토막이 모델이다.
 //
-// ▸ 열람 범위: 학생 본인 + 원장. (관우T 확정 — 학부모 제외)
+// ▸ 열람 범위: 학생 본인 + 그 학부모 + 원장.
+//   ⚠️ 2026-08-19 관우T 지시로 **학부모가 추가됐다**("학부모도 그거 볼 수 있게 만들어줘").
+//      그전 규칙은 "학부모 제외"였다 — 옛 주석·인수인계 문장이 남아 있으면 그게 낡은 것이다.
+//   단 학부모는 **보기만** 한다. 쓰기(출석·기기등록·기록저장·삭제)는 studentGate() 가 그대로 막는다.
+//      기록을 남기는 주체가 학생 본인이어야 이 기능이 의미가 있기 때문.
 //
 // ▸ 데이터
 //   lifelog_config(key TEXT PK, value TEXT, updated_at)      target_student_id 등
@@ -181,6 +185,64 @@ async function targetId(env) {
   const v = await getCfg(env, 'target_student_id');
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// ─────────────────── 지각 → 운동 개수 (2026-08-19 추가) ───────────────────
+// 규칙(관우T): 아침 8시를 넘겨 출석하면 넘긴 만큼 30초당 운동 1개.
+// 세 값 다 원장 화면에서 바꾼다 — 수업 시각이 바뀌어도 코드를 안 고치게.
+//   late_base(HH:MM) · late_unit_sec(초) · late_cap(개, 0이면 무제한)
+// ⚠️ 올림이다. 8시 00분 01초에 눌러도 1개 — "1초라도 늦으면 지각"이 관우T 규칙에 맞다.
+//    내림으로 바꾸려면 아래 Math.ceil 한 곳만 Math.floor 로.
+// ★ 확정(2026-08-19, 관우T): "상한 안두고 올림이 맞아"
+//   - 상한 없음: 1시간 지각이면 운동 120개가 그대로 나온다. 숫자가 커지는 것을 감수하고
+//     "늦은 만큼 그대로"를 택했다. 기각안 = 40개쯤에서 멈추게 하는 상한.
+//   - 올림 유지: 8:00:29에 눌러도 1개. 기각안 = 내림(8:00:29까지 0개).
+//   두 항목 다 관우T가 답을 준 건이니 다시 제안하지 말 것. 바꾸실 때는 원장 화면 ①에서.
+const LATE_BASE_DEFAULT = '08:00';
+const LATE_UNIT_DEFAULT = 30;
+
+async function lateRule(env) {
+  const b = String((await getCfg(env, 'late_base')) || '').trim();
+  const u = Number(await getCfg(env, 'late_unit_sec'));
+  const c = Number(await getCfg(env, 'late_cap'));
+  return {
+    base: /^([01]\d|2[0-3]):[0-5]\d$/.test(b) ? b : LATE_BASE_DEFAULT,
+    unitSec: Number.isFinite(u) && u > 0 ? Math.floor(u) : LATE_UNIT_DEFAULT,
+    cap: Number.isFinite(c) && c > 0 ? Math.floor(c) : 0,
+  };
+}
+
+// UTC ISO → 그날 KST 00:00 부터 몇 초인가. 못 읽으면 -1.
+function secOfDayKST(iso) {
+  const t = Date.parse(iso || '');
+  if (Number.isNaN(t)) return -1;
+  const k = new Date(t + 9 * 3600 * 1000);
+  return k.getUTCHours() * 3600 + k.getUTCMinutes() * 60 + k.getUTCSeconds();
+}
+// 45 → "45초" · 90 → "1분 30초" · 3600 → "1시간" · 3660 → "1시간 1분"
+// (시간 단위를 안 쓰면 한 시간 늦었을 때 "959분 59초" 같은 글자가 나온다)
+function lateText(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h) return m ? h + '시간 ' + m + '분' : h + '시간';
+  if (m) return s ? m + '분 ' + s + '초' : m + '분';
+  return s + '초';
+}
+// checkin 한 줄 → { late, lateSec, lateText, penalty, capped }
+function lateOf(row, rule) {
+  const none = { late: false, lateSec: 0, lateText: '', penalty: 0, capped: false };
+  if (!row || !row.ts) return none;
+  const sec = secOfDayKST(row.ts);
+  if (sec < 0) return none;
+  const p = String(rule.base).split(':');
+  const baseSec = Number(p[0]) * 3600 + Number(p[1]) * 60;
+  const over = sec - baseSec;
+  if (over <= 0) return none;
+  let n = Math.ceil(over / rule.unitSec);
+  let capped = false;
+  if (rule.cap > 0 && n > rule.cap) { n = rule.cap; capped = true; }
+  return { late: true, lateSec: over, lateText: lateText(over), penalty: n, capped };
 }
 
 // ─────────────────────────── ZIP (무압축 store) ───────────────────────────
@@ -374,9 +436,11 @@ async function findDevice(env, secret) {
   if (!secret) return null;
   return await env.DB.prepare('SELECT * FROM lifelog_devices WHERE secret=? AND active=1').bind(secret).first();
 }
-// 👀 열람 범위는 "학생 본인 + 관우T" — 학부모는 제외(관우T 확정).
-//   ⚠️ 단, students 행에 학생 전화번호가 없으면 그 계정은 학생·학부모가 같은 번호라 구분할 방법이 없다.
-//      그때 막으면 **학생 본인이 못 들어온다** → 막지 않는다. 학생 번호를 등록하는 순간 학부모가 자동으로 빠진다.
+// 👀 이 계정이 「학부모」인가. 2026-08-19부터 **차단 신호가 아니라 읽기전용 신호**다.
+//   - 학부모: 보기 O / 쓰기 X   - 학생 본인: 보기 O / 쓰기 O   - 원장: 전부 O
+//   ⚠️ students 행에 학생 전화번호가 없으면 학생·학부모가 같은 번호라 구분할 방법이 없다.
+//      그때는 false(=학생 본인)로 본다. 막는 쪽으로 기울이면 **학생 본인이 못 들어온다**.
+//      대상 학생은 학생 번호와 보호자 번호가 서로 다르게 등록돼 있어 구분된다(2026-08-19 실측).
 function isParentView(access) {
   const sp = String((access.student && access.student.studentPhone) || '').trim();
   if (!sp) return false;
@@ -429,7 +493,8 @@ export async function onRequest(context) {
         if (!isAdmin) {
           const access = await requireStudentAccess(env, request);
           if (!access.ok) return access.response;
-          if (String(meta.studentId) !== String(access.student.id) || isParentView(access)) {
+          // 학부모도 자녀 사진은 본다(2026-08-19). 남의 학생 사진은 여전히 못 본다.
+          if (String(meta.studentId) !== String(access.student.id)) {
             return jsonErr('본인이 올린 것만 볼 수 있어요.', 403);
           }
         }
@@ -470,13 +535,14 @@ export async function onRequest(context) {
           const { results: cr } = await env.DB.prepare(
             'SELECT * FROM lifelog_checkin WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC'
           ).bind(tid, from, to).all();
+          const rule = await lateRule(env);
           return jsonOk({
-            ok: true, enabled: true, from, to,
+            ok: true, enabled: true, from, to, lateRule: rule,
             entries: (er || []).map(rowToEntry),
-            checkins: (cr || []).map(r => ({
+            checkins: (cr || []).map(r => Object.assign({
               date: r.date, ts: r.ts, time: hmKST(r.ts),
               device: r.device_label || '', model: r.ua_model || '', source: r.source || 'device',
-            })),
+            }, lateOf(r, rule))),
           });
         }
 
@@ -511,6 +577,7 @@ export async function onRequest(context) {
             active: d.active === 1, createdAt: d.created_at || '',
           })),
           counts,
+          lateRule: await lateRule(env),
           today: todayKST(),
         });
       }
@@ -520,13 +587,16 @@ export async function onRequest(context) {
       if (!access.ok) return access.response;
       const student = access.student;
       const tid = await targetId(env);
-      const mine = !!tid && String(tid) === String(student.id) && !isParentView(access);
+      const parentView = isParentView(access);
+      // 볼 수 있는 사람 = 대상 학생 본인 + 그 학부모 (2026-08-19 관우T 지시로 학부모 추가)
+      const canView = !!tid && String(tid) === String(student.id);
+      const canEdit = canView && !parentView;   // 쓰기는 여전히 학생 본인만
 
-      // 포털 버튼 노출용 초경량 응답 (학부모에겐 enabled:false → 버튼 자체가 안 뜬다)
+      // 포털 버튼 노출용 초경량 응답 — 학부모 계정에도 버튼이 뜬다(예전엔 안 떴다)
       if (url.searchParams.get('ping') === '1') {
-        return jsonOk({ ok: true, enabled: mine });
+        return jsonOk({ ok: true, enabled: canView });
       }
-      if (!mine) return jsonErr('사용할 수 없는 기능입니다.', 403);
+      if (!canView) return jsonErr('사용할 수 없는 기능입니다.', 403);
 
       const { from, to } = rangeOf(url);
       const { results: er } = await env.DB.prepare(
@@ -545,15 +615,24 @@ export async function onRequest(context) {
 
       const today = todayKST();
       const todayCheckin = (cr || []).find(r => r.date === today) || null;
+      const rule = await lateRule(env);
 
       return jsonOk({
         ok: true, enabled: true, student: { id: student.id, name: student.name },
+        // 화면이 이 두 값으로 「보기 전용」을 판단한다. canEdit=false면 저장·삭제·출석 UI를 아예 안 그린다.
+        // (화면만 숨기는 게 아니라 서버도 studentGate 로 막는다 — 화면 숨김은 안내용이다.)
+        viewer: parentView ? 'parent' : 'student', canEdit,
         from, to, today, todayDow: dowKo(today),
         mealSlots: MEAL_SLOTS, workoutSlot: WORKOUT_SLOT,
+        lateRule: rule,
         entries: (er || []).map(rowToEntry),
-        checkins: (cr || []).map(r => ({ date: r.date, time: hmKST(r.ts), device: r.device_label || '', source: r.source || 'device' })),
+        checkins: (cr || []).map(r => Object.assign(
+          { date: r.date, time: hmKST(r.ts), device: r.device_label || '', source: r.source || 'device' },
+          lateOf(r, rule)
+        )),
         checkedInToday: !!todayCheckin,
         checkedInAt: todayCheckin ? hmKST(todayCheckin.ts) : '',
+        todayLate: lateOf(todayCheckin, rule),
         device: { ok: deviceOk, label: (dev && dev.label) || '', model },
       });
     }
@@ -634,17 +713,47 @@ export async function onRequest(context) {
           return jsonOk({ ok: true });
         }
 
+        // ▼▼▼ LIFELOG 지각벌칙 — 규칙 저장 (2026-08-19) ▼▼▼
+        if (action === 'set_late') {
+          const b = String(body.base || '').trim();
+          const u = Number(body.unitSec);
+          const c = Number(body.cap);
+          if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(b)) return jsonErr('기준 시각을 08:00 처럼 적어 주세요.', 400);
+          if (!Number.isFinite(u) || u < 1 || u > 3600) return jsonErr('단위는 1~3600초 사이로 적어 주세요.', 400);
+          if (!Number.isFinite(c) || c < 0 || c > 9999) return jsonErr('상한은 0~9999 사이로 적어 주세요 (0이면 상한 없음).', 400);
+          const before = await lateRule(env);
+          await setCfg(env, 'late_base', b);
+          await setCfg(env, 'late_unit_sec', String(Math.floor(u)));
+          await setCfg(env, 'late_cap', String(Math.floor(c)));
+          const after = await lateRule(env);
+          await logAudit(env, request, {
+            action: 'lifelog.late.set',
+            ...actorOf(request, env),
+            target: 'lifelog', targetName: '지각 규칙',
+            summary: '생활기록 지각 규칙 변경 — 기준 ' + after.base + ' · ' + after.unitSec + '초당 1개 · 상한 ' + (after.cap || '없음'),
+            detail: { 전: before, 후: after },
+          });
+          return jsonOk({ ok: true, lateRule: after });
+        }
+        // ▲▲▲ LIFELOG 지각벌칙 끝 ▲▲▲
+
         if (action === 'manual_checkin') {
           const tid = await targetId(env);
           if (!tid) return jsonErr('대상 학생이 지정돼 있지 않습니다.', 400);
           const date = isYmd(body.date) ? body.date : todayKST();
           const on = body.on !== false;
+          // 수동 출석은 원장이 나중에 찍는다. 그대로 두면 "지금 시각"이 도착 시각이 돼 지각이 엉뚱하게 커진다.
+          // → HH:MM 을 받으면 그 날짜의 그 시각(KST)으로 넣는다. 안 주면 지금 시각.
+          const tm = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.time || '')) ? String(body.time) : '';
+          const ts = tm ? new Date(Date.parse(date + 'T' + tm + ':00+09:00')).toISOString() : nowIso();
           if (on) {
             const exists = await env.DB.prepare('SELECT id FROM lifelog_checkin WHERE student_id=? AND date=?').bind(tid, date).first();
             if (!exists) {
               await env.DB.prepare(
                 'INSERT INTO lifelog_checkin (student_id, date, ts, device_id, device_label, ua, ua_model, ip_hash, source) VALUES (?,?,?,?,?,?,?,?,?)'
-              ).bind(tid, date, nowIso(), null, '원장 수동', '', '', '', 'manual').run();
+              ).bind(tid, date, ts, null, '원장 수동', '', '', '', 'manual').run();
+            } else if (tm) {
+              await env.DB.prepare('UPDATE lifelog_checkin SET ts=? WHERE student_id=? AND date=?').bind(ts, tid, date).run();
             }
           } else {
             await env.DB.prepare('DELETE FROM lifelog_checkin WHERE student_id=? AND date=?').bind(tid, date).run();
@@ -653,10 +762,10 @@ export async function onRequest(context) {
             action: on ? 'lifelog.checkin.manual' : 'lifelog.checkin.delete',
             ...actorOf(request, env),
             target: 'student/' + tid, targetName: '',
-            summary: '생활기록 출석 ' + (on ? '수동 등록' : '취소') + ' — ' + date,
-            detail: { 날짜: date, 켬: on },
+            summary: '생활기록 출석 ' + (on ? '수동 등록' : '취소') + ' — ' + date + (on ? (' ' + hmKST(ts)) : ''),
+            detail: { 날짜: date, 켬: on, 시각: on ? hmKST(ts) : '', 시각입력: tm || '(지금)' },
           });
-          return jsonOk({ ok: true, date, on });
+          return jsonOk({ ok: true, date, on, time: on ? hmKST(ts) : '' });
         }
 
         return jsonErr('알 수 없는 요청입니다.', 400);
@@ -925,7 +1034,8 @@ async function buildExport(env, url, tid) {
   // 날짜별 사진 이름 충돌 방지용 카운터
   const seq = new Map();
   const photoJobs = [];   // { zipName, key }
-  const rows = [['날짜', '요일', '출석', '구분', '시간대', '내용', '사진수', '사진파일']];
+  const rule = await lateRule(env);
+  const rows = [['날짜', '요일', '출석', '지각', '벌칙운동', '구분', '시간대', '내용', '사진수', '사진파일']];
 
   const dates = new Set();
   for (const r of (er || [])) dates.add(r.date);
@@ -935,9 +1045,12 @@ async function buildExport(env, url, tid) {
   for (const d of sortedDates) {
     const ci = checkinBy.get(d);
     const checkinText = ci ? (hmKST(ci.ts) + (ci.source === 'manual' ? ' (수동)' : '')) : '';
+    const L = lateOf(ci, rule);
+    const lateT = L.late ? L.lateText : (ci ? '정시' : '');
+    const penT = L.late ? (L.penalty + '개' + (L.capped ? ' (상한)' : '')) : (ci ? 0 : '');
     const dayEntries = (er || []).filter(r => r.date === d);
     if (!dayEntries.length) {
-      rows.push([d, dowKo(d), checkinText, '출석만', '', '', 0, '']);
+      rows.push([d, dowKo(d), checkinText, lateT, penT, '출석만', '', '', 0, '']);
       continue;
     }
     let first = true;
@@ -953,7 +1066,7 @@ async function buildExport(env, url, tid) {
         photoJobs.push({ zipName, key: k });
       }
       rows.push([
-        d, dowKo(d), first ? checkinText : '',
+        d, dowKo(d), first ? checkinText : '', first ? lateT : '', first ? penT : '',
         r.kind === 'meal' ? '식사' : '운동',
         r.slot, r.content || '', keys.length, names.join('\n'),
       ]);
@@ -965,7 +1078,7 @@ async function buildExport(env, url, tid) {
     return jsonErr('사진이 ' + photoJobs.length + '장이라 한 번에 받기엔 많습니다(최대 ' + MAX_ZIP_FILES + '장). 기간을 나눠서 받아 주세요.', 400);
   }
 
-  const files = [{ name: sname + '_생활기록.xlsx', data: buildXlsx(rows, [12, 6, 12, 8, 10, 60, 8, 40]) }];
+  const files = [{ name: sname + '_생활기록.xlsx', data: buildXlsx(rows, [12, 6, 12, 10, 10, 8, 10, 60, 8, 40]) }];
   let bytes = files[0].data.length;
   const missing = [];
   if (env.BUCKET) {
