@@ -10,6 +10,9 @@ import { dispatchNoticePush } from './notices-write.js';
 import { runPayrollReminder } from './payroll-reminder.js';
 import { runAttendanceReminder, runReportReminder } from './admin-reminders.js';
 import { runWeeklyDigestReminder } from './weekly-digest.js';
+// ▼▼▼ LIFELOG 독촉 알림 (서지환 전용 · 2026-08-20) — 원복 시 이 import 와 아래 호출 블록만 지우면 된다 ▼▼▼
+import { runLifelogReminder } from './lifelog.js';
+// ▲▲▲ LIFELOG 독촉 알림 ▲▲▲
 import { flushNightPushQueue } from './_push.js';
 import { runDailyBackup } from './_backup.js';
 import { writeHeartbeat } from './_heartbeat.js';
@@ -73,6 +76,16 @@ export async function onRequest({ request, env, waitUntil }) {
     const wdP = Promise.resolve(runWeeklyDigestReminder(env)).catch(() => {});
     if (typeof waitUntil === 'function') waitUntil(wdP); else await wdP;
   } catch (_) {}
+
+  // ▼▼▼ LIFELOG 독촉 알림 (서지환 전용 · 2026-08-20) — 원복 시 이 블록과 위 import 만 지우면 된다 ▼▼▼
+  //   "출석을 안 눌렀거나 식사를 안 적었으면 학생 본인에게만" (관우T 지시). 시각·하루1회 게이트는 함수 내부.
+  //   ⚠️ 아래 '침묵 시간 return' 보다 앞이어야 한다 — 라고 쓸 일이 없게 함수가 스스로 06~23시를 본다.
+  //      여기에 둔 이유는 공지 침묵과 독촉 시각이 서로 다른 규칙이기 때문(침묵은 학부모 공지용).
+  try {
+    const llP = Promise.resolve(runLifelogReminder(env)).catch(() => {});
+    if (typeof waitUntil === 'function') waitUntil(llP); else await llP;
+  } catch (_) {}
+  // ▲▲▲ LIFELOG 독촉 알림 ▲▲▲
 
   // 밤에 쌓인 학부모 푸시(자료·리포트 업로드)를 아침에 모아 발송.
   //   flushNightPushQueue 내부가 침묵 시간엔 no-op → 아침 첫 틱(07시~)에 큐를 비우고 발송.

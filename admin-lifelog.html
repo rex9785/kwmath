@@ -330,6 +330,7 @@
     if (CFG.enabled && CFG.target){
       var c = CFG.counts || {};
       var L = CFG.lateRule || { base:'08:00', unitSec:30, cap:0 };
+      var R = CFG.remindRule || { on:true, checkin:'08:30', breakfast:'09:30', lunch:'14:00', dinner:'20:30' };
       // 상단 제목 옆 「· 서지환 전용」 — 소스에 실명을 박지 않으려고 여기서 채운다
       var who = $('ttlWho'); if (who) who.textContent = ' · ' + CFG.target.name + ' 전용';
       box.innerHTML =
@@ -355,11 +356,32 @@
             '<div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end;"><button class="btn-primary" id="lSave" style="margin-bottom:0;">저장</button></div>' +
           '</div>' +
           '<div id="lHint" style="font-size:0.74rem;color:var(--text-light);line-height:1.7;margin-top:2px;"></div>' +
-        '</div>';
+        '</div>' +
         // ▲▲▲ LIFELOG 지각 규칙 끝 ▲▲▲
+        // ▼▼▼ LIFELOG 독촉 알림 (2026-08-20) ▼▼▼
+        //   적힌 시각이 지나도 안 한 항목이 있으면 **학생 폰에만** 알림이 간다(관우T·학부모 제외).
+        '<div class="sum" style="display:block;">' +
+          '<div style="font-weight:800;color:var(--text);margin-bottom:4px;">독촉 알림 <span style="font-weight:600;font-size:0.76rem;color:var(--text-light);">— ' + esc(CFG.target.name) + ' 학생 폰에만 갑니다</span></div>' +
+          '<label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;margin:8px 0 10px;cursor:pointer;">' +
+            '<input type="checkbox" id="rOn"' + (R.on === false ? '' : ' checked') + ' style="width:16px;height:16px;">' +
+            '<span>이 시각까지 안 했으면 알려 주기 (항목마다 하루 한 번)</span>' +
+          '</label>' +
+          '<div class="row2">' +
+            '<div class="field"><label for="rCheckin">출석 체크</label><input type="time" id="rCheckin" value="' + esc(R.checkin || '08:30') + '"></div>' +
+            '<div class="field"><label for="rBreakfast">아침 기록</label><input type="time" id="rBreakfast" value="' + esc(R.breakfast || '09:30') + '"></div>' +
+            '<div class="field"><label for="rLunch">점심 기록</label><input type="time" id="rLunch" value="' + esc(R.lunch || '14:00') + '"></div>' +
+            '<div class="field"><label for="rDinner">저녁 기록</label><input type="time" id="rDinner" value="' + esc(R.dinner || '20:30') + '"></div>' +
+            '<div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end;"><button class="btn-primary" id="rSave" style="margin-bottom:0;">저장</button></div>' +
+          '</div>' +
+          '<div style="font-size:0.74rem;color:var(--text-light);line-height:1.7;margin-top:2px;">' +
+            '간식·운동은 독촉하지 않습니다. 원장님과 학부모님께는 이 알림이 가지 않습니다.' +
+          '</div>' +
+        '</div>';
+        // ▲▲▲ LIFELOG 독촉 알림 끝 ▲▲▲
       $('clearBtn').addEventListener('click', clearTarget);
       $('lSave').addEventListener('click', saveLate);
       ['lBase','lUnit','lCap'].forEach(function(id){ $(id).addEventListener('input', lateHint); });
+      $('rSave').addEventListener('click', saveRemind);
       lateHint();
       return;
     }
@@ -468,6 +490,27 @@
     lateHint();
     loadEntries();   // 이미 그려 둔 날짜 카드를 새 규칙으로 다시 계산해 그린다
   }
+
+  // ▼▼▼ LIFELOG 독촉 알림 저장 (2026-08-20) ▼▼▼
+  async function saveRemind(){
+    var on = !!$('rOn').checked;
+    var t = {
+      checkin: ($('rCheckin').value || '').trim(),
+      breakfast: ($('rBreakfast').value || '').trim(),
+      lunch: ($('rLunch').value || '').trim(),
+      dinner: ($('rDinner').value || '').trim()
+    };
+    for (var k in t){
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t[k])){ showToast('시각을 08:30 처럼 적어 주세요.'); return; }
+    }
+    var btn = $('rSave'); btn.disabled = true;
+    var j = await post('set_remind', { on: on, checkin: t.checkin, breakfast: t.breakfast, lunch: t.lunch, dinner: t.dinner });
+    btn.disabled = false;
+    if (!j || !j.ok){ showToast((j && j.error) || '저장하지 못했습니다.'); return; }
+    CFG.remindRule = j.remindRule;
+    showToast(on ? '독촉 알림을 저장했습니다. 학생 폰에만 갑니다.' : '독촉 알림을 껐습니다.');
+  }
+  // ▲▲▲ LIFELOG 독촉 알림 저장 끝 ▲▲▲
 
   // ── ② 기기 ──
   function renderDevices(){

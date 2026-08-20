@@ -28,6 +28,11 @@
 //   단 학부모는 **보기만** 한다. 쓰기(출석·기기등록·기록저장·삭제)는 studentGate() 가 그대로 막는다.
 //      기록을 남기는 주체가 학생 본인이어야 이 기능이 의미가 있기 때문.
 //
+// ▸ 알림 (2026-08-20 관우T 지시) — 수신자가 규칙마다 다르다. 아래 「🔔 알림」 절이 원문과 표.
+//   ① 출석함 · ② 식사/운동 기록함 → 관우T + 학부모   ③ 안 한 것 독촉 → **학생 본인만**
+//   ③은 관우T·학부모에게 한 통도 가면 안 된다. 잘못 섞이는 유일한 경로가 "학생 폰 == 학부모 폰"이라
+//   그때는 아예 안 보낸다(remindTargets 가드). 발동은 5분 크론(/api/notices-flush)이 건다.
+//
 // ▸ 데이터
 //   lifelog_config(key TEXT PK, value TEXT, updated_at)      target_student_id 등
 //   lifelog_entries(id, student_id, date, kind, slot, content,
@@ -54,13 +59,16 @@
 //   POST ?admin=1&action=new_code {label} 원장: 기기 등록코드 발급 (30분 유효)
 //   POST ?admin=1&action=revoke_device    원장: 기기 등록 해제 {id}
 //   POST ?admin=1&action=manual_checkin   원장: 수동 출석/취소 {date, on}
+//   POST ?admin=1&action=set_remind       원장: 독촉 알림 켜기/끄기 · 시각 {on, checkin, breakfast, lunch, dinner}
 //   DELETE ?key=..                        학생: 내 사진 1장 삭제
 //   DELETE ?entry=ID                      학생: 내 기록 1건 삭제(사진 포함)
 //   DELETE ?admin=1&purge=1&confirm=DELETE  원장: 전체 원복(테이블 DROP + R2 삭제)
 
-import { requireStudentAccess } from './_auth.js';
+import { requireStudentAccess, normalizePhone } from './_auth.js';
 import { getStudentById } from './_db.js';
 import { logAudit, actorOf, describeDevice, clientIp } from './_auditlog.js';
+import { sendPushToUsers } from './_push.js';
+import { createNotification } from './_notifications.js';
 
 // ── 상한 ──
 const MAX_PER_UPLOAD = 20;                 // 한 끼에 사진 20장이면 차고 넘친다
@@ -243,6 +251,116 @@ function lateOf(row, rule) {
   let capped = false;
   if (rule.cap > 0 && n > rule.cap) { n = rule.cap; capped = true; }
   return { late: true, lateSec: over, lateText: lateText(over), penalty: n, capped };
+}
+
+// ─────────────────────── 🔔 알림 (2026-08-20 관우T 지시) ───────────────────────
+// 원문 그대로: "푸쉬 알람달아줘 출석버튼 누르면 나랑 부모님한테 알람가게, 그리고 식사 등록하면
+//   나랑 부모님한테 알람가게 / 식사 등록 안하거나 출석 안누르면 지환이한테 가고 식사등록하라고 가고
+//   그거는 나랑 부모님은 빼고"
+//
+//   ┌───────────────────────┬────────┬────────┬──────────┐
+//   │ 언제                  │ 관우T  │ 학부모 │ 학생본인 │
+//   ├───────────────────────┼────────┼────────┼──────────┤
+//   │ ① 출석 버튼을 눌렀다  │   O    │   O    │    X     │  ← 본인이 방금 한 일이라 뺀다
+//   │ ② 식사·운동을 기록했다│   O    │   O    │    X     │
+//   │ ③ 아직 안 했다(독촉)  │   X    │   X    │    O     │  ← 관우T 명시: "나랑 부모님은 빼고"
+//   └───────────────────────┴────────┴────────┴──────────┘
+//
+// ⚠️ 푸시의 수신자 id 는 **하이픈형 휴대폰 번호**(010-1234-5678)다. 포털이 구독을 저장할 때 쓴 형식과
+//    같아야 토큰이 조회된다 — 그래서 어디서든 _auth.normalizePhone 을 거쳐서만 넘긴다.
+//    (attendance.js:106 · notifications.js:194 와 같은 이유. 숫자만 넘기면 조용히 0대 발송이 된다.)
+// ⚠️ ③이 학부모에게 샐 수 있는 경로는 딱 하나 — students 행의 학생 번호와 학부모 번호가 같은 경우다.
+//    그때는 보내지 않는다(아래 remindTargets). 학생 번호가 비어 있어도 마찬가지로 안 보낸다.
+//    ✋ 기각한 안: 학생 번호가 없으면 학부모 번호로라도 보내기 — ③의 수신자 규칙을 정면으로 어긴다.
+// ⚠️ 실패해도 절대 throw 하지 않는다. 알림이 안 갔다고 출석·기록 저장이 실패하면 안 된다.
+const ADMIN_PUSH_USERS = ['__admin__'];          // 관우T 원장 앱이 구독하는 가상 채널(다른 기능들과 동일)
+
+// 대상 학생의 수신 번호. 둘 다 하이픈형으로 정규화해서 돌려준다(없으면 '').
+async function pushPhonesOf(env, tid) {
+  let st = null;
+  try { st = await getStudentById(env, tid); } catch (_) {}
+  if (!st) return { name: '', student: '', parent: '' };
+  return {
+    name: st.name || '',
+    student: normalizePhone(st.studentPhone) || '',
+    parent: normalizePhone(st.parentPhone) || '',
+  };
+}
+
+// ①② "했다" 알림 — 관우T + 학부모. 학생 본인에게는 안 간다.
+//   관우T는 원장 화면(/admin-lifelog)으로, 학부모는 학생 화면(/lifelog)으로 보낸다 → 호출을 둘로 나눈다.
+//   밤(KST 23~7) 무음은 **학부모에게만** 적용한다(학원 전체 공통 규칙). 관우T는 밤에도 받는다.
+async function notifyDone(env, tid, ev) {
+  const who = await pushPhonesOf(env, tid);
+  // 알림함(인박스)에도 한 줄. audience:'parent' → 학부모 앱에만 뜨고 학생 앱에는 안 뜬다.
+  try {
+    await createNotification(env, {
+      studentId: tid, type: ev.type, title: ev.title, body: ev.body,
+      url: '/lifelog', dedupKey: ev.dedupKey, audience: 'parent',
+    });
+  } catch (_) { /* best-effort */ }
+  if (who.parent) {
+    try {
+      await sendPushToUsers(env, [who.parent], {
+        title: ev.title, body: ev.body, url: '/lifelog', tag: ev.tag,
+      }, { nightSilent: [who.parent], kind: ev.type });
+    } catch (_) { /* best-effort */ }
+  }
+  try {
+    await sendPushToUsers(env, ADMIN_PUSH_USERS, {
+      title: ev.title, body: ev.body, url: '/admin-lifelog', tag: ev.tag,
+    }, { kind: ev.type });
+  } catch (_) { /* best-effort */ }
+  return who;
+}
+
+// ③ 독촉이 나가도 되는가 + 받을 번호. 규칙 위반 가능성이 있으면 빈 값을 돌려 아예 안 보내게 한다.
+function remindTargets(who) {
+  if (!who || !who.student) return { to: '', reason: '학생 휴대폰이 등록돼 있지 않다' };
+  if (who.parent && who.student === who.parent) {
+    return { to: '', reason: '학생 번호와 학부모 번호가 같다 — 보내면 학부모 폰에도 뜬다' };
+  }
+  return { to: who.student, reason: '' };
+}
+
+// ── 독촉 시각 설정 (원장 화면에서 바꾼다 — 시간이 바뀌어도 코드를 안 고치게) ──
+//   관우T가 말한 대상은 **출석과 식사**뿐이다. 간식·운동은 독촉하지 않는다.
+//   ✋ 간식을 뺀 이유: 매일 먹는 것이 아니어서 "안 했다"가 성립하지 않는다.
+//   ✋ 운동을 뺀 이유: 지시에 없다. 넣으려면 아래 REMIND_PLAN 에 한 줄 + 원장 화면 입력칸 하나.
+const REMIND_PLAN = [
+  { code: 'checkin',   label: '출석 체크', cfgKey: 'remind_checkin',   def: '08:30' },
+  { code: 'meal:아침', label: '아침 기록', cfgKey: 'remind_breakfast', def: '09:30' },
+  { code: 'meal:점심', label: '점심 기록', cfgKey: 'remind_lunch',     def: '14:00' },
+  { code: 'meal:저녁', label: '저녁 기록', cfgKey: 'remind_dinner',    def: '20:30' },
+];
+const REMIND_STATE_KEY = 'lifelog/_reminder-state.json';   // lifelog/ 프리픽스 → 원복(purge)에 같이 지워진다
+const REMIND_MAX_TRIES = 3;                                 // 한 대도 도착 안 하면 5분 뒤 재시도, 3회까지
+
+function hhmmToMin(s) {
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(s || '').trim());
+  return m ? (Number(m[1]) * 60 + Number(m[2])) : null;
+}
+function remindSetting(cfg) {
+  const out = { on: String(cfg.remind_on || '') !== '0', times: {} };
+  for (const p of REMIND_PLAN) {
+    const v = hhmmToMin(cfg[p.cfgKey]);
+    out.times[p.code] = v === null ? hhmmToMin(p.def) : v;
+  }
+  return out;
+}
+// 화면에 돌려줄 모양 { on, checkin:'08:30', breakfast:'09:30', ... }
+function remindRuleView(cfg) {
+  const s = remindSetting(cfg);
+  const hm = (min) => String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
+  const out = { on: s.on };
+  for (const p of REMIND_PLAN) out[p.cfgKey.replace('remind_', '')] = hm(s.times[p.code]);
+  return out;
+}
+async function loadCfgAll(env) {
+  const { results } = await env.DB.prepare('SELECT key, value FROM lifelog_config').all();
+  const cfg = {};
+  for (const r of (results || [])) cfg[r.key] = r.value;
+  return cfg;
 }
 
 // ─────────────────────────── ZIP (무압축 store) ───────────────────────────
@@ -578,6 +696,7 @@ export async function onRequest(context) {
           })),
           counts,
           lateRule: await lateRule(env),
+          remindRule: remindRuleView(await loadCfgAll(env)),   // 🔔 독촉 알림 설정(켬/끔 · 항목별 예정 시각)
           today: todayKST(),
         });
       }
@@ -737,6 +856,38 @@ export async function onRequest(context) {
         }
         // ▲▲▲ LIFELOG 지각벌칙 끝 ▲▲▲
 
+        // 🔔 독촉 알림 설정 — 켬/끔 + 항목별 예정 시각. 학생에게만 가는 알림이라 원장만 만진다.
+        if (action === 'set_remind') {
+          const before = remindRuleView(await loadCfgAll(env));
+          const on = !(body.on === false || body.on === 0 || body.on === '0' || body.on === 'false');
+          for (const p of REMIND_PLAN) {
+            const key = p.cfgKey.replace('remind_', '');
+            if (body[key] === undefined) continue;
+            const v = String(body[key] || '').trim();
+            if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) {
+              return jsonErr(p.label + ' 시각을 ' + p.def + ' 처럼 적어 주세요.', 400);
+            }
+            await setCfg(env, p.cfgKey, v);
+          }
+          await setCfg(env, 'remind_on', on ? '1' : '0');
+          const after = remindRuleView(await loadCfgAll(env));
+          await logAudit(env, request, {
+            action: 'lifelog.remind.set',
+            ...actorOf(request, env),
+            target: 'lifelog', targetName: '독촉 알림 규칙',
+            summary: '생활기록 독촉 알림 ' + (on ? '켬' : '끔')
+              + ' — 출석 ' + after.checkin + ' · 아침 ' + after.breakfast + ' · 점심 ' + after.lunch + ' · 저녁 ' + after.dinner,
+            detail: {
+              전: before, 후: after,
+              수신자: '학생 본인 폰만. 관우T·학부모에게는 가지 않는다.',
+              효과: on
+                ? '적힌 시각이 지나도 안 한 항목이 있으면 그 항목당 하루 한 번 지환이 폰에 알림이 간다.'
+                : '독촉 알림이 완전히 멈춘다. 출석·기록 알림(관우T·학부모)은 그대로 간다.',
+            },
+          });
+          return jsonOk({ ok: true, remindRule: after });
+        }
+
         if (action === 'manual_checkin') {
           const tid = await targetId(env);
           if (!tid) return jsonErr('대상 학생이 지정돼 있지 않습니다.', 400);
@@ -859,6 +1010,26 @@ export async function onRequest(context) {
           summary: '[' + (student.name || tid) + '] 생활기록 출석 ' + date + ' ' + hmKST(ts) + ' (' + (dev.label || '학원기기') + ')',
           detail: { 날짜: date, 기기: dev.label || '', 모델: model },
         });
+
+        // 🔔 ① 출석했다 → 관우T + 학부모. (학생 본인은 방금 눌렀으니 뺀다)
+        //   지각이면 제목부터 다르게 — 학부모가 배너만 보고도 알 수 있어야 한다.
+        //   waitUntil 로 응답 뒤에 보낸다: 버튼을 누른 학생이 푸시 두 통 나가는 동안 기다리지 않게.
+        const rule = await lateRule(env);
+        const lt = lateOf({ ts }, rule);
+        const nm = student.name || '학생';
+        const md = date.slice(5).replace('-', '/');
+        const ev = {
+          type: 'lifelog_checkin',
+          title: lt.late ? ('⏰ ' + nm + ' 지각 ' + hmKST(ts)) : ('✅ ' + nm + ' 출석 ' + hmKST(ts)),
+          body: md + '(' + dowKo(date) + ') ' + hmKST(ts) + ' 학원 도착'
+            + (lt.late ? (' · ' + lt.lateText + ' 지각 → 운동 ' + lt.penalty + '개') : ' · 제시간에 왔어요'),
+          dedupKey: 'lifelog-checkin:' + tid + ':' + date,
+          tag: 'kwmath-lifelog-checkin',
+        };
+        const pDone = notifyDone(env, tid, ev).catch(() => {});
+        if (context && typeof context.waitUntil === 'function') context.waitUntil(pDone);
+        else await pDone;   // waitUntil 이 없으면 응답 후 취소될 수 있다 — 그때는 기다렸다 보낸다
+
         return jsonOk({ ok: true, date, time: hmKST(ts), device: dev.label || '' });
       }
 
@@ -919,6 +1090,7 @@ export async function onRequest(context) {
 
       const allKeys = existingKeys.concat(newKeys);
       const ts = nowIso();
+      const 첫등록 = !existing;   // 🔔 ②의 발동 조건 — 아래 참고
       if (existing) {
         // 글은 비워 보내면 기존 글을 지우지 않는다(사진만 추가하는 흐름이 잦다).
         const nextContent = content.trim() ? content : (existing.content || '');
@@ -929,6 +1101,28 @@ export async function onRequest(context) {
         await env.DB.prepare(
           'INSERT INTO lifelog_entries (student_id, date, kind, slot, content, photo_keys, photo_count, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)'
         ).bind(student.id, date, kind, slot, content, JSON.stringify(allKeys), allKeys.length, ts, ts).run();
+      }
+
+      // 🔔 ② 식사·운동을 기록했다 → 관우T + 학부모.
+      //   ⚠️ **그 칸의 첫 등록 때만** 보낸다. 사진은 한 끼에 여러 번 나눠 올리는 흐름이 잦아서
+      //      저장할 때마다 보내면 한 끼에 알림이 대여섯 통 간다(그런 알림은 곧 안 보게 된다).
+      //      "점심에 사진을 더 붙였다"는 앱을 열면 보인다 — 알릴 일이 아니다.
+      //   ✋ 기각한 안: 저장마다 발송 + 클라이언트에서 묶기 — 묶는 책임이 화면으로 새고, 화면을 새로 고치면 깨진다.
+      if (첫등록) {
+        const 끼 = kind === 'meal' ? slot : '운동';
+        const 사진 = allKeys.length ? (' · 사진 ' + allKeys.length + '장') : '';
+        const 글 = (content || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+        const ev2 = {
+          type: 'lifelog_entry',
+          title: (kind === 'meal' ? '🍚 ' : '💪 ') + (student.name || '학생') + ' ' + 끼 + ' 기록',
+          body: date.slice(5).replace('-', '/') + '(' + dowKo(date) + ') ' + 끼
+            + (글 ? (' — ' + 글) : '') + 사진,
+          dedupKey: 'lifelog-entry:' + tid + ':' + date + ':' + kind + ':' + slot,
+          tag: 'kwmath-lifelog-entry',
+        };
+        const p2 = notifyDone(env, tid, ev2).catch(() => {});
+        if (context && typeof context.waitUntil === 'function') context.waitUntil(p2);
+        else await p2;
       }
 
       return jsonOk({ ok: true, date, kind, slot, photoCount: allKeys.length, added: newKeys.length });
@@ -1011,6 +1205,166 @@ export async function onRequest(context) {
   } catch (e) {
     return jsonErr('처리 중 오류가 발생했습니다: ' + (e && e.message ? e.message : e), 500);
   }
+}
+
+// ═════════════ 🔔 ③ 안 한 것 독촉 — 학생 본인에게만 (5분 크론) ═════════════
+// 발동: /api/notices-flush(기존 5분 크론)가 매 틱 이 함수를 부른다. 새 크론 잡을 만들지 않는다 —
+//   그 틱 하나만 살아 있으면 학원의 자동 알림이 전부 도는 구조다(admin-reminders.js 와 같은 이유).
+// 게이트:
+//   - 대상 학생이 없거나 테이블이 없으면 즉시 종료. ⚠️ **ensureTable 을 부르지 않는다** —
+//     원복(purge)한 뒤에도 크론은 계속 도는데, 여기서 CREATE TABLE 을 하면 지운 기능이 되살아난다.
+//   - 항목별 예정 시각이 지났고, 그때까지 안 한 것만.
+//   - 항목별 하루 1회 (R2 lifelog/_reminder-state.json · 날짜가 바뀌면 자동 리셋).
+//   - 한 대도 도착 안 하면 '알림함'으로 찍지 않고 5분 뒤 재시도(최대 3회) — admin-reminders 와 같은 규칙.
+//     (예전에 이걸 안 해서, 정작 알림이 필요한 날 한 대도 안 갔는데 조용히 넘어간 적이 있다.)
+//   - KST 06:00 이전·23:00 이후에는 아무것도 안 보낸다. 설정 시각을 이상하게 넣어도 새벽에 안 울리게.
+// 수신자: **학생 본인 폰 1대뿐**. 관우T·학부모는 명시적으로 제외(관우T 지시) — remindTargets 가 가드.
+// 절대 throw 안 함 — 여기서 터지면 공지 발송 크론까지 멈춘다.
+export async function runLifelogReminder(env) {
+  if (!env || !env.DB) return { ok: true, fired: false, reason: 'no-db' };
+
+  let cfg;
+  try { cfg = await loadCfgAll(env); }
+  catch (_) { return { ok: true, fired: false, reason: 'no-table' }; }   // 원복됐거나 아직 한 번도 안 켬
+
+  const tid = Number(cfg.target_student_id) || 0;
+  if (!tid) return { ok: true, fired: false, reason: 'no-target' };
+
+  const setting = remindSetting(cfg);
+  if (!setting.on) return { ok: true, fired: false, reason: 'off' };
+
+  const k = new Date(Date.now() + 9 * 3600 * 1000);
+  const dateStr = k.toISOString().slice(0, 10);
+  const nowMin = k.getUTCHours() * 60 + k.getUTCMinutes();
+  if (k.getUTCHours() < 6 || k.getUTCHours() >= 23) return { ok: true, fired: false, reason: 'night' };
+
+  const due = REMIND_PLAN.filter((p) => nowMin >= setting.times[p.code]);
+  if (!due.length) return { ok: true, fired: false, reason: 'nothing due yet' };
+
+  // 하루 단위 멱등 상태 (날짜가 다르면 통째로 새로 시작)
+  let state = { date: dateStr, done: {}, tries: {} };
+  try {
+    const obj = env.BUCKET ? await env.BUCKET.get(REMIND_STATE_KEY) : null;
+    if (obj) {
+      const j = JSON.parse(await obj.text());
+      if (j && j.date === dateStr && j.done && typeof j.done === 'object') {
+        state = { date: dateStr, done: j.done, tries: (j.tries && typeof j.tries === 'object') ? j.tries : {} };
+      }
+    }
+  } catch (_) {}
+
+  const pending = due.filter((p) => !state.done[p.code]);
+  if (!pending.length) return { ok: true, fired: false, reason: 'all handled today' };
+
+  // 오늘 무엇을 했나 — 출석 1건 + 오늘 기록 전부. 조회가 실패하면 이번 틱은 아무 판단도 하지 않는다
+  //   (실패를 '안 했다'로 읽으면 다 해 놓은 날 독촉이 간다).
+  let hasCheckin = false;
+  const doneSlots = new Set();
+  try {
+    const c = await env.DB.prepare('SELECT id FROM lifelog_checkin WHERE student_id=? AND date=?').bind(tid, dateStr).first();
+    hasCheckin = !!c;
+    const { results } = await env.DB.prepare('SELECT kind, slot FROM lifelog_entries WHERE student_id=? AND date=?').bind(tid, dateStr).all();
+    for (const r of (results || [])) doneSlots.add(String(r.kind) + ':' + String(r.slot));
+  } catch (_) { return { ok: true, fired: false, reason: 'query failed' }; }
+
+  const missing = [];
+  let changed = false;
+  for (const p of pending) {
+    const ok = p.code === 'checkin' ? hasCheckin : doneSlots.has(p.code);
+    if (ok) { state.done[p.code] = 'done'; changed = true; }   // 이미 했다 — 오늘 다시 안 본다
+    else missing.push(p);
+  }
+
+  let sent = 0;
+  let 재시도예정 = false;
+  let 발송오류 = '';
+  let 못보낸이유 = '';
+  const who = await pushPhonesOf(env, tid);
+  const t = remindTargets(who);
+
+  if (missing.length) {
+    const body = missing.map((p) => '· ' + p.label).join('\n') + '\n생활기록에서 지금 등록해 주세요.';
+    if (!t.to) {
+      // 보낼 곳이 없거나, 보내면 규칙(관우T·학부모 제외)을 어기는 상태. 재시도로 낫지 않으니 오늘은 닫는다.
+      못보낸이유 = t.reason;
+      for (const p of missing) state.done[p.code] = 'no-target';
+      changed = true;
+    } else {
+      // 알림함에도 남긴다. audience:'student' → 지환이 앱에만 뜨고 학부모 앱에는 안 뜬다.
+      for (const p of missing) {
+        try {
+          await createNotification(env, {
+            studentId: tid, type: 'lifelog_remind',
+            title: '⏰ ' + p.label + ' 아직 안 했어요',
+            body: dateStr.slice(5).replace('-', '/') + ' ' + p.label + ' — 생활기록에서 등록해 주세요.',
+            url: '/lifelog', dedupKey: 'lifelog-remind:' + tid + ':' + dateStr + ':' + p.code,
+            audience: 'student',
+          });
+        } catch (_) { /* best-effort */ }
+      }
+      try {
+        const res = await sendPushToUsers(env, [t.to], {
+          title: '⏰ 아직 안 한 게 있어요 (' + missing.length + '개)',
+          body, url: '/lifelog', tag: 'kwmath-lifelog-remind',
+        }, { kind: 'lifelog_remind' });
+        // ⚠️ nightSilent 안 씀 — 밤 무음은 학부모 규칙이고 수신자는 학생이다. 시간은 위 06~23시 게이트가 본다.
+        sent = (res && res.sent) || 0;
+      } catch (e) { 발송오류 = String((e && e.message) || e); }
+
+      for (const p of missing) {
+        if (sent > 0) { state.done[p.code] = 'alerted'; delete state.tries[p.code]; }
+        else {
+          const n = (Number(state.tries[p.code]) || 0) + 1;
+          if (n >= REMIND_MAX_TRIES) { state.done[p.code] = 'undelivered'; delete state.tries[p.code]; }
+          else { state.tries[p.code] = n; 재시도예정 = true; }
+        }
+      }
+      changed = true;
+    }
+
+    // 📓 실제로 쏜 때(또는 못 쏜 때)만 1건. 5분 크론이 하루 288번 부르므로 조용한 틱은 남기지 않는다.
+    await logAudit(env, null, {
+      action: (발송오류 || 못보낸이유) ? 'lifelog.remind.fail' : 'lifelog.remind.push',
+      actor: 'system', actorRole: 'system', actorName: '자동 독촉(생활기록)',
+      target: 'student/' + tid, targetName: who.name || '',
+      path: 'cron runLifelogReminder() ← /api/notices-flush',
+      summary: '생활기록 독촉 ' + ((발송오류 || 못보낸이유) ? '발송 실패' : '발송') + ' — ' + dateStr + ' · '
+        + missing.map((p) => p.label).join(', ') + ' · 기기 ' + sent + '대',
+      detail: {
+        날짜: dateStr,
+        안한것: missing.map((p) => p.label),
+        받는사람: t.to ? [t.to] : [],
+        수신자규칙: '학생 본인만. 관우T·학부모에게는 보내지 않는다(관우T 지시).',
+        보낸기기수: sent,
+        발송오류: 발송오류 || '없음',
+        못보낸이유: 못보낸이유 || '없음',
+        알림본문: body,
+        효과: sent
+          ? '지환이 폰에만 독촉 알림이 갔다. 이 항목들은 오늘 다시 알리지 않는다.'
+          : (못보낸이유
+            ? '한 통도 보내지 않았다. 학부모 폰에 뜰 위험이 있어 일부러 멈춘 것이다 — students 의 학생 휴대폰을 확인해야 한다.'
+            : (재시도예정
+              ? '보낼 기기가 없거나 발송이 실패해 한 대도 도착하지 않았다. 5분 뒤 다음 틱에 다시 시도한다.'
+              : '한 대도 도착하지 않았고 오늘 재시도 한도(' + REMIND_MAX_TRIES + '회)를 다 썼다 — 학생 폰의 알림 구독이 살아 있는지 확인이 필요하다.')),
+        재시도: sent ? '불필요(도달함)' : (재시도예정 ? '예정 — 다음 5분 틱' : '없음'),
+        비고: '예정 시각은 원장 화면에서 바꾼다. 간식·운동은 독촉 대상이 아니다.',
+      },
+    });
+  }
+
+  if (changed && env.BUCKET) {
+    try {
+      await env.BUCKET.put(REMIND_STATE_KEY, JSON.stringify(state), {
+        httpMetadata: { contentType: 'application/json' },
+      });
+    } catch (_) {}
+  }
+
+  return {
+    ok: true, fired: missing.length > 0 && sent > 0, date: dateStr,
+    missing: missing.map((p) => p.code), sent, retry: 재시도예정,
+    reason: 못보낸이유 || '',
+  };
 }
 
 // ─────────────────────────── 내보내기 ───────────────────────────
