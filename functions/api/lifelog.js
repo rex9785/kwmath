@@ -39,7 +39,10 @@
 //                   photo_keys(JSON), photo_count, created_at, updated_at)
 //                   UNIQUE(student_id, date, kind, slot)
 //   lifelog_checkin(id, student_id, date, ts, device_id, device_label, ua, ua_model,
-//                   ip_hash, source)                          UNIQUE(student_id, date)
+//                   ip_hash, source,
+//                   out_ts, out_device_label, out_ua_model, out_source)  ← 퇴근(2026-08-21)
+//                                                             UNIQUE(student_id, date)
+//                   ts=등원 · out_ts=퇴근. 체류시간은 저장하지 않고 뺄셈으로 낸다(stayOf).
 //   lifelog_devices(id, secret, label, ua, ua_model, enroll_code, code_expires_at,
 //                   enrolled_at, last_used_at, active, created_at)
 //   R2 키: lifelog/{student_id}/{date}/{ts}_{rand}_{safeName}
@@ -53,12 +56,14 @@
 //   GET  ?admin=1&export=1&from=&to=      원장: 엑셀 + 사진 ZIP 내려받기
 //   POST (multipart: kind,date,slot,content,file[])   학생: 식사·운동 기록 저장/추가
 //   POST ?action=checkin                  학생: 출석 (등록기기에서만)
+//   POST ?action=checkout                 학생: 퇴근 (등록기기에서만 · 그날 등원이 있어야 함)
 //   POST ?action=enroll   {code}          학원기기: 등록코드로 이 기기 등록
 //   POST ?admin=1&action=set_target       원장: 대상 학생 지정 {student_id}
 //   POST ?admin=1&action=clear_target     원장: 대상 해제 (기능 off)
 //   POST ?admin=1&action=new_code {label} 원장: 기기 등록코드 발급 (30분 유효)
 //   POST ?admin=1&action=revoke_device    원장: 기기 등록 해제 {id}
 //   POST ?admin=1&action=manual_checkin   원장: 수동 출석/취소 {date, on}
+//   POST ?admin=1&action=manual_checkout  원장: 수동 퇴근/취소 {date, on, time}
 //   POST ?admin=1&action=set_remind       원장: 독촉 알림 켜기/끄기 · 시각 {on, checkin, breakfast, lunch, dinner}
 //   DELETE ?key=..                        학생: 내 사진 1장 삭제
 //   DELETE ?entry=ID                      학생: 내 기록 1건 삭제(사진 포함)
@@ -156,13 +161,17 @@ async function ensureTable(env) {
     'photo_keys TEXT, photo_count INTEGER DEFAULT 0, ' +
     'created_at TEXT, updated_at TEXT)'
   ).run();
+  // ▼▼▼ LIFELOG 퇴근(2026-08-21) — out_* 4칸이 하원 시각이다. 등원과 같은 줄에 붙는다(하루 한 쌍).
+  //   딴 표를 안 만든 이유: 「등원 없는 퇴근」이 구조적으로 못 생기고, 퇴원 정리 때 지울 표가 안 늘어난다.
   await env.DB.prepare(
     'CREATE TABLE IF NOT EXISTS lifelog_checkin (' +
     'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
     'student_id INTEGER NOT NULL, date TEXT NOT NULL, ts TEXT, ' +
     'device_id INTEGER, device_label TEXT, ua TEXT, ua_model TEXT, ' +
-    'ip_hash TEXT, source TEXT)'
+    'ip_hash TEXT, source TEXT, ' +
+    'out_ts TEXT, out_device_label TEXT, out_ua_model TEXT, out_source TEXT)'
   ).run();
+  // ▲▲▲ LIFELOG 퇴근 끝
   await env.DB.prepare(
     'CREATE TABLE IF NOT EXISTS lifelog_devices (' +
     'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
@@ -174,6 +183,13 @@ async function ensureTable(env) {
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_ll_entry_date ON lifelog_entries(student_id, date)').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_ll_checkin_uniq ON lifelog_checkin(student_id, date)').run(); } catch (_) {}
   try { await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_ll_dev_secret ON lifelog_devices(secret)').run(); } catch (_) {}
+  // ▼▼▼ LIFELOG 퇴근(2026-08-21) — 8/19에 이미 만들어진 표에는 위 CREATE 가 아무 일도 안 한다.
+  //   그래서 칸을 따로 붙인다. 두 번째부터는 "duplicate column name" 으로 던지므로 통째로 삼킨다.
+  //   (인덱스 생성과 같은 방식. ALTER ... ADD COLUMN 은 기존 행의 값을 NULL 로 채우므로 옛 출석 기록은 안 다친다.)
+  for (const col of ['out_ts TEXT', 'out_device_label TEXT', 'out_ua_model TEXT', 'out_source TEXT']) {
+    try { await env.DB.prepare('ALTER TABLE lifelog_checkin ADD COLUMN ' + col).run(); } catch (_) {}
+  }
+  // ▲▲▲ LIFELOG 퇴근 끝
   _ready = true;
 }
 
@@ -252,6 +268,32 @@ function lateOf(row, rule) {
   if (rule.cap > 0 && n > rule.cap) { n = rule.cap; capped = true; }
   return { late: true, lateSec: over, lateText: lateText(over), penalty: n, capped };
 }
+
+// ▼▼▼ LIFELOG 퇴근(2026-08-21) — 체류시간 ▼▼▼
+// 관우T 지시: "퇴근도 찍게하자 학원에 있던 시간 계산해주고"
+// ★ 확정(2026-08-21, 관우T 4문 4답) — 재제안 금지
+//   ① 하루 한 쌍 (등원 1 · 퇴근 1). 나갔다 오는 구간별 합산은 기각 — 버튼을 자주 눌러야 해 빠뜨리기 쉽다.
+//   ② 퇴근도 **학원 기기에서만**. 집에서 늦게 눌러 체류시간을 부풀리는 걸 막는다.
+//   ③ 안 누르고 간 날은 **미기록**으로 두고 관우T가 손으로 넣는다. 22:00 자동 마감은 기각(없는 시간을 만든다).
+//   ④ 퇴근 푸시는 등원과 같이 **관우T + 어머니**.
+//
+// 체류시간은 저장하지 않는다 — out_ts − ts 를 그때그때 뺀다.
+// 저장해 두면 나중에 시각을 손으로 고쳤을 때 옛 체류시간이 남아 두 값이 어긋난다(지각 벌칙과 같은 이유).
+// checkin 한 줄 → { out, outTime, staySec, stayText, outSource, backwards }
+function stayOf(row) {
+  const none = { out: false, outTime: '', staySec: 0, stayText: '', outSource: '', backwards: false };
+  if (!row || !row.ts || !row.out_ts) return none;
+  const a = Date.parse(row.ts);
+  const b = Date.parse(row.out_ts);
+  if (Number.isNaN(a) || Number.isNaN(b)) return none;
+  const src = row.out_source || 'device';
+  // 퇴근이 등원보다 이르면 계산하지 않는다. 음수를 0으로 뭉개면 "0분 있었다"는 거짓말이 남는다.
+  // 화면·엑셀은 backwards 를 보고 「시각 확인 필요」로 표시한다.
+  if (b <= a) return { out: true, outTime: hmKST(row.out_ts), staySec: 0, stayText: '', outSource: src, backwards: true };
+  const sec = Math.round((b - a) / 1000);
+  return { out: true, outTime: hmKST(row.out_ts), staySec: sec, stayText: lateText(sec), outSource: src, backwards: false };
+}
+// ▲▲▲ LIFELOG 퇴근 끝 ▲▲▲
 
 // ─────────────────────── 🔔 알림 (2026-08-20 관우T 지시) ───────────────────────
 // 원문 그대로: "푸쉬 알람달아줘 출석버튼 누르면 나랑 부모님한테 알람가게, 그리고 식사 등록하면
@@ -554,6 +596,33 @@ async function findDevice(env, secret) {
   if (!secret) return null;
   return await env.DB.prepare('SELECT * FROM lifelog_devices WHERE secret=? AND active=1').bind(secret).first();
 }
+// ▼▼▼ LIFELOG 퇴근(2026-08-21) — 등원·퇴근이 똑같이 쓰는 학원기기 검사 ▼▼▼
+// 퇴근을 만들면서 이 검사가 두 벌이 될 뻔했다. 두 벌이 되면 한쪽만 고친 채 몇 주가 지나간다
+// (kwmath 채점 로직이 실제로 그랬다). 그래서 하나로 묶고 양쪽이 이 함수만 부른다.
+// 돌려주는 값: 통과하면 { dev, model } · 막히면 { error: Response }
+async function enrolledDeviceGate(env, request, access, what) {
+  const student = access.student || {};
+  const secret = deviceSecretOf(request);
+  const dev = await findDevice(env, secret);
+  const msg = '학원 기기에서만 ' + what + '을 누를 수 있어요.';
+  if (!dev || !dev.enrolled_at) return { error: jsonErr(msg, 403) };
+  const ua = request.headers.get('user-agent') || '';
+  const model = deviceModelOf(ua);
+  // 비밀값을 베껴 다른 기기에 넣은 경우를 여기서 잡는다.
+  if (dev.ua_model && model && dev.ua_model !== model) {
+    await logAudit(env, request, {
+      action: 'lifelog.' + (what === '퇴근' ? 'checkout' : 'checkin') + '.reject',
+      actor: access.phone || ('student:' + student.id),
+      actorRole: 'student', actorName: student.name || '',
+      target: 'lifelog-device/' + dev.id, targetName: dev.label || '',
+      summary: '생활기록 ' + what + ' 거부 — 등록기기와 기종이 다름 (등록 ' + dev.ua_model + ' / 요청 ' + model + ')',
+      detail: { 등록모델: dev.ua_model, 요청모델: model, UA: String(ua).slice(0, 240) },
+    });
+    return { error: jsonErr(msg, 403) };
+  }
+  return { dev, model, ua };
+}
+// ▲▲▲ LIFELOG 퇴근 끝 ▲▲▲
 // 👀 이 계정이 「학부모」인가. 2026-08-19부터 **차단 신호가 아니라 읽기전용 신호**다.
 //   - 학부모: 보기 O / 쓰기 X   - 학생 본인: 보기 O / 쓰기 O   - 원장: 전부 O
 //   ⚠️ students 행에 학생 전화번호가 없으면 학생·학부모가 같은 번호라 구분할 방법이 없다.
@@ -660,7 +729,8 @@ export async function onRequest(context) {
             checkins: (cr || []).map(r => Object.assign({
               date: r.date, ts: r.ts, time: hmKST(r.ts),
               device: r.device_label || '', model: r.ua_model || '', source: r.source || 'device',
-            }, lateOf(r, rule))),
+              outDevice: r.out_device_label || '',   // ▼ LIFELOG 퇴근(2026-08-21)
+            }, lateOf(r, rule), stayOf(r))),
           });
         }
 
@@ -722,7 +792,8 @@ export async function onRequest(context) {
         'SELECT * FROM lifelog_entries WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC, kind, slot'
       ).bind(student.id, from, to).all();
       const { results: cr } = await env.DB.prepare(
-        'SELECT date, ts, device_label, source FROM lifelog_checkin WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC'
+        // ▼ LIFELOG 퇴근(2026-08-21) — out_ts·out_source 를 같이 읽어야 화면이 체류시간을 그린다.
+        'SELECT date, ts, device_label, source, out_ts, out_device_label, out_source FROM lifelog_checkin WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC'
       ).bind(student.id, from, to).all();
 
       // 이 기기가 학원 기기인가 (버튼 노출 판정)
@@ -747,11 +818,17 @@ export async function onRequest(context) {
         entries: (er || []).map(rowToEntry),
         checkins: (cr || []).map(r => Object.assign(
           { date: r.date, time: hmKST(r.ts), device: r.device_label || '', source: r.source || 'device' },
-          lateOf(r, rule)
+          lateOf(r, rule), stayOf(r)
         )),
         checkedInToday: !!todayCheckin,
         checkedInAt: todayCheckin ? hmKST(todayCheckin.ts) : '',
         todayLate: lateOf(todayCheckin, rule),
+        // ▼▼▼ LIFELOG 퇴근(2026-08-21) — 화면은 이 세 값만 보고 퇴근 버튼을 그린다.
+        //   등원을 안 눌렀으면 퇴근 버튼 자체가 안 나온다(서버도 막지만 안 보이는 게 먼저다).
+        checkedOutToday: !!(todayCheckin && todayCheckin.out_ts),
+        checkedOutAt: todayCheckin && todayCheckin.out_ts ? hmKST(todayCheckin.out_ts) : '',
+        todayStay: stayOf(todayCheckin),
+        // ▲▲▲ LIFELOG 퇴근 끝
         device: { ok: deviceOk, label: (dev && dev.label) || '', model },
       });
     }
@@ -919,6 +996,56 @@ export async function onRequest(context) {
           return jsonOk({ ok: true, date, on, time: on ? hmKST(ts) : '' });
         }
 
+        // ▼▼▼ LIFELOG 퇴근(2026-08-21) — 원장 수동 퇴근 ▼▼▼
+        // 관우T 확정: 안 누르고 간 날은 자동 마감하지 않고 여기서 손으로 넣는다.
+        // 등원 줄이 없으면 받지 않는다 — 퇴근만 있는 줄은 체류시간의 시작점이 없다.
+        if (action === 'manual_checkout') {
+          const tid = await targetId(env);
+          if (!tid) return jsonErr('대상 학생이 지정돼 있지 않습니다.', 400);
+          const date = isYmd(body.date) ? body.date : todayKST();
+          const on = body.on !== false;
+          const row = await env.DB.prepare('SELECT ts, out_ts FROM lifelog_checkin WHERE student_id=? AND date=?').bind(tid, date).first();
+          if (!row || !row.ts) return jsonErr('그 날 등원 기록이 없습니다. 먼저 수동 출석을 찍어 주세요.', 400);
+
+          if (!on) {
+            await env.DB.prepare(
+              'UPDATE lifelog_checkin SET out_ts=NULL, out_device_label=NULL, out_ua_model=NULL, out_source=NULL WHERE student_id=? AND date=?'
+            ).bind(tid, date).run();
+            await logAudit(env, request, {
+              action: 'lifelog.checkout.delete',
+              ...actorOf(request, env),
+              target: 'student/' + tid, targetName: '',
+              summary: '생활기록 퇴근 취소 — ' + date + ' (등원 ' + hmKST(row.ts) + ' 는 그대로)',
+              detail: { 날짜: date, 지운퇴근: hmKST(row.out_ts) || '(없었음)' },
+            });
+            return jsonOk({ ok: true, date, on: false });
+          }
+
+          const tm = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.time || '')) ? String(body.time) : '';
+          // 지난 날짜에 시각 없이 넣으면 「지금」이 퇴근 시각이 돼 체류시간이 며칠짜리로 커진다.
+          if (!tm && date !== todayKST()) return jsonErr('지난 날짜는 퇴근 시각(HH:MM)을 같이 넣어 주세요.', 400);
+          const ts = tm ? new Date(Date.parse(date + 'T' + tm + ':00+09:00')).toISOString() : nowIso();
+          if (Date.parse(ts) <= Date.parse(row.ts)) {
+            return jsonErr('퇴근 시각이 등원 시각(' + hmKST(row.ts) + ')보다 이르거나 같습니다.', 400);
+          }
+          await env.DB.prepare(
+            'UPDATE lifelog_checkin SET out_ts=?, out_device_label=?, out_ua_model=?, out_source=? WHERE student_id=? AND date=?'
+          ).bind(ts, '원장 수동', '', 'manual', tid, date).run();
+
+          const st = stayOf({ ts: row.ts, out_ts: ts, out_source: 'manual' });
+          await logAudit(env, request, {
+            action: row.out_ts ? 'lifelog.checkout.retime' : 'lifelog.checkout.manual',
+            ...actorOf(request, env),
+            target: 'student/' + tid, targetName: '',
+            summary: '생활기록 퇴근 ' + (row.out_ts ? '시각 수정' : '수동 등록') + ' — ' + date + ' ' + hmKST(ts) + ' · 체류 ' + st.stayText,
+            detail: { 날짜: date, 등원: hmKST(row.ts), 퇴근: hmKST(ts), 체류: st.stayText, 전: hmKST(row.out_ts) || '(없었음)', 시각입력: tm || '(지금)' },
+          });
+          // 수동은 푸시를 보내지 않는다 — 관우T가 행위자이고, 지난 날짜를 채우면
+          // 어머니 폰에 엉뚱한 「퇴근」 배너가 뜬다(수동 출석과 같은 규칙).
+          return jsonOk({ ok: true, date, on: true, time: hmKST(ts), stayText: st.stayText });
+        }
+        // ▲▲▲ LIFELOG 퇴근 끝 ▲▲▲
+
         return jsonErr('알 수 없는 요청입니다.', 400);
       }
 
@@ -965,25 +1092,11 @@ export async function onRequest(context) {
         const gate = studentGate(access, tid);
         if (gate) return gate;
 
-        const secret = deviceSecretOf(request);
-        const dev = await findDevice(env, secret);
-        if (!dev || !dev.enrolled_at) {
-          return jsonErr('학원 기기에서만 출석을 누를 수 있어요.', 403);
-        }
-        const ua = request.headers.get('user-agent') || '';
-        const model = deviceModelOf(ua);
-        // 비밀값을 베껴 다른 기기에 넣은 경우를 여기서 잡는다.
-        if (dev.ua_model && model && dev.ua_model !== model) {
-          await logAudit(env, request, {
-            action: 'lifelog.checkin.reject',
-            actor: access.phone || ('student:' + student.id),
-            actorRole: 'student', actorName: student.name || '',
-            target: 'lifelog-device/' + dev.id, targetName: dev.label || '',
-            summary: '생활기록 출석 거부 — 등록기기와 기종이 다름 (등록 ' + dev.ua_model + ' / 요청 ' + model + ')',
-            detail: { 등록모델: dev.ua_model, 요청모델: model, UA: String(ua).slice(0, 240) },
-          });
-          return jsonErr('학원 기기에서만 출석을 누를 수 있어요.', 403);
-        }
+        // ▼ LIFELOG 퇴근(2026-08-21) — 학원기기 검사를 enrolledDeviceGate 로 옮겼다(퇴근과 같은 코드를 쓴다).
+        //   여기 있던 20줄과 글자 하나까지 같은 검사다. 고칠 일이 생기면 그 함수 한 곳만 고치면 된다.
+        const g = await enrolledDeviceGate(env, request, access, '출석');
+        if (g.error) return g.error;
+        const dev = g.dev, model = g.model, ua = g.ua;
 
         const date = todayKST();
         const exists = await env.DB.prepare('SELECT id, ts FROM lifelog_checkin WHERE student_id=? AND date=?').bind(tid, date).first();
@@ -1032,6 +1145,84 @@ export async function onRequest(context) {
 
         return jsonOk({ ok: true, date, time: hmKST(ts), device: dev.label || '' });
       }
+
+      // ▼▼▼ LIFELOG 퇴근(2026-08-21) — 하원 ▼▼▼
+      // 관우T 지시: "퇴근도 찍게하자 학원에 있던 시간 계산해주고"
+      // 등원과 같은 줄(out_ts)에 시각을 적는다. 그날 등원이 없으면 아예 받지 않는다 —
+      // 「등원 없는 퇴근」을 허용하면 체류시간의 시작점이 없어 계산이 성립하지 않는다.
+      if (action === 'checkout') {
+        const access = await requireStudentAccess(env, request);
+        if (!access.ok) return access.response;
+        const student = access.student;
+        const tid = await targetId(env);
+        const gate = studentGate(access, tid);
+        if (gate) return gate;
+
+        const g = await enrolledDeviceGate(env, request, access, '퇴근');
+        if (g.error) return g.error;
+        const dev = g.dev, model = g.model;
+
+        const today = todayKST();
+        let row = await env.DB.prepare('SELECT * FROM lifelog_checkin WHERE student_id=? AND date=?').bind(tid, today).first();
+        let date = today;
+        // 자정을 넘겨 눌렀을 때 — 오늘 줄이 없고 어제 등원이 열려 있으면 어제 줄에 붙인다.
+        // 새벽 5시 전까지만. 그 뒤로도 계속 열어 두면 하루 종일 안 누른 어제 기록에
+        // 오늘 저녁 시각이 붙어 「39시간 체류」 같은 숫자가 나온다.
+        if (!row && secOfDayKST(nowIso()) < 5 * 3600) {
+          const y = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+          const prev = await env.DB.prepare('SELECT * FROM lifelog_checkin WHERE student_id=? AND date=?').bind(tid, y).first();
+          if (prev && prev.ts && !prev.out_ts) { row = prev; date = y; }
+        }
+        if (!row || !row.ts) return jsonErr('오늘 등원 기록이 없어요. 먼저 「오늘 출석하기」를 눌러 주세요.', 400);
+
+        const ts = nowIso();
+        if (Date.parse(ts) <= Date.parse(row.ts)) {
+          // 등원보다 이른 퇴근은 저장하지 않는다(기기 시계가 틀어진 경우).
+          return jsonErr('퇴근 시각이 등원 시각보다 이릅니다. 원장님께 말씀해 주세요.', 400);
+        }
+        const again = !!row.out_ts;   // 이미 찍고 또 누른 것 — 시각만 나중 것으로 갱신한다
+        await env.DB.prepare(
+          'UPDATE lifelog_checkin SET out_ts=?, out_device_label=?, out_ua_model=?, out_source=? WHERE student_id=? AND date=?'
+        ).bind(ts, dev.label || '', model, 'device', tid, date).run();
+        await env.DB.prepare('UPDATE lifelog_devices SET last_used_at=? WHERE id=?').bind(ts, dev.id).run();
+
+        const st = stayOf({ ts: row.ts, out_ts: ts, out_source: 'device' });
+        await logAudit(env, request, {
+          action: again ? 'lifelog.checkout.again' : 'lifelog.checkout',
+          actor: access.phone || ('student:' + student.id),
+          actorRole: 'student', actorName: student.name || '',
+          target: 'student/' + tid, targetName: student.name || '',
+          summary: '[' + (student.name || tid) + '] 생활기록 퇴근 ' + date + ' ' + hmKST(ts)
+            + ' · 체류 ' + st.stayText + (again ? ' (다시 누름 — 시각 갱신)' : '') + ' (' + (dev.label || '학원기기') + ')',
+          detail: { 날짜: date, 등원: hmKST(row.ts), 퇴근: hmKST(ts), 체류: st.stayText, 기기: dev.label || '', 모델: model, 다시누름: again },
+        });
+
+        // 🔔 ① 과 같은 규칙 — 관우T + 학부모. 본인은 방금 눌렀으니 뺀다.
+        //   다시 눌러 시각만 고친 경우엔 안 보낸다. 한 번 나갈 때마다 알림이 오면 배너가 쌓인다
+        //   (식사 기록 알림을 「그 칸의 첫 등록 때만」 보내는 것과 같은 이유).
+        if (!again) {
+          const nm = student.name || '학생';
+          const md = date.slice(5).replace('-', '/');
+          const ev = {
+            type: 'lifelog_checkout',
+            title: '🏠 ' + nm + ' 퇴근 ' + hmKST(ts),
+            body: md + '(' + dowKo(date) + ') ' + hmKST(row.ts) + ' 등원 → ' + hmKST(ts) + ' 퇴근'
+              + ' · 학원에 ' + st.stayText + ' 있었어요',
+            dedupKey: 'lifelog-checkout:' + tid + ':' + date,
+            tag: 'kwmath-lifelog-checkout',
+          };
+          const pDone = notifyDone(env, tid, ev).catch(() => {});
+          if (context && typeof context.waitUntil === 'function') context.waitUntil(pDone);
+          else await pDone;
+        }
+
+        return jsonOk({
+          ok: true, date, again,
+          inTime: hmKST(row.ts), time: hmKST(ts),
+          stayText: st.stayText, staySec: st.staySec, device: dev.label || '',
+        });
+      }
+      // ▲▲▲ LIFELOG 퇴근 끝 ▲▲▲
 
       // ── 학생: 식사·운동 기록 저장 (multipart) ──
       const access = await requireStudentAccess(env, request);
@@ -1389,7 +1580,9 @@ async function buildExport(env, url, tid) {
   const seq = new Map();
   const photoJobs = [];   // { zipName, key }
   const rule = await lateRule(env);
-  const rows = [['날짜', '요일', '출석', '지각', '벌칙운동', '구분', '시간대', '내용', '사진수', '사진파일']];
+  // ▼ LIFELOG 퇴근(2026-08-21) — '퇴근'·'체류시간' 두 열이 늘었다. 열을 더 넣을 때는
+  //   아래 rows.push 두 곳과 buildXlsx 의 열너비 배열(길이가 머리글과 같아야 한다)을 같이 고칠 것.
+  const rows = [['날짜', '요일', '등원', '퇴근', '체류시간', '지각', '벌칙운동', '구분', '시간대', '내용', '사진수', '사진파일']];
 
   const dates = new Set();
   for (const r of (er || [])) dates.add(r.date);
@@ -1402,9 +1595,14 @@ async function buildExport(env, url, tid) {
     const L = lateOf(ci, rule);
     const lateT = L.late ? L.lateText : (ci ? '정시' : '');
     const penT = L.late ? (L.penalty + '개' + (L.capped ? ' (상한)' : '')) : (ci ? 0 : '');
+    // ▼ LIFELOG 퇴근(2026-08-21)
+    const S = stayOf(ci);
+    const outText = S.out ? (hmKST(ci.out_ts) + (S.outSource === 'manual' ? ' (수동)' : '')) : (ci ? '미기록' : '');
+    const stayT = S.out ? (S.backwards ? '시각 확인 필요' : S.stayText) : '';
+    // ▲ LIFELOG 퇴근 끝
     const dayEntries = (er || []).filter(r => r.date === d);
     if (!dayEntries.length) {
-      rows.push([d, dowKo(d), checkinText, lateT, penT, '출석만', '', '', 0, '']);
+      rows.push([d, dowKo(d), checkinText, outText, stayT, lateT, penT, '출석만', '', '', 0, '']);
       continue;
     }
     let first = true;
@@ -1420,7 +1618,8 @@ async function buildExport(env, url, tid) {
         photoJobs.push({ zipName, key: k });
       }
       rows.push([
-        d, dowKo(d), first ? checkinText : '', first ? lateT : '', first ? penT : '',
+        d, dowKo(d), first ? checkinText : '', first ? outText : '', first ? stayT : '',
+        first ? lateT : '', first ? penT : '',
         r.kind === 'meal' ? '식사' : '운동',
         r.slot, r.content || '', keys.length, names.join('\n'),
       ]);
@@ -1432,7 +1631,8 @@ async function buildExport(env, url, tid) {
     return jsonErr('사진이 ' + photoJobs.length + '장이라 한 번에 받기엔 많습니다(최대 ' + MAX_ZIP_FILES + '장). 기간을 나눠서 받아 주세요.', 400);
   }
 
-  const files = [{ name: sname + '_생활기록.xlsx', data: buildXlsx(rows, [12, 6, 12, 10, 10, 8, 10, 60, 8, 40]) }];
+  // 열너비 12개 = 머리글 12개(날짜·요일·등원·퇴근·체류시간·지각·벌칙운동·구분·시간대·내용·사진수·사진파일)
+  const files = [{ name: sname + '_생활기록.xlsx', data: buildXlsx(rows, [12, 6, 12, 12, 12, 10, 10, 8, 10, 60, 8, 40]) }];
   let bytes = files[0].data.length;
   const missing = [];
   if (env.BUCKET) {
