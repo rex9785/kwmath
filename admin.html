@@ -702,8 +702,11 @@
           <b>010-4114-9785</b> 로 앱·포털에 로그인하실 때 넣는 비밀번호를 바꿉니다.<br>
           · 바꾸셔도 <b>지금 이 화면에서 튕겨나가지 않아요.</b> 다음 로그인부터 새 비밀번호를 넣으시면 됩니다.<br>
           · 서버는 비밀번호 원문을 모릅니다(해시만 저장). <b>잊으셔도 확인은 불가능</b>하고, 아래 방법으로 새로 정하는 것만 됩니다.<br>
-          · <b>잊으셨을 때</b> — 학생 목록에서 <b>010-4114-9785</b>의 「비번 초기화」를 누르면 0000이 됩니다. 그 뒤 이 화면에서 현재 비밀번호에 0000을 넣고 새로 정하세요.
-            <b style="color:#c0392b;">0000은 코드에 적힌 공개된 값이니, 초기화하셨으면 바로 바꾸셔야 합니다.</b>
+          · <b>여기를 바꿔도 이 /admin 화면에는 계속 들어오실 수 있습니다.</b> /admin 로그인은 번호 없이 비밀번호 하나만 넣는 <b>다른 문</b>이고,
+            그 비밀번호는 Cloudflare 환경변수(ADMIN_PASSWORD)라 이 화면과 무관합니다. 그래서 이 비밀번호를 잊으셔도 갇히지 않습니다.<br>
+          · <b>잊으셨을 때</b> — /admin에 들어오셔서 아래 「현재 비밀번호를 잊으셨나요?」를 누르시면 0000으로 초기화됩니다.
+            그 뒤 현재 비밀번호 칸에 0000을 넣고 새로 정하세요.
+            <b style="color:#c0392b;">0000은 코드에 적힌 공개된 값이니, 초기화하셨으면 곧바로 바꾸셔야 합니다.</b>
         </p>
         <div class="form-row">
           <label>현재 비밀번호</label>
@@ -719,6 +722,13 @@
         </div>
         <div id="ownPwMsg" style="font-size:0.82rem;margin:4px 0 10px;min-height:18px;"></div>
         <button type="button" id="ownPwSaveBtn" onclick="changeOwnPassword()" style="background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-weight:800;font-size:0.9rem;font-family:inherit;cursor:pointer;">비밀번호 변경</button>
+        <!-- 🔴 2026-08-24 (당일 정정) — 관우T 지적으로 발견한 구멍.
+             처음엔 "잊으시면 학생 목록에서 「비번 초기화」를 누르세요"라고 안내했는데, **그 버튼이 존재하지 않는다.**
+             _db.js listStudents()가 OWNER_PHONES(01041149785)를 명단에서 걸러내기 때문에(_db.js 229-243)
+             원장 행 자체가 학생 목록에 안 뜨고, 「비번 초기화」 버튼은 학생 카드 안에만 있다(admin.html 5763-5764).
+             → 잊으면 되찾을 길이 없었다. 그래서 그 버튼을 여기 직접 놓는다.
+             서버는 기존 /api/admin-reset-password 를 그대로 쓴다(이미 배포·감사로그 완비, phone을 body로 받으므로 원장 번호도 됨). -->
+        <button type="button" id="ownPwResetBtn" onclick="resetOwnPasswordTo0000()" style="background:none;border:none;color:var(--text-light);font-size:0.8rem;font-family:inherit;text-decoration:underline;cursor:pointer;margin-left:10px;padding:11px 4px;">현재 비밀번호를 잊으셨나요?</button>
       </div>
     </div>
 
@@ -2167,6 +2177,51 @@
       fail('오류: ' + (e.message || '변경 실패'));
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '비밀번호 변경'; }
+    }
+  }
+
+  // 📓 2026-08-24 (당일 정정) — 원장 본인 비밀번호를 잊으셨을 때의 **유일한** 되찾는 길.
+  //   [왜 여기 있나] 「비번 초기화」 버튼은 학생 카드 안에만 있는데(admin.html 5763-5764),
+  //     _db.js listStudents()가 원장 번호를 명단에서 걸러내므로(_db.js 229-243) 원장 행은 화면에 아예 안 뜬다.
+  //     즉 이 버튼이 없으면 원장은 잊는 순간 앱·포털 로그인이 영구히 막힌다.
+  //   [왜 안전한가] /admin에 이미 들어와 있다는 것 자체가 ADMIN_PASSWORD를 아는 사람이라는 뜻이고,
+  //     그 사람은 admin-reset-password로 어차피 아무 번호나 초기화할 수 있다. 여기서 새로 열리는 권한은 없다.
+  //     서버는 기존 /api/admin-reset-password 그대로 — 새 엔드포인트를 만들지 않는다(감사로그 account.password.reset 이미 완비).
+  //   [주의] 0000은 코드에 박힌 공개값이라, 초기화 후 곧바로 바꾸도록 성공 메시지에서 다음 단계를 지시한다.
+  async function resetOwnPasswordTo0000() {
+    const msg = document.getElementById('ownPwMsg');
+    const btn = document.getElementById('ownPwResetBtn');
+    const OWNER_PHONE = '010-4114-9785';
+    if (!confirm('현재 비밀번호를 잊으셨나요?\n\n' + OWNER_PHONE + ' 의 앱·포털 비밀번호를 0000 으로 초기화합니다.\n\n'
+      + '· 0000은 코드에 적힌 공개된 값입니다. 초기화하시면 위 칸에 0000을 넣고 바로 새 비밀번호를 정해 주세요.\n'
+      + '· 이 /admin 화면은 다른 비밀번호로 열리므로 영향받지 않습니다.')) return;
+    if (msg) { msg.style.color = 'var(--text-light)'; msg.textContent = '초기화 중…'; }
+    if (btn) { btn.disabled = true; btn.textContent = '초기화 중…'; }
+    try {
+      const res = await fetch('/api/admin-reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ phone: OWNER_PHONE })
+      });
+      let d = {};
+      try { d = await res.json(); } catch (_) {}
+      if (!res.ok || !d.ok) throw new Error((d && d.error) || '초기화 실패');
+      const elOld = document.getElementById('ownPwOld');
+      const elNew = document.getElementById('ownPwNew');
+      const elNew2 = document.getElementById('ownPwNew2');
+      // 현재 비밀번호 칸을 0000으로 채워 드린다 — 초기화 직후 곧장 새 비번만 넣으면 끝나도록.
+      if (elOld) elOld.value = '0000';
+      if (elNew) elNew.value = '';
+      if (elNew2) elNew2.value = '';
+      if (elNew) elNew.focus();
+      if (msg) {
+        msg.style.color = '#c0392b';
+        msg.textContent = '🔑 0000 으로 초기화됐습니다. 현재 비밀번호 칸은 채워 뒀으니, 새 비밀번호 두 칸만 넣고 「비밀번호 변경」을 눌러 주세요. (0000은 공개된 값입니다)';
+      }
+    } catch (e) {
+      if (msg) { msg.style.color = '#c0392b'; msg.textContent = '오류: ' + (e.message || '초기화 실패'); }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '현재 비밀번호를 잊으셨나요?'; }
     }
   }
 
