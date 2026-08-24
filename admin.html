@@ -648,6 +648,7 @@
           <button type="button" class="admin-card" onclick="location.href='/admin-stats'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V12"></path><path d="M12 20V5"></path><path d="M18 20V9"></path></svg></span><b>방문 통계<i class="go-out">↗</i></b><span>사이트 방문자 수</span></button>
           <button type="button" class="admin-card" onclick="location.href='/admin-staff'"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c1-3.2 3.4-4.6 6-4.6s5 1.4 6 4.6"></path><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M18 20c-.3-1.5-.8-2.7-1.5-3.6"></path></svg></span><b>운영진 관리<i class="cbadge" id="bdgStaff"></i><i class="go-out">↗</i></b><span>조교 가입 승인·거부</span></button>
           <button type="button" class="admin-card" onclick="openSection('appversion')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M12 16.5V8m-3 3 3-3 3 3"></path></svg></span><b>앱 강제업데이트</b><span>구버전 차단 최소버전</span></button>
+          <button type="button" class="admin-card" onclick="openSection('mypassword')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path><circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle></svg></span><b>내 비밀번호 변경</b><span>원장 로그인 비밀번호</span></button>
         </div>
       </div>
     </div>
@@ -685,6 +686,39 @@
         </div>
         <div id="appVerMsg" style="font-size:0.82rem;margin:4px 0 10px;min-height:18px;"></div>
         <button type="button" id="appVerSaveBtn" onclick="saveAppVersion()" style="background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-weight:800;font-size:0.9rem;font-family:inherit;cursor:pointer;">저장</button>
+      </div>
+    </div>
+
+    <!-- 내 비밀번호 변경 탭 — 2026-08-24 신설.
+         [왜] 원장 계정(010-4114-9785)의 로그인 비밀번호를 바꿀 화면이 어디에도 없었다.
+              포털의 「비밀번호 변경」은 원장이 못 본다(로그인하면 곧장 /admin으로 이동).
+              /api/auth/change-password도 포털 토큰을 요구하는데 원장은 그 토큰을 안 받는다.
+         [주의] 여기서 바뀌는 건 **앱·포털 로그인 비밀번호**다.
+                Cloudflare 환경변수 ADMIN_PASSWORD(아래 화면의 비번-only 문)는 여기서 안 바뀐다. -->
+    <div class="tab-panel" id="tab-mypassword">
+      <div class="notice-form">
+        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path><circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle></svg>내 비밀번호 변경</h3>
+        <p style="font-size:0.82rem;color:var(--text-light);line-height:1.65;margin:-2px 0 12px;">
+          <b>010-4114-9785</b> 로 앱·포털에 로그인하실 때 넣는 비밀번호를 바꿉니다.<br>
+          · 바꾸셔도 <b>지금 이 화면에서 튕겨나가지 않아요.</b> 다음 로그인부터 새 비밀번호를 넣으시면 됩니다.<br>
+          · 서버는 비밀번호 원문을 모릅니다(해시만 저장). <b>잊으셔도 확인은 불가능</b>하고, 아래 방법으로 새로 정하는 것만 됩니다.<br>
+          · <b>잊으셨을 때</b> — 학생 목록에서 <b>010-4114-9785</b>의 「비번 초기화」를 누르면 0000이 됩니다. 그 뒤 이 화면에서 현재 비밀번호에 0000을 넣고 새로 정하세요.
+            <b style="color:#c0392b;">0000은 코드에 적힌 공개된 값이니, 초기화하셨으면 바로 바꾸셔야 합니다.</b>
+        </p>
+        <div class="form-row">
+          <label>현재 비밀번호</label>
+          <input id="ownPwOld" type="password" autocomplete="current-password" placeholder="지금 쓰는 비밀번호">
+        </div>
+        <div class="form-row">
+          <label>새 비밀번호 (4자 이상)</label>
+          <input id="ownPwNew" type="password" autocomplete="new-password" placeholder="새 비밀번호">
+        </div>
+        <div class="form-row">
+          <label>새 비밀번호 확인</label>
+          <input id="ownPwNew2" type="password" autocomplete="new-password" placeholder="한 번 더 입력">
+        </div>
+        <div id="ownPwMsg" style="font-size:0.82rem;margin:4px 0 10px;min-height:18px;"></div>
+        <button type="button" id="ownPwSaveBtn" onclick="changeOwnPassword()" style="background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:10px;font-weight:800;font-size:0.9rem;font-family:inherit;cursor:pointer;">비밀번호 변경</button>
       </div>
     </div>
 
@@ -1903,6 +1937,16 @@
     if (name === 'videos') loadVideos();
     if (name === 'appversion') loadAppVersion();
     if (name === 'reviews') loadAdminReviews();
+    // 📓 비밀번호 칸은 이 탭에 들어올 때마다 비운다.
+    //   /admin은 관우T가 켜두고 자리를 비우는 화면이라, 입력해 둔 비밀번호가 남아 있으면 안 된다.
+    if (name === 'mypassword') {
+      ['ownPwOld', 'ownPwNew', 'ownPwNew2'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const pwMsg = document.getElementById('ownPwMsg');
+      if (pwMsg) pwMsg.textContent = '';
+    }
       }
 
   // ── 학생 목록: 재원생 / 수료생 / 졸업생 서브탭 (2026-08-10 개편) ──
@@ -2069,6 +2113,60 @@
       if (msg) { msg.style.color = '#c0392b'; msg.textContent = '오류: ' + (e.message || '저장 실패'); }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+    }
+  }
+
+  // ─────────────── 내 비밀번호 변경 (원장 본인) ───────────────
+  // 📓 2026-08-24 — 원장 계정(010-4114-9785)의 **앱·포털 로그인 비밀번호**를 바꾸는 유일한 화면.
+  //   여태 바꿀 방법이 아예 없었다: 원장은 로그인하면 곧장 /admin으로 튕겨 포털의 「비밀번호 변경」을 못 보고,
+  //   /api/auth/change-password는 원장이 안 받는 포털 토큰을 요구한다. 그래서 원장 전용 문을 따로 냈다.
+  //   ⚠️ 여기서 Cloudflare 환경변수 ADMIN_PASSWORD는 안 바뀐다(그건 Cloudflare 대시보드에서만).
+  //   adm_ 세션은 ADMIN_PASSWORD로 서명돼 계정 비번과 무관하다 → 바꿔도 이 화면에서 튕겨나가지 않는다.
+  //   🔴 비밀번호는 어디에도 다시 그리지 않는다(콘솔·로그·화면). 성공하면 입력칸을 즉시 비운다.
+  async function changeOwnPassword() {
+    const msg = document.getElementById('ownPwMsg');
+    const btn = document.getElementById('ownPwSaveBtn');
+    const elOld = document.getElementById('ownPwOld');
+    const elNew = document.getElementById('ownPwNew');
+    const elNew2 = document.getElementById('ownPwNew2');
+    const oldPassword = (elOld && elOld.value) || '';
+    const newPassword = (elNew && elNew.value) || '';
+    const confirmPw = (elNew2 && elNew2.value) || '';
+
+    function fail(text) {
+      if (msg) { msg.style.color = '#c0392b'; msg.textContent = text; }
+    }
+
+    // 아래 검사는 왕복을 아끼려는 것뿐이다. 서버(admin-change-own-password.js)에 같은 검사가 또 있고,
+    // 진짜 판정은 거기서 한다. 이 화면 검사만 믿고 서버 쪽을 지우면 안 된다.
+    if (!oldPassword) return fail('현재 비밀번호를 입력해 주세요.');
+    if (!newPassword) return fail('새 비밀번호를 입력해 주세요.');
+    if (newPassword.length < 4) return fail('새 비밀번호는 4자리 이상이어야 합니다.');
+    if (newPassword.length > 64) return fail('새 비밀번호가 너무 깁니다. (64자 이하)');
+    if (newPassword !== confirmPw) return fail('새 비밀번호 두 칸이 서로 다릅니다.');
+    if (newPassword === oldPassword) return fail('새 비밀번호가 지금 쓰시는 비밀번호와 같습니다.');
+
+    if (!confirm('비밀번호를 바꿀까요?\n\n· 다음 로그인부터 새 비밀번호가 필요합니다.\n· 서버도 원문을 모릅니다(해시만 저장) — 잊으셔도 확인은 안 되고, 초기화 후 다시 정하셔야 합니다.')) return;
+
+    if (msg) { msg.style.color = 'var(--text-light)'; msg.textContent = '변경 중…'; }
+    if (btn) { btn.disabled = true; btn.textContent = '변경 중…'; }
+    try {
+      const res = await fetch('/api/admin-change-own-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+      let d = {};
+      try { d = await res.json(); } catch (_) {}
+      if (!res.ok || !d.ok) throw new Error((d && d.error) || '변경 실패');
+      if (elOld) elOld.value = '';
+      if (elNew) elNew.value = '';
+      if (elNew2) elNew2.value = '';
+      if (msg) { msg.style.color = '#1F7A33'; msg.textContent = '✅ 바뀌었어요. 다음 로그인부터 새 비밀번호를 넣으시면 됩니다. (이 화면은 그대로 쓰셔도 됩니다)'; }
+    } catch (e) {
+      fail('오류: ' + (e.message || '변경 실패'));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '비밀번호 변경'; }
     }
   }
 
