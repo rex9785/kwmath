@@ -1006,8 +1006,29 @@
     if (loadActive() && !isParentView) startHeartbeat();
   };
 
-  // 페이지 진입 시 라이브 1번 + 30초마다 갱신
-  setInterval(refreshLive, 30 * 1000);
+  // 페이지 진입 시 라이브 1번 + 갱신 (2026-08-30 수정)
+  // 왜 고쳤나: 예전엔 `setInterval(refreshLive, 30*1000)` 한 줄이라, 탭만 열려 있으면
+  //   공부 중이 아니어도 · 화면이 가려져 있어도 30초마다 /api/study-live 를 불렀다.
+  //   호출 1건 = access_events 1행 INSERT (인덱스 3개라 실제 쓰기는 약 5행).
+  //   탭 하나를 8시간 방치하면 960회 = 약 4,800행 = 하루 쓰기 한도(10만)의 5%를 혼자 태운다.
+  // 무엇을 바꿨나: (1) 탭이 숨겨져 있으면 아예 안 부른다.
+  //   (2) 공부 중이면 30초 그대로, 공부 중이 아니면 3분 간격.
+  //   (3) 탭이 다시 보이면 즉시 1번 부르고 리듬을 되잡는다.
+  // 화면 동작은 그대로다 — 보고 있는 동안의 갱신 주기는 공부 중이면 예전과 동일.
+  // 되돌리기: 아래 블록 전체를 `setInterval(refreshLive, 30 * 1000);` 한 줄로 되돌리면 원복.
+  let _liveTick = null;
+  function liveInterval() { return (loadActive() && !isParentView) ? 30 * 1000 : 180 * 1000; }
+  function scheduleLive() {
+    if (_liveTick) { clearTimeout(_liveTick); _liveTick = null; }
+    _liveTick = setTimeout(function () {
+      if (!document.hidden) refreshLive();
+      scheduleLive();
+    }, liveInterval());
+  }
+  scheduleLive();
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { refreshLive(); scheduleLive(); }
+  });
 
   // ════════ 목표 · 디데이 · 메달 · 랭킹기간 · 화면꺼짐방지 ════════
   let prefs = { weeklyGoal: 0, dailyGoal: 0, ddays: [] };
