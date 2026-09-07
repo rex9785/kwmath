@@ -35,7 +35,17 @@ import {
 //   2026-08-12 관우T 지시: 송효찬만 올린다. 나머지 세 명은 사본을 지웠으므로 여기서도 뺀다.
 //   여기 남겨두면 /seoyul 같은 주소가 비밀번호 화면을 띄워 「다른 문서도 있다」고 알려주는 꼴이 된다.
 //   나중에 추가할 땐 이 Set 에 slug 를 넣고 같은 이름의 html 을 kwmath/ 에 두면 끝.
-const SLUGS = new Set(['hyochan']);
+//
+//   2026-09-07 — 이시은 학생 리포트 추가(`sieun`, kwmath/sieun.html).
+//     ⚠️ sieun.html 만 push 하고 이 줄을 빼먹으면 **관문이 안 걸려 본문이 그대로 공개된다.**
+//        (consultSlugOf 가 SLUGS 에 없는 주소는 null 을 돌려주고 미들웨어가 그냥 통과시킨다.)
+//        HTML 안의 noindex 메타는 검색엔진에게 하는 부탁일 뿐, 사람의 직접 접속은 못 막는다.
+//        두 파일은 **반드시 같이** push 한다.
+//     · 비밀번호는 문서별이 아니라 사이트 공용 하나다(CONSULT_PIN 또는 아래 DEFAULT_PIN).
+//       즉 송효찬 학생과 **같은 4550** 으로 열린다. 문서마다 다른 번호가 필요하면
+//       이 Set 을 Map(slug→pin) 으로 바꾸고 pinOf 에 slug 를 넘기면 되는데,
+//       2026-08-12 관우T 결정이 「비밀번호 4550」 하나였으므로 지금은 바꾸지 않는다.
+const SLUGS = new Set(['hyochan', 'sieun']);
 
 const DEFAULT_PIN = '4550';
 const GATE_NAME = 'consult';          // gate_lockouts 카운터 이름(다른 관문과 안 섞임)
