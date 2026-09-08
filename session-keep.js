@@ -203,6 +203,51 @@
     }
   }
 
+  /* ── 🔴 조교 폰을 원장 알림 채널에서 빼내기 (2026-09-08 · 관우T 발견) ──────────────
+   * 무슨 일이 있었나: 위 adminLoggedIn() 은 kwmath_admin_pw / kwmath_admin_token 이 있으면 원장으로 본다.
+   *   그런데 **조교 로그인도 같은 키를 쓴다.** 그래서 조교가 알림을 켜면 그 폰이 원장 채널 `__admin__` 에
+   *   그대로 등록돼, 원장 전용 알림(생활기록 출석·지각·식사 / 새 수업 문의 / 질문·답변 / 독촉 / 월급 …)이
+   *   조교 폰에도 갔다. 2026-09-08 반포세정 조교 이준원 폰에서 실제로 확인됐다.
+   *
+   * 고친 자리는 **서버**다 — push-subscribe.js · push-register-fcm.js 가 조교의 `__admin__` 요청을
+   *   `staff:{전화번호}` 로 갈아끼운다. 그래서 이 파일은 id 를 바꾸지 않는다(종전대로 `__admin__` 을 보낸다).
+   *   옛 캐시가 남은 폰도 서버에서 교정되게 하려는 의도다.
+   *
+   * 그런데 서버 교정은 "다시 등록·해제할 때"만 일어난다. 이미 등록해 둔 조교가 아무것도 안 하면
+   *   옛 오염이 그대로 남는다. 그래서 조교 세션이면 **이미 있는 웹푸시 구독을 조용히 한 번 다시 올려**
+   *   서버가 옮기고 청소하게 만든다. 지키는 것:
+   *     · 권한창을 띄우지 않는다 — getSubscription() 은 이미 허용된 구독만 돌려준다(없으면 그냥 끝).
+   *     · 폰당 한 번만 한다(성공하면 표시를 남긴다).
+   *     · 앱(FCM)은 기존 ensure() 경로가 12시간 캐시를 보므로, 그 기억만 한 번 지워 다음 진입에 다시 보내게 한다.
+   */
+  var UNLEAK_KEY = 'kwmath_staff_unleak';   // '2' = 이 폰은 정리 끝
+  function isStaffSession() { return /^ast_/.test(adminToken() || ''); }
+  function markUnleaked() { try { localStorage.setItem(UNLEAK_KEY, '2'); } catch (_) {} }
+  function staffUnleak() {
+    if (!isStaffSession()) return;
+    try { if (localStorage.getItem(UNLEAK_KEY) === '2') return; } catch (_) {}
+    // 앱 FCM — 12시간 캐시를 한 번 무효화해 다음 ensure() 때 다시 올라가게 한다(서버가 그때 옮긴다).
+    try { var m0 = load(); if (m0['__admin__']) { delete m0['__admin__']; save(m0); } } catch (_) {}
+    // 웹푸시 — 이미 있는 구독만 다시 올린다.
+    try {
+      if (!navigator.serviceWorker || !window.PushManager) { markUnleaked(); return; }
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (!reg || !reg.pushManager) return;
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (!sub) { markUnleaked(); return; }                 // 웹푸시를 안 켠 폰 — 더 할 게 없다
+          var t = adminToken(); if (!t) return;
+          var j = (typeof sub.toJSON === 'function') ? sub.toJSON() : null;
+          if (!j || !j.endpoint || !j.keys || !j.keys.p256dh || !j.keys.auth) { markUnleaked(); return; }
+          return fetch('/api/push-subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t },
+            body: JSON.stringify({ userId: '__admin__', subscription: { endpoint: j.endpoint, keys: j.keys } })
+          }).then(function (r) { if (r && r.ok) markUnleaked(); });
+        });
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
   var _busy = false;
   function ensure() {
     if (_busy) return;
@@ -230,7 +275,7 @@
     } catch (_) {}
   }
 
-  window.KWPush = { remember: remember, unregister: unregister, ensure: ensure };
+  window.KWPush = { remember: remember, unregister: unregister, ensure: ensure, staffUnleak: staffUnleak };
 
   // ☰ 메뉴 로그아웃(원장·조교 16개 화면)은 확인창이 없어 여기서 한 번에 걸어둔다 → 그 16개 파일은 손 안 댐.
   try {
@@ -252,6 +297,7 @@
     if (!sig) { _lastSig = ''; return; }
     if (sig === _lastSig) return;
     _lastSig = sig;
+    staffUnleak();   // 조교 폰이면 원장 채널에서 빠져나온다(폰당 한 번)
     ensure();
   }
   try {

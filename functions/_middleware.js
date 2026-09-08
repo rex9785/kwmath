@@ -56,10 +56,11 @@ const STAFF_GET_BLOCK = new Set([
   //    쓰기(POST)는 STAFF_WRITE_ALLOW 화이트리스트에 없어 이미 막히지만, GET은 여기서 막는다.
   //    undo-upload.js 안에서도 한 번 더 막는다(이중 잠금).
   '/api/undo-upload',
-  // ▼▼▼ LIFELOG(서지환 전용 생활기록) — 되돌릴 때 이 3줄만 지우면 됩니다 ▼▼▼
-  // 🔴 2026-08-19 — 열람 범위를 "학생 본인 + 관우T"로 못 박은 기능(식사 사진·운동 사진·출석).
-  //    조교 열람 대상이 아니다. lifelog.js 의 isAdminReq 안에서도 한 번 더 막는다(이중 잠금).
-  '/api/lifelog',
+  // ▼▼▼ LIFELOG(생활기록) — 되돌릴 때 이 5줄만 지우면 됩니다 ▼▼▼
+  // 🔴 2026-08-19 — 여기서 '/api/lifelog' 를 통째로 막고 있었다.
+  // 🔵 2026-09-08 — 준원 선생이 본인 기록을 쓰게 되면서 목록에서 뺐다.
+  //    대신 아래 staffAllowed 특례가 「admin=1 은 절대 안 됨」만 남겨 좁게 연다.
+  //    무엇을 열었는지는 그 특례 주석에 적혀 있다. 통째로 열린 게 아니다.
   // ▲▲▲ LIFELOG 끝 ▲▲▲
   // '/api/surveys'는 staffAllowed 특례로 처리(조교=퀴즈만). surveys.js가 X-Staff-Phone로 quiz=1 전용 강제.
 ]);
@@ -98,6 +99,21 @@ function staffAllowed(url, method) {
       && url.searchParams.get('admin') === '1'
       && url.searchParams.get('action') === 'check';
   }
+  // ▼▼▼ LIFELOG(생활기록) — 되돌릴 때 이 블록만 지우면 됩니다 ▼▼▼
+  // 🔵 2026-09-08 — 준원 선생 1명이 지환이와 같은 화면에서 본인 기록을 쓴다(관우T 지시).
+  //   여기서 여는 것은 **본인 몫뿐**이다. 조교 전체가 아니라 lifelog_config.staff_phone 에
+  //   적힌 그 한 사람만 통과한다 — 그 판정은 lifelog.js 의 staffAccess()가 X-Staff-Phone
+  //   (미들웨어가 붙인 검증된 값)과 대조해서 한다. 여기 특례는 "문 앞까지만" 열어 준다.
+  //   ✋ admin=1 은 어떤 메서드로도 금지 — 원장 화면(다른 참가자 기록·설정·내보내기·원복)이다.
+  //      lifelog.js 의 isAdminReq()가 조교 토큰을 원장으로 인정하지 않아 안에서도 막히지만,
+  //      여기서 먼저 끊어야 "미들웨어만 보면 열려 보이는" 상태가 안 남는다(이중 잠금).
+  //   ✋ 기각한 안: STAFF_WRITE_ALLOW 에 '/api/lifelog' 한 줄 추가 —
+  //      그러면 admin=1 POST(대상 학생 지정·원복 등)까지 문 앞을 통과해 lifelog.js 한 겹에만 기댄다.
+  if (pathname === '/api/lifelog') {
+    if (url.searchParams.get('admin') === '1') return false;
+    return method === 'GET' || method === 'POST' || method === 'DELETE';
+  }
+  // ▲▲▲ LIFELOG 끝 ▲▲▲
   if (method === 'GET') return !STAFF_GET_BLOCK.has(pathname);  // 열람 전반 허용
   return STAFF_WRITE_ALLOW.has(pathname);                      // 쓰기는 화이트리스트만
 }

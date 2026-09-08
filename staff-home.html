@@ -117,6 +117,15 @@
       <a class="mcard" href="/admin-surveys"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6.5L4.6 17A2 2 0 0 0 6.3 20h11.4a2 2 0 0 0 1.7-3L15 9.5V3"></path><path d="M8 3h8M6.6 14h10.8"></path></svg></span><span class="tx"><span class="t">테스트</span><span class="d">테스트 관리</span></span></a>
       <a class="mcard" href="/staff-worklog"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg></span><span class="tx"><span class="t">근무기록</span><span class="d">근무·급여 기록</span></span></a>
   </div>
+
+  <!-- ▼▼▼ LIFELOG 조교(2026-09-08) — 참가 조교 본인에게만 나타납니다. 되돌릴 때 이 블록만 지우면 됩니다 ▼▼▼ -->
+  <!--   기본이 display:none 인 이유: 다른 조교 화면에 「생활기록」이라는 메뉴 이름조차 뜨지 않게 하려는 것입니다.
+         눌러서 403 을 만나는 것과, 아예 없는 것은 다릅니다. 켜는 판단은 아래 스크립트가 서버에 물어서 합니다. -->
+  <div class="sec" id="llSec" style="display:none;">생활기록</div>
+  <div class="menu" id="llMenu" style="display:none;">
+      <a class="mcard" href="/lifelog"><span class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9"></path></svg></span><span class="tx"><span class="t">생활기록</span><span class="d">기상 버튼 · 식사 · 운동 기록</span></span></a>
+  </div>
+  <!-- ▲▲▲ LIFELOG 조교 끝 ▲▲▲ -->
 </div>
 <script>
   var token = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || null;
@@ -237,6 +246,26 @@
   window.addEventListener('pageshow', function(e){
     if (e && e.persisted) refreshTodo();   // persisted=true = 캐시에서 되살아난 것
   });
+
+  // ▼▼▼ LIFELOG 조교(2026-09-08) — 「생활기록」 메뉴를 켤지 서버에 묻는다 ▼▼▼
+  //   판정을 화면에서 하지 않는 이유: 이 폰이 누구인지는 세션 토큰이 미들웨어를 지나며 붙는
+  //   X-Staff-Phone 으로만 확정된다. 클라이언트가 아는 번호로 비교하면 콘솔에서 바꿔치기가 된다.
+  //   ?ping=1 은 기록을 한 건도 읽지 않는 가장 싼 호출이고, 참가 조교 본인일 때만 viewer:'staff' 다.
+  //   실패하면(네트워크·403·401) 아무것도 안 켠다 — 못 물어봤을 때의 기본값은 「안 보임」이다.
+  (function(){
+    if (!token) return;
+    fetch('/api/lifelog?ping=1', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || !j.ok || j.viewer !== 'staff') return;
+        var s = document.getElementById('llSec');
+        var m = document.getElementById('llMenu');
+        if (s) s.style.display = '';     // 인라인 display 만 걷어낸다 → CSS(.sec flex / .menu grid)가 다시 산다
+        if (m) m.style.display = '';
+      })
+      .catch(function(){});
+  })();
+  // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 </script>
 </body>
 </html>

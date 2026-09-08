@@ -40,15 +40,41 @@ export async function onRequest({ request, env }) {
 // 예약(시스템) userId 보호 — push-subscribe.js와 동일 규약.
 //   '__' 접두 id(__admin__ 등)는 관리자/조교 인증(Bearer ADMIN_PASSWORD, 미들웨어 번역)이 있을 때만 조작 허용.
 //   학생 전화번호 id는 종전대로 무인증 허용.
-function isReservedUserId(id) { return typeof id === 'string' && id.startsWith('__'); }
+//
+// 🔴 2026-09-08 — 조교 알림 누수 수정. 원인·경위는 push-subscribe.js 위쪽 주석에 자세히 적었다.
+//   요약: 조교 로그인이 원장과 같은 저장키를 쓰는 바람에 조교 폰이 원장 채널 `__admin__` 에 등록됐고,
+//   미들웨어가 조교 세션을 Bearer ADMIN_PASSWORD 로 번역하므로 아래 guard 도 막지 못했다.
+//   → 조교가 보낸 `__admin__` 요청을 서버에서 `staff:{전화번호}` 로 갈아끼운다. 두 파일이 같은 규약이어야 하므로
+//     한쪽만 고치지 말 것 (웹푸시=push-subscribe.js · 앱푸시=이 파일).
+function staffPhoneOf(request) {
+  return String(request.headers.get('X-Staff-Phone') || '').replace(/\D/g, '');
+}
+function resolveUserId(rawId, request) {
+  const sp = staffPhoneOf(request);
+  if (!sp) return rawId;
+  if (rawId === '__admin__' || rawId.startsWith('staff:')) return 'staff:' + sp;
+  return rawId;
+}
+function isReservedUserId(id) {
+  return typeof id === 'string' && (id.startsWith('__') || id.startsWith('staff:'));
+}
 function adminAuthed(request, env) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   return !!env.ADMIN_PASSWORD && token === env.ADMIN_PASSWORD;
 }
 function reservedGuard(userId, request, env) {
-  if (isReservedUserId(userId) && !adminAuthed(request, env)) {
+  if (!isReservedUserId(userId)) return null;
+  if (!adminAuthed(request, env)) {
     return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
+  const sp = staffPhoneOf(request);
+  if (userId.startsWith('staff:')) {
+    if (!sp || userId !== 'staff:' + sp) {
+      return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
+    }
+    return null;
+  }
+  if (sp) return Response.json({ error: '권한이 없습니다.' }, { status: 403 });
   return null;
 }
 
@@ -159,11 +185,12 @@ async function handleRegister(request, env) {
   let body = {};
   try { body = await request.json(); } catch {}
 
-  const userId = String(body.userId || '').trim();
+  const rawId  = String(body.userId || '').trim();
+  const userId = resolveUserId(rawId, request);                   // 조교의 __admin__ → staff:{전화번호}
   const token  = String(body.token  || '').trim();
   const via    = String(body.via    || '').trim().slice(0, 20);   // 'ensure' = 로그인 후 자동 보충, 빈값 = 사용자가 직접
 
-  if (!userId) return Response.json({ error: 'userId 필수' }, { status: 400 });
+  if (!rawId)  return Response.json({ error: 'userId 필수' }, { status: 400 });
   const guard = reservedGuard(userId, request, env);
   if (guard) return guard;
   if (!token)  return Response.json({ error: 'token 필수' }, { status: 400 });
@@ -201,6 +228,28 @@ async function handleRegister(request, env) {
     });
   } catch (e) {
     return safeError(e, null, { message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' });
+  }
+
+  // 🔴 2026-09-08 — 조교라면, 예전에 원장 채널(__admin__)에 박혀 있던 이 폰을 같이 빼낸다.
+  //   claimDeviceForUser 는 예약 id 를 건드리지 않으므로(원장이 한 폰에 __admin__ + 포털을 같이 쓰는 걸 지키려고)
+  //   여기서 명시적으로 한 번 뺀다. 이게 없으면 새 채널에 등록만 되고 옛 오염은 영원히 남는다.
+  if (userId.startsWith('staff:')) {
+    try {
+      const r = await removeTokenFrom(env, '__admin__', token);
+      if (r) {
+        await logAuditMany(env, request, [{
+          action: 'push.token.staff.unleak',
+          target: '__admin__',
+          summary: `${describeDevice(ua) || '기기'} 를 원장 알림 채널에서 분리 (${rawId} → ${userId})`,
+          detail: {
+            빼낸채널: '__admin__(원장 알림)', 옮긴채널: userId,
+            빼내기전등록: await entryInfo(r.entry), 원장채널남은기기: r.remaining,
+            사유: '조교 로그인이 원장과 같은 저장키(kwmath_admin_pw)를 써서 원장 채널에 등록돼 있었음',
+            효과: '이 폰은 이제 원장 전용 알림(문의·질문·생활기록 등)을 받지 않는다',
+          },
+        }]);
+      }
+    } catch (_) { /* 정리는 best-effort — 등록 자체를 막지 않는다 */ }
   }
 
   // 저장이 끝난 뒤에 남긴다. 로깅은 절대 본 작업을 막지 않는다.
@@ -266,13 +315,33 @@ async function handleUnregister(request, env) {
   let body = {};
   try { body = await request.json(); } catch {}
 
-  const userId = String(body.userId || '').trim();
+  const rawId  = String(body.userId || '').trim();
+  const userId = resolveUserId(rawId, request);                   // 조교의 __admin__ → staff:{전화번호}
   const token  = String(body.token  || '').trim();
   const reason = String(body.reason || '').trim().slice(0, 40);   // 'logout' 등 — 왜 뺐는지
 
-  if (!userId) return Response.json({ error: 'userId 필수' }, { status: 400 });
+  if (!rawId) return Response.json({ error: 'userId 필수' }, { status: 400 });
   const guard = reservedGuard(userId, request, env);
   if (guard) return guard;
+
+  // 🔴 2026-09-08 — 조교 로그아웃 경로에서도 옛 오염을 같이 뺀다.
+  //   token 을 준 경우에만. 안 주면 "이 계정 전체 해제"인데 __admin__ 을 통째로 비우면 관우T 폰까지 날아간다.
+  if (userId.startsWith('staff:') && token) {
+    try {
+      const r = await removeTokenFrom(env, '__admin__', token);
+      if (r) {
+        await logAuditMany(env, request, [{
+          action: 'push.token.staff.unleak',
+          target: '__admin__',
+          summary: `조교 폰을 원장 알림 채널에서 분리(해제 경로 · ${reason || '미지정'})`,
+          detail: {
+            빼낸채널: '__admin__(원장 알림)', 빼내기전등록: await entryInfo(r.entry),
+            원장채널남은기기: r.remaining, 경로: '해제(로그아웃 등)', 요청id: rawId, 실제채널: userId,
+          },
+        }]);
+      }
+    } catch (_) {}
+  }
 
   const key = `${TOKENS_PREFIX}${encodeURIComponent(userId)}.json`;
 

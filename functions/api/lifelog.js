@@ -1,4 +1,4 @@
-// /api/lifelog — 「생활기록」 : 지정 학생 1명 전용 (식사 · 운동 · 학원기기 출석)
+// /api/lifelog — 「생활기록」 : 지정 학생 1명 + 지정 조교 1명 (식사 · 운동 · 출석/기상)
 // ═══════════════════════════════════════════════════════════════════════════
 // ▸ 왜 이 파일이 따로 있나 (2026-08-19, 관우T 요청)
 //   서지환 학생 1명만을 위한 기능이다. **퇴원하면 이 기능이 없던 상태로 되돌린다**가
@@ -32,6 +32,9 @@
 //   ① 출석함 · ② 식사/운동 기록함 → 관우T + 학부모   ③ 안 한 것 독촉 → **학생 본인만**
 //   ③은 관우T·학부모에게 한 통도 가면 안 된다. 잘못 섞이는 유일한 경로가 "학생 폰 == 학부모 폰"이라
 //   그때는 아예 안 보낸다(remindTargets 가드). 발동은 5분 크론(/api/notices-flush)이 건다.
+//   ⓸ 2026-09-08 추가 — 준원 선생이 기록/기상하면 → **관우T + 지환이**(어머니 제외, 관우T 확정).
+//      반대로 지환이가 기록/출석하면 준원 선생 폰으로도 갈지는 스위치(notify_peer_staff)로 두고
+//      **기본은 꺼 둔다**. 지환이 어머니께 가던 알림 규칙은 한 글자도 안 건드렸다.
 //
 // ▸ 데이터
 //   lifelog_config(key TEXT PK, value TEXT, updated_at)      target_student_id 등
@@ -40,9 +43,17 @@
 //                   UNIQUE(student_id, date, kind, slot)
 //   lifelog_checkin(id, student_id, date, ts, device_id, device_label, ua, ua_model,
 //                   ip_hash, source,
-//                   out_ts, out_device_label, out_ua_model, out_source)  ← 퇴근(2026-08-21)
+//                   out_ts, out_device_label, out_ua_model, out_source,  ← 퇴근(2026-08-21)
+//                   wake_base, wake_unit_sec)                            ← 조교 기상(2026-09-08)
 //                                                             UNIQUE(student_id, date)
-//                   ts=등원 · out_ts=퇴근. 체류시간은 저장하지 않고 뺄셈으로 낸다(stayOf).
+//                   ts=등원(조교는 기상) · out_ts=퇴근. 체류시간은 저장하지 않고 뺄셈으로 낸다(stayOf).
+//                   wake_base/wake_unit_sec = 그 줄을 찍던 순간의 기상 기준을 얼려 둔 값.
+//                   NULL이면 살아 있는 규칙을 따른다 → 지환이 행은 전부 NULL이라 하나도 안 달라진다.
+//
+// ▸ 참가자 (2026-09-08 — 준원 선생 합류)
+//   지환이 = students 테이블의 진짜 학생 id.   준원 선생 = student_id -1 (STAFF_PID).
+//   -1은 students 에 없는 가짜 id다. lifelog_* 에 외래키가 없어서 성립한다.
+//   누가 준원 선생인지는 lifelog_config.staff_phone(승인된 조교 전화번호)로만 정한다.
 //   lifelog_devices(id, secret, label, ua, ua_model, enroll_code, code_expires_at,
 //                   enrolled_at, last_used_at, active, created_at)
 //   R2 키: lifelog/{student_id}/{date}/{ts}_{rand}_{safeName}
@@ -52,7 +63,7 @@
 //   GET  ?name=..&from=..&to=..           학생: 내 기록 + 출석 + 이 기기 등록 여부
 //   GET  ?photo=1&key=..                  사진 스트림 (학생=본인 것만 · 원장=전부)
 //   GET  ?admin=1                         원장: 설정 · 등록기기 목록 · 최근 요약
-//   GET  ?admin=1&entries=1&from=&to=     원장: 기간 기록
+//   GET  ?admin=1&entries=1&from=&to=     원장: 기간 기록 (&who=staff → 준원 선생 쪽)
 //   GET  ?admin=1&export=1&from=&to=      원장: 엑셀 + 사진 ZIP 내려받기
 //   POST (multipart: kind,date,slot,content,file[])   학생: 식사·운동 기록 저장/추가
 //   POST ?action=checkin                  학생: 출석 (등록기기에서만)
@@ -68,6 +79,20 @@
 //   DELETE ?key=..                        학생: 내 사진 1장 삭제
 //   DELETE ?entry=ID                      학생: 내 기록 1건 삭제(사진 포함)
 //   DELETE ?admin=1&purge=1&confirm=DELETE  원장: 전체 원복(테이블 DROP + R2 삭제)
+//
+// ▸ 라우트 — 조교(준원 선생) 몫 (2026-09-08 추가)
+//   같은 /api/lifelog 이고, 같은 화면(/lifelog)이다. 누구인지는 조교 세션 토큰이 미들웨어를 지나며
+//   붙는 X-Staff-Phone 으로 서버가 판정한다(staffAccess). 클라이언트가 보내는 값은 못 믿는다.
+//   GET  ?ping=1 · ?from=&to=            조교: 내 기록 + 기상 + (공개 켜져 있으면) 지환이 것
+//   POST ?action=wake                    조교: 기상 버튼 — 등록기기 제한 없음(집에서 일어난다)
+//   POST ?action=set_wake  {base}        조교: 내 기상 기준 변경 — **내일부터** 적용
+//   POST (multipart …)                   조교: 식사·운동 기록 저장/추가 (학생과 같은 모양)
+//   DELETE ?key=.. · ?entry=ID           조교: 내 사진/기록 삭제 (기상 기록은 못 지움)
+//   POST ?admin=1&action=set_staff       원장: 참가 조교 지정 {phone, name}
+//   POST ?admin=1&action=clear_staff     원장: 조교 참가 해제 (기록은 남는다)
+//   POST ?admin=1&action=set_wake        원장: 기상 기준 변경 — **즉시** 적용 {base, unit_sec, cap}
+//   POST ?admin=1&action=set_share       원장: 상호공개·상대알림 스위치 {to_staff, to_student, notify_peer}
+//   POST ?admin=1&action=manual_wake     원장: 수동 기상/취소 {date, on, time}
 
 import { requireStudentAccess, normalizePhone } from './_auth.js';
 import { getStudentById } from './_db.js';
@@ -190,6 +215,14 @@ async function ensureTable(env) {
     try { await env.DB.prepare('ALTER TABLE lifelog_checkin ADD COLUMN ' + col).run(); } catch (_) {}
   }
   // ▲▲▲ LIFELOG 퇴근 끝
+  // ▼▼▼ LIFELOG 조교(2026-09-08) — 기상 기준을 「누른 그 줄」에 얼려 두는 칸 2개 ▼▼▼
+  //   왜 얼리나: 기상 기준은 준원 선생 본인이 바꾼다(관우T 지시). 살아 있는 규칙만 보고 계산하면
+  //   기준을 바꾼 순간 **지나간 날의 지각 여부가 통째로 다시 계산된다**. 그래서 그때의 값을 박아 둔다.
+  //   NULL 이면 지금까지와 똑같이 살아 있는 규칙을 따른다 → 지환이 행은 한 줄도 안 달라진다.
+  for (const col of ['wake_base TEXT', 'wake_unit_sec INTEGER']) {
+    try { await env.DB.prepare('ALTER TABLE lifelog_checkin ADD COLUMN ' + col).run(); } catch (_) {}
+  }
+  // ▲▲▲ LIFELOG 조교 끝
   _ready = true;
 }
 
@@ -210,6 +243,135 @@ async function targetId(env) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
+
+// ▼▼▼ LIFELOG 조교(2026-09-08) — 참가자가 둘이 됐다 ▼▼▼
+// 관우T 지시: "조교쌤도 생활 기록을 입력하는 란을 지환이처럼 만들어주면돼 **준원이 것만** 만들어주면 돼"
+//
+// 조교는 students 행이 없다. 그래서 **가상 참가자 번호 -1** 로 지환이와 같은 표에 나란히 산다.
+//   ✋ 기각 ①: students 에 준원 선생을 학생으로 한 줄 넣기 — 그 순간 학생 명단·출결 달력·성적·
+//      리포트·문자 발송 대상·통계에 전부 끼어든다. 생활기록 하나 만들려고 운영 데이터를 오염시키는 거래다.
+//   ✋ 기각 ②: lifelog_staff_* 표를 따로 파기 — 지울 표가 4→8개가 되어 원복 절차가 길어지고,
+//      둘을 같이 보여주는 화면마다 질의가 두 벌이 된다. **두 벌이 되면 한쪽만 고친 채 몇 주가 지나간다.**
+//   -1 이 안전한 근거: student_id 는 외래키 없는 INTEGER 이고(ensureTable), 유니크 인덱스가
+//      (student_id, …) 로 시작해 지환이 행과 절대 안 부딪히며, R2 키 lifelog/-1/… 도
+//      parseLifeKey 의 '/' 분해를 그대로 통과하고 원복 prefix 'lifelog/' 에 같이 지워진다.
+const STAFF_PID = -1;
+const STAFF_WAKE_BASE_DEFAULT = '07:00';
+const STAFF_WAKE_UNIT_DEFAULT = 30;
+
+// 이 기능에 등록된 조교 1명. staff_phone 이 비어 있으면 조교 쪽 기능 자체가 꺼진 것.
+async function staffPart(env) {
+  const raw = await getCfg(env, 'staff_phone');
+  const phone = normalizePhone(raw) || '';
+  const name = String((await getCfg(env, 'staff_name')) || '').trim();
+  return { phone, digits: phone.replace(/\D/g, ''), name: name || '조교', on: !!phone };
+}
+// 지금 요청이 「조교 세션」인가 — 미들웨어가 붙인 X-Staff-Phone 만 믿는다.
+//   (_middleware.js 가 클라이언트가 보낸 같은 이름의 헤더를 무조건 세척한 뒤 검증된 값을 붙인다.)
+function staffReqPhone(env, request) {
+  const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
+  if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) return '';
+  return String(request.headers.get('X-Staff-Phone') || '').replace(/\D/g, '');
+}
+// 등록된 **그 조교 본인**이면 { phone, name, pid }, 아니면 null.
+//   다른 조교는 여기서 null 이 되어 그대로 403 이 된다("준원이 것만" 이라는 지시가 여기서 지켜진다).
+async function staffAccess(env, request) {
+  const sp = staffReqPhone(env, request);
+  if (!sp) return null;
+  const st = await staffPart(env);
+  if (!st.on || st.digits !== sp) return null;
+  return { phone: st.phone, name: st.name, pid: STAFF_PID };
+}
+
+// ── 기상 시각 규칙 ──
+// 관우T 지시: "기상시간은 내가 아니라 **본인이 바꿀 수 있는걸로**"
+// 함정: 09:20에 일어나 놓고 기준을 09:30으로 밀면 벌칙이 0이 된다. 두 겹으로 막는다.
+//   ① 준원 선생이 바꾸면 **다음 날부터** 적용(staff_wake_base_from). 오늘은 옛 기준(staff_wake_prev_base)이 산다.
+//      관우T가 바꾸면 즉시 적용 — 값을 잘못 넣었을 때의 탈출구가 하나는 있어야 한다.
+//   ② 버튼을 누르는 순간의 기준·단위를 그 줄에 얼려 적는다(wake_base·wake_unit_sec).
+//   ✋ 기각안: 관우T만 바꾸게 하기 — 지시 원문과 정면으로 어긋난다.
+// 산식은 지각 벌칙(lateOf)과 **글자 하나까지 같다**. 두 벌로 만들지 않는다.
+function isHm(v) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '')); }
+async function wakeRule(env, date) {
+  const cur = String((await getCfg(env, 'staff_wake_base')) || '').trim();
+  const from = String((await getCfg(env, 'staff_wake_base_from')) || '').trim();
+  const prev = String((await getCfg(env, 'staff_wake_prev_base')) || '').trim();
+  const u = Number(await getCfg(env, 'staff_wake_unit_sec'));
+  const c = Number(await getCfg(env, 'staff_wake_cap'));
+  const d = isYmd(date) ? date : todayKST();
+  let base = isHm(cur) ? cur : STAFF_WAKE_BASE_DEFAULT;
+  // 아직 발효일 전이면 옛 기준이 산다.
+  if (isHm(prev) && isYmd(from) && d < from) base = prev;
+  return {
+    base,
+    // 화면에 "내일부터 07:30" 이라고 알려 주기 위한 값. 오늘 계산에는 안 쓴다.
+    pending: (isHm(cur) && isYmd(from) && from > todayKST()) ? { base: cur, from } : null,
+    unitSec: Number.isFinite(u) && u > 0 ? Math.floor(u) : STAFF_WAKE_UNIT_DEFAULT,
+    cap: Number.isFinite(c) && c > 0 ? Math.floor(c) : 0,
+  };
+}
+// 기상 규칙 저장. immediate=true(관우T) → 지금부터 · false(준원 선생) → **내일부터**.
+//   내일부터로 미루는 이유: 늦잠을 잔 뒤 기준을 밀어 벌칙을 0으로 만드는 길을 없애기 위해서다.
+//   오늘 살아 있던 기준을 staff_wake_prev_base 에 박아 둬야 오늘 계산이 안 흔들린다.
+async function saveWakeRule(env, next, immediate) {
+  const cur = await wakeRule(env, todayKST());
+  if (immediate) {
+    await setCfg(env, 'staff_wake_base', next.base);
+    await setCfg(env, 'staff_wake_base_from', '');
+    await setCfg(env, 'staff_wake_prev_base', '');
+  } else {
+    const tomorrow = new Date(Date.parse(todayKST() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+    await setCfg(env, 'staff_wake_prev_base', cur.base);   // 오늘은 이 값이 계속 산다
+    await setCfg(env, 'staff_wake_base', next.base);
+    await setCfg(env, 'staff_wake_base_from', tomorrow);
+  }
+  if (Number.isFinite(next.unitSec) && next.unitSec > 0) await setCfg(env, 'staff_wake_unit_sec', String(Math.floor(next.unitSec)));
+  if (Number.isFinite(next.cap) && next.cap >= 0) await setCfg(env, 'staff_wake_cap', String(Math.floor(next.cap)));
+  return await wakeRule(env, todayKST());
+}
+// checkin 한 줄 → 기상 벌칙. 줄에 얼려 둔 값이 있으면 **그것이 우선**.
+function wakeOf(row, rule) {
+  if (!row || !row.ts) return lateOf(null, rule);
+  const base = isHm(row.wake_base) ? row.wake_base : rule.base;
+  const unit = Number(row.wake_unit_sec) > 0 ? Math.floor(Number(row.wake_unit_sec)) : rule.unitSec;
+  return lateOf(row, { base, unitSec: unit, cap: rule.cap });
+}
+// 켜짐/꺼짐 한 글자 설정. 없으면 def.
+async function flagCfg(env, key, def) {
+  const v = await getCfg(env, key);
+  if (v === null || v === undefined || v === '') return !!def;
+  return String(v) === '1';
+}
+// 원장 화면이 한 번에 받아 가는 조교 참가자 현황.
+async function staffView(env) {
+  const st = await staffPart(env);
+  const wr = await wakeRule(env, todayKST());
+  let counts = { entries: 0, photos: 0, wakes: 0, firstDate: null, lastDate: null };
+  if (st.on) {
+    try {
+      const c1 = await env.DB.prepare(
+        'SELECT COUNT(*) AS n, COALESCE(SUM(photo_count),0) AS p, MIN(date) AS a, MAX(date) AS b FROM lifelog_entries WHERE student_id=?'
+      ).bind(STAFF_PID).first();
+      const c2 = await env.DB.prepare('SELECT COUNT(*) AS n FROM lifelog_checkin WHERE student_id=?').bind(STAFF_PID).first();
+      counts = {
+        entries: Number(c1 && c1.n) || 0, photos: Number(c1 && c1.p) || 0,
+        wakes: Number(c2 && c2.n) || 0,
+        firstDate: (c1 && c1.a) || null, lastDate: (c1 && c1.b) || null,
+      };
+    } catch (_) { /* 표가 아직 없거나 원복 직후 */ }
+  }
+  return {
+    on: st.on, phone: st.phone, name: st.name, pid: STAFF_PID,
+    wakeRule: wr,
+    share: {
+      toStaff: await flagCfg(env, 'share_to_staff', true),        // 준원 → 지환이 기록 열람
+      toStudent: await flagCfg(env, 'share_to_student', true),    // 지환이 → 준원 기록 열람
+      notifyPeer: await flagCfg(env, 'notify_peer_staff', false), // 지환이 기록을 준원 폰에도 알림(기본 끔)
+    },
+    counts,
+  };
+}
+// ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
 // ─────────────────── 지각 → 운동 개수 (2026-08-19 추가) ───────────────────
 // 규칙(관우T): 아침 8시를 넘겨 출석하면 넘긴 만큼 30초당 운동 1개.
@@ -355,6 +517,58 @@ async function notifyDone(env, tid, ev) {
   } catch (_) { /* best-effort */ }
   return who;
 }
+
+// ▼▼▼ LIFELOG 조교(2026-09-08) — 준원 선생 쪽 알림 ▼▼▼
+// 관우T 답 ④: 준원 선생이 기록하면 **관우T + 지환이**. 지환이 어머니는 뺀다.
+//   ✋ notifyDone 재사용을 기각한 이유: 그 함수는 학부모에게 보낸다.
+//      학원 직원의 기상·식사가 학부모 폰에 뜰 근거가 없다.
+// 조교 폰의 푸시 id 는 **staff:{숫자만 번호}** 다 — push-subscribe.js/push-register-fcm.js 가
+//   조교 세션의 구독을 그 id 로 저장한다(2026-09-08 __admin__ 누수 수정). 하이픈형이 아니다.
+function staffPushId(st) { return st && st.digits ? ('staff:' + st.digits) : ''; }
+
+async function notifyStaffDone(env, ev) {
+  // 1) 관우T
+  try {
+    await sendPushToUsers(env, ADMIN_PUSH_USERS, {
+      title: ev.title, body: ev.body, url: '/admin-lifelog', tag: ev.tag,
+    }, { kind: ev.type });
+  } catch (_) { /* best-effort */ }
+  // 2) 지환이 — 상호 공개가 켜져 있을 때만. 어머니 앱에는 안 뜨게 audience:'student'.
+  try {
+    if (!(await flagCfg(env, 'share_to_student', true))) return;
+    const tid = await targetId(env);
+    if (!tid) return;
+    try {
+      await createNotification(env, {
+        studentId: tid, type: ev.type, title: ev.title, body: ev.body,
+        url: '/lifelog', dedupKey: ev.dedupKey, audience: 'student',
+      });
+    } catch (_) { /* best-effort */ }
+    const who = await pushPhonesOf(env, tid);
+    // 학생 번호와 학부모 번호가 같으면 보내지 않는다 — 어머니 폰에 뜬다(독촉 알림과 같은 가드).
+    const t = remindTargets(who);
+    if (!t.to) return;
+    await sendPushToUsers(env, [t.to], {
+      title: ev.title, body: ev.body, url: '/lifelog', tag: ev.tag,
+    }, { nightSilent: [t.to], kind: ev.type });
+  } catch (_) { /* best-effort */ }
+}
+
+// 반대 방향 — 지환이가 기록했을 때 준원 선생에게. **기본 꺼짐**.
+//   지환이 알림은 원래 "학부모랑 나한테만" 이었다. 동의를 받기 전에 수신자를 늘리지 않는다.
+//   notifyDone 은 손대지 않고 호출부에서 이 함수를 따로 부른다(①②의 기존 수신자는 그대로).
+async function notifyPeerStaff(env, ev) {
+  try {
+    if (!(await flagCfg(env, 'notify_peer_staff', false))) return;
+    const st = await staffPart(env);
+    const id = staffPushId(st);
+    if (!id) return;
+    await sendPushToUsers(env, [id], {
+      title: ev.title, body: ev.body, url: '/lifelog', tag: ev.tag,
+    }, { kind: ev.type });
+  } catch (_) { /* best-effort */ }
+}
+// ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
 // ③ 독촉이 나가도 되는가 + 받을 번호. 규칙 위반 가능성이 있으면 빈 값을 돌려 아예 안 보내게 한다.
 function remindTargets(who) {
@@ -576,10 +790,14 @@ function buildXlsx(rows, widths) {
 }
 
 // ─────────────────────────── 공통 ───────────────────────────
-// 🔒 이중 잠금 — 열람 범위는 "서지환 + 관우T"로 못 박혀 있다(조교 제외).
+// 🔒 이중 잠금 — 이 함수가 판정하는 것은 「원장 화면(admin=1)을 쓸 자격」이다.
 //   미들웨어가 조교(ast_) 세션도 Bearer ADMIN_PASSWORD 로 번역해 보내므로,
 //   토큰만 보면 조교가 원장으로 통과한다. audit-log.js 와 같은 방식으로 여기서 한 번 더 막는다.
-//   (_middleware.js 의 STAFF_GET_BLOCK 에도 '/api/lifelog' 를 넣었다 — 둘 다 있어야 한다.)
+//   ⚠️ 2026-09-08 정정 — 여기 있던 "_middleware.js 의 STAFF_GET_BLOCK 에도 '/api/lifelog' 를
+//      넣었다"는 문장은 이제 사실이 아니다. 준원 선생이 참가하면서 그 줄은 뺐다(빼지 않으면
+//      조교 본인 화면조차 403 이 된다). 지금 바깥쪽 잠금은 staffAllowed() 의 '/api/lifelog'
+//      특례다 — 조교에게 GET·POST·DELETE 는 열되 admin=1 은 어떤 메서드로도 막는다.
+//      안쪽 잠금이 이 함수다. 여전히 둘 다 있어야 한다.
 function isAdminReq(env, request) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
   if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) return false;
@@ -678,12 +896,33 @@ export async function onRequest(context) {
         const meta = parseLifeKey(key);
         if (!meta) return jsonErr('잘못된 사진 키입니다.', 400);
         if (!isAdmin) {
-          const access = await requireStudentAccess(env, request);
-          if (!access.ok) return access.response;
-          // 학부모도 자녀 사진은 본다(2026-08-19). 남의 학생 사진은 여전히 못 본다.
-          if (String(meta.studentId) !== String(access.student.id)) {
-            return jsonErr('본인이 올린 것만 볼 수 있어요.', 403);
+          // ▼▼▼ LIFELOG 조교(2026-09-08) — 조교 세션은 포털 토큰이 없다. 먼저 갈라 본다. ▼▼▼
+          const sa = await staffAccess(env, request);
+          if (sa) {
+            const own = String(meta.studentId) === String(STAFF_PID);
+            if (!own) {
+              // 지환이 사진 — share_to_staff 가 켜져 있고, 그 대상 학생 것일 때만.
+              const tid = await targetId(env);
+              const ok = !!tid && String(meta.studentId) === String(tid)
+                && await flagCfg(env, 'share_to_staff', true);
+              if (!ok) return jsonErr('볼 수 없는 사진입니다.', 403);
+            }
+          } else {
+            const access = await requireStudentAccess(env, request);
+            if (!access.ok) return access.response;
+            if (String(meta.studentId) === String(STAFF_PID)) {
+              // 준원 선생 사진 — **학생 본인에게만**. 어머니는 못 본다(관우T 답 ④의 취지).
+              const tid = await targetId(env);
+              const ok = !!tid && String(tid) === String(access.student.id)
+                && !isParentView(access)
+                && await flagCfg(env, 'share_to_student', true);
+              if (!ok) return jsonErr('본인이 올린 것만 볼 수 있어요.', 403);
+            } else if (String(meta.studentId) !== String(access.student.id)) {
+              // 학부모도 자녀 사진은 본다(2026-08-19). 남의 학생 사진은 여전히 못 본다.
+              return jsonErr('본인이 올린 것만 볼 수 있어요.', 403);
+            }
           }
+          // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
         }
         if (!env.BUCKET) return jsonErr('저장소가 연결되지 않았습니다.', 500);
         const object = await env.BUCKET.get(key);
@@ -714,6 +953,32 @@ export async function onRequest(context) {
 
         // 기간 기록
         if (url.searchParams.get('entries') === '1') {
+          // ▼▼▼ LIFELOG 조교(2026-09-08) — who=staff 면 준원 선생(-1) 쪽을 같은 모양으로 돌려준다. ▼▼▼
+          //   응답 스키마를 그대로 둔 이유: 원장 화면이 탭만 바꿔 다시 부르면 되고, 표를 그리는 코드가
+          //   두 벌이 되지 않는다. 다른 점은 lateRule 대신 wakeRule 이 실린다는 것뿐.
+          if ((url.searchParams.get('who') || '') === 'staff') {
+            const st = await staffPart(env);
+            if (!st.on) return jsonOk({ ok: true, who: 'staff', enabled: false, entries: [], checkins: [] });
+            const r = rangeOf(url);
+            const { results: ser } = await env.DB.prepare(
+              'SELECT * FROM lifelog_entries WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC, kind, slot'
+            ).bind(STAFF_PID, r.from, r.to).all();
+            const { results: scr } = await env.DB.prepare(
+              'SELECT * FROM lifelog_checkin WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC'
+            ).bind(STAFF_PID, r.from, r.to).all();
+            const wr = await wakeRule(env, todayKST());
+            return jsonOk({
+              ok: true, who: 'staff', enabled: true, from: r.from, to: r.to,
+              staff: { name: st.name, phone: st.phone },
+              wakeRule: wr,
+              entries: (ser || []).map(rowToEntry),
+              checkins: (scr || []).map(r2 => Object.assign({
+                date: r2.date, ts: r2.ts, time: hmKST(r2.ts),
+                device: '', model: r2.ua_model || '', source: r2.source || 'self',
+              }, wakeOf(r2, wr))),
+            });
+          }
+          // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
           if (!tid) return jsonOk({ ok: true, enabled: false, entries: [], checkins: [] });
           const { from, to } = rangeOf(url);
           const { results: er } = await env.DB.prepare(
@@ -768,8 +1033,74 @@ export async function onRequest(context) {
           lateRule: await lateRule(env),
           remindRule: remindRuleView(await loadCfgAll(env)),   // 🔔 독촉 알림 설정(켬/끔 · 항목별 예정 시각)
           today: todayKST(),
+          // ▼▼▼ LIFELOG 조교(2026-09-08) — 두 번째 참가자(준원 선생) 현황 ▼▼▼
+          staff: await staffView(env),
+          // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
         });
       }
+
+      // ▼▼▼ LIFELOG 조교(2026-09-08) — 준원 선생 화면 ▼▼▼
+      // 지환이 응답과 **같은 모양**이다. /lifelog 이 viewer 값만 보고 라벨('출석'↔'기상')을 바꾼다.
+      //   화면을 새로 만들지 않은 이유: 기록 카드·사진 뷰어·업로드 로직이 두 벌이 된다.
+      // 여기 오는 것은 미들웨어가 검증한 조교 세션뿐이고, staffAccess 가 **등록된 그 한 명**만 통과시킨다.
+      const staffMe = await staffAccess(env, request);
+      if (staffMe) {
+        if (url.searchParams.get('ping') === '1') {
+          return jsonOk({ ok: true, enabled: true, viewer: 'staff' });
+        }
+        const sr = rangeOf(url);
+        const { results: mer } = await env.DB.prepare(
+          'SELECT * FROM lifelog_entries WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC, kind, slot'
+        ).bind(STAFF_PID, sr.from, sr.to).all();
+        const { results: mcr } = await env.DB.prepare(
+          'SELECT date, ts, ua_model, source, wake_base, wake_unit_sec FROM lifelog_checkin WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC'
+        ).bind(STAFF_PID, sr.from, sr.to).all();
+        const sToday = todayKST();
+        const wr = await wakeRule(env, sToday);
+        const myWake = (mcr || []).find(r => r.date === sToday) || null;
+
+        // 짝(지환이) 기록 — share_to_staff 가 켜져 있을 때만. 꺼져 있으면 키 자체를 안 보낸다.
+        let peer = null;
+        const stid = await targetId(env);
+        if (stid && await flagCfg(env, 'share_to_staff', true)) {
+          const pst = await getStudentById(env, stid);
+          const { results: per } = await env.DB.prepare(
+            'SELECT * FROM lifelog_entries WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC, kind, slot'
+          ).bind(stid, sr.from, sr.to).all();
+          const { results: pcr } = await env.DB.prepare(
+            'SELECT date, ts, device_label, source, out_ts, out_device_label, out_source FROM lifelog_checkin WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC'
+          ).bind(stid, sr.from, sr.to).all();
+          const prule = await lateRule(env);
+          peer = {
+            kind: 'student', name: (pst && pst.name) || '학생', checkinLabel: '출석',
+            lateRule: prule,
+            entries: (per || []).map(rowToEntry),
+            checkins: (pcr || []).map(r => Object.assign(
+              { date: r.date, time: hmKST(r.ts), device: r.device_label || '', source: r.source || 'device' },
+              lateOf(r, prule), stayOf(r)
+            )),
+          };
+        }
+
+        return jsonOk({
+          ok: true, enabled: true,
+          viewer: 'staff', canEdit: true,
+          staff: { name: staffMe.name, pid: STAFF_PID },
+          from: sr.from, to: sr.to, today: sToday, todayDow: dowKo(sToday),
+          mealSlots: MEAL_SLOTS, workoutSlot: WORKOUT_SLOT,
+          wakeRule: wr,
+          entries: (mer || []).map(rowToEntry),
+          checkins: (mcr || []).map(r => Object.assign(
+            { date: r.date, time: hmKST(r.ts), device: '', source: r.source || 'self' },
+            wakeOf(r, wr)
+          )),
+          wokeToday: !!myWake,
+          wokeAt: myWake ? hmKST(myWake.ts) : '',
+          todayWake: wakeOf(myWake, wr),
+          peer,
+        });
+      }
+      // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
       // ── 학생 ──
       const access = await requireStudentAccess(env, request);
@@ -807,6 +1138,33 @@ export async function onRequest(context) {
       const todayCheckin = (cr || []).find(r => r.date === today) || null;
       const rule = await lateRule(env);
 
+      // ▼▼▼ LIFELOG 조교(2026-09-08) — 짝(준원 선생) 기록 ▼▼▼
+      // 관우T 답 ③: 완전 상호 공개. 단 **어머니는 못 본다** — 어머니가 보시겠다고 한 건 자녀 기록이다.
+      //   그래서 parentView 면 여기서 통째로 건너뛴다(키 자체를 안 보낸다 → 화면에 탭이 안 생긴다).
+      let peer = null;
+      if (!parentView && await flagCfg(env, 'share_to_student', true)) {
+        const pst = await staffPart(env);
+        if (pst.on) {
+          const { results: qer } = await env.DB.prepare(
+            'SELECT * FROM lifelog_entries WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC, kind, slot'
+          ).bind(STAFF_PID, from, to).all();
+          const { results: qcr } = await env.DB.prepare(
+            'SELECT date, ts, ua_model, source, wake_base, wake_unit_sec FROM lifelog_checkin WHERE student_id=? AND date>=? AND date<=? ORDER BY date DESC'
+          ).bind(STAFF_PID, from, to).all();
+          const qrule = await wakeRule(env, today);
+          peer = {
+            kind: 'staff', name: pst.name, checkinLabel: '기상',
+            wakeRule: qrule,
+            entries: (qer || []).map(rowToEntry),
+            checkins: (qcr || []).map(r => Object.assign(
+              { date: r.date, time: hmKST(r.ts), device: '', source: r.source || 'self' },
+              wakeOf(r, qrule)
+            )),
+          };
+        }
+      }
+      // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
+
       return jsonOk({
         ok: true, enabled: true, student: { id: student.id, name: student.name },
         // 화면이 이 두 값으로 「보기 전용」을 판단한다. canEdit=false면 저장·삭제·출석 UI를 아예 안 그린다.
@@ -830,6 +1188,7 @@ export async function onRequest(context) {
         todayStay: stayOf(todayCheckin),
         // ▲▲▲ LIFELOG 퇴근 끝
         device: { ok: deviceOk, label: (dev && dev.label) || '', model },
+        peer,   // ▼ LIFELOG 조교(2026-09-08) — null 이면 화면에 상대 탭이 안 생긴다
       });
     }
 
@@ -1046,8 +1405,277 @@ export async function onRequest(context) {
         }
         // ▲▲▲ LIFELOG 퇴근 끝 ▲▲▲
 
+        // ▼▼▼ LIFELOG 조교(2026-09-08) — 두 번째 참가자 관리 ▼▼▼
+        // 조교를 코드에 박지 않는다. 대상 학생을 config 로 둔 것과 **정확히 같은 이유**다 —
+        // 그만두면 화면에서 「해제」 한 번으로 사라져야 한다. ✋ 기각안: 'ast_이준원' 하드코딩.
+        if (action === 'set_staff') {
+          const phone = normalizePhone(body.phone) || '';
+          if (!phone) return jsonErr('조교 휴대폰 번호를 010-0000-0000 처럼 넣어 주세요.', 400);
+          const name = String(body.name || '').trim().slice(0, 20);
+          if (!name) return jsonErr('조교 이름을 넣어 주세요.', 400);
+          const before = await staffPart(env);
+          await setCfg(env, 'staff_phone', phone);
+          await setCfg(env, 'staff_name', name);
+          await logAudit(env, request, {
+            action: 'lifelog.staff.set',
+            ...actorOf(request, env),
+            target: 'lifelog-staff/' + phone, targetName: name,
+            summary: '생활기록 조교 참가자를 [' + name + ']으로 지정',
+            detail: {
+              전: before.on ? { 이름: before.name, 번호: before.phone } : null,
+              후: { 이름: name, 번호: phone },
+              참가자id: STAFF_PID,
+              주의: '번호가 바뀌어도 기존 기록(student_id=-1)은 그대로 남는다 — 사람만 갈아끼우는 셈이다.',
+            },
+          });
+          return jsonOk({ ok: true, staff: await staffView(env) });
+        }
+
+        if (action === 'clear_staff') {
+          const before = await staffPart(env);
+          await setCfg(env, 'staff_phone', '');
+          await logAudit(env, request, {
+            action: 'lifelog.staff.clear',
+            ...actorOf(request, env),
+            target: 'lifelog-staff', targetName: before.name || '',
+            summary: '생활기록 조교 참가자 해제 — ' + (before.name || '(없었음)'),
+            detail: {
+              전: before.on ? { 이름: before.name, 번호: before.phone } : null,
+              효과: '조교 화면에서 사라지고 지환이 화면의 상대 탭도 없어진다. 기록은 지우지 않는다.',
+              기록삭제: '기록까지 지우려면 §7 퇴원 처리(purge) — 되돌릴 수 없다.',
+            },
+          });
+          return jsonOk({ ok: true, staff: await staffView(env) });
+        }
+
+        // 기상 규칙 — 관우T가 바꾸면 **즉시** 적용된다(준원 선생이 바꾸면 내일부터).
+        //   값을 잘못 넣었을 때 되돌릴 길이 하나는 있어야 해서 원장 쪽만 즉시로 뒀다.
+        if (action === 'set_wake') {
+          const base = String(body.base || '').trim();
+          if (!isHm(base)) return jsonErr('기상 기준 시각을 07:00 처럼 적어 주세요.', 400);
+          const u = Number(body.unit_sec);
+          const c = Number(body.cap);
+          const before = await wakeRule(env, todayKST());
+          const after = await saveWakeRule(env, {
+            base,
+            unitSec: Number.isFinite(u) && u > 0 ? Math.floor(u) : before.unitSec,
+            cap: Number.isFinite(c) && c >= 0 ? Math.floor(c) : before.cap,
+          }, true);
+          await logAudit(env, request, {
+            action: 'lifelog.wake.set',
+            ...actorOf(request, env),
+            target: 'lifelog-staff', targetName: '기상 규칙',
+            summary: '생활기록 기상 규칙 변경(즉시) — 기준 ' + after.base + ' · ' + after.unitSec + '초당 1개 · 상한 ' + (after.cap || '없음'),
+            detail: { 전: before, 후: after, 적용시점: '즉시(원장 변경)', 지나간기록: '이미 찍힌 줄은 그때 값이 얼려 있어 안 바뀐다' },
+          });
+          return jsonOk({ ok: true, wakeRule: after });
+        }
+
+        // 상호 공개 스위치 — 방향별로 따로. 준원 선생이 "제 것만 보여줘도 된다"고 먼저 말했기 때문이다.
+        if (action === 'set_share') {
+          const before = (await staffView(env)).share;
+          const b = (k) => (body[k] === true || body[k] === 1 || body[k] === '1');
+          if (body.to_staff !== undefined) await setCfg(env, 'share_to_staff', b('to_staff') ? '1' : '0');
+          if (body.to_student !== undefined) await setCfg(env, 'share_to_student', b('to_student') ? '1' : '0');
+          if (body.notify_peer !== undefined) await setCfg(env, 'notify_peer_staff', b('notify_peer') ? '1' : '0');
+          const after = (await staffView(env)).share;
+          await logAudit(env, request, {
+            action: 'lifelog.share.set',
+            ...actorOf(request, env),
+            target: 'lifelog', targetName: '상호 공개 설정',
+            summary: '생활기록 공개 설정 — 조교→학생기록 ' + (after.toStaff ? '봄' : '못봄')
+              + ' · 학생→조교기록 ' + (after.toStudent ? '봄' : '못봄')
+              + ' · 학생기록 알림을 조교에게 ' + (after.notifyPeer ? '보냄' : '안보냄'),
+            detail: { 전: before, 후: after, 참고: '어머니는 어느 스위치와도 무관하게 조교 기록을 볼 수 없다' },
+          });
+          return jsonOk({ ok: true, staff: await staffView(env) });
+        }
+
+        // 조교가 기상 버튼을 못 눌렀을 때 원장이 손으로 채운다(수동 출석과 같은 규칙 — 푸시는 안 보낸다).
+        if (action === 'manual_wake') {
+          const st = await staffPart(env);
+          if (!st.on) return jsonErr('조교 참가자가 지정돼 있지 않습니다.', 400);
+          const date = isYmd(body.date) ? body.date : todayKST();
+          const on = body.on !== false;
+          const tm = isHm(body.time) ? String(body.time) : '';
+          if (on && !tm && date !== todayKST()) return jsonErr('지난 날짜는 기상 시각(HH:MM)을 같이 넣어 주세요.', 400);
+          const ts = tm ? new Date(Date.parse(date + 'T' + tm + ':00+09:00')).toISOString() : nowIso();
+          const rule = await wakeRule(env, date);
+          if (on) {
+            const exists = await env.DB.prepare('SELECT id FROM lifelog_checkin WHERE student_id=? AND date=?').bind(STAFF_PID, date).first();
+            if (!exists) {
+              await env.DB.prepare(
+                'INSERT INTO lifelog_checkin (student_id, date, ts, device_id, device_label, ua, ua_model, ip_hash, source, wake_base, wake_unit_sec) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+              ).bind(STAFF_PID, date, ts, null, '원장 수동', '', '', '', 'manual', rule.base, rule.unitSec).run();
+            } else {
+              await env.DB.prepare('UPDATE lifelog_checkin SET ts=? WHERE student_id=? AND date=?').bind(ts, STAFF_PID, date).run();
+            }
+          } else {
+            await env.DB.prepare('DELETE FROM lifelog_checkin WHERE student_id=? AND date=?').bind(STAFF_PID, date).run();
+          }
+          await logAudit(env, request, {
+            action: on ? 'lifelog.wake.manual' : 'lifelog.wake.delete',
+            ...actorOf(request, env),
+            target: 'lifelog-staff/' + st.phone, targetName: st.name,
+            summary: '[' + st.name + '] 생활기록 기상 ' + (on ? '수동 등록' : '취소') + ' — ' + date + (on ? (' ' + hmKST(ts)) : ''),
+            detail: { 날짜: date, 켬: on, 시각: on ? hmKST(ts) : '', 시각입력: tm || '(지금)', 적용기준: rule.base },
+          });
+          return jsonOk({ ok: true, date, on, time: on ? hmKST(ts) : '' });
+        }
+        // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
+
         return jsonErr('알 수 없는 요청입니다.', 400);
       }
+
+      // ▼▼▼ LIFELOG 조교(2026-09-08) — 준원 선생 쓰기 ▼▼▼
+      // ⚠️ 이 갈래를 **학생 코드보다 먼저** 둔다. 조교 세션은 포털 토큰이 없어 아래로 흘러가면
+      //   requireStudentAccess 에서 401 이 되는데, 그러면 "왜 안 되냐"의 원인이 안 보인다.
+      //   여기서 다 처리하고 모르는 action 은 명시적으로 거절한다.
+      const staffPost = await staffAccess(env, request);
+      if (staffPost) {
+        // ── 기상 버튼 ──
+        // 관우T: "지환이는 출석이지만 조교쌤은 **기상버튼**을 만들어"
+        // ⚠️ 학원 기기 검사(enrolledDeviceGate)를 **일부러 안 건다**. 기상은 집에서 일어나는 일이다.
+        //   ✋ 기각안: 조교 폰도 기기 등록시키기 — 학원 기기에 조교 계정을 물려야 하고,
+        //      그러면 집에서 못 누른다. 기록의 목적(스스로 남기기)과 정면으로 어긋난다.
+        if (action === 'wake') {
+          const date = todayKST();
+          const exists = await env.DB.prepare('SELECT id, ts FROM lifelog_checkin WHERE student_id=? AND date=?').bind(STAFF_PID, date).first();
+          if (exists) return jsonOk({ ok: true, already: true, date, time: hmKST(exists.ts) });
+
+          const ts = nowIso();
+          const rule = await wakeRule(env, date);
+          const ua = request.headers.get('user-agent') || '';
+          // 🔒 그때의 기준·단위를 이 줄에 얼려 적는다 — 나중에 기준을 바꿔도 이 날의 숫자는 안 흔들린다.
+          await env.DB.prepare(
+            'INSERT INTO lifelog_checkin (student_id, date, ts, device_id, device_label, ua, ua_model, ip_hash, source, wake_base, wake_unit_sec) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+          ).bind(STAFF_PID, date, ts, null, '', String(ua).slice(0, 240), deviceModelOf(ua), '', 'self', rule.base, rule.unitSec).run();
+
+          const wk = wakeOf({ ts, wake_base: rule.base, wake_unit_sec: rule.unitSec }, rule);
+          await logAudit(env, request, {
+            action: 'lifelog.wake',
+            ...actorOf(request, env),
+            target: 'lifelog-staff/' + staffPost.phone, targetName: staffPost.name,
+            summary: '[' + staffPost.name + '] 생활기록 기상 ' + date + ' ' + hmKST(ts)
+              + (wk.late ? (' · ' + wk.lateText + ' 늦음 → 운동 ' + wk.penalty + '개') : ' · 제시간'),
+            detail: { 날짜: date, 기준: rule.base, 단위초: rule.unitSec, 벌칙: wk.penalty, 기기: describeDevice(ua) || '' },
+          });
+
+          const md = date.slice(5).replace('-', '/');
+          const ev = {
+            type: 'lifelog_wake',
+            title: (wk.late ? '⏰ ' : '🌅 ') + staffPost.name + ' 기상 ' + hmKST(ts),
+            body: md + '(' + dowKo(date) + ') ' + hmKST(ts) + ' 기상'
+              + (wk.late ? (' · ' + wk.lateText + ' 늦음 → 운동 ' + wk.penalty + '개') : ' · 제시간에 일어났어요'),
+            dedupKey: 'lifelog-wake:' + STAFF_PID + ':' + date,
+            tag: 'kwmath-lifelog-wake',
+          };
+          const pW = notifyStaffDone(env, ev).catch(() => {});
+          if (context && typeof context.waitUntil === 'function') context.waitUntil(pW);
+          else await pW;
+
+          return jsonOk({ ok: true, date, time: hmKST(ts), wake: wk, wakeRule: rule });
+        }
+
+        // ── 본인이 기상 기준을 바꾼다 — **내일부터** 적용 ──
+        if (action === 'set_wake') {
+          const base = String((await request.json().catch(() => ({}))).base || '').trim();
+          if (!isHm(base)) return jsonErr('기상 기준 시각을 07:00 처럼 적어 주세요.', 400);
+          const before = await wakeRule(env, todayKST());
+          const after = await saveWakeRule(env, { base, unitSec: before.unitSec, cap: before.cap }, false);
+          await logAudit(env, request, {
+            action: 'lifelog.wake.set.self',
+            ...actorOf(request, env),
+            target: 'lifelog-staff/' + staffPost.phone, targetName: staffPost.name,
+            summary: '[' + staffPost.name + '] 기상 기준을 ' + base + ' 로 변경 — '
+              + (after.pending ? (after.pending.from + ' 부터 적용') : '즉시 적용'),
+            detail: {
+              전: before, 후: after,
+              적용시점: after.pending ? after.pending.from : '오늘',
+              이유: '본인이 바꾼 기준은 다음 날부터 — 늦잠 뒤에 기준을 밀어 벌칙을 지우는 길을 막는다',
+            },
+          });
+          return jsonOk({ ok: true, wakeRule: after, appliesFrom: after.pending ? after.pending.from : todayKST() });
+        }
+
+        // ── 식사·운동 기록 저장 (multipart) — 학생 쪽과 같은 규칙 ──
+        if (action) return jsonErr('사용할 수 없는 기능입니다.', 403);
+        let sform;
+        try { sform = await request.formData(); }
+        catch (e) { return jsonErr('업로드 형식이 올바르지 않습니다.', 400); }
+
+        const skind = (sform.get('kind') || '').toString().trim();
+        if (skind !== 'meal' && skind !== 'workout') return jsonErr('구분(식사/운동)이 올바르지 않습니다.', 400);
+        let sslot = (sform.get('slot') || '').toString().trim();
+        if (skind === 'meal') {
+          if (!MEAL_SLOTS.includes(sslot)) return jsonErr('아침·점심·저녁·간식 중에서 골라 주세요.', 400);
+        } else {
+          sslot = WORKOUT_SLOT;
+        }
+        let sdate = (sform.get('date') || '').toString().trim();
+        if (!isYmd(sdate)) sdate = todayKST();
+        const scontent = (sform.get('content') || '').toString().slice(0, 1000);
+
+        const sfiles = sform.getAll('file').filter(f => f && typeof f !== 'string');
+        if (sfiles.length > MAX_PER_UPLOAD) return jsonErr('한 번에 최대 ' + MAX_PER_UPLOAD + '장까지 올릴 수 있어요.', 400);
+        if (!sfiles.length && !scontent.trim()) return jsonErr('내용을 적거나 사진을 한 장 이상 올려 주세요.', 400);
+
+        const sExisting = await env.DB.prepare(
+          'SELECT * FROM lifelog_entries WHERE student_id=? AND date=? AND kind=? AND slot=?'
+        ).bind(STAFF_PID, sdate, skind, sslot).first();
+        const sOldKeys = parseKeys(sExisting);
+        if (sOldKeys.length + sfiles.length > MAX_PER_ENTRY) {
+          return jsonErr('이 칸에 올릴 수 있는 사진 수(' + MAX_PER_ENTRY + '장)를 넘었어요.', 400);
+        }
+
+        const sNewKeys = [];
+        if (sfiles.length) {
+          if (!env.BUCKET) return jsonErr('저장소가 연결되지 않았습니다.', 500);
+          for (const file of sfiles) {
+            if (!isImageUpload(file)) return jsonErr('사진(jpg·png·heic 등)만 올릴 수 있어요.', 400);
+            if (file.size > MAX_FILE_BYTES) return jsonErr('사진 하나가 너무 큽니다(최대 15MB): ' + (file.name || ''), 400);
+            // 키가 lifelog/-1/… 로 쌓인다 → 원복(purge)의 'lifelog/' 프리픽스에 같이 지워진다.
+            const key = 'lifelog/' + STAFF_PID + '/' + sdate + '/' +
+              Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + safeName(file.name);
+            await env.BUCKET.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+            sNewKeys.push(key);
+          }
+        }
+
+        const sAllKeys = sOldKeys.concat(sNewKeys);
+        const sts = nowIso();
+        const s첫등록 = !sExisting;
+        if (sExisting) {
+          const nextContent = scontent.trim() ? scontent : (sExisting.content || '');
+          await env.DB.prepare(
+            'UPDATE lifelog_entries SET content=?, photo_keys=?, photo_count=?, updated_at=? WHERE id=?'
+          ).bind(nextContent, JSON.stringify(sAllKeys), sAllKeys.length, sts, sExisting.id).run();
+        } else {
+          await env.DB.prepare(
+            'INSERT INTO lifelog_entries (student_id, date, kind, slot, content, photo_keys, photo_count, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)'
+          ).bind(STAFF_PID, sdate, skind, sslot, scontent, JSON.stringify(sAllKeys), sAllKeys.length, sts, sts).run();
+        }
+
+        // 그 칸의 첫 등록 때만 알린다(학생 쪽과 같은 이유 — 한 끼에 알림이 대여섯 통 가면 안 본다).
+        if (s첫등록) {
+          const 끼 = skind === 'meal' ? sslot : '운동';
+          const 사진 = sAllKeys.length ? (' · 사진 ' + sAllKeys.length + '장') : '';
+          const 글 = (scontent || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+          const ev2 = {
+            type: 'lifelog_entry_staff',
+            title: (skind === 'meal' ? '🍚 ' : '💪 ') + staffPost.name + ' ' + 끼 + ' 기록',
+            body: sdate.slice(5).replace('-', '/') + '(' + dowKo(sdate) + ') ' + 끼 + (글 ? (' — ' + 글) : '') + 사진,
+            dedupKey: 'lifelog-entry:' + STAFF_PID + ':' + sdate + ':' + skind + ':' + sslot,
+            tag: 'kwmath-lifelog-entry-staff',
+          };
+          const p3 = notifyStaffDone(env, ev2).catch(() => {});
+          if (context && typeof context.waitUntil === 'function') context.waitUntil(p3);
+          else await p3;
+        }
+
+        return jsonOk({ ok: true, date: sdate, kind: skind, slot: sslot, photoCount: sAllKeys.length, added: sNewKeys.length });
+      }
+      // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
       // ── 학원 기기 등록 (코드 입력) ──
       // 학생 토큰이 있어야 한다(학원 폰에 학생 계정으로 로그인해 등록). 코드는 원장 화면에만 뜬다.
@@ -1139,7 +1767,9 @@ export async function onRequest(context) {
           dedupKey: 'lifelog-checkin:' + tid + ':' + date,
           tag: 'kwmath-lifelog-checkin',
         };
-        const pDone = notifyDone(env, tid, ev).catch(() => {});
+        // ▼ LIFELOG 조교(2026-09-08) — 짝(준원 선생)에게도. notify_peer_staff 가 켜져 있을 때만(기본 끔).
+        //   notifyDone 안에 넣지 않은 이유: ①②의 기존 수신자(관우T·어머니) 코드를 한 글자도 안 건드리려고.
+        const pDone = Promise.all([notifyDone(env, tid, ev), notifyPeerStaff(env, ev)]).catch(() => {});
         if (context && typeof context.waitUntil === 'function') context.waitUntil(pDone);
         else await pDone;   // waitUntil 이 없으면 응답 후 취소될 수 있다 — 그때는 기다렸다 보낸다
 
@@ -1211,7 +1841,7 @@ export async function onRequest(context) {
             dedupKey: 'lifelog-checkout:' + tid + ':' + date,
             tag: 'kwmath-lifelog-checkout',
           };
-          const pDone = notifyDone(env, tid, ev).catch(() => {});
+          const pDone = Promise.all([notifyDone(env, tid, ev), notifyPeerStaff(env, ev)]).catch(() => {});
           if (context && typeof context.waitUntil === 'function') context.waitUntil(pDone);
           else await pDone;
         }
@@ -1311,7 +1941,7 @@ export async function onRequest(context) {
           dedupKey: 'lifelog-entry:' + tid + ':' + date + ':' + kind + ':' + slot,
           tag: 'kwmath-lifelog-entry',
         };
-        const p2 = notifyDone(env, tid, ev2).catch(() => {});
+        const p2 = Promise.all([notifyDone(env, tid, ev2), notifyPeerStaff(env, ev2)]).catch(() => {});
         if (context && typeof context.waitUntil === 'function') context.waitUntil(p2);
         else await p2;
       }
@@ -1352,6 +1982,39 @@ export async function onRequest(context) {
         });
         return jsonOk({ ok: true, deletedPhotos, dropped });
       }
+
+      // ▼▼▼ LIFELOG 조교(2026-09-08) — 준원 선생이 본인 것을 지운다 ▼▼▼
+      // 학생 쪽과 같은 규칙: 사진 1장 · 기록 1건만. 기상 기록은 **못 지운다**(지환이도 출석은 못 지운다).
+      const staffDel = await staffAccess(env, request);
+      if (staffDel) {
+        const dkey = url.searchParams.get('key') || '';
+        if (dkey) {
+          const meta = parseLifeKey(dkey);
+          if (!meta) return jsonErr('잘못된 사진 키입니다.', 400);
+          if (String(meta.studentId) !== String(STAFF_PID)) return jsonErr('본인 것만 지울 수 있어요.', 403);
+          const row = await env.DB.prepare(
+            'SELECT * FROM lifelog_entries WHERE student_id=? AND date=? AND photo_keys LIKE ?'
+          ).bind(STAFF_PID, meta.date, '%' + meta.file + '%').first();
+          if (!row) return jsonErr('그 사진이 붙은 기록을 찾을 수 없어요.', 404);
+          const keys = parseKeys(row).filter(k => k !== dkey);
+          await env.DB.prepare('UPDATE lifelog_entries SET photo_keys=?, photo_count=?, updated_at=? WHERE id=?')
+            .bind(JSON.stringify(keys), keys.length, nowIso(), row.id).run();
+          try { if (env.BUCKET) await env.BUCKET.delete(dkey); } catch (_) {}
+          return jsonOk({ ok: true, photoCount: keys.length });
+        }
+        const dEntry = Number(url.searchParams.get('entry'));
+        if (Number.isFinite(dEntry) && dEntry > 0) {
+          const row = await env.DB.prepare('SELECT * FROM lifelog_entries WHERE id=?').bind(dEntry).first();
+          if (!row) return jsonErr('그 기록을 찾을 수 없어요.', 404);
+          if (String(row.student_id) !== String(STAFF_PID)) return jsonErr('본인 것만 지울 수 있어요.', 403);
+          const keys = parseKeys(row);
+          if (env.BUCKET && keys.length) { try { await env.BUCKET.delete(keys); } catch (_) {} }
+          await env.DB.prepare('DELETE FROM lifelog_entries WHERE id=?').bind(dEntry).run();
+          return jsonOk({ ok: true, deletedPhotos: keys.length });
+        }
+        return jsonErr('무엇을 지울지 지정해 주세요.', 400);
+      }
+      // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
       const access = await requireStudentAccess(env, request);
       if (!access.ok) return access.response;

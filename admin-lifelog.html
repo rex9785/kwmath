@@ -171,6 +171,13 @@
       <div class="section-label">① 대상 학생</div>
       <div class="card" id="targetCard"></div>
 
+      <!-- ▼▼▼ LIFELOG 조교(2026-09-08) — 되돌릴 때 이 4줄만 지우면 됩니다 ▼▼▼ -->
+      <!--   두 번째 참가자(조교) 1명. 학생과 나란히 두는 이유는, 이 화면에서 「누가 참가 중인가」를
+             한 눈에 보셔야 알림·공개 범위를 판단하실 수 있기 때문입니다. -->
+      <div class="section-label">①-2 참가 조교</div>
+      <div class="card" id="staffCard"></div>
+      <!-- ▲▲▲ LIFELOG 조교 끝 ▲▲▲ -->
+
       <!-- ② 학원 기기 -->
       <div class="section-label">② 학원 기기 <span class="cnt" id="devCnt"></span></div>
       <div class="card">
@@ -189,6 +196,12 @@
       <!-- ③ 기록 보기 -->
       <div class="section-label">③ 기록 보기</div>
       <div class="card">
+        <!-- ▼▼▼ LIFELOG 조교(2026-09-08) — 누구 기록을 볼지. 조교가 지정돼 있을 때만 뜹니다 ▼▼▼ -->
+        <div id="whoTabs" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn-mini" data-who="" id="tabStu">학생</button>
+          <button class="btn-mini" data-who="staff" id="tabStf">조교</button>
+        </div>
+        <!-- ▲▲▲ LIFELOG 조교 끝 ▲▲▲ -->
         <div class="row2">
           <div class="field"><label for="fFrom">시작일</label><input type="date" id="fFrom"></div>
           <div class="field"><label for="fTo">종료일</label><input type="date" id="fTo"></div>
@@ -209,7 +222,9 @@
       <div class="section-label">④ 내보내기</div>
       <div class="card">
         <button class="btn-primary full" id="expBtn">📦 엑셀 + 사진 ZIP 받기</button>
-        <div class="hint" style="margin-top:8px;">위 ③에서 고른 기간이 그대로 담깁니다. 엑셀의 「사진파일」 칸에 적힌 경로가 ZIP 안 사진 위치와 같아, 표에서 본 줄의 사진을 바로 찾을 수 있습니다. 한 번에 사진 250장 · 45MB까지입니다.</div>
+        <div class="hint" style="margin-top:8px;">위 ③에서 고른 기간이 그대로 담깁니다. 엑셀의 「사진파일」 칸에 적힌 경로가 ZIP 안 사진 위치와 같아, 표에서 본 줄의 사진을 바로 찾을 수 있습니다. 한 번에 사진 250장 · 45MB까지입니다.<br>
+        <!-- ▼ LIFELOG 조교(2026-09-08) — ③의 「조교」 탭을 골라도 받는 파일은 학생 것입니다. 서버 내보내기가 대상 학생 한 명만 담기 때문에, 화면에서 골라 놓고 다른 게 받아지는 오해를 막으려고 여기 적어 둡니다. -->
+        <b>담기는 것은 학생 기록뿐입니다.</b> ③에서 「조교」 탭을 보고 계셔도 마찬가지입니다.</div>
       </div>
 
       <!-- ⑤ 원복 -->
@@ -217,6 +232,9 @@
       <div class="card danger">
         <div style="font-size:0.85rem;line-height:1.75;margin-bottom:12px;">
           이 학생의 <b>식사·운동 기록, 사진 전부, 출석 기록, 등록 기기</b>를 지우고 표를 통째로 없앱니다. <b>되돌릴 수 없습니다.</b><br>
+          <!-- ▼ LIFELOG 조교(2026-09-08) — purge 는 표를 통째로 DROP 하므로 조교(-1) 기록도 같이 사라집니다.
+               학생만 정리하려는 줄 알고 누르시면 조교 기록까지 없어지므로 여기 한 줄로 못박아 둡니다. -->
+          <b>조교 기록도 함께 지워집니다</b> — 표를 통째로 없애기 때문입니다. 조교만 빼려면 ①-2의 「참가 해제」를 쓰십시오(기록은 남습니다).<br>
           기존 출석부(출석 현황)와 과제방은 건드리지 않습니다 — 생활기록 출석은 처음부터 따로 쌓입니다.<br>
           <b>먼저 ④에서 자료를 받아 두시는 것을 권합니다.</b>
         </div>
@@ -311,6 +329,11 @@
   var DATA = null;       // 기간 기록
   var students = null;   // 대상 지정용 목록 (필요할 때만 불러온다)
   var picking = false;
+  // ▼▼▼ LIFELOG 조교(2026-09-08) ▼▼▼
+  var WHO = '';          // '' = 학생 · 'staff' = 조교. ③ 표를 어느 쪽으로 그릴지 하나로 정한다.
+  var staffList = null;  // 승인된 조교 목록 (지정할 때만 불러온다)
+  var staffPicking = false;
+  // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
   async function load(){
     show('login', false); show('main', false); show('loading', true);
@@ -325,7 +348,12 @@
     if (!$('fFrom').value){ $('fFrom').value = (CFG.counts && CFG.counts.firstDate) || (CFG.today || kstToday()).slice(0,8) + '01'; }
     if (!$('fTo').value){ $('fTo').value = CFG.today || kstToday(); }
     renderTarget(); renderDevices();
-    if (CFG.enabled) loadEntries(); else $('entryArea').innerHTML = '';
+    // ▼▼▼ LIFELOG 조교(2026-09-08) ▼▼▼
+    renderStaff(); renderWhoTabs();
+    var staffOn = !!(CFG.staff && CFG.staff.on);
+    if (WHO === 'staff' && !staffOn) WHO = '';     // 해제된 뒤에도 조교 탭에 남아 빈 표를 보시는 일이 없게
+    if (CFG.enabled || staffOn) loadEntries(); else $('entryArea').innerHTML = '';
+    // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
   }
 
   // ── ① 대상 학생 ──
@@ -447,6 +475,216 @@
     showToast('해제했습니다.');
     load();
   }
+
+  // ══════════════ ▼▼▼ LIFELOG 조교(2026-09-08) — 두 번째 참가자 관리 ▼▼▼ ══════════════
+  // 배경: 준원 선생이 "저도 서지환 친구처럼 식사기록하고 기상시간 매일 메모할 수 있을까요" 라고 청했고,
+  //       관우T께서 "준원이 것만 만들어 주면 돼 다른 조교들은 필요 없고" 로 못박으셨다.
+  // 그래서 여기는 **한 명 슬롯**이다. 목록이 아니라 「지금 참가 중인 한 사람」을 갈아끼우는 자리다.
+  // ✋ 기각한 안: 조교 여러 명 체크박스 — 지시 원문과 어긋나고, 서로 기록이 보이는 범위가 사람 수만큼 늘어난다.
+  //
+  // ▸ 왜 번호를 손으로 안 치고 목록에서 고르게 했나
+  //   전화번호 한 자리를 잘못 치면 (a) 준원 선생이 못 들어오고 (b) 엉뚱한 조교가 지환이 기록을 보게 된다.
+  //   (b) 쪽이 되돌리기 어렵다 — 이미 본 것은 못 없앤다. 그래서 승인된 조교 목록에서만 고르게 한다.
+  //   목록은 /api/staff-approve (원장 전용)에서 온다. 서버는 여전히 번호를 받지만, 화면이 오타를 못 만들게 막는다.
+  function renderStaff(){
+    var box = $('staffCard'); if (!box) return;
+    var S = CFG.staff || { on:false, share:{}, counts:{}, wakeRule:{} };
+    if (!S.on){
+      box.innerHTML =
+        '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">' +
+          '<span class="badge b-off">참가 조교 없음</span>' +
+          '<span style="font-size:0.84rem;color:var(--text-light);">조교를 지정하면 그 조교 화면에만 「생활기록」이 나타납니다. 다른 조교에게는 보이지 않습니다.</span>' +
+        '</div>' +
+        '<div class="field" style="margin-top:12px;margin-bottom:0;">' +
+          '<label for="stq">조교 찾기</label>' +
+          '<input type="text" id="stq" placeholder="이름 또는 번호" autocomplete="off">' +
+          '<div class="hint">승인된 조교만 나옵니다. 번호로 지정하므로 동명이인이 섞이지 않습니다.</div>' +
+        '</div>' +
+        '<div id="stPick"></div>';
+      $('stq').addEventListener('input', onStaffSearch);
+      $('stq').addEventListener('focus', onStaffSearch);
+      return;
+    }
+    var c = S.counts || {};
+    var W = S.wakeRule || { base:'07:00', unitSec:30, cap:0, pending:null };
+    var sh = S.share || {};
+    box.innerHTML =
+      '<div class="target-on">' +
+        '<span class="target-name">' + esc(S.name) + '</span>' +
+        '<span class="target-sub">' + esc(S.phone) + ' · 조교</span>' +
+        '<span class="badge b-on">참가 중</span>' +
+        '<button class="btn-mini danger" id="stClear" style="margin-left:auto;">참가 해제</button>' +
+      '</div>' +
+      '<div class="sum">' +
+        '<span>기록 <b>' + (c.entries||0) + '</b>칸</span>' +
+        '<span>사진 <b>' + (c.photos||0) + '</b>장</span>' +
+        '<span>기상 <b>' + (c.wakes||0) + '</b>일</span>' +
+        (c.firstDate ? ('<span>기간 <b>' + esc(c.firstDate) + ' ~ ' + esc(c.lastDate) + '</b></span>') : '') +
+      '</div>' +
+      // 기상 벌칙 — 학생의 지각 벌칙과 같은 산식. 다른 점은 「누가 바꿀 수 있나」뿐이다.
+      '<div class="sum" style="display:block;">' +
+        '<div style="font-weight:800;color:var(--text);margin-bottom:8px;">기상 벌칙</div>' +
+        '<div class="row2">' +
+          '<div class="field"><label for="wBase">기준 시각</label><input type="time" id="wBase" value="' + esc(W.base) + '"></div>' +
+          '<div class="field"><label for="wUnit">몇 초당 1개</label><input type="number" id="wUnit" min="1" max="3600" value="' + (W.unitSec||30) + '"></div>' +
+          '<div class="field"><label for="wCap">상한 (0=없음)</label><input type="number" id="wCap" min="0" max="9999" value="' + (W.cap||0) + '"></div>' +
+          '<div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end;"><button class="btn-primary" id="wSave" style="margin-bottom:0;">저장</button></div>' +
+        '</div>' +
+        '<div id="wHint" style="font-size:0.74rem;color:var(--text-light);line-height:1.7;margin-top:2px;"></div>' +
+        (W.pending
+          ? ('<div style="font-size:0.76rem;color:var(--brand);font-weight:700;margin-top:6px;">조교가 바꿔 둔 기준이 있습니다 — ' +
+             esc(W.pending.from) + '부터 ' + esc(W.pending.base) + '. 원장님이 여기서 저장하시면 그 예약은 지워지고 <b>지금 바로</b> 적용됩니다.</div>')
+          : '<div style="font-size:0.74rem;color:var(--text-light);margin-top:6px;">조교가 바꾸면 <b>다음 날부터</b>, 원장님이 바꾸시면 <b>즉시</b> 적용됩니다. 이미 찍힌 날은 그때 기준이 얼려 있어 달라지지 않습니다.</div>') +
+      '</div>' +
+      // 공개·알림 스위치 — 방향별로 따로 둔다. 준원 선생이 먼저 "그친구가 불편해하면 저는 그친구꺼
+      // 안봐도되는데 제꺼는 남이 봐줬으면 좋겠어요" 라고 했기 때문에, 한쪽만 끄는 일이 실제로 생길 수 있다.
+      '<div class="sum" style="display:block;">' +
+        '<div style="font-weight:800;color:var(--text);margin-bottom:4px;">공개 · 알림</div>' +
+        '<label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;margin:8px 0 6px;cursor:pointer;">' +
+          '<input type="checkbox" id="shStaff"' + (sh.toStaff ? ' checked' : '') + ' style="width:16px;height:16px;">' +
+          '<span>조교가 <b>학생 기록</b>을 볼 수 있게 하기</span>' +
+        '</label>' +
+        '<label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;margin:0 0 6px;cursor:pointer;">' +
+          '<input type="checkbox" id="shStu"' + (sh.toStudent ? ' checked' : '') + ' style="width:16px;height:16px;">' +
+          '<span>학생이 <b>조교 기록</b>을 볼 수 있게 하기</span>' +
+        '</label>' +
+        '<label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;margin:0 0 10px;cursor:pointer;">' +
+          '<input type="checkbox" id="shNoti"' + (sh.notifyPeer ? ' checked' : '') + ' style="width:16px;height:16px;">' +
+          '<span>학생이 기록하면 <b>조교 폰에도</b> 알림 보내기</span>' +
+        '</label>' +
+        '<button class="btn-primary" id="shSave" style="margin-bottom:0;">저장</button>' +
+        '<div style="font-size:0.74rem;color:var(--text-light);line-height:1.7;margin-top:8px;">' +
+          '조교가 기록하면 알림은 <b>원장님과 학생</b>에게 갑니다. <b>학부모님께는 조교 기록이 가지 않고, 화면에도 보이지 않습니다</b> — 위 스위치와 무관합니다.' +
+        '</div>' +
+      '</div>';
+    // 상단 제목이 renderTarget 에서 「· 서지환 전용」으로 찍힌다. 참가자가 두 사람이 된 화면에서
+    // 「전용」은 사실과 다르므로 여기서 통째로 다시 쓴다(더하지 않고 대입 — 여러 번 불려도 같은 문구).
+    var who2 = $('ttlWho');
+    if (who2 && CFG.enabled && CFG.target) who2.textContent = ' · ' + CFG.target.name + ' · ' + (S.name || '조교') + ' 선생';
+    $('stClear').addEventListener('click', clearStaff);
+    $('wSave').addEventListener('click', saveWake);
+    ['wBase','wUnit','wCap'].forEach(function(id){ $(id).addEventListener('input', wakeHint); });
+    $('shSave').addEventListener('click', saveShare);
+    wakeHint();
+  }
+
+  async function onStaffSearch(){
+    var q = ($('stq').value || '').trim();
+    if (!staffList){
+      if (staffPicking) return;
+      staffPicking = true;
+      try {
+        var r = await api('/api/staff-approve');
+        var j = await r.json().catch(function(){ return null; });
+        // 승인된 조교만. 신청 대기중인 사람에게 지환이 기록을 열어 줄 수는 없다.
+        staffList = ((j && j.staff) || []).filter(function(s){ return s && s.approved; });
+      } catch(e){ staffList = []; }
+      staffPicking = false;
+    }
+    var nq = q.replace(/\D/g, '');
+    var hit = staffList.filter(function(s){
+      if (!q) return true;
+      if (String(s.name||'').indexOf(q) >= 0) return true;
+      return nq && String(s.phone||'').replace(/\D/g,'').indexOf(nq) >= 0;
+    }).slice(0, 12);
+    $('stPick').innerHTML = hit.length
+      ? hit.map(function(s){
+          return '<div class="pickrow" data-phone="' + esc(s.phone) + '" data-name="' + esc(s.name||'') + '">' +
+            '<b>' + esc(s.name || '(이름없음)') + '</b>' +
+            '<span class="target-sub" style="margin-left:8px;">' + esc(s.phone||'') + (s.academy ? (' · ' + esc(s.academy)) : '') + '</span>' +
+          '</div>';
+        }).join('')
+      : '<div class="hint" style="margin-top:8px;">승인된 조교 중에 찾는 분이 없습니다. 운영진 관리에서 먼저 승인해 주세요.</div>';
+    Array.prototype.forEach.call($('stPick').querySelectorAll('.pickrow'), function(row){
+      row.addEventListener('click', function(){ setStaff(row.getAttribute('data-phone'), row.getAttribute('data-name')); });
+    });
+  }
+
+  async function setStaff(phone, name){
+    if (!confirm('[' + (name||'') + '] 선생님을 생활기록 참가자로 지정할까요?\n\n' +
+                 '· 그 선생님 화면에만 「생활기록」이 생깁니다(다른 조교에게는 안 보입니다).\n' +
+                 '· 공개 스위치가 켜져 있으면 학생 기록을 볼 수 있게 됩니다 — 지정 뒤 바로 확인해 주세요.')) return;
+    var j = await post('set_staff', { phone: phone, name: name });
+    if (!j.ok){ showToast(j.error || '지정하지 못했습니다.'); return; }
+    showToast('지정했습니다.');
+    load();
+  }
+  async function clearStaff(){
+    if (!confirm('참가를 해제할까요?\n조교 화면에서 기능이 사라지고, 학생 화면의 상대 기록도 없어집니다.\n지금까지 쌓인 기록·사진은 그대로 남습니다.')) return;
+    var j = await post('clear_staff', {});
+    if (!j.ok){ showToast(j.error || '해제하지 못했습니다.'); return; }
+    showToast('해제했습니다.');
+    WHO = '';
+    load();
+  }
+
+  // 미리보기 — 서버 wakeOf()가 lateOf()를 그대로 부르므로 lateCalc 하나만 쓴다. 식을 두 벌로 만들지 않는다.
+  function wakeHint(){
+    var el = $('wHint'); if (!el) return;
+    var b = ($('wBase').value || '').trim();
+    var u = Number($('wUnit').value);
+    var c = Number($('wCap').value);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(b) || !(u >= 1 && u <= 3600) || !(c >= 0 && c <= 9999)){
+      el.textContent = '기준 시각(07:00) · 단위(1~3600초) · 상한(0~9999)을 확인해 주세요.';
+      return;
+    }
+    u = Math.floor(u); c = Math.floor(c);
+    el.textContent =
+      b + ' 정각까지 기상 버튼을 누르면 정시입니다. 1초라도 넘기면 ' + lateCalc(1, u, c) + '개부터 시작해 ' +
+      u + '초마다 1개씩 늘어납니다' + (c > 0 ? (' (최대 ' + c + '개에서 멈춤)') : ' (상한 없음)') + '.' +
+      '\n' + [60, 300, 600, 1800, 3600].map(function(s){ return (s/60) + '분 늦으면 ' + lateCalc(s, u, c) + '개'; }).join(' · ');
+    el.style.whiteSpace = 'pre-line';
+  }
+  async function saveWake(){
+    var b = ($('wBase').value || '').trim();
+    var u = Number($('wUnit').value);
+    var c = Number($('wCap').value);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(b)){ showToast('기준 시각을 07:00 처럼 적어 주세요.'); return; }
+    if (!(u >= 1 && u <= 3600)){ showToast('단위는 1~3600초 사이로 적어 주세요.'); return; }
+    if (!(c >= 0 && c <= 9999)){ showToast('상한은 0~9999 사이로 적어 주세요 (0이면 상한 없음).'); return; }
+    var btn = $('wSave'); btn.disabled = true;
+    // 서버가 받는 이름은 unit_sec · cap 이다(학생 쪽 set_late 는 unitSec — 이름이 다르니 베끼지 말 것).
+    var j = await post('set_wake', { base: b, unit_sec: Math.floor(u), cap: Math.floor(c) });
+    btn.disabled = false;
+    if (!j || !j.ok){ showToast((j && j.error) || '저장하지 못했습니다.'); return; }
+    if (CFG.staff) CFG.staff.wakeRule = j.wakeRule;
+    showToast('기상 규칙을 저장했습니다. 지금부터 적용됩니다.');
+    renderStaff();
+    if (WHO === 'staff') loadEntries();
+  }
+  async function saveShare(){
+    var btn = $('shSave'); btn.disabled = true;
+    var j = await post('set_share', {
+      to_staff: !!$('shStaff').checked,
+      to_student: !!$('shStu').checked,
+      notify_peer: !!$('shNoti').checked,
+    });
+    btn.disabled = false;
+    if (!j || !j.ok){ showToast((j && j.error) || '저장하지 못했습니다.'); return; }
+    CFG.staff = j.staff;
+    showToast('공개 설정을 저장했습니다.');
+    renderStaff();
+  }
+
+  // ③ 표를 누구 것으로 그릴지. 조교가 없으면 탭 자체를 안 띄운다 — 누를 데가 하나뿐인 탭은 군더더기다.
+  function renderWhoTabs(){
+    var wrap = $('whoTabs'); if (!wrap) return;
+    var on = !!(CFG.staff && CFG.staff.on);
+    wrap.style.display = on ? 'flex' : 'none';
+    if (!on) return;
+    $('tabStu').textContent = (CFG.target && CFG.target.name) ? (CFG.target.name + ' (학생)') : '학생';
+    $('tabStf').textContent = (CFG.staff.name || '조교') + ' (조교)';
+    [['tabStu',''],['tabStf','staff']].forEach(function(p){
+      var b = $(p[0]);
+      b.classList.toggle('danger', false);
+      b.style.fontWeight = (WHO === p[1]) ? '800' : '600';
+      b.style.opacity = (WHO === p[1]) ? '1' : '.55';
+      if (b.getAttribute('data-bound')) return;
+      b.setAttribute('data-bound', '1');
+      b.addEventListener('click', function(){ WHO = p[1]; renderWhoTabs(); loadEntries(); });
+    });
+  }
+  // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
   // ── 지각 벌칙 규칙 ──
   // 관우T 규칙(2026-08-19): 아침 8시 기준, 그 뒤에 찍으면 30초당 운동 1개.
@@ -581,7 +819,8 @@
     var area = $('entryArea');
     area.innerHTML = '<div class="state-box"><p>불러오는 중…</p></div>';
     var r;
-    try { r = await api('/api/lifelog?admin=1&entries=1&' + rangeQ()); }
+    // ▼ LIFELOG 조교(2026-09-08) — who=staff 면 서버가 같은 모양으로 조교(-1) 쪽을 준다.
+    try { r = await api('/api/lifelog?admin=1&entries=1&' + (WHO === 'staff' ? 'who=staff&' : '') + rangeQ()); }
     catch(e){ return; }
     var j = await r.json().catch(function(){ return null; });
     if (!j || !j.ok){ area.innerHTML = '<div class="state-box"><p>' + esc((j&&j.error)||'불러오지 못했습니다.') + '</p></div>'; return; }
@@ -595,6 +834,9 @@
   // 오늘 줄과 날짜 카드가 **같은 함수**를 부른다. 한쪽만 고쳐 두 자리가 달라 보이는 사고를 막는다.
   function outBadges(c){
     if (!c) return '';                                    // 등원이 없으면 퇴근도 없다
+    // ▼ LIFELOG 조교(2026-09-08) — 조교에게는 퇴근이 없다(집에서 일어나는 기록이다).
+    //   이 줄이 없으면 조교 탭에 「퇴근 미기록」이 매일 떠서, 안 해도 되는 일을 안 한 것처럼 보인다.
+    if (WHO === 'staff') return '';
     if (!c.out) return '<span class="badge b-noout">퇴근 미기록</span>';
     return '<span class="badge b-out">퇴근 ' + esc(c.outTime || '') + (c.outSource === 'manual' ? ' · 수동' : '') + '</span>' +
       (c.backwards
@@ -604,10 +846,18 @@
   // 퇴근 손보기 버튼 — 등원이 있는 날만 나온다(서버도 등원 없는 퇴근은 거절한다).
   function outButtons(d, c){
     if (!c) return '';
+    if (WHO === 'staff') return '';   // ▼ LIFELOG 조교(2026-09-08) — 조교에겐 퇴근 개념이 없다
     return '<button class="btn-mini" data-out="' + esc(d) + '">' + (c.out ? '퇴근 시각 고치기' : '수동 퇴근') + '</button>' +
       (c.out ? ('<button class="btn-mini danger" data-outdel="' + esc(d) + '">퇴근 취소</button>') : '');
   }
   // ▲▲▲ LIFELOG 퇴근 끝 ▲▲▲
+
+  // ▼▼▼ LIFELOG 조교(2026-09-08) — 같은 표를 두 사람에게 쓰므로 라벨만 갈아 끼운다 ▼▼▼
+  //   표를 두 벌로 복사하지 않는 이유: 한쪽만 고쳐 두 화면 숫자가 달라지는 사고가 이 파일에서
+  //   이미 있었다(퇴근 배지를 오늘 줄과 날짜 카드가 같은 함수로 부르게 고친 2026-08-21 건).
+  function chkLab(){ return WHO === 'staff' ? '기상' : '출석'; }
+  function lateLab(){ return WHO === 'staff' ? '늦잠' : '지각'; }
+  // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
 
   function renderEntries(){
     var area = $('entryArea');
@@ -618,6 +868,14 @@
     var dates = Object.keys(byDate).concat(Object.keys(chk)).filter(function(v,i,a){ return a.indexOf(v)===i; }).sort().reverse();
 
     if (!dates.length){
+      // ▼ LIFELOG 조교(2026-09-08) — 참가자가 아직 없으면 서버가 enabled:false 로 답한다.
+      //   이때 「수동 출석」 줄을 그리면 눌러도 서버가 거절한다. 눌러서 실패하는 버튼은 안 그린다.
+      if (DATA && DATA.enabled === false){
+        area.innerHTML = WHO === 'staff'
+          ? '<div class="card"><div class="state-box"><div class="si">🌅</div><p>참가 조교가 지정돼 있지 않습니다. 위 ①-2에서 먼저 지정해 주세요.</p></div></div>'
+          : '<div class="card"><div class="state-box"><div class="si">🍚</div><p>대상 학생이 지정돼 있지 않습니다. 위 ①에서 먼저 지정해 주세요.</p></div></div>';
+        return;
+      }
       area.innerHTML = '<div class="card"><div class="state-box"><div class="si">🍚</div><p>이 기간에 올라온 기록이 없습니다.</p></div></div>' + todayCheckinBar();
       bindCheckin();
       return;
@@ -640,7 +898,7 @@
       if (!bits.length) bits.push('올린 기록 없음');
       var lateB = '';
       if (c && c.late){
-        lateB = '<span class="badge b-late">지각 ' + esc(c.lateText || '') + '</span>' +
+        lateB = '<span class="badge b-late">' + lateLab() + ' ' + esc(c.lateText || '') + '</span>' +
                 '<span class="badge b-pen">운동 ' + (c.penalty||0) + '개' + (c.capped ? ' (상한)' : '') + '</span>';
       } else if (c){
         lateB = '<span class="badge b-ontime">정시</span>';
@@ -648,7 +906,7 @@
       var open = !!OPENDAY[d];
       var head = '<div class="dayhead">' +
         '<span class="daydate">' + esc(d.slice(5)) + ' (' + dowKo(d) + ')</span>' +
-        (c ? ('<span class="badge b-on">출석 ' + esc(c.time) + (c.source==='manual' ? ' · 수동' : '') + '</span>') : '<span class="badge b-off">출석 없음</span>') +
+        (c ? ('<span class="badge b-on">' + chkLab() + ' ' + esc(c.time) + (c.source==='manual' ? ' · 수동' : '') + '</span>') : ('<span class="badge b-off">' + chkLab() + ' 없음</span>')) +
         lateB +
         outBadges(c) +
         '<span class="badge b-cnt">' + items.length + '칸</span>' +
@@ -666,8 +924,8 @@
         '</div>';
       }).join('') +
         '<div class="slot" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
-          '<span class="target-sub">출석 손보기</span>' +
-          '<button class="btn-mini' + (c ? ' danger' : '') + '" data-chk="' + esc(d) + '" data-on="' + (c ? '0' : '1') + '" style="margin-left:auto;">' + (c ? '출석 취소' : '수동 출석') + '</button>' +
+          '<span class="target-sub">' + chkLab() + ' 손보기</span>' +
+          '<button class="btn-mini' + (c ? ' danger' : '') + '" data-chk="' + esc(d) + '" data-on="' + (c ? '0' : '1') + '" style="margin-left:auto;">' + (c ? (chkLab() + ' 취소') : ('수동 ' + chkLab())) + '</button>' +
           (c ? ('<button class="btn-mini" data-retime="' + esc(d) + '">시각 고치기</button>') : '') +
           outButtons(d, c) +
         '</div>' +
@@ -711,17 +969,17 @@
     // 오늘 줄에도 지각·벌칙을 그대로 보여 준다 (날짜 카드와 같은 값이어야 한다)
     var lateB = '';
     if (c && c.late){
-      lateB = '<span class="badge b-late">지각 ' + esc(c.lateText || '') + '</span>' +
+      lateB = '<span class="badge b-late">' + lateLab() + ' ' + esc(c.lateText || '') + '</span>' +
               '<span class="badge b-pen">운동 ' + (c.penalty||0) + '개' + (c.capped ? ' (상한)' : '') + '</span>';
     } else if (c){
       lateB = '<span class="badge b-ontime">정시</span>';
     }
     return '<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
       '<span style="font-weight:800;font-size:0.9rem;">오늘 ' + esc(t.slice(5)) + ' (' + dowKo(t) + ')</span>' +
-      (has ? ('<span class="badge b-on">출석 ' + esc(c.time || '') + (c.source==='manual' ? ' · 수동' : '') + '</span>') : '<span class="badge b-off">아직 출석 없음</span>') +
+      (has ? ('<span class="badge b-on">' + chkLab() + ' ' + esc(c.time || '') + (c.source==='manual' ? ' · 수동' : '') + '</span>') : ('<span class="badge b-off">아직 ' + chkLab() + ' 없음</span>')) +
       lateB +
       outBadges(c) +
-      '<button class="btn-mini' + (has ? ' danger' : '') + '" data-chk="' + esc(t) + '" data-on="' + (has ? '0' : '1') + '" style="margin-left:auto;">' + (has ? '출석 취소' : '수동 출석 찍기') + '</button>' +
+      '<button class="btn-mini' + (has ? ' danger' : '') + '" data-chk="' + esc(t) + '" data-on="' + (has ? '0' : '1') + '" style="margin-left:auto;">' + (has ? (chkLab() + ' 취소') : ('수동 ' + chkLab() + ' 찍기')) + '</button>' +
       (has ? ('<button class="btn-mini" data-retime="' + esc(t) + '">시각 고치기</button>') : '') +
       outButtons(t, c) +
     '</div>';
@@ -749,27 +1007,42 @@
   // 저녁에 손으로 찍은 출석이 몇 시간 지각으로 계산된다.
   async function manualCheckin(date, on, retime){
     var payload = { date: date, on: on };
+    // ▼▼▼ LIFELOG 조교(2026-09-08) — 같은 버튼이 탭에 따라 다른 API로 간다 ▼▼▼
+    //   ✋ 기각한 안: manual_checkin 에 who 파라미터 하나 더 받기 — 그러면 학생 출석을 지우는 코드와
+    //      조교 기상을 지우는 코드가 한 함수에 섞인다. 잘못 섞이면 지환이 출석부가 날아간다.
+    //      서버에서 완전히 다른 액션(manual_wake)으로 갈라 뒀으니 화면도 그대로 갈라 부른다.
+    var staffTab = (WHO === 'staff');
+    var lab = staffTab ? '기상' : '출석';
+    var act = staffTab ? 'manual_wake' : 'manual_checkin';
+    var baseHm = staffTab
+      ? ((CFG && CFG.staff && CFG.staff.wakeRule && CFG.staff.wakeRule.base) || '07:00')
+      : ((CFG && CFG.lateRule && CFG.lateRule.base) || '08:00');
+    // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
     if (on){
       var cur = (DATA && (DATA.checkins||[]).filter(function(c){ return c.date === date; })[0]) || null;
       var t = prompt(
-        date + ' 도착 시각을 24시간제로 적어 주세요 (예: 08:14).\n' +
+        date + (staffTab ? ' 기상 시각을' : ' 도착 시각을') + ' 24시간제로 적어 주세요 (예: 0' + (staffTab ? '7:12' : '8:14') + ').\n' +
         '비워 두면 ' + (retime ? '고치지 않습니다' : '지금 시각으로 넣습니다') + '.\n' +
-        '기준 ' + ((CFG && CFG.lateRule && CFG.lateRule.base) || '08:00') + ' 이후면 지각으로 계산됩니다.',
+        '기준 ' + baseHm + ' 이후면 ' + (staffTab ? '늦잠으로' : '지각으로') + ' 계산됩니다.',
         (cur && cur.time) || ''
       );
       if (t === null) return;
       t = String(t).trim();
       if (t){
-        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)){ showToast('08:14 처럼 적어 주세요.'); return; }
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)){ showToast('0' + (staffTab ? '7:12' : '8:14') + ' 처럼 적어 주세요.'); return; }
         payload.time = t;
       } else if (retime){ return; }
-      if (!retime && !confirm(date + ' 출석을 수동으로 찍을까요?\n(학원 기기 없이 원장이 직접 찍는 기록입니다.)')) return;
+      // 서버(manual_wake)는 지난 날짜에 시각 없이 오면 거절한다 — 여기서 미리 막아 헛걸음을 없앤다.
+      if (staffTab && !payload.time && date !== ((CFG && CFG.today) || kstToday())){
+        showToast('지난 날짜는 기상 시각을 같이 적어 주세요.'); return;
+      }
+      if (!retime && !confirm(date + ' ' + lab + '을 수동으로 찍을까요?\n(' + (staffTab ? '조교가 버튼을 못 눌렀을 때 원장이 대신 남기는 기록입니다.' : '학원 기기 없이 원장이 직접 찍는 기록입니다.') + ')')) return;
     } else {
-      if (!confirm(date + ' 출석을 취소할까요?')) return;
+      if (!confirm(date + ' ' + lab + '을 취소할까요?')) return;
     }
-    var j = await post('manual_checkin', payload);
+    var j = await post(act, payload);
     if (!j.ok){ showToast(j.error || '처리하지 못했습니다.'); return; }
-    showToast(on ? ('출석을 ' + (retime ? '고쳤습니다' : '찍었습니다') + (j.time ? (' (' + j.time + ')') : '')) : '출석을 취소했습니다.');
+    showToast(on ? (lab + '을 ' + (retime ? '고쳤습니다' : '찍었습니다') + (j.time ? (' (' + j.time + ')') : '')) : (lab + '을 취소했습니다.'));
     load();
   }
 
@@ -854,7 +1127,11 @@
   $('purgeBtn').addEventListener('click', async function(){
     if ($('purgeIn').value.trim() !== 'DELETE') return;
     var c = CFG.counts || {};
-    if (!confirm('정말 지울까요?\n사진 ' + (c.photos||0) + '장 · 기록 ' + (c.entries||0) + '칸 · 출석 ' + (c.checkins||0) + '일이 사라집니다.\n되돌릴 수 없습니다.')) return;
+    // ▼ LIFELOG 조교(2026-09-08) — 표를 통째로 없애므로 조교 기록도 같이 사라진다. 숫자로 보여 드린다.
+    var sc = (CFG.staff && CFG.staff.on) ? (CFG.staff.counts || {}) : null;
+    if (!confirm('정말 지울까요?\n사진 ' + (c.photos||0) + '장 · 기록 ' + (c.entries||0) + '칸 · 출석 ' + (c.checkins||0) + '일이 사라집니다.' +
+        (sc ? ('\n조교(' + (CFG.staff.name||'') + ') 기록도 함께 — 사진 ' + (sc.photos||0) + '장 · 기록 ' + (sc.entries||0) + '칸 · 기상 ' + (sc.wakes||0) + '일.') : '') +
+        '\n되돌릴 수 없습니다.')) return;
     if (!confirm('마지막 확인입니다.\n④에서 자료를 받아 두셨나요? 지금 지우면 복구할 수 없습니다.')) return;
     var btn = this;
     btn.disabled = true; btn.innerHTML = '<span class="spin"></span>지우는 중…';

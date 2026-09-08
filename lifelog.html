@@ -122,6 +122,18 @@
   .ro-bar .ri{font-size:1rem;line-height:1.3;flex:0 0 auto;}
   .ro-empty{padding:13px 15px;font-size:0.82rem;font-weight:700;color:var(--text-light);}
   /* ▲▲▲ LIFELOG 보호자 보기 끝 ▲▲▲ */
+  /* ▼▼▼ LIFELOG 조교·상호공개 (2026-09-08) ▼▼▼ */
+  .wk-set{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);flex-wrap:wrap;}
+  .wk-set .wl{font-size:0.78rem;font-weight:800;color:var(--text-light);}
+  .wk-set input[type=time]{border:1.5px solid var(--border);border-radius:9px;padding:7px 9px;font-family:inherit;font-size:0.88rem;font-weight:800;color:var(--text);background:#fff;}
+  .wk-set button{margin-left:auto;background:#fff;border:1.5px solid var(--primary);color:var(--primary);border-radius:9px;padding:8px 13px;font-size:0.8rem;font-weight:800;font-family:inherit;cursor:pointer;}
+  .wk-set button:disabled{opacity:.5;cursor:not-allowed;}
+  .wk-note{font-size:0.74rem;color:var(--text-light);font-weight:700;line-height:1.65;margin-top:8px;}
+  .peer-head{display:flex;align-items:center;gap:8px;margin:26px 0 10px;font-size:0.78rem;font-weight:700;color:var(--primary);letter-spacing:0.5px;}
+  .peer-today{background:#fff;border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:12px;padding:13px 15px;margin-bottom:9px;}
+  .peer-today .pt1{font-size:0.93rem;font-weight:900;line-height:1.5;}
+  .peer-today .pt2{font-size:0.78rem;color:var(--text-light);font-weight:700;line-height:1.7;margin-top:5px;}
+  /* ▲▲▲ LIFELOG 조교 끝 ▲▲▲ */
   .state-box{text-align:center;padding:28px 20px;color:var(--text-light);}
   .state-box .si{font-size:1.8rem;margin-bottom:7px;}
   .state-box p{font-size:0.85rem;line-height:1.7;}
@@ -185,6 +197,14 @@
 
       <div class="section-label">📅 이번 달 기록 <span class="cnt" id="monthCnt"></span></div>
       <div id="monthWrap"></div>
+
+      <!-- ▼▼▼ LIFELOG 조교·상호공개 (2026-09-08) — 상대 기록. 보기만 하고 손은 못 댄다 ▼▼▼ -->
+      <div id="peerBox" style="display:none;">
+        <div class="peer-head" id="peerHead">👀 상대 기록</div>
+        <div id="peerToday"></div>
+        <div id="peerWrap"></div>
+      </div>
+      <!-- ▲▲▲ LIFELOG 조교 끝 ▲▲▲ -->
     </div>
   </div>
 
@@ -200,11 +220,31 @@
   var TOKEN_KEY = 'kwmath_portal_token';
   var token = '';
   try { token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ''; } catch(e){}
+
+  // ▼▼▼ LIFELOG 조교(2026-09-08) — 이 화면에 들어오는 사람이 둘이 됐다 ▼▼▼
+  //   지환이·어머니는 포털 토큰으로, 준원 선생은 조교 세션 토큰으로 들어온다.
+  //   조교 토큰은 'ast_' 로 시작한다 — 원장 토큰('adm_')과 여기서 갈라야 한다.
+  //   ✋ 기각한 안: 관리자 토큰이면 무조건 조교로 취급 — 관우T가 열면 준원 선생 화면이 떠서
+  //      "내 기록"인 줄 알고 기상 버튼을 누르게 된다. 남의 이름으로 남은 기록은 되돌리기 번거롭다.
+  //   진짜 판정은 서버가 한다. 여기 갈래는 "어느 화면을 그릴까"일 뿐이고,
+  //   조교가 아닌 사람이 조교 화면을 열어도 서버가 학생 경로로 답해 아무 권한도 안 생긴다.
+  var IS_STAFF = false;
+  if (!token){
+    var admTok = '';
+    try { admTok = sessionStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_pw') || localStorage.getItem('kwmath_admin_token') || ''; } catch(e){}
+    if (/^ast_/.test(admTok)) { token = admTok; IS_STAFF = true; }
+    else if (admTok) { location.replace('/admin-lifelog'); return; }   // 원장 → 원장 화면으로
+  }
+  // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
+
   // 이 사이트의 실제 주소는 확장자 없는 쪽이다('/portal.html'로 보내면 302 한 번을 더 탄다).
   if (!token) { location.replace('/portal'); return; }
 
   var selectedName = '';
-  try { var s = sessionStorage.getItem('kwmath_selected_student'); if (s){ var o = JSON.parse(s); selectedName = (o && o.name) || ''; } } catch(e){}
+  // 조교에게는 '선택한 학생'이 없다. name= 을 붙이면 서버가 학부모 경로로 읽을 여지를 준다.
+  if (!IS_STAFF) {
+    try { var s = sessionStorage.getItem('kwmath_selected_student'); if (s){ var o = JSON.parse(s); selectedName = (o && o.name) || ''; } } catch(e){}
+  }
   function nameQ(prefix){ return selectedName ? (prefix + 'name=' + encodeURIComponent(selectedName)) : ''; }
 
   // ── 학원 기기 비밀값 ──
@@ -266,8 +306,14 @@
         //   canEdit 은 서버가 준다. 없으면(옛 응답) 학생 본인으로 본다 — 새 화면 + 옛 서버 조합에서
         //   학생이 갑자기 아무것도 못 쓰게 되는 쪽이 더 나쁘다. 어차피 쓰기는 서버가 다시 막는다.
         RO = (j.canEdit === false);
-        var who = (j.student && j.student.name) || '';
-        $('whoTag').textContent = who ? (RO ? (' · ' + who + ' 기록') : (' · ' + who + ' 전용')) : '';
+        // ▼ LIFELOG 조교(2026-09-08) — 서버가 나를 누구로 봤는지는 viewer 로 온다.
+        //   화면 갈래는 이 값을 따른다. 로컬 토큰 모양(IS_STAFF)은 첫 요청을 어디로 보낼지 정할 때만 썼다.
+        IS_STAFF = (j.viewer === 'staff');
+        var who = IS_STAFF ? ((j.staff && j.staff.name) || '') : ((j.student && j.student.name) || '');
+        $('whoTag').textContent = who
+          ? (IS_STAFF ? (' · ' + who) : (RO ? (' · ' + who + ' 기록') : (' · ' + who + ' 전용')))
+          : '';
+        if (IS_STAFF) staffNav();
         $('bootBox').style.display = 'none';
         $('mainWrap').style.display = 'block';
         $('roBar').style.display = RO ? 'flex' : 'none';
@@ -286,7 +332,7 @@
   }
 
   // ══════════════ 그리기 ══════════════
-  function render(){ renderCheckin(); renderDate(); renderSlots(); renderMonth(); }
+  function render(){ renderCheckin(); renderDate(); renderSlots(); renderMonth(); renderPeer(); }
 
   // ▼▼▼ LIFELOG 지각 벌칙 표시 (2026-08-19) ▼▼▼
   // 계산은 전부 서버(lifelog.js lateOf)가 한다. 여기서는 받아 온 값을 보여 주기만 한다.
@@ -347,7 +393,207 @@
   }
   // ▲▲▲ LIFELOG 퇴근 끝 ▲▲▲
 
+  // ▼▼▼ LIFELOG 조교(2026-09-08) — 기상 버튼 · 기상 기준 · 상대 기록 ▼▼▼
+  // 관우T 확정: "지환이는 출석이지만 조교쌤은 기상버튼을 만들어",
+  //             "기상시간은 내가 아니라 본인이 바꿀 수 있는걸로", "완전 상호 공개".
+  //
+  // 왜 출석과 다른가 — 출석은 학원에 왔다는 증명이라 학원 기기에서만 눌린다.
+  //   기상은 집에서 일어나는 일이다. 기기를 묶으면 아예 누를 수가 없다. 그래서 기기 검사가 없다.
+  //   대신 "늦게 눌러 놓고 일찍 일어난 척"을 막을 방법이 없으므로, 이건 본인 양심에 맡긴다
+  //   — 애초에 준원 선생이 스스로 "보고 당하고 싶다"고 청한 기능이다.
+  //
+  // 기준을 본인이 바꾸는데 왜 지나간 날이 안 흔들리나 — 두 겹이다.
+  //   ① 바꾼 기준은 **내일부터** 적용된다(서버 saveWakeRule).
+  //   ② 그날 눌린 줄에는 그 순간의 기준이 통째로 박혀 있다(wake_base·wake_unit_sec).
+  //   그래서 오늘 늦잠 자고 기준을 늦춰도 오늘의 지각은 지각으로 남는다.
+
+  function staffNav(){
+    // 조교의 홈은 포털이 아니라 조교 화면이다. ☰ 메뉴 항목은 전부 학생 전용이라 통째로 감춘다.
+    try {
+      var h = $('kwnavHome'); if (h) h.setAttribute('href', '/staff-home');
+      var t = $('kwnavToggle'); if (t) t.style.display = 'none';
+      var p = $('kwnavPop'); if (p) p.style.display = 'none';
+      var tt = document.querySelector('.topbar-title'); if (tt) tt.setAttribute('href', '/staff-home');
+    } catch(e){}
+  }
+  function wakeBase(){ return (DATA && DATA.wakeRule && DATA.wakeRule.base) || '07:00'; }
+  function wakeUnit(){ return (DATA && DATA.wakeRule && DATA.wakeRule.unitSec) || 30; }
+
+  function wakeCard(){
+    var c = $('ckCard');
+    var W = DATA.todayWake || {};
+    var pend = (DATA.wakeRule && DATA.wakeRule.pending) || null;
+    var set = '<div class="wk-set">' +
+        '<span class="wl">기상 기준</span>' +
+        '<input type="time" id="wkBase" value="' + esc(wakeBase()) + '" step="60">' +
+        '<button type="button" id="wkSave">기준 바꾸기</button>' +
+      '</div>' +
+      '<div class="wk-note">바꾼 기준은 <b>내일부터</b> 적용돼요. 오늘 기록은 오늘 기준 그대로 남아요.' +
+        (pend ? ('<br>예약됨 — <b>' + esc(pend.from) + '</b>부터 ' + esc(pend.base)) : '') +
+      '</div>';
+
+    if (DATA.wokeToday){
+      c.className = 'ck done';
+      c.innerHTML = '<div class="ck-done"><div class="ci">' + (W.late ? '⏰' : '✅') + '</div><div>' +
+        '<div class="c1">' + (W.late ? ('오늘 ' + esc(W.lateText||'') + ' 늦잠 잤어요') : '오늘 제시간에 일어났어요') + '</div>' +
+        '<div class="c2">' + esc(DATA.today) + ' ' + esc(DATA.wokeAt || '') + ' 기상 · 기준 ' + esc(wakeBase()) + '</div>' +
+        '</div></div>' +
+        (W.late ? ('<div class="ck-pen">오늘 벌칙 운동 <b>' + (W.penalty||0) + '개</b>' +
+          (W.capped ? ' (상한까지)' : '') + ' — ' + wakeUnit() + '초 늦을 때마다 1개예요.</div>') : '') +
+        set;
+    } else {
+      c.className = 'ck';
+      c.innerHTML = '<div class="ck-t">' + esc(DATA.today) + ' (' + esc(DATA.todayDow||'') + ') · 기상</div>' +
+        '<button class="ck-big" type="button" id="wkBtn">☀️ 오늘 기상 찍기</button>' +
+        '<div class="ck-t" style="margin:9px 0 0;font-weight:700;">' + esc(wakeBase()) + ' 까지는 정시예요. 넘기면 ' + wakeUnit() + '초마다 벌칙 운동이 1개씩 늘어요.</div>' +
+        set;
+      var b = $('wkBtn'); if (b) b.addEventListener('click', doWake);
+    }
+    var s = $('wkSave'); if (s) s.addEventListener('click', doSetWake);
+  }
+
+  function doWake(){
+    var b = $('wkBtn'); if (!b) return;
+    b.disabled = true; b.innerHTML = '<span class="spin"></span>기록 중…';
+    fetch('/api/lifelog?action=wake', { method:'POST', headers: authHeaders() })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j.ok){ showToast(j.error || '기록하지 못했어요.'); b.disabled=false; b.textContent='☀️ 오늘 기상 찍기'; return; }
+        showToast(j.already ? ('이미 찍혀 있어요 (' + j.time + ')') : ('기상 ' + j.time + ' 기록했어요!'));
+        load();
+      })
+      .catch(function(){ showToast('네트워크 오류'); b.disabled=false; b.textContent='☀️ 오늘 기상 찍기'; });
+  }
+
+  function doSetWake(){
+    var inp = $('wkBase'), btn = $('wkSave');
+    if (!inp || !btn) return;
+    var v = String(inp.value || '').slice(0,5);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)){ showToast('시각을 HH:MM 으로 골라 주세요.'); return; }
+    if (v === wakeBase()){ showToast('지금 기준과 같아요.'); return; }
+    if (!confirm('기상 기준을 ' + v + ' 로 바꿀까요?\n내일부터 적용돼요. 오늘 기록은 그대로예요.')) return;
+    var label = btn.textContent;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>바꾸는 중…';
+    fetch('/api/lifelog?action=set_wake', {
+      method:'POST', headers: authHeaders({ 'Content-Type':'application/json' }),
+      body: JSON.stringify({ base: v })
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j.ok){ showToast(j.error || '바꾸지 못했어요.'); btn.disabled=false; btn.textContent=label; return; }
+        showToast('내일부터 ' + v + ' 기준으로 볼게요.');
+        load();
+      })
+      .catch(function(){ showToast('네트워크 오류'); btn.disabled=false; btn.textContent=label; });
+  }
+
+  // ── 상대 기록 (읽기 전용) ──
+  //   서버가 peer 를 안 보내면(공개 스위치 꺼짐 · 짝 미지정) 이 구역 자체가 안 뜬다.
+  //   지우거나 고치는 버튼은 한 개도 그리지 않는다 — 서버도 남의 id 는 안 받지만, 화면에도 없어야 한다.
+  function renderPeer(){
+    var P = DATA && DATA.peer;
+    if (!P){ $('peerBox').style.display = 'none'; return; }
+    $('peerBox').style.display = 'block';
+    $('peerHead').textContent = '👀 ' + (P.name || '상대') + ' 기록';
+
+    var lab = P.checkinLabel || '출석';
+    var ck = {};
+    (P.checkins||[]).forEach(function(c){ ck[c.date] = c; });
+    var byDate = {};
+    (P.entries||[]).forEach(function(e){ (byDate[e.date] = byDate[e.date] || []).push(e); });
+    Object.keys(ck).forEach(function(d){ if (!byDate[d]) byDate[d] = []; });
+
+    // 오늘 한 줄 — 스크롤하지 않아도 "오늘 저 사람은 어땠나"가 바로 보이게
+    var tc = ck[today] || null;
+    var ti = (byDate[today] || []);
+    var tb = [];
+    var tm = ti.filter(function(e){ return e.kind === 'meal'; });
+    if (tm.length) tb.push('🍚 ' + tm.map(function(e){ return e.slot; }).join('·'));
+    if (ti.some(function(e){ return e.kind !== 'meal'; })) tb.push('💪 운동');
+    var tp = ti.reduce(function(n,e){ return n + (e.photos||[]).length; }, 0);
+    if (tp) tb.push('📷 ' + tp + '장');
+    $('peerToday').innerHTML = '<div class="peer-today">' +
+      '<div class="pt1">오늘 · ' +
+        (tc ? (esc(lab) + ' ' + esc(tc.time||'') + ' ' + lateTags(tc)) : ('아직 ' + esc(lab) + ' 안 했어요')) +
+      '</div>' +
+      '<div class="pt2">' + (tb.length ? esc(tb.join(' · ')) : '오늘 올린 기록은 아직 없어요.') + '</div>' +
+      '</div>';
+
+    var dates = Object.keys(byDate).sort().reverse();
+    if (!dates.length){ $('peerWrap').innerHTML = ''; return; }
+    $('peerWrap').innerHTML = dates.map(function(d){
+      var c = ck[d] || null;
+      var items = (byDate[d] || []).slice().sort(function(a,b){
+        return SLOTORDER.indexOf(a.slot) - SLOTORDER.indexOf(b.slot);
+      });
+      var photos = items.reduce(function(n, e){ return n + (e.photos||[]).length; }, 0);
+      var bits = [];
+      var meals = items.filter(function(e){ return e.kind === 'meal'; });
+      if (meals.length) bits.push('🍚 ' + meals.map(function(e){ return e.slot; }).join('·'));
+      if (items.some(function(e){ return e.kind !== 'meal'; })) bits.push('💪 운동');
+      if (photos) bits.push('📷 ' + photos + '장');
+      if (!bits.length) bits.push('기록 없음');
+
+      var det = '<div class="dl"><span class="k">' + esc(lab) + '</span><span class="v">' +
+        (c ? (esc(c.time || '') + (c.late
+                ? (' · 지각 ' + esc(c.lateText||'') + ' · 벌칙 운동 ' + (c.penalty||0) + '개' + (c.capped ? '(상한)' : ''))
+                : ' · 정시'))
+           : (esc(lab) + ' 기록 없음')) +
+        '</span></div>';
+      if (c && c.out){
+        det += '<div class="dl"><span class="k">퇴근</span><span class="v">' + esc(c.outTime || '') +
+          (c.backwards ? ' · 시각 확인 필요' : ' · 학원에 ' + esc(c.stayText || '') + ' 있었어요') + '</span></div>';
+      }
+      det += items.map(function(e){
+        var v = e.content ? esc(e.content) : '(글 없이 사진만)';
+        if ((e.photos||[]).length) v += ' <span style="color:var(--text-light);font-weight:700;">· 사진 ' + e.photos.length + '장</span>';
+        return '<div class="dl"><span class="k">' + (EMOJI[e.slot]||'📝') + ' ' + esc(e.slot) + '</span><span class="v">' + v + '</span></div>';
+      }).join('');
+      if (!items.length) det += '<div class="dl"><span class="k">기록</span><span class="v">이 날은 올린 게 없어요.</span></div>';
+      if (photos) det += '<div class="grid mt">' + items.reduce(function(a,e){ return a.concat(e.photos||[]); }, []).map(function(key){
+        return '<div class="thumb" data-key="' + esc(key) + '"><img alt="기록 사진"></div>';
+      }).join('') + '</div>';
+
+      return '<div class="mbox' + (POPEN[d] ? ' open' : '') + '" data-pd="' + esc(d) + '">' +
+        '<div class="mrow">' +
+          '<span class="md">' + esc(d.slice(5).replace('-','/')) + ' (' + dowKo(d) + ')</span>' +
+          '<span class="mt">' + esc(bits.join(' · ')) + '</span>' +
+          (c ? '<span class="mc">✅ ' + esc(c.time || '') + '</span>' : '') +
+          lateTags(c) +
+          stayTag(c) +
+          '<span class="mcar">▼</span>' +
+        '</div>' +
+        '<div class="mdet">' + det + '</div>' +
+      '</div>';
+    }).join('');
+
+    // 사진은 펼친 날만 받아 온다 — 한 달치를 한꺼번에 받으면 데이터가 아깝다.
+    //   ⚠️ 다시 그린 뒤에도 열려 있는 날이 있다(POPEN). 클릭 때만 불러오면 그 날 사진이 영영 안 뜬다.
+    function peerThumbs(box){
+      Array.prototype.forEach.call(box.querySelectorAll('.thumb'), function(el){
+        var img = el.querySelector('img');
+        if (!img || img.getAttribute('data-on')) return;
+        img.setAttribute('data-on', '1');
+        loadImg(img, el.getAttribute('data-key'));
+        img.addEventListener('click', function(){ if (img.src) openLightbox(img.src); });
+      });
+    }
+    Array.prototype.forEach.call($('peerWrap').querySelectorAll('.mbox'), function(box){
+      var d = box.getAttribute('data-pd');
+      if (box.classList.contains('open')) peerThumbs(box);
+      box.querySelector('.mrow').addEventListener('click', function(){
+        var willOpen = !box.classList.contains('open');
+        box.classList.toggle('open', willOpen);
+        if (willOpen){ POPEN[d] = 1; peerThumbs(box); }
+        else delete POPEN[d];
+      });
+    });
+  }
+  // ▲▲▲ LIFELOG 조교 끝 ▲▲▲
+
   function renderCheckin(){
+    // ▼ LIFELOG 조교(2026-09-08) — 조교에게는 출석이 아니라 기상 카드를 그린다.
+    if (IS_STAFF){ wakeCard(); return; }
     var c = $('ckCard');
     var d = DATA.device || {};
     if (DATA.checkedInToday){
@@ -635,6 +881,7 @@
   // ── 이번 달 기록 ──
   // ▼▼▼ LIFELOG 요약 한 줄 + 드롭다운 (2026-08-19) ▼▼▼
   var MOPEN = {};   // 펼쳐 둔 날짜 — 다시 그려도 그대로 열려 있게
+  var POPEN = {};   // ▼ LIFELOG 조교(2026-09-08) — 상대 기록 쪽 펼침 상태. 내 것과 섞이면 안 된다.
   var SLOTORDER = ['아침','점심','저녁','간식','운동'];
 
   function renderMonth(){
@@ -667,14 +914,16 @@
 
       // 펼친 속 — 몇 시에 왔고 뭘 먹었는지
       var det = '';
-      det += '<div class="dl"><span class="k">출석</span><span class="v">' +
-        (c ? (esc(c.time || '') + ' 도착' +
+      // ▼ LIFELOG 조교(2026-09-08) — 조교 화면에서는 '출석/도착'이 아니라 '기상'이다.
+      var mLab = IS_STAFF ? '기상' : '출석';
+      det += '<div class="dl"><span class="k">' + mLab + '</span><span class="v">' +
+        (c ? (esc(c.time || '') + (IS_STAFF ? '' : ' 도착') +
               (c.late ? (' · 지각 ' + esc(c.lateText||'') + ' · 벌칙 운동 ' + (c.penalty||0) + '개' + (c.capped ? '(상한)' : ''))
                       : ' · 정시')
-             ) : '출석 기록 없음') +
+             ) : (mLab + ' 기록 없음')) +
         '</span></div>';
-      // ▼ LIFELOG 퇴근(2026-08-21) — 등원이 있는 날만 한 줄 더
-      if (c) {
+      // ▼ LIFELOG 퇴근(2026-08-21) — 등원이 있는 날만 한 줄 더 (조교에겐 퇴근이 없다)
+      if (c && !IS_STAFF) {
         det += '<div class="dl"><span class="k">퇴근</span><span class="v">' +
           (c.out
             ? (esc(c.outTime || '') + (c.outSource === 'manual' ? ' (원장 선생님이 넣음)' : '') +
