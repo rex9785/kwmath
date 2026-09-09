@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- 2026-09-10 생성 시점부터 검색 노출 차단(2026-08-06 관우T 방침: 공개 표본은 동덕여고 한 곳만 —
+     카드·사이트맵에도 넣지 않는다). URL 직접 접속은 열림 — 상담 때 링크로 보여 드리는 용도.
+     되살릴 때는 이 robots 줄을 지우고 인수인계/보관_숨긴_학교카드_20260806.html 절차 참고.
+     원자료: 내신시험지 분석/숙명여고 시험지분석/ (매칭C_3개년 · 보고서_모의고사참고율_3개년.md).
+     ⚠️ 이 페이지의 수치는 전부 그 원자료에서 검산된 값만 쓴다. 내부 등급(A/B/C)·가시 풀·한계 서술은
+     공개물에 싣지 않는다(공개어 변환: B=풀이 골격 동일, C=발상 연결). 연도 간 참고율 세로 비교 금지 —
+     과거 연도는 「이 문항은 20XX년에도 나왔다」 반복 서술로만 쓴다. -->
+<meta name="robots" content="noindex,nofollow">
+<title>숙명여고 1학기 중간고사 수학 출제 분석 | 이관우T</title>
+<meta name="description" content="숙명여자고등학교 1학년 1학기 중간고사(공통수학1) 출제 분석. 2025학년도 100점 중 80.4점이 고1 학력평가 기출과 연결되고, 서답형 22번 자리는 3년 연속 다항식 결정입니다. 2023~2025학년도 3개년 대조. 반포 세정학원 이관우T.">
+<meta property="og:title" content="숙명여고 1학기 중간고사 수학 출제 분석 | 이관우T">
+<meta property="og:description" content="숙명여고 1학기 중간고사 3개년 출제 분석. 2025학년도는 100점 중 80.4점이 고1 학력평가 기출과 같은 골격이거나 같은 발상이었습니다.">
+<meta property="og:type" content="article">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+  /* 명조 헤드라인 — 600/700/900만 로드(800은 시스템 명조로 폴백돼 글자 잘림) */
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --wine:#862633;--wine-deep:#511F26;--wine-tint:#F3E7E6;
+    --ink:#211914;--muted:#71675E;--muted2:#9C9086;
+    --paper:#FBF8F4;--beige:#F1EAE0;--card:#FFFFFF;
+    --dark:#20140F;--footer-bg:#170D09;--gold:#C79A3C;
+    --line:#E8DED2;--line-d:rgba(255,255,255,.14);
+    --serif:'Noto Serif KR',serif;
+    --sans:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+  }
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);word-break:keep-all;overflow-wrap:break-word;line-break:strict;line-height:1.75;}
+  a{color:var(--wine);}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 5%;}
+
+  /* ── 상단 바 ── */
+  header.site{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(251,248,244,.92);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line);}
+  .nav-inner{max-width:1060px;margin:0 auto;padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:58px;gap:12px;}
+  .nav-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
+  .nav-logo img{height:30px;width:auto;object-fit:contain;display:block;}
+  .nav-logo span{font-family:var(--serif);font-weight:900;font-size:1rem;color:var(--wine);letter-spacing:-.01em;}
+  .nav-right{display:flex;align-items:center;gap:14px;}
+  .nav-right a{font-size:.8rem;font-weight:700;text-decoration:none;color:var(--muted);white-space:nowrap;}
+  .nav-right a.cta{background:var(--wine);color:#fff;padding:8px 15px;border-radius:6px;}
+
+  /* ── 히어로 ── */
+  .hero{background:var(--dark);color:#fff;padding:126px 0 0;position:relative;overflow:hidden;}
+  .hero::after{content:"";position:absolute;right:-14%;top:-18%;width:62vw;height:62vw;max-width:620px;max-height:620px;border-radius:50%;border:1px solid rgba(255,255,255,.07);}
+  .hero::before{content:"";position:absolute;right:-4%;top:6%;width:44vw;height:44vw;max-width:430px;max-height:430px;border-radius:50%;border:1px solid rgba(134,38,51,.55);}
+  .hero-in{position:relative;z-index:2;padding-bottom:64px;}
+  .kicker{display:inline-flex;align-items:center;gap:10px;font-size:.7rem;font-weight:700;letter-spacing:.16em;color:var(--gold);margin-bottom:26px;}
+  .kicker::before{content:"";width:34px;height:1px;background:var(--gold);}
+  .hero h1{font-family:var(--serif);font-weight:900;font-size:clamp(2.15rem,5.6vw,4rem);line-height:1.22;letter-spacing:-.03em;margin-bottom:26px;}
+  .hero h1 em{font-style:normal;color:#E8A0A8;}
+  .hero-lead{font-size:clamp(.98rem,1.6vw,1.12rem);color:rgba(255,255,255,.72);max-width:640px;line-height:1.85;}
+  .hero-meta{margin-top:30px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hero-meta span{font-size:.74rem;font-weight:600;color:rgba(255,255,255,.62);border:1px solid var(--line-d);border-radius:999px;padding:6px 13px;white-space:nowrap;}
+
+  /* ── 수치 스트립 ── */
+  .stats{background:var(--wine);color:#fff;}
+  .stats-in{display:grid;grid-template-columns:repeat(4,1fr);}
+  .stat{padding:32px 18px;border-right:1px solid rgba(255,255,255,.16);text-align:center;}
+  .stat:last-child{border-right:0;}
+  .stat b{display:block;font-family:var(--serif);font-weight:900;font-size:clamp(1.7rem,3.6vw,2.7rem);line-height:1;letter-spacing:-.03em;}
+  .stat b small{font-size:1rem;font-weight:700;margin-left:2px;}
+  .stat i{display:block;font-style:normal;font-size:.74rem;font-weight:600;color:rgba(255,255,255,.8);margin-top:11px;letter-spacing:-.01em;line-height:1.5;}
+
+  /* ── 섹션 공통 ── */
+  section{padding:82px 0;}
+  .eyebrow{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;}
+  .eyebrow .no{font-family:var(--serif);font-weight:900;font-size:1.1rem;color:var(--wine);letter-spacing:.04em;}
+  .eyebrow .lb{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--muted2);}
+  h2.sec{font-family:var(--serif);font-weight:900;font-size:clamp(1.65rem,3.2vw,2.4rem);line-height:1.35;letter-spacing:-.025em;margin-bottom:14px;}
+  .sec-lead{color:var(--muted);font-size:.98rem;max-width:720px;margin-bottom:40px;}
+  h3.sub{font-family:var(--serif);font-weight:700;font-size:1.12rem;margin-bottom:14px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px;}
+  h3.sub::before{content:"";width:4px;height:16px;background:var(--wine);border-radius:2px;flex-shrink:0;}
+
+  /* ── 핵심 카드 ── */
+  .keys{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
+  @media(max-width:640px){.keys{grid-template-columns:1fr;}}
+  .key{background:var(--card);padding:30px 26px;}
+  .key .n{font-family:var(--serif);font-weight:900;font-size:.82rem;color:var(--wine);letter-spacing:.08em;margin-bottom:14px;}
+  .key h4{font-family:var(--serif);font-weight:700;font-size:1.08rem;line-height:1.5;margin-bottom:11px;letter-spacing:-.01em;}
+  .key p{font-size:.9rem;color:var(--muted);line-height:1.8;}
+  .key .big{font-family:var(--serif);font-weight:900;font-size:2.5rem;line-height:1;color:var(--wine);letter-spacing:-.03em;display:block;margin-bottom:12px;}
+  .key .big small{font-size:1rem;font-weight:700;margin-left:2px;}
+
+  /* ── 배점 막대 ── */
+  .barbox{background:var(--card);border:1px solid var(--line);padding:30px 28px;margin-bottom:26px;}
+  .barbox .cap{font-size:.76rem;font-weight:700;color:var(--muted2);letter-spacing:.06em;margin-bottom:22px;}
+  .bar{margin-bottom:15px;}
+  .bar:last-child{margin-bottom:0;}
+  .bar .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:10px;}
+  .bar .nm{font-size:.89rem;font-weight:700;letter-spacing:-.01em;}
+  .bar .vl{font-family:var(--serif);font-weight:700;font-size:.95rem;color:var(--wine);white-space:nowrap;}
+  .bar .track{height:9px;background:var(--beige);border-radius:5px;overflow:hidden;}
+  .bar .fill{height:100%;background:var(--wine);border-radius:5px;}
+  .bar.dim .fill{background:var(--muted2);}
+  .bar.dim .vl{color:var(--muted);}
+
+  /* ── 표 ── */
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);background:var(--card);margin-bottom:26px;}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:520px;}
+  th{background:var(--beige);font-weight:700;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:.8rem;letter-spacing:-.01em;}
+  td{padding:11px 14px;border-bottom:1px solid #F0EAE2;vertical-align:top;line-height:1.6;}
+  tr:last-child td{border-bottom:0;}
+  td.num{font-family:var(--serif);font-weight:700;color:var(--wine);white-space:nowrap;}
+  tr.hl td{background:var(--wine-tint);}
+  tr.hl td.num{color:var(--wine-deep);}
+
+  /* ── 상단 문항 해부 ── */
+  .kills{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+  .kill{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--wine);padding:26px 24px;}
+  .kill.semi{border-top-color:var(--gold);}
+  .kill .tag{display:inline-block;font-size:.66rem;font-weight:800;letter-spacing:.1em;color:#fff;background:var(--wine);padding:4px 10px;border-radius:3px;margin-bottom:14px;}
+  .kill.semi .tag{background:var(--gold);color:var(--dark);}
+  .kill h4{font-family:var(--serif);font-weight:700;font-size:1.04rem;margin-bottom:10px;letter-spacing:-.01em;}
+  .kill h4 span{font-family:var(--sans);font-size:.78rem;font-weight:600;color:var(--muted2);margin-left:6px;}
+  .kill p{font-size:.89rem;color:var(--muted);line-height:1.82;}
+  .kill .pt{margin-top:14px;padding-top:13px;border-top:1px dashed var(--line);font-size:.83rem;color:var(--ink);font-weight:600;}
+  .kill .pt b{color:var(--wine);}
+
+  /* ── 인용 ── */
+  .pull{background:var(--dark);color:#fff;padding:56px 6%;margin:44px 0;position:relative;}
+  .pull .mk{font-family:var(--serif);font-size:3.2rem;line-height:0;color:var(--wine);opacity:.85;display:block;margin-bottom:26px;}
+  .pull blockquote{font-family:var(--serif);font-weight:700;font-size:clamp(1.12rem,2.2vw,1.55rem);line-height:1.78;letter-spacing:-.02em;}
+  .pull cite{display:block;font-style:normal;font-size:.8rem;color:rgba(255,255,255,.5);margin-top:22px;font-weight:600;}
+
+  /* ── 노트 박스 ── */
+  .note{background:var(--wine-tint);border-left:3px solid var(--wine);padding:22px 24px;font-size:.9rem;color:var(--wine-deep);line-height:1.85;margin-bottom:26px;}
+  .note b{font-weight:700;}
+  .plain{font-size:.95rem;color:var(--muted);line-height:1.95;margin-bottom:22px;}
+  .plain b{color:var(--ink);font-weight:700;}
+  .alt{background:var(--beige);}
+
+  /* ── CTA ── */
+  .cta-band{background:var(--wine);color:#fff;padding:66px 6%;text-align:center;}
+  .cta-band h3{font-family:var(--serif);font-weight:900;font-size:clamp(1.4rem,3vw,2.1rem);line-height:1.42;letter-spacing:-.025em;margin-bottom:16px;}
+  .cta-band p{color:rgba(255,255,255,.8);font-size:.95rem;margin-bottom:32px;max-width:560px;margin-left:auto;margin-right:auto;}
+  .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;white-space:nowrap;}
+  .btn.solid{background:#fff;color:var(--wine);}
+  .btn.solid:hover{background:var(--beige);}
+  .btn.ghost{border:1px solid rgba(255,255,255,.45);color:#fff;}
+  .btn.ghost:hover{background:rgba(255,255,255,.1);}
+
+  /* ── 푸터 ── */
+  footer{background:var(--footer-bg);color:rgba(255,255,255,.5);padding:46px 0;font-size:.8rem;}
+  footer .fin{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;align-items:center;}
+  footer b{color:#fff;font-family:var(--serif);font-weight:700;font-size:.95rem;display:block;margin-bottom:6px;}
+  footer a{color:rgba(255,255,255,.72);text-decoration:none;}
+
+  @media(max-width:860px){
+    .stats-in{grid-template-columns:repeat(2,1fr);}
+    .stat{border-bottom:1px solid rgba(255,255,255,.16);}
+    .stat:nth-child(2n){border-right:0;}
+    .stat:nth-child(n+3){border-bottom:0;}
+    section{padding:60px 0;}
+    .hero{padding-top:104px;}
+    .nav-right a:not(.cta){display:none;}
+  }
+  @media print{
+    header.site,.cta-btns,.nav-right{display:none;}
+    body{background:#fff;font-size:10.5pt;}
+    .hero,.stats,.pull,.cta-band{background:#fff!important;color:#000!important;}
+    .hero h1,.pull blockquote,.cta-band h3{color:#000!important;}
+    .hero::before,.hero::after{display:none;}
+    .stat b,.hero h1 em{color:var(--wine)!important;}
+    .stat i,.hero-lead,.pull cite,.cta-band p{color:#444!important;}
+    .hero-meta span{color:#444!important;border-color:#ccc!important;}
+    section{padding:26px 0;page-break-inside:avoid;}
+    .kill,.key,.barbox,.tbl-scroll{page-break-inside:avoid;}
+    footer{background:#fff;color:#666;border-top:1px solid #ccc;}
+    footer b,footer a{color:#000;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="nav-inner">
+    <a class="nav-logo" href="/"><img src="가로로고_투명.png" alt="이관우 수학" onerror="this.outerHTML='<span>이관우 수학</span>'"></a>
+    <div class="nav-right">
+      <a href="#part1">출제 분석</a>
+      <a href="/analysis">다른 학교 분석</a>
+      <a class="cta" href="/#contact">상담 신청</a>
+    </div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap hero-in">
+    <div class="kicker">SOOKMYUNG GIRLS' HIGH SCHOOL &middot; 1학년 1학기</div>
+    <h1>숙명여고 중간고사는<br><em>어디에서 나오나</em></h1>
+    <p class="hero-lead">가장 최근 시행된 2025년 5월 1학기 중간고사 23문항을 고1 학력평가 4점 기출 선별집 124문항과 한 문항씩 전부 맞대어 보았습니다. 100점 중 80.4점이 같은 골격이거나 같은 발상이었고, 서답형 마지막 배점대인 22번 자리는 3년 연속 같은 유형이었습니다. 2023 · 2024학년도 시험지까지 같은 방식으로 대조한 기록입니다.</p>
+    <div class="hero-meta">
+      <span>2023 · 2024 · 2025학년도</span>
+      <span>1학기 중간고사 · 공통수학1</span>
+      <span>선택형 15 + 서답형 8 · 100점</span>
+      <span>반포 세정학원 이관우T</span>
+    </div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="wrap stats-in">
+    <div class="stat"><b>3</b><i>개년<br>2023–2025</i></div>
+    <div class="stat"><b>80.4<small>점</small></b><i>학평 기출과 접점<br>2025학년도 100점 기준</i></div>
+    <div class="stat"><b>3<small>년 연속</small></b><i>서답형 22번 자리<br>&lsquo;다항식 결정&rsquo;</i></div>
+    <div class="stat"><b>4<small>문항</small></b><i>직전 해 6월 학평에서<br>2025학년도 시험으로</i></div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">00</span><span class="lb">한 장 요약</span></div>
+    <h2 class="sec">먼저 이 네 가지만 기억하면 됩니다</h2>
+    <p class="sec-lead">3년치를 나란히 놓았을 때 같은 자리에서 반복된 것들입니다. 나머지 분석은 전부 이 네 문장의 근거입니다.</p>
+
+    <div class="keys">
+      <div class="key">
+        <div class="n">KEY 01</div>
+        <span class="big">80.4<small>점</small></span>
+        <h4>이 시험지의 본진은 고1 학평 기출이다</h4>
+        <p>2025학년도 중간고사 100점 중 80.4점이 학평 기출 선별집 124문항 안에서 나왔습니다. <b>풀이 골격까지 같은 문항이 6개 25.9점</b>, 핵심 발상을 가져온 문항이 12개 54.5점입니다. 창작 신작으로 승부하는 시험지가 아닙니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">KEY 02</div>
+        <h4>서답형 22번 자리 &mdash; 3년 연속 &lsquo;다항식 결정&rsquo;</h4>
+        <p>2023년과 2024년의 22번은 <b>같은 학평 기출</b>(2022년 6월 고1 29번)에서 왔고, 2024년은 삼차식 계수만 바꾼 수준이었습니다. 2025년 22번도 같은 계열(2019년 6월 고1 28번)입니다. 조건을 결합해 다항식을 결정하는 유형이 3년 연속 이 자리에 놓였습니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">KEY 03</div>
+        <h4>직전 해 6월 학평을 바로 다음 중간고사에 쓴다</h4>
+        <p>2025년 시험의 8번 · 10번(골격)과 12번 · 14번(발상)이 전부 <b>2024년 6월 학평</b>입니다. 2024년 시험도 2023년 6월 학평 문제를 골격으로 썼습니다. 시험 전 해의 6월 학평이 이듬해 5월 중간고사로 들어오는 흐름이 두 해 연속 확인됩니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">KEY 04</div>
+        <span class="big">35.3<small>점</small></span>
+        <h4>점수를 가르는 자리가 정확히 기출 위에 있다</h4>
+        <p>서답형 40점 중 <b>35.3점</b>이 기출과 연결됩니다(기출 밖은 17번 하나). 선택형 4점대 여덟 문항 중 일곱 문항도 기출 골격 · 발상 위에 있습니다. 변별 구간일수록 학평 기출 의존이 강한 시험지입니다.</p>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:26px;margin-bottom:0;">
+      <b>기출 밖 다섯 문항(19.6점)은 전부 교과서 기본형이었습니다.</b><br>
+      복소수 상등, 조립제법 계산, 음수의 제곱근 부호, 켤레 허근, 나머지정리 직접 대입 &mdash; 교과서 연습이 그대로 점수가 되는 자리입니다. 즉 이 시험지는 <b>「교과서 기본 + 학평 기출 변형」 두 층</b>으로 만들어져 있고, 어느 층도 낯선 창작이 아닙니다. 무엇을 준비해야 하는지가 이례적으로 분명한 학교입니다.
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="part1">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">01</span><span class="lb">1학기 중간고사 범위</span></div>
+    <h2 class="sec">공통수학1 전반부<br>&mdash; 다항식 · 방정식 · 이차함수</h2>
+    <p class="sec-lead">다항식의 연산부터 이차함수와 이차방정식까지, 1학기 중간고사의 전 범위입니다. 숙명여고가 이 단원을 실제로 어떻게 냈는지는 세 장의 시험지에 남아 있습니다.</p>
+
+    <div class="note">
+      <b>연도만 보고 옛 시험지를 펴면 안 되는 이유.</b><br>
+      2022 개정 교육과정이 처음 적용된 2025학년도부터 1학년 1학기는 <b>공통수학1</b>입니다. 2023 · 2024학년도의 같은 시험은 「수학(상)」 체제였습니다. 그래서 이 분석은 시험 이름이 아니라 <b>실제 출제 중단원</b>으로 짝을 맞춰 3개년을 대조했습니다.
+    </div>
+
+    <h3 class="sub">2025학년도 1학기 중간고사 &mdash; 배점 지도</h3>
+    <div class="barbox">
+      <div class="cap">2025. 5. 시행 &middot; 선택형 15문항(60.0점) + 서답형 8문항(40.0점) &middot; 100.0점</div>
+      <div class="bar"><div class="top"><span class="nm">이차함수</span><span class="vl">31.7점</span></div><div class="track"><div class="fill" style="width:100%"></div></div></div>
+      <div class="bar"><div class="top"><span class="nm">이차방정식</span><span class="vl">22.5점</span></div><div class="track"><div class="fill" style="width:71%"></div></div></div>
+      <div class="bar"><div class="top"><span class="nm">항등식과 나머지정리</span><span class="vl">18.5점</span></div><div class="track"><div class="fill" style="width:58%"></div></div></div>
+      <div class="bar dim"><div class="top"><span class="nm">복소수</span><span class="vl">15.7점</span></div><div class="track"><div class="fill" style="width:50%"></div></div></div>
+      <div class="bar dim"><div class="top"><span class="nm">인수분해</span><span class="vl">8.2점</span></div><div class="track"><div class="fill" style="width:26%"></div></div></div>
+      <div class="bar dim"><div class="top"><span class="nm">다항식의 연산</span><span class="vl">3.4점</span></div><div class="track"><div class="fill" style="width:11%"></div></div></div>
+    </div>
+
+    <p class="plain">이차함수와 이차방정식을 합치면 <b>54.2점 &mdash; 시험지의 절반이 넘습니다.</b> 서답형 여덟 문항 중 다섯 문항(24.9점)이 이 두 단원에서 나왔습니다. 앞 단원인 다항식 계열은 배점이 작은 대신, 항등식과 나머지정리가 서답형 최고배점 자리(22번)를 차지합니다.</p>
+
+    <p class="plain">배점 설계도 특징적입니다. 선택형은 1번 3.3점부터 15번 4.7점까지 <b>번호를 따라 0.1점씩 정확히 한 계단씩</b> 오르고, 서답형도 4.6점에서 5.4점까지 계단식으로 커집니다. 소수점 배점이라 총점 동점이 잘 생기지 않고, 뒤 번호일수록 한 문항의 무게가 커지는 구조입니다.</p>
+
+    <h3 class="sub">점수를 가르는 자리 &mdash; 배점 상단 다섯 문항</h3>
+    <div class="kills">
+      <div class="kill">
+        <span class="tag">서답 최상단</span>
+        <h4>서답형 22번 <span>5.3점 · 항등식과 나머지정리</span></h4>
+        <p>두 이차다항식의 결합 항등식에 나누어떨어짐 조건을 걸어 다항식을 결정하는 문제입니다. 2019년 6월 학평 28번의 장치 위에 <b>자연수 계수 케이스를 한 층</b> 얹었습니다. 이 자리가 3년 연속 &lsquo;다항식 결정&rsquo;이었습니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>조건 결합 → 차수 논증 → 케이스 완비</b></div>
+      </div>
+      <div class="kill">
+        <span class="tag">서답 최상단</span>
+        <h4>서답형 23번 <span>5.4점 · 이차함수</span></h4>
+        <p>매개변수가 붙은 두 이차방정식의 실근 개수를 판별식으로 집계해 조건화하는 문제 &mdash; 2022년 6월 학평 30번의 장치입니다. 개수를 세는 함수 p(n)을 세우는 순간 풀리고, 세우지 못하면 손을 못 대는 구조입니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>개수 조건의 판별식 번역</b></div>
+      </div>
+      <div class="kill">
+        <span class="tag">서답형</span>
+        <h4>서답형 21번 <span>5.2점 · 이차함수</span></h4>
+        <p>매개변수가 구간 끝에 들어간 이차함수의 최대 · 최소를 꼭짓점-구간 위치로 케이스를 나눠 처리하고, 조건을 만족하는 <b>모든 a의 값의 합</b>까지 요구합니다. 2019년 9월 학평 17번과 문형이 같습니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>꼭짓점-구간 위치 케이스 완비</b></div>
+      </div>
+      <div class="kill semi">
+        <span class="tag">선택 상단</span>
+        <h4>선택형 15번 <span>4.7점 · 이차함수</span></h4>
+        <p>두 함수의 곱이 인수분해된 고차식으로 주어질 때 <b>인수를 두 함수에 배분하는 케이스</b>를 따지고, 근의 곱 · 정수근 조건으로 확정하는 문제입니다. 2021년 6월 학평 21번과 배분 · 전개가 같습니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>인수 배분 케이스</b></div>
+      </div>
+      <div class="kill semi">
+        <span class="tag">선택 상단</span>
+        <h4>선택형 13번 <span>4.5점 · 인수분해</span></h4>
+        <p>(가) 두 다항식의 합, (나) 대칭 결합식 &mdash; 병렬로 주어진 두 조건을 합 · 곱 구조로 통합해 두 다항식을 결정하고, 대소 조건으로 확정합니다. 2018년 6월 학평 21번과 조건 구성이 나란합니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>병렬 조건의 통합</b></div>
+      </div>
+    </div>
+
+    <div class="pull">
+      <span class="mk">&ldquo;</span>
+      <blockquote>한 장의 시험지에서 100점 중 80.4점이 학평 기출과 연결됩니다.<br>숙명여고 중간 대비의 본진은 <b>고1 학평 기출</b>입니다.</blockquote>
+      <cite>2025학년도 1학기 중간고사 23문항 × 학평 기출 선별집 124문항 전수 대조</cite>
+    </div>
+  </div>
+</section>
+
+<section id="part2">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">02</span><span class="lb">문항의 출처</span></div>
+    <h2 class="sec">이 시험지에는<br>원본이 있습니다</h2>
+    <p class="sec-lead">2025학년도 23문항을 고1 학력평가 4점 기출 선별집 124문항과 한 문항씩 맞대어 보았습니다. 2023 · 2024학년도 시험지도 같은 방식으로 대조했고, 겹치는 자리가 해마다 같았습니다.</p>
+
+    <p class="plain">2025학년도 중간고사 <b>100점 가운데 80.4점</b>이 이 124문항 안에서 나왔습니다. 그중 <b>25.9점(여섯 문항)은 풀이 골격까지 같고</b>, 54.5점(열두 문항)은 핵심 발상을 가져왔습니다. 서답형 40점에서는 35.3점이 걸리고, 선택형 4점대 여덟 문항 중 일곱 문항이 걸립니다.</p>
+
+    <h3 class="sub">풀이 골격까지 같았던 여섯 문항</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>숙명여고 문항</th><th>배점</th><th>원본 학력평가</th><th>겹치는 골격</th></tr></thead>
+        <tbody>
+          <tr><td>2025 중간 <b>선택 7</b></td><td class="num">3.9</td><td>2022년 9월 고1 16번</td><td>이차함수와 x축 두 교점의 x좌표 차 → (α−β)² 전개로 미정계수 결정. 같은 기출이 2023년 8번에도</td></tr>
+          <tr class="hl"><td>2025 중간 <b>선택 8</b></td><td class="num">4.0</td><td>2024년 6월 고1 18번</td><td>닫힌 구간의 최대 · 최소 조건 두 개로 미정계수 두 개를 결정 &mdash; 꼭짓점 내부 최소 · 끝점 최대 골격</td></tr>
+          <tr class="hl"><td>2025 중간 <b>선택 10</b></td><td class="num">4.2</td><td>2024년 6월 고1 28번</td><td>두 다항식의 곱을 나눈 나머지가 결합식으로 주어지는 항등 조건 → 차수 논증</td></tr>
+          <tr><td>2025 중간 <b>선택 13</b></td><td class="num">4.5</td><td>2018년 6월 고1 21번</td><td>(가)(나) 병렬 조건을 합 · 곱으로 통합해 두 다항식 결정 → 대소 조건 확정</td></tr>
+          <tr><td>2025 중간 <b>선택 15</b></td><td class="num">4.7</td><td>2021년 6월 고1 21번</td><td>곱이 고차식으로 주어질 때의 인수 배분 케이스 + 근의 곱 · 정수근 조건</td></tr>
+          <tr><td>2025 중간 <b>서답형 16</b></td><td class="num">4.6</td><td>2019년 6월 고1 16번</td><td>이차방정식 두 근의 대칭식 값 &mdash; 합 · 곱 대입 경로 동일, 대칭식 형태만 다름</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="plain">여섯 문항 중 두 문항(8 · 10번, 음영 행)의 원본이 <b>직전 해인 2024년 6월 시행분</b>입니다. 발상 차용까지 넓히면 12번과 14번도 같은 2024년 6월 학평(26번)에서 나와, 2025년 시험 네 문항이 11개월 전 학평 위에 서 있습니다.</p>
+
+    <h3 class="sub">같은 기출이 해마다 다시 나옵니다</h3>
+    <p class="plain">숫자를 바꾼 개별 문항보다 더 눈에 띈 것은, <b>기출 하나가 여러 해에 걸쳐 반복해 등장한다</b>는 점입니다. 한 번 쓴 골격을 버리지 않고 조건을 바꿔 다시 씁니다.</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>원본 학력평가</th><th>쓰인 시험지</th><th>반복된 것</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td><b>2022년 6월 고1 29번</b><br><span style="color:var(--muted);font-size:.82rem">다항식 결정</span></td><td>2023 중간 서답형 22<br>2024 중간 서답형 22<br><span style="color:var(--muted);font-size:.82rem">같은 자리 2년 연속</span></td><td>같은 기출이 2년 연속 서답형 22번 자리에. 2024년은 삼차식 계수만 바꾼 수준. 2025년 22번(2019년 6월 28번 계열)까지 이 자리는 3년 연속 &lsquo;다항식 결정&rsquo;</td></tr>
+          <tr><td><b>2022년 9월 고1 16번</b><br><span style="color:var(--muted);font-size:.82rem">(α−β)² 미정계수</span></td><td>2023 중간 선택 8<br>2025 중간 선택 7</td><td>이차함수와 x축(직선) 두 교점의 x좌표 차 조건 &mdash; 골격째 두 해에 등장</td></tr>
+          <tr><td><b>2019년 11월 고1 26번</b><br><span style="color:var(--muted);font-size:.82rem">세제곱 대칭식</span></td><td>2024 중간 선택 2<br>2025 중간 선택 2</td><td>곱셈공식 변형(세제곱합) 발상이 <b>같은 2번 자리</b>에 두 해 연속</td></tr>
+          <tr><td><b>2023년 6월 고1 29번</b><br><span style="color:var(--muted);font-size:.82rem">(1+i)/√2 거듭제곱</span></td><td>2024 중간 선택 12<br>2025 중간 선택 3</td><td>같은 밑의 거듭제곱 주기 장치 &mdash; 2024년엔 골격째, 2025년엔 발상으로</td></tr>
+          <tr><td><b>2024년 6월 고1 26번</b><br><span style="color:var(--muted);font-size:.82rem">근과 계수 매개변수화</span></td><td>2025 중간 선택 12<br>2025 중간 선택 14</td><td>한 기출을 <b>같은 시험 안에서 두 번</b> &mdash; 대칭식 전개 층(12번)과 근의 관계식 층(14번)으로 나눠 출제</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="plain">이 밖에도 2022년 6월 21번(구간 최솟값 케이스)이 2023년 15번과 2024년 20번에, 2021년 9월 20번(ω 거듭제곱 주기)이 2023년 두 문항과 2024년 19번에 걸쳐 나왔습니다. 3개년에서 이렇게 <b>두 해 이상 반복된 기출 계열이 일곱</b>입니다.</p>
+
+    <div class="note">
+      <b>겹친다는 것이 &lsquo;그 문제만 풀면 된다&rsquo;는 뜻은 아닙니다.</b><br>
+      숙명여고는 원본을 그대로 내지 않습니다. 묻는 값을 바꾸고, 케이스 층을 하나 얹고(2025년 22번), 한 기출을 두 문항으로 쪼개 냅니다(2025년 12 · 14번). 원본을 <b>외운</b> 학생은 정확히 여기서 걸립니다. 통과하는 쪽은 원본의 <b>경로</b>를 손에 익힌 학생입니다.
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">03</span><span class="lb">그래서 무엇을 해야 하는가</span></div>
+    <h2 class="sec">여기까지가 시험지가 말한 것이고,<br>여기부터는 공부가 할 일입니다</h2>
+    <p class="sec-lead">위의 모든 숫자는 네 개의 훈련 항목으로 수렴합니다. 숙명여고 중간 대비는 이 네 개를 순서대로 잡는 일입니다.</p>
+
+    <div class="keys">
+      <div class="key">
+        <div class="n">대비 01</div>
+        <h4>직전 해 6월 학평부터 잡는다</h4>
+        <p>2025년 시험 네 문항이 2024년 6월 학평에서 왔고, 2024년 시험도 2023년 6월 학평을 골격으로 썼습니다. <b>시험 전 해의 6월 고1 학평 전 문항이 1순위</b>, 최근 2개년의 9 · 11월 학평이 그다음입니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">대비 02</div>
+        <h4>&lsquo;다항식 결정&rsquo;은 손으로 쓰는 데까지 훈련한다</h4>
+        <p>서답형 마지막 배점대가 3년 연속 이 유형입니다. 조건을 결합해 차수를 따지고 다항식을 결정하는 과정을 <b>서술형 답안으로 완성하는 연습</b>까지 가야 5점대가 잡힙니다. 답만 구하는 연습으로는 이 자리 점수가 안 나옵니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">대비 03</div>
+        <h4>교과서 기본 다섯 자리(19.6점)를 흘리지 않는다</h4>
+        <p>복소수 상등, 조립제법, 음수의 제곱근, 켤레 허근, 나머지정리 &mdash; 교과서 연습이 그대로 점수가 되는 자리입니다. 변별 문항에 시간을 몰아주다 여기서 잃는 점수가 가장 아깝습니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">대비 04</div>
+        <h4>기출은 &lsquo;풀고 끝&rsquo;이 아니라 조건을 바꿔 다시 푼다</h4>
+        <p>이 학교는 같은 기출의 조건 한 층을 바꾸거나, 한 기출을 두 문항으로 쪼개 다시 냅니다. 그래서 02의 골격 여섯 문항과 반복 일곱 계열은 <b>조건을 바꿔 다시 풀리는 훈련</b>까지 붙여야 다음 변형에서 통합니다.</p>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:26px;margin-bottom:0;">
+      <b>수업에서는 이 순서를 그대로 씁니다.</b><br>
+      직전 해 6월 학평 → 반복 일곱 계열 → 서답형 &lsquo;다항식 결정&rsquo; 서술 훈련 순으로 회차를 배정하고, 02에 적어 둔 원본 문항은 답을 맞히는 데서 멈추지 않고 <b>조건 한 줄을 제가 바꿔 다시 냅니다.</b> 숙명여고가 하는 일이 정확히 그것이기 때문입니다.
+    </div>
+  </div>
+</section>
+
+<div class="cta-band">
+  <h3>다른 학교도 같은 방식으로 정리합니다</h3>
+  <!-- 🔴 2026-08-07 관우T 방침 준수 — 「상담하면 그 학교 기출을 봐 드린다」류 약속 금지.
+       「분석지는 수업 듣는 학생에게 나갑니다」 문장은 빼지 말 것. -->
+  <p>학교마다 출제 습관이 다르고, 그 습관은 시험지에 숫자로 남습니다.<br>학교별 분석지는 수업 듣는 학생에게 나갑니다.</p>
+  <div class="cta-btns">
+    <a class="btn solid" href="/analysis">학교 시험지를 어떻게 분석하는지 보기</a>
+    <a class="btn ghost" href="/#contact">상담 신청</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap fin">
+    <div>
+      <b>이관우 수학연구소</b>
+      숙명여고 1학년 1학기 공통수학1 출제 분석
+    </div>
+    <div>
+      <a href="/">홈</a> &nbsp;·&nbsp; <a href="/analysis">학교별 내신 분석</a> &nbsp;·&nbsp; <a href="/#contact">상담 신청</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
