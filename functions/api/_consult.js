@@ -45,7 +45,23 @@ import {
 //       즉 송효찬 학생과 **같은 4550** 으로 열린다. 문서마다 다른 번호가 필요하면
 //       이 Set 을 Map(slug→pin) 으로 바꾸고 pinOf 에 slug 를 넘기면 되는데,
 //       2026-08-12 관우T 결정이 「비밀번호 4550」 하나였으므로 지금은 바꾸지 않는다.
-const SLUGS = new Set(['hyochan', 'sieun']);
+//
+//   2026-09-09 — 박승민 학생 리포트 추가(`seungmin`, kwmath/seungmin.html).
+//     관우T 지시: **"비번은 4713"** — 기존 4550 을 그대로 쓰지 않고 이 문서만 다른 번호.
+//     → 위 2026-09-07 주석이 적어둔 이행 경로대로 Set 을 **Map(slug→pin)** 으로 바꾸고
+//       pinOf 에 slug 를 넘긴다.
+//     · 값이 null 인 문서는 **예전과 완전히 같게** 동작한다(CONSULT_PIN 있으면 그 값, 없으면 4550).
+//       기각한 대안: 세 문서를 전부 Map 에 하드코딩하기. 관우T가 Cloudflare 에 CONSULT_PIN 을
+//       넣어 두셨을 경우 hyochan·sieun 이 조용히 옛 번호로 되돌아가 **열리던 문서가 안 열린다.**
+//     · 비밀번호를 바꾸면 그 문서의 통행증만 무효가 된다(서명 원문에 slug + 그 문서 pin).
+//       다른 문서 통행증은 살아 있다.
+//     ⚠️ seungmin.html 과 이 파일은 **반드시 같은 커밋으로** push 한다.
+//        HTML 만 올라가면 관문이 안 걸려 실명·성적이 그대로 공개된다(위 2026-09-07 경고와 같은 이유).
+const SLUGS = new Map([
+  ['hyochan',  null],      // null = 사이트 공용 비밀번호 (CONSULT_PIN → 없으면 DEFAULT_PIN)
+  ['sieun',    null],
+  ['seungmin', '4713'],    // 2026-09-09 관우T 지시 — 이 문서 전용
+]);
 
 const DEFAULT_PIN = '4550';
 const GATE_NAME = 'consult';          // gate_lockouts 카운터 이름(다른 관문과 안 섞임)
@@ -65,7 +81,17 @@ export function consultSlugOf(pathname) {
   return SLUGS.has(slug) ? slug : null;
 }
 
-function pinOf(env) {
+// ── 이 문서의 비밀번호 ───────────────────────────────────────────────────────
+//   우선순위: 문서별 환경변수(CONSULT_PIN_SEUNGMIN 등) → SLUGS 의 문서별 값
+//             → 사이트 공용 환경변수(CONSULT_PIN) → DEFAULT_PIN
+//   slug 를 안 넘기면(예전 호출부) 공용 비밀번호로 떨어져 옛 동작 그대로다.
+function pinOf(env, slug) {
+  if (typeof slug === 'string' && slug.length > 0) {
+    const ev = env && env['CONSULT_PIN_' + slug.toUpperCase()];
+    if (typeof ev === 'string' && ev.length > 0) return ev;
+    const own = SLUGS.get(slug);
+    if (typeof own === 'string' && own.length > 0) return own;
+  }
   const v = env && env.CONSULT_PIN;
   return (typeof v === 'string' && v.length > 0) ? v : DEFAULT_PIN;
 }
@@ -96,7 +122,7 @@ function safeEq(a, b) {
 
 async function issueTicket(env, slug) {
   const exp = Date.now() + TICKET_TTL_MS;
-  const sig = await hmacHex(env.ADMIN_PASSWORD, ticketMsg(slug, exp, pinOf(env)));
+  const sig = await hmacHex(env.ADMIN_PASSWORD, ticketMsg(slug, exp, pinOf(env, slug)));
   return exp + '_' + sig;
 }
 
@@ -106,7 +132,7 @@ async function verifyTicket(env, slug, token) {
   if (i <= 0) return false;
   const exp = Number(token.slice(0, i));
   if (!Number.isFinite(exp) || exp <= Date.now()) return false;
-  const want = await hmacHex(env.ADMIN_PASSWORD, ticketMsg(slug, exp, pinOf(env)));
+  const want = await hmacHex(env.ADMIN_PASSWORD, ticketMsg(slug, exp, pinOf(env, slug)));
   return safeEq(token.slice(i + 1), want);
 }
 
@@ -201,7 +227,7 @@ export async function handleConsultGate(context, slug) {
       pin = String(form.get('pin') || '').trim();
     } catch (_) { pin = ''; }
 
-    if (pin && safeEq(pin, pinOf(env))) {
+    if (pin && safeEq(pin, pinOf(env, slug))) {
       await clearGateLockout(env, key);
       const ticket = await issueTicket(env, slug);
       let dest = '/' + slug;
