@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- 2026-09-10 생성 시점부터 검색 노출 차단(2026-08-06 관우T 방침: 공개 표본은 동덕여고 한 곳만 —
+     카드·사이트맵에도 넣지 않는다). URL 직접 접속은 열림 — 상담 때 링크로 보여 드리는 용도.
+     되살릴 때는 이 robots 줄을 지우고 인수인계/보관_숨긴_학교카드_20260806.html 절차 참고.
+     원자료: 내신시험지 분석/중동고 시험지분석/ (매칭C_3개년 · 보고서_모의고사참고율_3개년.md).
+     ⚠️ 이 페이지의 수치는 전부 그 원자료에서 검산된 값만 쓴다. 내부 등급(A/B/C)·가시 풀·한계 서술은
+     공개물에 싣지 않는다(공개어 변환: A=숫자만 바꾼 수준, B=풀이 골격 동일, C=발상 연결). 연도 간
+     참고율 세로 비교 금지 — 과거 연도는 「이 문항은 20XX년에도 나왔다」 반복 서술로만 쓴다. -->
+<meta name="robots" content="noindex,nofollow">
+<title>중동고 1학기 중간고사 수학 출제 분석 | 이관우T</title>
+<meta name="description" content="중동고등학교 1학년 1학기 중간고사(공통수학1) 수학 출제 분석. 2025학년도 100점 중 74.4점이 고1 학력평가 기출과 연결되고, 서답형 여섯 문항 30점은 전부 기출과 연결됩니다. 2023~2025학년도 3개년 대조. 반포 세정학원 이관우T.">
+<meta property="og:title" content="중동고 1학기 중간고사 수학 출제 분석 | 이관우T">
+<meta property="og:description" content="중동고 1학기 중간고사 3개년 출제 분석. 2025학년도는 서답형 30점 전부를 포함해 100점 중 74.4점이 고1 학력평가 기출과 같은 골격이거나 같은 발상이었습니다.">
+<meta property="og:type" content="article">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+  /* 명조 헤드라인 — 600/700/900만 로드(800은 시스템 명조로 폴백돼 글자 잘림) */
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --wine:#862633;--wine-deep:#511F26;--wine-tint:#F3E7E6;
+    --ink:#211914;--muted:#71675E;--muted2:#9C9086;
+    --paper:#FBF8F4;--beige:#F1EAE0;--card:#FFFFFF;
+    --dark:#20140F;--footer-bg:#170D09;--gold:#C79A3C;
+    --line:#E8DED2;--line-d:rgba(255,255,255,.14);
+    --serif:'Noto Serif KR',serif;
+    --sans:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+  }
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);word-break:keep-all;overflow-wrap:break-word;line-break:strict;line-height:1.75;}
+  a{color:var(--wine);}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 5%;}
+
+  /* ── 상단 바 ── */
+  header.site{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(251,248,244,.92);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line);}
+  .nav-inner{max-width:1060px;margin:0 auto;padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:58px;gap:12px;}
+  .nav-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
+  .nav-logo img{height:30px;width:auto;object-fit:contain;display:block;}
+  .nav-logo span{font-family:var(--serif);font-weight:900;font-size:1rem;color:var(--wine);letter-spacing:-.01em;}
+  .nav-right{display:flex;align-items:center;gap:14px;}
+  .nav-right a{font-size:.8rem;font-weight:700;text-decoration:none;color:var(--muted);white-space:nowrap;}
+  .nav-right a.cta{background:var(--wine);color:#fff;padding:8px 15px;border-radius:6px;}
+
+  /* ── 히어로 ── */
+  .hero{background:var(--dark);color:#fff;padding:126px 0 0;position:relative;overflow:hidden;}
+  .hero::after{content:"";position:absolute;right:-14%;top:-18%;width:62vw;height:62vw;max-width:620px;max-height:620px;border-radius:50%;border:1px solid rgba(255,255,255,.07);}
+  .hero::before{content:"";position:absolute;right:-4%;top:6%;width:44vw;height:44vw;max-width:430px;max-height:430px;border-radius:50%;border:1px solid rgba(134,38,51,.55);}
+  .hero-in{position:relative;z-index:2;padding-bottom:64px;}
+  .kicker{display:inline-flex;align-items:center;gap:10px;font-size:.7rem;font-weight:700;letter-spacing:.16em;color:var(--gold);margin-bottom:26px;}
+  .kicker::before{content:"";width:34px;height:1px;background:var(--gold);}
+  .hero h1{font-family:var(--serif);font-weight:900;font-size:clamp(2.15rem,5.6vw,4rem);line-height:1.22;letter-spacing:-.03em;margin-bottom:26px;}
+  .hero h1 em{font-style:normal;color:#E8A0A8;}
+  .hero-lead{font-size:clamp(.98rem,1.6vw,1.12rem);color:rgba(255,255,255,.72);max-width:640px;line-height:1.85;}
+  .hero-meta{margin-top:30px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hero-meta span{font-size:.74rem;font-weight:600;color:rgba(255,255,255,.62);border:1px solid var(--line-d);border-radius:999px;padding:6px 13px;white-space:nowrap;}
+
+  /* ── 수치 스트립 ── */
+  .stats{background:var(--wine);color:#fff;}
+  .stats-in{display:grid;grid-template-columns:repeat(4,1fr);}
+  .stat{padding:32px 18px;border-right:1px solid rgba(255,255,255,.16);text-align:center;}
+  .stat:last-child{border-right:0;}
+  .stat b{display:block;font-family:var(--serif);font-weight:900;font-size:clamp(1.7rem,3.6vw,2.7rem);line-height:1;letter-spacing:-.03em;}
+  .stat b small{font-size:1rem;font-weight:700;margin-left:2px;}
+  .stat i{display:block;font-style:normal;font-size:.74rem;font-weight:600;color:rgba(255,255,255,.8);margin-top:11px;letter-spacing:-.01em;line-height:1.5;}
+
+  /* ── 섹션 공통 ── */
+  section{padding:82px 0;}
+  .eyebrow{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;}
+  .eyebrow .no{font-family:var(--serif);font-weight:900;font-size:1.1rem;color:var(--wine);letter-spacing:.04em;}
+  .eyebrow .lb{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--muted2);}
+  h2.sec{font-family:var(--serif);font-weight:900;font-size:clamp(1.65rem,3.2vw,2.4rem);line-height:1.35;letter-spacing:-.025em;margin-bottom:14px;}
+  .sec-lead{color:var(--muted);font-size:.98rem;max-width:720px;margin-bottom:40px;}
+  h3.sub{font-family:var(--serif);font-weight:700;font-size:1.12rem;margin-bottom:14px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px;}
+  h3.sub::before{content:"";width:4px;height:16px;background:var(--wine);border-radius:2px;flex-shrink:0;}
+
+  /* ── 핵심 카드 ── */
+  .keys{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
+  @media(max-width:640px){.keys{grid-template-columns:1fr;}}
+  .key{background:var(--card);padding:30px 26px;}
+  .key .n{font-family:var(--serif);font-weight:900;font-size:.82rem;color:var(--wine);letter-spacing:.08em;margin-bottom:14px;}
+  .key h4{font-family:var(--serif);font-weight:700;font-size:1.08rem;line-height:1.5;margin-bottom:11px;letter-spacing:-.01em;}
+  .key p{font-size:.9rem;color:var(--muted);line-height:1.8;}
+  .key .big{font-family:var(--serif);font-weight:900;font-size:2.5rem;line-height:1;color:var(--wine);letter-spacing:-.03em;display:block;margin-bottom:12px;}
+  .key .big small{font-size:1rem;font-weight:700;margin-left:2px;}
+
+  /* ── 배점 막대 ── */
+  .barbox{background:var(--card);border:1px solid var(--line);padding:30px 28px;margin-bottom:26px;}
+  .barbox .cap{font-size:.76rem;font-weight:700;color:var(--muted2);letter-spacing:.06em;margin-bottom:22px;}
+  .bar{margin-bottom:15px;}
+  .bar:last-child{margin-bottom:0;}
+  .bar .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:10px;}
+  .bar .nm{font-size:.89rem;font-weight:700;letter-spacing:-.01em;}
+  .bar .vl{font-family:var(--serif);font-weight:700;font-size:.95rem;color:var(--wine);white-space:nowrap;}
+  .bar .track{height:9px;background:var(--beige);border-radius:5px;overflow:hidden;}
+  .bar .fill{height:100%;background:var(--wine);border-radius:5px;}
+  .bar.dim .fill{background:var(--muted2);}
+  .bar.dim .vl{color:var(--muted);}
+
+  /* ── 표 ── */
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);background:var(--card);margin-bottom:26px;}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:520px;}
+  th{background:var(--beige);font-weight:700;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:.8rem;letter-spacing:-.01em;}
+  td{padding:11px 14px;border-bottom:1px solid #F0EAE2;vertical-align:top;line-height:1.6;}
+  tr:last-child td{border-bottom:0;}
+  td.num{font-family:var(--serif);font-weight:700;color:var(--wine);white-space:nowrap;}
+  tr.hl td{background:var(--wine-tint);}
+  tr.hl td.num{color:var(--wine-deep);}
+
+  /* ── 상단 문항 해부 ── */
+  .kills{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+  .kill{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--wine);padding:26px 24px;}
+  .kill.semi{border-top-color:var(--gold);}
+  .kill .tag{display:inline-block;font-size:.66rem;font-weight:800;letter-spacing:.1em;color:#fff;background:var(--wine);padding:4px 10px;border-radius:3px;margin-bottom:14px;}
+  .kill.semi .tag{background:var(--gold);color:var(--dark);}
+  .kill h4{font-family:var(--serif);font-weight:700;font-size:1.04rem;margin-bottom:10px;letter-spacing:-.01em;}
+  .kill h4 span{font-family:var(--sans);font-size:.78rem;font-weight:600;color:var(--muted2);margin-left:6px;}
+  .kill p{font-size:.89rem;color:var(--muted);line-height:1.82;}
+  .kill .pt{margin-top:14px;padding-top:13px;border-top:1px dashed var(--line);font-size:.83rem;color:var(--ink);font-weight:600;}
+  .kill .pt b{color:var(--wine);}
+
+  /* ── 인용 ── */
+  .pull{background:var(--dark);color:#fff;padding:56px 6%;margin:44px 0;position:relative;}
+  .pull .mk{font-family:var(--serif);font-size:3.2rem;line-height:0;color:var(--wine);opacity:.85;display:block;margin-bottom:26px;}
+  .pull blockquote{font-family:var(--serif);font-weight:700;font-size:clamp(1.12rem,2.2vw,1.55rem);line-height:1.78;letter-spacing:-.02em;}
+  .pull cite{display:block;font-style:normal;font-size:.8rem;color:rgba(255,255,255,.5);margin-top:22px;font-weight:600;}
+
+  /* ── 노트 박스 ── */
+  .note{background:var(--wine-tint);border-left:3px solid var(--wine);padding:22px 24px;font-size:.9rem;color:var(--wine-deep);line-height:1.85;margin-bottom:26px;}
+  .note b{font-weight:700;}
+  .plain{font-size:.95rem;color:var(--muted);line-height:1.95;margin-bottom:22px;}
+  .plain b{color:var(--ink);font-weight:700;}
+  .alt{background:var(--beige);}
+
+  /* ── CTA ── */
+  .cta-band{background:var(--wine);color:#fff;padding:66px 6%;text-align:center;}
+  .cta-band h3{font-family:var(--serif);font-weight:900;font-size:clamp(1.4rem,3vw,2.1rem);line-height:1.42;letter-spacing:-.025em;margin-bottom:16px;}
+  .cta-band p{color:rgba(255,255,255,.8);font-size:.95rem;margin-bottom:32px;max-width:560px;margin-left:auto;margin-right:auto;}
+  .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:.92rem;padding:15px 32px;border-radius:7px;transition:all .2s;white-space:nowrap;}
+  .btn.solid{background:#fff;color:var(--wine);}
+  .btn.solid:hover{background:var(--beige);}
+  .btn.ghost{border:1px solid rgba(255,255,255,.45);color:#fff;}
+  .btn.ghost:hover{background:rgba(255,255,255,.1);}
+
+  /* ── 푸터 ── */
+  footer{background:var(--footer-bg);color:rgba(255,255,255,.5);padding:46px 0;font-size:.8rem;}
+  footer .fin{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;align-items:center;}
+  footer b{color:#fff;font-family:var(--serif);font-weight:700;font-size:.95rem;display:block;margin-bottom:6px;}
+  footer a{color:rgba(255,255,255,.72);text-decoration:none;}
+
+  @media(max-width:860px){
+    .stats-in{grid-template-columns:repeat(2,1fr);}
+    .stat{border-bottom:1px solid rgba(255,255,255,.16);}
+    .stat:nth-child(2n){border-right:0;}
+    .stat:nth-child(n+3){border-bottom:0;}
+    section{padding:60px 0;}
+    .hero{padding-top:104px;}
+    .nav-right a:not(.cta){display:none;}
+  }
+  @media print{
+    header.site,.cta-btns,.nav-right{display:none;}
+    body{background:#fff;font-size:10.5pt;}
+    .hero,.stats,.pull,.cta-band{background:#fff!important;color:#000!important;}
+    .hero h1,.pull blockquote,.cta-band h3{color:#000!important;}
+    .hero::before,.hero::after{display:none;}
+    .stat b,.hero h1 em{color:var(--wine)!important;}
+    .stat i,.hero-lead,.pull cite,.cta-band p{color:#444!important;}
+    .hero-meta span{color:#444!important;border-color:#ccc!important;}
+    section{padding:26px 0;page-break-inside:avoid;}
+    .kill,.key,.barbox,.tbl-scroll{page-break-inside:avoid;}
+    footer{background:#fff;color:#666;border-top:1px solid #ccc;}
+    footer b,footer a{color:#000;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="nav-inner">
+    <a class="nav-logo" href="/"><img src="가로로고_투명.png" alt="이관우 수학" onerror="this.outerHTML='<span>이관우 수학</span>'"></a>
+    <div class="nav-right">
+      <a href="#part1">출제 분석</a>
+      <a href="/analysis">다른 학교 분석</a>
+      <a class="cta" href="/#contact">상담 신청</a>
+    </div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap hero-in">
+    <div class="kicker">중동고등학교 &middot; 1학년 1학기</div>
+    <h1>중동고 중간고사는<br><em>어디에서 나오나</em></h1>
+    <p class="hero-lead">가장 최근 시행된 2025년 5월 1학기 중간고사 20문항을 고1 학력평가 4점 기출 선별집 124문항과 한 문항씩 전부 맞대어 보았습니다. 100점 중 74.4점이 같은 골격이거나 같은 발상이었습니다. 서답형 여섯 문항 30점은 전부 기출과 연결되었고, 그중 한 문항은 숫자만 바꾼 수준이었습니다. 2023 · 2024학년도 시험지까지 같은 방식으로 대조한 기록입니다.</p>
+    <div class="hero-meta">
+      <span>2023 · 2024 · 2025학년도</span>
+      <span>1학기 중간고사 · 공통수학1</span>
+      <span>선택형 14 + 서답형 6 · 100점</span>
+      <span>반포 세정학원 이관우T</span>
+    </div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="wrap stats-in">
+    <div class="stat"><b>3</b><i>개년<br>2023–2025</i></div>
+    <div class="stat"><b>74.4<small>점</small></b><i>학평 기출과 접점<br>2025학년도 100점 기준</i></div>
+    <div class="stat"><b>30<small>점 전부</small></b><i>서답형 여섯 문항<br>모두 기출과 연결</i></div>
+    <div class="stat"><b>3<small>년 연속</small></b><i>해마다 다시 나온 발상<br>근과 계수 · 판별식 계열</i></div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">00</span><span class="lb">한 장 요약</span></div>
+    <h2 class="sec">먼저 이 네 가지만 기억하면 됩니다</h2>
+    <p class="sec-lead">3년치를 나란히 놓았을 때 같은 자리에서 반복된 것들입니다. 나머지 분석은 전부 이 네 문장의 근거입니다.</p>
+
+    <div class="keys">
+      <div class="key">
+        <div class="n">KEY 01</div>
+        <span class="big">74.4<small>점</small></span>
+        <h4>이 시험지의 몸통은 고1 학평 기출이다</h4>
+        <p>2025학년도 중간고사 100점 중 74.4점이 학평 기출 선별집 124문항 안에서 나왔습니다. <b>풀이 골격까지 같은 문항이 4개 18.3점</b> &mdash; 그중 하나는 숫자만 바꾼 수준 &mdash; 핵심 발상을 가져온 문항이 11개 56.1점입니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">KEY 02</div>
+        <span class="big">30<small>점 전부</small></span>
+        <h4>서답형 여섯 문항이 전부 기출 위에 있다</h4>
+        <p>서답형 1 · 2 · 4번은 <b>풀이 골격까지 같고</b>(13.0점), 3 · 5 · 6번도 핵심 발상이 학평 기출에서 왔습니다(17.0점). 특히 서답형 4번은 2022년 11월 학평 16번과 짝짓기 구조부터 마무리 상수까지 같은 &mdash; <b>숫자만 바꾼 수준</b>이었습니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">KEY 03</div>
+        <h4>선택형에 낸 골격을, 이듬해 서답형으로 다시 낸다</h4>
+        <p>2022년 11월 학평 16번은 <b>2024년 선택형 7번의 골격</b>이었고, 이듬해인 2025년에는 <b>서답형 4번에 숫자만 바꿔</b> 다시 실렸습니다. 한 번 쓴 기출을 버리지 않고 자리를 옮겨 다시 쓰는 학교입니다. 3년 연속 등장한 발상 계열도 둘 있습니다 &mdash; 근과 계수 대칭식(두 해는 서답형), 판별식과 교점 개수(선택형 앞 번호).</p>
+      </div>
+      <div class="key">
+        <div class="n">KEY 04</div>
+        <h4>직전 해 6월 학평, 그리고 기출 밖 마지막 층</h4>
+        <p>2025년 선택형 11번(5.3점)의 골격은 <b>11개월 전인 2024년 6월 학평 28번</b>입니다 &mdash; 직전 해 6월 학평까지 시험지에 들어옵니다. 동시에 배점 상단 두 문항(11.0점)은 학평 밖 자체 구성이었습니다 &mdash; 상반방정식(5.8점) · 존재조건 최솟값(5.2점). 몸통은 기출, 꼭대기 한두 자리는 기출 밖 &mdash; 이 구조가 중동고입니다.</p>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:26px;margin-bottom:0;">
+      <b>기출 밖 다섯 문항(25.6점)은 두 갈래입니다.</b><br>
+      셋(14.6점)은 교과서 기본형 &mdash; 항등식 수치 대입, 연립이차방정식, 켤레 허근. 교과서 연습이 그대로 점수가 되는 자리입니다. 둘(11.0점)은 학평에도 없는 자체 심화 &mdash; 상반방정식, 판별식 존재조건 최솟값. 즉 이 시험지는 <b>「교과서 기본 + 학평 기출 변형 + 자체 심화」 세 층</b>으로 만들어져 있습니다. 가운데 층(74.4점)이 몸통이고, 맨 위 층이 만점을 가릅니다.
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="part1">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">01</span><span class="lb">1학기 중간고사 범위</span></div>
+    <h2 class="sec">공통수학1 전반부<br>&mdash; 다항식 · 방정식 · 이차함수</h2>
+    <p class="sec-lead">다항식의 연산부터 이차함수, 그리고 삼차 · 사차방정식과 연립이차방정식까지가 이 시험의 범위입니다. 중동고가 이 범위를 실제로 어떻게 냈는지는 세 장의 시험지에 남아 있습니다.</p>
+
+    <div class="note">
+      <b>연도만 보고 옛 시험지를 펴면 안 되는 이유.</b><br>
+      2022 개정 교육과정이 처음 적용된 2025학년도부터 1학년 1학기는 <b>공통수학1</b>입니다. 2023 · 2024학년도의 같은 시험은 「수학(상)」 체제였습니다. 그래서 이 분석은 시험 이름이 아니라 <b>실제 출제 중단원</b>으로 짝을 맞춰 3개년을 대조했습니다.
+    </div>
+
+    <h3 class="sub">2025학년도 1학기 중간고사 &mdash; 배점 지도</h3>
+    <div class="barbox">
+      <div class="cap">2025. 5. 시행 &middot; 선택형 14문항(70.0점) + 서답형 6문항(30.0점) &middot; 100.0점</div>
+      <div class="bar"><div class="top"><span class="nm">이차방정식</span><span class="vl">25.7점</span></div><div class="track"><div class="fill" style="width:100%"></div></div></div>
+      <div class="bar"><div class="top"><span class="nm">이차함수</span><span class="vl">20.5점</span></div><div class="track"><div class="fill" style="width:80%"></div></div></div>
+      <div class="bar"><div class="top"><span class="nm">항등식과 나머지정리</span><span class="vl">20.2점</span></div><div class="track"><div class="fill" style="width:79%"></div></div></div>
+      <div class="bar"><div class="top"><span class="nm">고차방정식</span><span class="vl">15.9점</span></div><div class="track"><div class="fill" style="width:62%"></div></div></div>
+      <div class="bar dim"><div class="top"><span class="nm">복소수</span><span class="vl">8.9점</span></div><div class="track"><div class="fill" style="width:35%"></div></div></div>
+      <div class="bar dim"><div class="top"><span class="nm">연립이차방정식</span><span class="vl">4.8점</span></div><div class="track"><div class="fill" style="width:19%"></div></div></div>
+      <div class="bar dim"><div class="top"><span class="nm">인수분해</span><span class="vl">4.0점</span></div><div class="track"><div class="fill" style="width:16%"></div></div></div>
+    </div>
+
+    <p class="plain">이차방정식과 이차함수를 합치면 <b>46.2점 &mdash; 시험지의 절반 가까이</b>가 이 두 단원입니다. 서답형 여섯 문항은 복소수 · 이차함수 · 항등식 · 인수분해 · 이차방정식 다섯 단원에 걸쳐 있고, 최고배점 6.0점 두 자리는 <b>항등식의 나눗셈 조작(서답형 3번)과 이차함수 공통접선(서답형 6번)</b>에 놓였습니다.</p>
+
+    <p class="plain">배점 설계도 특징적입니다. 선택형은 1번 4.2점에서 14번 5.8점까지 번호를 따라 계단식으로 오르고, 서답형은 <b>4.0 → 5.0 → 6.0점 사다리를 두 번 반복</b>합니다. 뒤 번호일수록 한 문항의 무게가 커지고, 서답형에서는 두 사다리의 꼭대기인 3번과 6번이 최고배점입니다.</p>
+
+    <h3 class="sub">점수를 가르는 자리 &mdash; 배점 상단 다섯 문항</h3>
+    <div class="kills">
+      <div class="kill">
+        <span class="tag">서답 최상단</span>
+        <h4>서답형 6번 <span>6.0점 · 이차함수</span></h4>
+        <p>공통접선 두 개의 조건을 <b>「접한다 = 판별식 0」</b>으로 번역해 기울기에 대한 이차방정식을 세우고, 두 기울기의 관계를 근과 계수로 마무리하는 문제입니다. 접선을 판별식으로 다루는 발상은 2018년 9월 학평에도 나온 장치입니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>접선 조건의 방정식화 → 근과 계수 연결</b></div>
+      </div>
+      <div class="kill">
+        <span class="tag">서답 최상단</span>
+        <h4>서답형 3번 <span>6.0점 · 항등식과 나머지정리</span></h4>
+        <p>미지의 다항식들이 얽힌 항등식을 나눗셈 관계(A=BQ+R)로 재배열하고, 몫과 나머지의 조건에서 인수 구조를 끌어낸 뒤 차수 논증으로 확정합니다. 항등식을 나눗셈으로 조작하는 이 장치는 <b>2023년 서답형 두 자리에도 나온 중동 서답형 단골</b>입니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>항등식의 나눗셈 재배열 → 차수 논증</b></div>
+      </div>
+      <div class="kill semi">
+        <span class="tag">선택 상단</span>
+        <h4>선택형 14번 <span>5.8점 · 고차방정식</span></h4>
+        <p>계수가 대칭인 사차방정식(상반방정식)을 x+1/x 치환으로 이차방정식 두 개로 분해하고, 허근의 실수부 비교까지 요구합니다. <b>학평 기출 밖에서 만든 자체 구성 문항</b> &mdash; 이 시험지의 마지막 층이자 최상위권 변별 자리입니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>치환 분해 + 근의 분류</b></div>
+      </div>
+      <div class="kill semi">
+        <span class="tag">선택 상단</span>
+        <h4>선택형 13번 <span>5.7점 · 이차방정식</span></h4>
+        <p>방정식 f(x)=0의 근을 알 때 f(일차식)=0의 근을 구성하는 <b>「근의 일차 변환」</b> 장치에, 이차식 결정과 함숫값 계산을 한 층 얹었습니다. 변환 장치 자체는 2020년 6월 학평에 나온 것입니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>근의 변환 읽기</b></div>
+      </div>
+      <div class="kill semi">
+        <span class="tag">선택 상단</span>
+        <h4>선택형 12번 <span>5.5점 · 이차방정식</span></h4>
+        <p>합과 곱이 켤레 조건으로 주어진 복소수를 <b>이차방정식의 근으로 되돌려 세우고</b>, ω 계열의 순환 성질로 거듭제곱 식의 값을 계산합니다. 2021년 6월 학평과 같은 계열의 장치입니다.</p>
+        <div class="pt">갈리는 지점 &mdash; <b>근으로 되돌리는 역발상 + 주기 계산</b></div>
+      </div>
+    </div>
+
+    <div class="pull">
+      <span class="mk">&ldquo;</span>
+      <blockquote>서답형 여섯 문항 30점이 전부 학평 기출과 연결됩니다.<br>중동고 서답형 대비의 본진은 <b>고1 학평 기출</b>입니다.</blockquote>
+      <cite>2025학년도 1학기 중간고사 20문항 × 학평 기출 선별집 124문항 전수 대조</cite>
+    </div>
+  </div>
+</section>
+
+<section id="part2">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">02</span><span class="lb">문항의 출처</span></div>
+    <h2 class="sec">이 시험지에는<br>원본이 있습니다</h2>
+    <p class="sec-lead">2025학년도 20문항을 고1 학력평가 4점 기출 선별집 124문항과 한 문항씩 맞대어 보았습니다. 2023 · 2024학년도 시험지도 같은 방식으로 대조했고, 같은 기출이 해를 바꿔 다시 나타났습니다.</p>
+
+    <p class="plain">2025학년도 중간고사 <b>100점 가운데 74.4점</b>이 이 124문항 안에서 나왔습니다. 그중 <b>18.3점(네 문항)은 풀이 골격까지 같고</b> &mdash; 한 문항은 숫자만 바꾼 수준 &mdash; 56.1점(열한 문항)은 핵심 발상을 가져왔습니다. 서답형 30점은 여섯 문항 전부가 걸립니다.</p>
+
+    <h3 class="sub">풀이 골격까지 같았던 네 문항</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>중동고 문항</th><th>배점</th><th>원본 학력평가</th><th>겹치는 골격</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td>2025 중간 <b>선택 11</b></td><td class="num">5.3</td><td>2024년 6월 고1 28번</td><td>미지 다항식이 얽힌 결합 항등식 → 차수 논증 · 계수 비교로 다항식 결정 → 함숫값. <b>직전 해 6월 시행분</b></td></tr>
+          <tr><td>2025 중간 <b>서답형 1</b></td><td class="num">4.0</td><td>2019년 11월 고1 18번</td><td>복소수 등식을 전개해 실부 · 허부 상등으로 두 실수의 관계식을 얻고, 대칭식 값으로 마무리</td></tr>
+          <tr><td>2025 중간 <b>서답형 2</b></td><td class="num">5.0</td><td>2021년 9월 고1 30번</td><td>움직이는 구간에서 이차함수의 최적값 함수 g(t)를 케이스로 구성 → 직선과의 만남 조건으로 미정계수 결정</td></tr>
+          <tr class="hl"><td>2025 중간 <b>서답형 4</b></td><td class="num">4.0</td><td>2022년 11월 고1 16번</td><td>네 일차식을 상수의 합이 같도록 짝지어 치환 → 완전제곱 조건으로 상수 결정. <b>숫자만 바꾼 수준</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="plain">네 문항 중 서답형 4번이 사실상 같은 문제였습니다 &mdash; 짝짓기 구조는 물론 완전제곱을 완성하는 마무리 상수까지 원본과 같았습니다. 그리고 같은 원본(2022년 11월 16번)은 <b>한 해 전인 2024년 선택형 7번의 골격</b>이기도 했습니다. 선택형에서 한 번, 서답형에서 또 한 번 &mdash; 아래 표의 첫 줄입니다.</p>
+
+    <h3 class="sub">같은 기출이 해마다 다시 나옵니다</h3>
+    <p class="plain">중동고에서 더 눈에 띈 것은 <b>반복</b>입니다. 한 번 쓴 기출을 버리지 않고, 자리와 무게를 바꿔 다시 씁니다. 3개년에서 두 해 이상 반복된 기출 계열이 열입니다.</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>원본 학력평가</th><th>쓰인 시험지</th><th>반복된 것</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td><b>2022년 11월 고1 16번</b><br><span style="color:var(--muted);font-size:.82rem">짝짓기 치환 → 완전제곱</span></td><td>2024 중간 선택 7<br>2025 중간 서답형 4</td><td>첫해에는 선택형의 골격으로, 이듬해에는 서답형에서 <b>숫자만 바꾼 수준</b>으로 &mdash; 자리를 옮기며 무게가 올라간 재사용</td></tr>
+          <tr><td><b>2019년 6월 고1 16번</b><br><span style="color:var(--muted);font-size:.82rem">근과 계수 대칭식</span></td><td>2023 중간 선택 11<br>2024 중간 서답형 6<br>2025 중간 서답형 5</td><td>두 근의 대칭식 값을 근과 계수로 계산하는 발상이 <b>3년 연속</b> &mdash; 그중 두 해는 서답형 자리</td></tr>
+          <tr><td><b>2022년 9월 고1 18번</b><br><span style="color:var(--muted);font-size:.82rem">판별식과 교점 개수</span></td><td>2023 중간 선택 6<br>2024 중간 선택 3<br>2025 중간 선택 2</td><td>판별식 부호를 정수 매개변수 조건으로 잇는 발상이 <b>3년 연속</b> 선택형 앞 번호에</td></tr>
+          <tr><td><b>2021년 9월 고1 29번</b><br><span style="color:var(--muted);font-size:.82rem">항등식의 나눗셈 조작</span></td><td>2023 중간 서답형 3 · 서답형 6<br>2025 중간 서답형 3</td><td>미지 다항식 항등식을 나눗셈 관계로 조작하는 장치 &mdash; <b>서답형 고배점 단골.</b> 2023년엔 한 시험에 두 번</td></tr>
+          <tr><td><b>2021년 6월 고1 29번</b><br><span style="color:var(--muted);font-size:.82rem">조각 곡선과 직선의 세 교점</span></td><td>2023 중간 서답형 4<br>2024 중간 선택 8</td><td>조각으로 정의된 곡선과 직선의 교점 조건 골격이 두 해 연속</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="plain">이 밖에도 ω 거듭제곱 주기(2021년 9월)가 2023 · 2024년에, 세제곱 대칭식(2019년 11월)이 2024 · 2025년에 나왔고, 복소수의 성분 분해(2022년 11월) · 인수정리 계수 조건(2022년 6월) · 접선의 판별식 번역(2018년 9월)까지 &mdash; 두 해 이상 반복된 계열이 모두 <b>열</b>입니다.</p>
+
+    <div class="note">
+      <b>겹친다는 것이 &lsquo;그 문제만 풀면 된다&rsquo;는 뜻은 아닙니다.</b><br>
+      중동고는 대부분 원본을 그대로 내지 않습니다 &mdash; 숫자만 바꾼 서답형 4번이 오히려 예외였습니다. 묻는 값을 바꾸고, 케이스 층을 얹고, 선택형에 냈던 골격을 이듬해 서답형으로 올려 다시 냅니다. 원본을 <b>외운</b> 학생은 정확히 여기서 걸립니다. 통과하는 쪽은 원본의 <b>경로</b>를 손에 익힌 학생입니다.
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="eyebrow"><span class="no">03</span><span class="lb">그래서 무엇을 해야 하는가</span></div>
+    <h2 class="sec">여기까지가 시험지가 말한 것이고,<br>여기부터는 공부가 할 일입니다</h2>
+    <p class="sec-lead">위의 모든 숫자는 네 개의 훈련 항목으로 수렴합니다. 중동고 중간 대비는 이 네 개를 순서대로 잡는 일입니다.</p>
+
+    <div class="keys">
+      <div class="key">
+        <div class="n">대비 01</div>
+        <h4>반복 열 계열부터 잡는다</h4>
+        <p>3년 연속 나온 두 계열(근과 계수 대칭식 · 판별식과 교점 개수)과 서답형 단골(항등식의 나눗셈 조작)을 포함해, <b>두 해 이상 반복된 기출 계열이 열</b>입니다. 02에 적힌 원본 문항이 1순위 훈련 대상입니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">대비 02</div>
+        <h4>서답형은 골격을 서술 답안으로 완성한다</h4>
+        <p>서답형 30점 전부가 기출과 연결되고, 골격째 같은 자리가 세 곳(1 · 2 · 4번)입니다. 짝짓기 치환 → 완전제곱, g(t) 케이스 구성, 복소수 상등 → 대칭식 &mdash; 답만 내는 연습이 아니라 <b>과정을 쓰는 데까지</b> 가야 서답형 점수가 잡힙니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">대비 03</div>
+        <h4>직전 해 6월 학평을 빼놓지 않는다</h4>
+        <p>2025년 선택형 11번(5.3점)의 골격이 <b>11개월 전인 2024년 6월 학평 28번</b>이었습니다. 시험 전 해의 6월 고1 학평 전 문항을 대비 목록의 맨 앞에 두고, 최근 2개년의 9 · 11월 학평을 그다음에 놓습니다.</p>
+      </div>
+      <div class="key">
+        <div class="n">대비 04</div>
+        <h4>기본 세 자리를 지키고, 마지막 층까지 올라간다</h4>
+        <p>항등식 수치 대입 · 연립이차방정식 · 켤레 허근(14.6점)은 교과서 연습이 그대로 점수가 되는 자리 &mdash; 여기서 잃는 점수가 가장 아깝습니다. 그리고 배점 상단의 자체 구성 문항(상반방정식 · 존재조건 최솟값, 11.0점)까지 잡아야 <b>만점 설계</b>가 됩니다.</p>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:26px;margin-bottom:0;">
+      <b>수업에서는 이 순서를 그대로 씁니다.</b><br>
+      반복 열 계열 → 직전 해 6월 학평 → 서답형 골격 서술 훈련 순으로 회차를 배정하고, 02에 적어 둔 원본 문항은 답을 맞히는 데서 멈추지 않고 <b>조건 한 줄을 제가 바꿔 다시 냅니다.</b> 중동고가 하는 일이 정확히 그것이기 때문입니다 &mdash; 선택형에 냈던 골격을 이듬해 서답형으로 바꿔 냈습니다.
+    </div>
+  </div>
+</section>
+
+<div class="cta-band">
+  <h3>다른 학교도 같은 방식으로 정리합니다</h3>
+  <!-- 🔴 2026-08-07 관우T 방침 준수 — 「상담하면 그 학교 기출을 봐 드린다」류 약속 금지.
+       「분석지는 수업 듣는 학생에게 나갑니다」 문장은 빼지 말 것. -->
+  <p>학교마다 출제 습관이 다르고, 그 습관은 시험지에 숫자로 남습니다.<br>학교별 분석지는 수업 듣는 학생에게 나갑니다.</p>
+  <div class="cta-btns">
+    <a class="btn solid" href="/analysis">학교 시험지를 어떻게 분석하는지 보기</a>
+    <a class="btn ghost" href="/#contact">상담 신청</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap fin">
+    <div>
+      <b>이관우 수학연구소</b>
+      중동고 1학년 1학기 공통수학1 출제 분석
+    </div>
+    <div>
+      <a href="/">홈</a> &nbsp;·&nbsp; <a href="/analysis">학교별 내신 분석</a> &nbsp;·&nbsp; <a href="/#contact">상담 신청</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
