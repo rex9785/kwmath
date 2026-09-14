@@ -1109,8 +1109,8 @@
     <div class="vpane" id="openclass" role="tabpanel" aria-labelledby="vtabOc">
       <div class="openclass-grid" id="ocGrid">
       <a class="oc-card" href="https://youtu.be/YxA09CKECBM" target="_blank" rel="noopener noreferrer">
-        <div class="oc-thumb"><img src="선행반_설명회.jpg" alt="세정학원 SUMMER 설명회 통합"><span class="oc-play">▶</span></div>
-        <div class="oc-title">세정학원 SUMMER 설명회 통합</div>
+        <div class="oc-thumb"><img src="선행반_설명회.jpg" alt="고1 공통수학2 · 시동반 설명회"><span class="oc-play">▶</span></div>
+        <div class="oc-title">고1 공통수학2 · 시동반 설명회</div>
       </a>
       <a class="oc-card" href="https://youtu.be/JPwttHAYSjQ" target="_blank" rel="noopener noreferrer">
         <div class="oc-thumb"><img src="https://img.youtube.com/vi/JPwttHAYSjQ/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/JPwttHAYSjQ/hqdefault.jpg';" alt="고1 시동반 강의소개"><span class="oc-play">▶</span></div>
@@ -1121,9 +1121,12 @@
         <div class="oc-title">공통수학2 선행반 강의소개</div>
       </a>
       </div>
+      <!-- 2026-09-14 — 「SUMMER 개강 설명회 보기」 버튼 제거. 이 버튼이 열던 kwap2 모달의 영상(YxA09CKECBM)이
+           바로 위 첫 썸네일과 같은 영상이라 한 화면에서 중복이었고, 7월 개강분이라 9월에는 철 지난 문구였습니다.
+           모달 마크업·CSS·스크립트(kwap2Ovl)는 남겨 뒀습니다 — 여는 버튼이 사라져 동작하지 않으며,
+           스크립트에 if(ob){...} 가드가 있어 오류도 나지 않습니다. 다음 강좌 설명회 때 버튼만 되살리면 됩니다. -->
       <div class="oc-btns">
-        <a class="btn-solid" id="kwap2Open" role="button" tabindex="0" style="cursor:pointer;">SUMMER 개강 설명회 보기</a>
-        <a href="/lectures" class="btn-ghost">공개강의·설명회 전체 보기</a>
+        <a href="/lectures" class="btn-solid">공개강의·설명회 전체 보기</a>
       </div>
     </div>
 
@@ -1216,7 +1219,9 @@
   <div class="section-inner">
     <div class="eyebrow"><span class="no">10</span>TIMETABLE</div>
     <h2 class="section-title" data-rv>수업 시간표 · 공지사항</h2>
-    <p class="section-desc" data-rv>현재 정규반과 7월 오픈 예정 세정학원 시간표, 그리고 최근 공지를 함께 안내해 드립니다.</p>
+    <!-- 2026-09-14 — 「7월 오픈 예정 세정학원」을 뺐다. 7월은 이미 지났고, 특정 학원 하나를 문장에 박아 두면
+         개강 시기가 바뀔 때마다 이 줄을 고쳐야 한다. 시간표 카드가 어느 반인지 이미 말해 주므로 일반 문장으로 둔다. -->
+    <p class="section-desc" data-rv>현재 운영 중인 반의 시간표와 최근 공지를 함께 안내해 드립니다.</p>
     <div class="tt-grid" id="ttGrid">
       <div style="text-align:center;color:var(--muted);padding:20px;font-size:0.9rem;">시간표를 불러오는 중...</div>
     </div>
@@ -1442,8 +1447,25 @@ const FAQ_DATA = [
       return;
     }
     const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    grid.innerHTML = data.map(c=>{
-      const isSoon = (c.memo||'').includes('7월') || (c.school||'').includes('세정');
+    // 2026-09-14 — 카드 순서를 고정한다. /api/timetable 은 정렬을 걸지 않아 노션이 주는 순서를 그대로 쓰는데,
+    //   그 순서가 보장되지 않아 라이브에서 「그릿에듀 본관」이 「대치동 정규반」보다 먼저 뜨고 있었다.
+    //   거점(대치동)이 맨 앞이고, 출강지는 그 뒤다. 같은 등급 안에서는 반 이름 가나다순이라 뒤집히지 않는다.
+    const rank = c => {
+      const s = (c.school||'') + ' ' + (c.name||'');
+      if (s.includes('대치동')) return 0;
+      if (s.includes('세정'))  return 1;
+      return 2;
+    };
+    const sorted = data.slice().sort((a,b) => rank(a)-rank(b) || String(a.name||'').localeCompare(String(b.name||''),'ko'));
+    grid.innerHTML = sorted.map(c=>{
+      // 2026-09-14 — 「7월」·「세정」 하드코딩 제거. 학원이 세정이기만 하면 무조건 주황 「7월 오픈」 배지가 붙어,
+      //   9월에도 7월 딱지가 남아 있었다(세정 강좌는 8/20 개강해 운영 중). 이제 배지 문구는 노션 시간표 DB의
+      //   「메모」 칸이 정한다 — 메모에 '오픈'이 들어가면 그 메모가 그대로 배지가 되고(예: 「10월 오픈」),
+      //   비어 있으면 「운영중」이다. 다음 개강 때 코드를 고칠 필요 없이 메모 칸만 쓰면 된다.
+      //   12자 제한은 배지가 한 줄을 넘기지 않게 하려는 것이고, 넘치면 메모는 아래 tt-note 로 내려간다.
+      const memoText = (c.memo||'').trim();
+      const isSoon = memoText.includes('오픈') && memoText.length <= 12;
+      const badgeText = isSoon ? memoText : '운영중';
       const schoolLabel = (c.school && c.school !== '기타') ? c.school : '';
       const locParts = [schoolLabel, c.target].filter(Boolean).map(esc).join(' · ');
       const timeStr = (c.time||'').trim();
@@ -1470,14 +1492,14 @@ const FAQ_DATA = [
       return `
       <div class="tt-card ${isSoon?'highlight':''}">
         <div class="tt-header">
-          <span class="tt-badge ${isSoon?'soon':''}">${isSoon?'7월 오픈':'운영중'}</span>
+          <span class="tt-badge ${isSoon?'soon':''}">${esc(badgeText)}</span>
           <div>
             <div class="tt-name">${esc(c.name)}</div>
             ${locParts?`<div class="tt-loc">${locParts}</div>`:''}
           </div>
         </div>
         ${rowsHtml}
-        ${c.memo?`<div class="tt-note">${esc(c.memo)}</div>`:''}
+        ${(memoText && !isSoon)?`<div class="tt-note">${esc(memoText)}</div>`:''}
       </div>`;
     }).join('');
   } catch(e) {
@@ -1598,9 +1620,9 @@ const FAQ_DATA = [
 <div class="kwap2-ovl" id="kwap2Ovl">
   <div class="kwap2-card">
     <button class="kwap2-x" id="kwap2X" aria-label="닫기">&times;</button>
-    <img src="선행반_설명회.jpg" alt="공통수학2 선행반 SUMMER 개강 설명회">
+    <img src="선행반_설명회.jpg" alt="고1 공통수학2 · 시동반 설명회">
     <div class="kwap2-cta">
-      <div class="kwap2-sub">공통수학2 선행반 · SUMMER 개강 설명회</div>
+      <div class="kwap2-sub">고1 공통수학2 · 시동반 설명회</div>
       <a class="kwap2-watch" href="https://youtu.be/YxA09CKECBM" target="_blank" rel="noopener">▶ 유튜브에서 설명회 보기</a>
       <div style="text-align:right;margin-top:10px;"><button id="kwap2Close" style="font-size:12px;color:#9C9086;background:none;border:none;cursor:pointer;">닫기</button></div>
     </div>
