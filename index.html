@@ -1695,5 +1695,31 @@ const FAQ_DATA = [
 /* 월급 리마인더(매월 4·5일): 하루 1회만 서버 핑 — Pages엔 cron이 없어 접속 트래픽으로 트리거 */
 (function(){try{var t=new Date().toISOString().slice(0,10);if(localStorage.getItem('kwmath_payroll_ping')!==t){localStorage.setItem('kwmath_payroll_ping',t);fetch('/api/payroll-reminder').catch(function(){});}}catch(e){}})();
 </script>
+
+<!-- 2026-09-17 해시 착지 보정.
+     증상: 블로그 위젯 05와 타 페이지 「상담 신청」이 전부 /#contact로 오는데, 화면은 FAQ 구간에 섰다.
+     원인(실측): 로드 직후 문서가 436px 늦게 자란다(docH 12,375 → 12,811 / contactTop 11,248 → 11,684).
+                 브라우저 앵커 점프는 「자라기 전」 좌표로 뛰므로 그만큼 위 = faq(top 10,855)에 착지한다.
+     기각안: 늦게 자라는 섹션(후보 #video의 yt.js)에 고정 높이 주기 — 어느 섹션인지 특정 못 했고,
+             고정하면 다른 화면폭에서 빈칸/잘림이 생긴다. 착지 시점을 늦추는 쪽이 부작용이 없다.
+     scroll-margin-top은 fixed 헤더(header.site, 67px)에 섹션 상단이 가리는 것을 막는다.
+     선택자를 section[id]가 아니라 :target으로 쓴 이유: 앵커 목적지가 section만이 아니다.
+     #openclass·#preview(.vpane div)와 #notice(div)도 옛 앵커를 살리려고 남겨 둔 자리다. -->
+<style>:target{scroll-margin-top:76px}</style>
+<script>
+(function(){
+  var id=location.hash.slice(1); if(!id) return;
+  var userScrolled=false, mark=function(){userScrolled=true;};
+  addEventListener('wheel',mark,{passive:true,once:true});
+  addEventListener('touchstart',mark,{passive:true,once:true});
+  addEventListener('keydown',mark,{once:true});
+  var snap=function(){
+    if(userScrolled) return;
+    var el=document.getElementById(id);
+    if(el) el.scrollIntoView({behavior:'instant',block:'start'});
+  };
+  addEventListener('load',function(){ snap(); setTimeout(snap,300); setTimeout(snap,1000); });
+})();
+</script>
 </body>
 </html>
