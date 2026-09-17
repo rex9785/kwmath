@@ -314,6 +314,11 @@
   .clip-card:hover{transform:translateY(-4px);}
   .clip-thumb{position:relative;aspect-ratio:9/16;background:#1a0a0f;overflow:hidden;}
   .clip-thumb iframe{width:100%;height:100%;border:none;}
+  /* 클립 제목·설명 — 노션 클립 DB의 「제목」·「썸네일 설명」이 여기로 들어온다.
+     이게 없으면 노션에서 제목을 아무리 고쳐도 화면엔 영원히 안 보인다(2026-09-18). */
+  .clip-meta{padding:12px 12px 14px;}
+  .clip-title{font-weight:700;font-size:.92rem;color:var(--ink);line-height:1.4;}
+  .clip-desc{margin-top:5px;font-size:.78rem;color:var(--muted2);line-height:1.45;}
   .clips-more{text-align:center;margin-top:30px;}
   .btn-line{display:inline-block;border:1px solid var(--ink);color:var(--ink);padding:13px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;transition:all .2s;}
   .btn-line:hover{border-color:var(--wine);color:var(--wine);}
@@ -396,6 +401,8 @@
   .vpane .clips-grid,.vpane .openclass-grid,.vpane .video-grid{margin-top:38px;}
   /* 다크 보정 — 원래 라이트 배경 기준이던 클립/공개강의 카드·버튼 색을 다크 밴드에 맞춘다. */
   .dark-sec .clip-card{background:#2A1B15;border-color:var(--line-d);}
+  .dark-sec .clip-title{color:#EFE6DC;}
+  .dark-sec .clip-desc{color:rgba(239,230,220,.62);}
   .dark-sec .oc-thumb{border-color:var(--line-d);}
   .dark-sec .oc-title{color:#EFE6DC;}
   .dark-sec .btn-line{border-color:rgba(239,230,220,.5);color:#EFE6DC;}
@@ -1518,10 +1525,15 @@ const FAQ_DATA = [
       grid.innerHTML = '<div style="text-align:center;color:rgba(239,230,220,.6);padding:24px;font-size:0.9rem;">등록된 클립이 없습니다.</div>';
       return;
     }
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
     grid.innerHTML = data.slice(0,4).map(c=>`
       <div class="clip-card">
         <div class="clip-thumb">
           <iframe src="https://www.instagram.com/reel/${c.reelId}/embed" allowtransparency="true" allowfullscreen="true" frameborder="0"></iframe>
+        </div>
+        <div class="clip-meta">
+          <div class="clip-title">${esc(c.title)}</div>
+          ${c.desc ? `<div class="clip-desc">${esc(c.desc)}</div>` : ''}
         </div>
       </div>
     `).join('');
