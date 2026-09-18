@@ -633,12 +633,19 @@
         </div>
       </div>
       <div class="menu-sec sec4">
-        <div class="menu-sec-t">④ 콘텐츠 <i>공지·자료·영상</i></div>
+        <div class="menu-sec-t">④ 콘텐츠 <i>공지·자료·영상·홈 화면</i></div>
         <div class="admin-grid">
           <button type="button" class="admin-card" onclick="openSection('notices')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5 6 9H4a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 4 15h2l8 4z"></path><path d="M17.5 9a4 4 0 0 1 0 6"></path></svg></span><b>공지사항 관리</b><span>공지 작성·수정</span></button>
           <button type="button" class="admin-card" onclick="openSection('files')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></svg></span><b>자료실 관리</b><span>파일 업로드·삭제</span></button>
           <button type="button" class="admin-card" onclick="openSection('videos')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect><path d="M15.5 10.5 21 7.5v9l-5.5-3"></path></svg></span><b>영상 관리</b><span>수업 영상</span></button>
           <button type="button" class="admin-card" onclick="openSection('reviews')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.2-4.2L16.4 4.6a2 2 0 0 1 2.8 2.8L8 18.6 4 20z"></path><path d="M14.5 6.5l2.8 2.8"></path></svg></span><b>수강 후기<i class="cbadge" id="bdgReviews"></i></b><span>앱 공개·홈페이지 대표 선정</span></button>
+          <!-- ▼▼▼ 2026-09-18 신설 — 홈 클립·시간표 편집 입구 ▼▼▼
+               [왜] 이 둘만 읽기 API(clips.js·timetable.js)뿐이어서, 제목 한 줄을 고치려 해도
+                    노션 앱을 열어야 했다. 관우T 질문 「계속 노션을 쓰는 게 맞아?」의 진짜 원인.
+                    저장소(노션 DB)는 그대로 두고 **편집 화면만** 여기로 들여온다. -->
+          <button type="button" class="admin-card" onclick="openSection('clips')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"></rect><path d="M10 8.5l5.5 3.5L10 15.5z"></path></svg></span><b>홈 클립 관리</b><span>맛보기 강의 릴스·제목·설명</span></button>
+          <button type="button" class="admin-card" onclick="openSection('timetable')"><span class="ac-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg></span><b>수업 시간표</b><span>홈 화면 반·요일·시간</span></button>
+          <!-- ▲▲▲ 2026-09-18 신설 끝 ▲▲▲ -->
         </div>
       </div>
       <div class="menu-sec sec5">
@@ -756,6 +763,78 @@
       </div>
       <div id="adminReviewMsg" style="font-size:0.82rem;margin:6px 0 10px;min-height:18px;"></div>
       <div class="notice-list" id="adminReviewList">
+        <div class="empty">불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         🎬📅 홈 클립 · 수업 시간표 관리 (2026-09-18 신설)
+         [왜] 이 둘만 읽기 API뿐이어서 노션 앱을 열어야 고칠 수 있었다.
+              저장소는 노션 그대로, 편집 화면만 여기로.
+         [스타일 위치] 전용 CSS를 이 자리에 둔 이유 — admin.html은 55만 자라
+              상단 <style>에 끼워 넣으면 되돌리기가 어렵다. 기능 한 덩어리를
+              CSS·HTML 붙여 두면 이 블록만 들어내면 원상복구된다.
+         ══════════════════════════════════════════════════════════════════════ -->
+    <style>
+      .kw-edit-card{flex-direction:column;align-items:stretch;gap:10px;}
+      .kw-edit-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+      .kw-edit-no{font-weight:900;font-size:0.82rem;color:var(--primary);}
+      .kw-open-link{margin-left:auto;font-size:0.78rem;color:var(--text-light);text-decoration:underline;}
+      .kw-edit-card .form-row{margin-bottom:0;}
+      .kw-edit-card label i{font-style:normal;font-weight:500;color:var(--text-light);font-size:0.76rem;}
+      .kw-edit-grid{display:flex;gap:10px;flex-wrap:wrap;}
+      .kw-edit-grid>.form-row{flex:1 1 160px;}
+      .kw-chips{display:flex;flex-wrap:wrap;gap:6px;}
+      .kw-chip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--border);border-radius:999px;padding:6px 12px;font-size:0.8rem;cursor:pointer;background:#fff;user-select:none;}
+      .kw-chip input{accent-color:var(--primary);}
+      .kw-chip:has(input:checked){border-color:var(--primary);background:#fdf3f5;color:var(--primary);font-weight:800;}
+      .kw-edit-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px dashed var(--border);padding-top:11px;}
+      .kw-save-btn{background:var(--primary);color:#fff;border:none;padding:9px 20px;border-radius:9px;font-weight:800;font-size:0.83rem;font-family:inherit;cursor:pointer;}
+      .kw-save-btn:disabled{opacity:.55;cursor:default;}
+      .kw-live{font-size:0.75rem;font-weight:800;padding:3px 9px;border-radius:999px;}
+      .kw-live.on{background:#eafaf1;color:#1e8449;}
+      .kw-live.off{background:#f1f1f1;color:#8a8a8a;}
+      .kw-addbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+      .kw-add-btn{background:#fff;border:1.5px solid var(--primary);color:var(--primary);padding:8px 16px;border-radius:9px;font-weight:800;font-size:0.83rem;font-family:inherit;cursor:pointer;}
+      .kw-help{font-size:0.82rem;color:var(--text-light);line-height:1.75;margin-bottom:14px;background:#faf7f8;border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+    </style>
+
+    <!-- 홈 클립(맛보기 강의) 관리 탭 -->
+    <div class="tab-panel" id="tab-clips">
+      <p class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3" y="3" width="18" height="18" rx="4"></rect><path d="M10 8.5l5.5 3.5L10 15.5z"></path></svg>홈 클립 관리 — 맛보기 강의</p>
+      <div class="kw-help">
+        kwmath.co.kr 홈 화면 <b>「맛보기 강의」</b> 칸에 뜨는 인스타 릴스 카드입니다. 여기서 고치면 <b>홈에 바로 반영</b>돼요(새로고침만 하시면 됩니다).<br>
+        · <b>제목</b>은 카드 아래 굵은 줄, <b>썸네일 설명</b>은 그 아래 회색 줄입니다.<br>
+        · <b>인스타 릴스 ID</b>는 릴스 주소 <span style="font-family:monospace;">instagram.com/reel/<b>여기</b>/</span> 부분이에요.
+        릴스를 지우거나 비공개로 돌리면 홈 카드가 <b>빈 네모</b>로 뜹니다 — 「릴스 열어보기」로 살아있는지 확인하세요.<br>
+        · <b>홈에 공개</b>를 끄면 홈에서 사라지고, 여기 목록에는 계속 남아 언제든 다시 켤 수 있어요.<br>
+        · 저장 내용은 노션 「🎬 kwmath 맛보기 강의 DB」에 그대로 들어갑니다. <b>노션 앱을 여실 필요는 없어요.</b>
+      </div>
+      <div class="kw-addbar">
+        <button type="button" class="kw-add-btn" onclick="addClipDraft()">＋ 새 클립</button>
+        <span style="font-size:0.8rem;color:var(--text-light);">홈에 보이는 중 <b id="clipLiveCount">0</b>장</span>
+        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:auto;" onclick="loadAdminClips()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>새로고침</button>
+      </div>
+      <div class="notice-list" id="adminClipList">
+        <div class="empty">불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 수업 시간표 관리 탭 -->
+    <div class="tab-panel" id="tab-timetable">
+      <p class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>수업 시간표</p>
+      <div class="kw-help">
+        kwmath.co.kr 홈 화면 <b>「수업 시간표」</b> 칸에 뜨는 반 목록입니다. 여기서 고치면 <b>홈에 바로 반영</b>돼요.<br>
+        · <b>홈에 공개</b>를 끄면 홈에서만 사라집니다 — 「7월 오픈」처럼 <b>미리 만들어 두고 때가 되면 켜는</b> 반을 여기 담아두세요.<br>
+        · 학생 명단·출결의 반(학원·반 관리)과는 <b>다른 것</b>입니다. 여긴 <b>홈페이지에 보여줄 안내문</b>이에요.<br>
+        · 저장 내용은 노션 「📅 kwmath 시간표 DB」에 그대로 들어갑니다.
+      </div>
+      <div class="kw-addbar">
+        <button type="button" class="kw-add-btn" onclick="addTtDraft()">＋ 새 반</button>
+        <span style="font-size:0.8rem;color:var(--text-light);">홈에 보이는 중 <b id="ttLiveCount">0</b>개</span>
+        <button class="del-btn" style="border-color:var(--primary);color:var(--primary);margin-left:auto;" onclick="loadAdminTimetable()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto;"><path d="M20 12a8 8 0 1 1-2.6-5.9"></path><path d="M20 4v4h-4"></path></svg>새로고침</button>
+      </div>
+      <div class="notice-list" id="adminTtList">
         <div class="empty">불러오는 중...</div>
       </div>
     </div>
@@ -1947,6 +2026,8 @@
     if (name === 'videos') loadVideos();
     if (name === 'appversion') loadAppVersion();
     if (name === 'reviews') loadAdminReviews();
+    if (name === 'clips') loadAdminClips();
+    if (name === 'timetable') loadAdminTimetable();
     // 📓 비밀번호 칸은 이 탭에 들어올 때마다 비운다.
     //   /admin은 관우T가 켜두고 자리를 비우는 화면이라, 입력해 둔 비밀번호가 남아 있으면 안 된다.
     if (name === 'mypassword') {
@@ -2433,6 +2514,288 @@
   // 홈 카드 배지 — 「검토할 후기」 건수. 0이면 .cbadge:empty 규칙으로 저절로 숨는다.
   function updateReviewBadge() {
     setBadge('bdgReviews', adminReviewsCache.filter(r => reviewMatchesFilter(r, 'wait')).length);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🎬📅 홈 클립 · 수업 시간표 관리 (2026-09-18 신설)
+  //   [왜] 이 둘만 읽기 API(clips.js·timetable.js)뿐이어서, 제목 한 줄을 고치려 해도
+  //        노션 앱을 열어야 했다. 관우T 질문 「계속 노션을 쓰는 게 맞아?」의 진짜 원인이 이것.
+  //        → 저장소(노션 DB)는 그대로 두고 **편집 화면만** 여기로 들여온다.
+  //   [⚠️ 목록은 반드시 *-write 의 GET 으로 부른다]
+  //        공개용 /api/clips · /api/timetable 은 **공개=true 행만** 준다.
+  //        그걸로 목록을 그리면 한 번 내린 행이 화면에서 사라져 다시 올릴 방법이 없어진다.
+  //   [편집 방식] 카드 안에서 바로 고치고 바로 저장한다(별도 수정 모드·팝업 없음).
+  // ══════════════════════════════════════════════════════════════════════════
+  const CLIP_TAGS  = ['개념', '문제풀이', '꿀팁', '수능', '내신', '수업현장'];
+  const TT_SCHOOLS = ['대치동 정규반', '세정학원', '기타'];
+  const TT_DAYS    = ['월', '화', '수', '목', '금', '토', '일'];
+  let clipRows = [];
+  let ttRows = [];
+
+  // 칩(동그란 체크박스) 묶음. name 은 data-속성 이름이라 ASCII 만 쓴다('tag'·'day').
+  function kwChips(name, all, picked) {
+    const has = Array.isArray(picked) ? picked : [];
+    return '<div class="kw-chips">' + all.map(function (t) {
+      return '<label class="kw-chip"><input type="checkbox" data-' + name + '="' + escapeAttr(t) + '"'
+        + (has.indexOf(t) >= 0 ? ' checked' : '') + '>' + escapeHtml(t) + '</label>';
+    }).join('') + '</div>';
+  }
+  function kwPicked(cardId, name) {
+    const card = document.getElementById(cardId);
+    if (!card) return [];
+    return Array.prototype.slice.call(card.querySelectorAll('input[data-' + name + ']:checked'))
+      .map(function (el) { return el.getAttribute('data-' + name); });
+  }
+  function kwVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  function kwOn(id) { const el = document.getElementById(id); return !!(el && el.checked); }
+  function kwBadge(open) {
+    return '<span class="kw-live ' + (open ? 'on' : 'off') + '">' + (open ? '홈에 보임' : '숨김') + '</span>';
+  }
+
+  // ───────────────────────── 홈 클립 ─────────────────────────
+  async function loadAdminClips() {
+    const box = document.getElementById('adminClipList');
+    if (box) box.innerHTML = '<div class="empty">불러오는 중...</div>';
+    try {
+      const res = await fetch('/api/clips-write', { headers: { 'Authorization': 'Bearer ' + adminToken } });
+      const data = await res.json();
+      if (!data.ok) {
+        if (box) box.innerHTML = '<div class="empty">' + escapeHtml(data.error || '불러오지 못했습니다.') + '</div>';
+        return;
+      }
+      clipRows = data.clips || [];
+      renderAdminClips();
+    } catch (e) {
+      if (box) box.innerHTML = '<div class="empty">네트워크 오류로 불러오지 못했습니다. 「새로고침」을 눌러 보세요.</div>';
+    }
+  }
+
+  function renderAdminClips() {
+    const box = document.getElementById('adminClipList');
+    if (!box) return;
+    const cnt = document.getElementById('clipLiveCount');
+    if (cnt) cnt.textContent = clipRows.filter(function (c) { return c.open; }).length;
+    box.innerHTML = clipRows.length
+      ? clipRows.map(function (c, i) { return clipCardHtml(c, i); }).join('')
+      : '<div class="empty">클립이 없습니다. 위 「＋ 새 클립」을 누르세요.</div>';
+  }
+
+  function clipCardHtml(c, i) {
+    const isNew = !c.id;
+    const reel = c.reelId || '';
+    const ord = (c.order == null ? 0 : c.order);
+    return '<div class="notice-item kw-edit-card" id="clipCard-' + i + '">'
+      + '<div class="kw-edit-head">'
+      +   '<span class="kw-edit-no">' + (isNew ? '＋ 새 클립' : '순서 ' + escapeHtml(String(ord))) + '</span>'
+      +   (isNew ? '' : kwBadge(c.open))
+      +   (reel ? '<a class="kw-open-link" href="https://www.instagram.com/reel/' + encodeURIComponent(reel) + '/" target="_blank" rel="noopener">릴스 열어보기 ↗</a>' : '')
+      + '</div>'
+      + '<div class="form-row"><label>제목 <i>카드 아래 굵은 줄</i></label>'
+      +   '<input type="text" id="clipTitle-' + i + '" value="' + escapeAttr(c.title || '') + '" placeholder="예: 삼각함수 그래프, 3초 만에 그리기"></div>'
+      + '<div class="kw-edit-grid">'
+      +   '<div class="form-row"><label>인스타 릴스 ID <i>instagram.com/reel/여기/</i></label>'
+      +     '<input type="text" id="clipReel-' + i + '" value="' + escapeAttr(reel) + '" placeholder="예: DLx1a2B3cDe" autocomplete="off"></div>'
+      +   '<div class="form-row" style="flex:0 0 100px;"><label>순서</label>'
+      +     '<input type="number" id="clipOrder-' + i + '" value="' + escapeAttr(String(ord)) + '"></div>'
+      + '</div>'
+      + '<div class="form-row"><label>썸네일 설명 <i>제목 아래 회색 줄</i></label>'
+      +   '<input type="text" id="clipDesc-' + i + '" value="' + escapeAttr(c.desc || '') + '" placeholder="한 줄 설명"></div>'
+      + '<div class="form-row"><label>주제 태그</label>' + kwChips('tag', CLIP_TAGS, c.tags) + '</div>'
+      + '<div class="kw-edit-foot">'
+      +   '<label class="kw-chip"><input type="checkbox" id="clipOpen-' + i + '"' + (c.open ? ' checked' : '') + '>홈에 공개</label>'
+      +   '<button type="button" class="kw-save-btn" onclick="saveClip(' + i + ', this)">저장</button>'
+      +   (isNew
+          ? '<button type="button" class="del-btn" style="margin-left:auto;" onclick="cancelClipDraft(' + i + ')">취소</button>'
+          : '<button type="button" class="del-btn" style="margin-left:auto;" onclick="deleteClip(' + i + ', this)">삭제</button>')
+      + '</div>'
+      + '</div>';
+  }
+
+  function addClipDraft() {
+    if (clipRows.some(function (c) { return !c.id; })) { showToast('작성 중인 새 클립이 이미 있어요.'); return; }
+    const maxOrder = clipRows.reduce(function (m, c) { return Math.max(m, c.order || 0); }, 0);
+    clipRows.unshift({ id: '', title: '', reelId: '', desc: '', tags: [], order: maxOrder + 1, open: false });
+    renderAdminClips();
+    const el = document.getElementById('clipTitle-0');
+    if (el) el.focus();
+  }
+  function cancelClipDraft(i) { clipRows.splice(i, 1); renderAdminClips(); }
+
+  async function saveClip(i, btn) {
+    const c = clipRows[i];
+    if (!c) return;
+    const payload = {
+      title:  kwVal('clipTitle-' + i),
+      reelId: kwVal('clipReel-' + i),
+      desc:   kwVal('clipDesc-' + i),
+      tags:   kwPicked('clipCard-' + i, 'tag'),
+      order:  kwVal('clipOrder-' + i),
+      open:   kwOn('clipOpen-' + i),
+    };
+    if (!payload.title) { showToast('제목을 입력해 주세요.'); return; }
+    // 릴스 ID 없이 홈에 올리면 카드가 빈 네모로 뜬다 — 공개로 켤 때만 막는다(초안 저장은 허용).
+    if (payload.open && !payload.reelId) { showToast('릴스 ID가 비어 있어요. 홈에 공개하려면 ID가 필요합니다.'); return; }
+    const old = btn.textContent;
+    btn.disabled = true; btn.textContent = '저장 중...';
+    try {
+      const res = await fetch('/api/clips-write', {
+        method: c.id ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify(c.id ? Object.assign({ pageId: c.id }, payload) : payload),
+      });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ 저장했습니다. 홈 화면을 새로고침하면 바로 보여요.'); await loadAdminClips(); }
+      else { showToast('저장 실패: ' + (data.error || '오류')); btn.disabled = false; btn.textContent = old; }
+    } catch (e) {
+      showToast('저장 실패: 네트워크 오류'); btn.disabled = false; btn.textContent = old;
+    }
+  }
+
+  async function deleteClip(i, btn) {
+    const c = clipRows[i];
+    if (!c || !c.id) return;
+    if (!confirm('「' + (c.title || '제목 없음') + '」 클립을 지울까요?\n\n· 홈 화면에서는 즉시 사라집니다.\n· 노션 휴지통으로 들어가므로 한동안 복원은 가능합니다.\n\n잠깐 내려두실 거라면 삭제 대신 「홈에 공개」를 끄세요.')) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/clips-write', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ pageId: c.id }),
+      });
+      const data = await res.json();
+      if (data.ok) { showToast('삭제했습니다.'); await loadAdminClips(); }
+      else { showToast('삭제 실패: ' + (data.error || '오류')); btn.disabled = false; }
+    } catch (e) { showToast('삭제 실패: 네트워크 오류'); btn.disabled = false; }
+  }
+
+  // ───────────────────────── 수업 시간표 ─────────────────────────
+  async function loadAdminTimetable() {
+    const box = document.getElementById('adminTtList');
+    if (box) box.innerHTML = '<div class="empty">불러오는 중...</div>';
+    try {
+      const res = await fetch('/api/timetable-write', { headers: { 'Authorization': 'Bearer ' + adminToken } });
+      const data = await res.json();
+      if (!data.ok) {
+        if (box) box.innerHTML = '<div class="empty">' + escapeHtml(data.error || '불러오지 못했습니다.') + '</div>';
+        return;
+      }
+      // 홈에 보이는 반을 위로, 그 안에서는 학원 → 반 이름 순. 노션은 정렬 기준이 없어 여기서 정한다.
+      ttRows = (data.classes || []).sort(function (a, b) {
+        if (!!b.open !== !!a.open) return b.open ? 1 : -1;
+        return (a.school || '').localeCompare(b.school || '') || (a.name || '').localeCompare(b.name || '');
+      });
+      renderAdminTimetable();
+    } catch (e) {
+      if (box) box.innerHTML = '<div class="empty">네트워크 오류로 불러오지 못했습니다. 「새로고침」을 눌러 보세요.</div>';
+    }
+  }
+
+  function renderAdminTimetable() {
+    const box = document.getElementById('adminTtList');
+    if (!box) return;
+    const cnt = document.getElementById('ttLiveCount');
+    if (cnt) cnt.textContent = ttRows.filter(function (t) { return t.open; }).length;
+    box.innerHTML = ttRows.length
+      ? ttRows.map(function (t, i) { return ttCardHtml(t, i); }).join('')
+      : '<div class="empty">반이 없습니다. 위 「＋ 새 반」을 누르세요.</div>';
+  }
+
+  function ttCardHtml(t, i) {
+    const isNew = !t.id;
+    const school = t.school || '';
+    // 노션 select 에 없는 값이 이미 들어 있을 수도 있다 — 지우지 말고 선택지에 얹는다.
+    const schools = TT_SCHOOLS.concat(school && TT_SCHOOLS.indexOf(school) < 0 ? [school] : []);
+    return '<div class="notice-item kw-edit-card" id="ttCard-' + i + '">'
+      + '<div class="kw-edit-head">'
+      +   '<span class="kw-edit-no">' + (isNew ? '＋ 새 반' : escapeHtml(t.name || '이름 없음')) + '</span>'
+      +   (isNew ? '' : kwBadge(t.open))
+      + '</div>'
+      + '<div class="form-row"><label>반 이름</label>'
+      +   '<input type="text" id="ttName-' + i + '" value="' + escapeAttr(t.name || '') + '" placeholder="예: 고1 공통수학 정규반"></div>'
+      + '<div class="kw-edit-grid">'
+      +   '<div class="form-row"><label>학원</label><select id="ttSchool-' + i + '">'
+      +     '<option value=""' + (school ? '' : ' selected') + '>(선택 안 함)</option>'
+      +     schools.map(function (s) {
+              return '<option value="' + escapeAttr(s) + '"' + (s === school ? ' selected' : '') + '>' + escapeHtml(s) + '</option>';
+            }).join('')
+      +   '</select></div>'
+      +   '<div class="form-row"><label>시간</label>'
+      +     '<input type="text" id="ttTime-' + i + '" value="' + escapeAttr(t.time || '') + '" placeholder="예: 19:00~22:00"></div>'
+      + '</div>'
+      + '<div class="form-row"><label>요일</label>' + kwChips('day', TT_DAYS, t.days) + '</div>'
+      + '<div class="kw-edit-grid">'
+      +   '<div class="form-row"><label>대상</label>'
+      +     '<input type="text" id="ttTarget-' + i + '" value="' + escapeAttr(t.target || '') + '" placeholder="예: 고1 · 내신 대비"></div>'
+      +   '<div class="form-row"><label>메모 <i>홈에 같이 나가는 안내문</i></label>'
+      +     '<input type="text" id="ttMemo-' + i + '" value="' + escapeAttr(t.memo || '') + '" placeholder="예: 정원 마감"></div>'
+      + '</div>'
+      + '<div class="kw-edit-foot">'
+      +   '<label class="kw-chip"><input type="checkbox" id="ttOpen-' + i + '"' + (t.open ? ' checked' : '') + '>홈에 공개</label>'
+      +   '<button type="button" class="kw-save-btn" onclick="saveTt(' + i + ', this)">저장</button>'
+      +   (isNew
+          ? '<button type="button" class="del-btn" style="margin-left:auto;" onclick="cancelTtDraft(' + i + ')">취소</button>'
+          : '<button type="button" class="del-btn" style="margin-left:auto;" onclick="deleteTt(' + i + ', this)">삭제</button>')
+      + '</div>'
+      + '</div>';
+  }
+
+  function addTtDraft() {
+    if (ttRows.some(function (t) { return !t.id; })) { showToast('작성 중인 새 반이 이미 있어요.'); return; }
+    ttRows.unshift({ id: '', name: '', school: '', days: [], time: '', target: '', memo: '', open: false });
+    renderAdminTimetable();
+    const el = document.getElementById('ttName-0');
+    if (el) el.focus();
+  }
+  function cancelTtDraft(i) { ttRows.splice(i, 1); renderAdminTimetable(); }
+
+  async function saveTt(i, btn) {
+    const t = ttRows[i];
+    if (!t) return;
+    const payload = {
+      name:   kwVal('ttName-' + i),
+      school: kwVal('ttSchool-' + i),
+      days:   kwPicked('ttCard-' + i, 'day'),
+      time:   kwVal('ttTime-' + i),
+      target: kwVal('ttTarget-' + i),
+      memo:   kwVal('ttMemo-' + i),
+      open:   kwOn('ttOpen-' + i),
+    };
+    if (!payload.name) { showToast('반 이름을 입력해 주세요.'); return; }
+    if (payload.open && !payload.days.length && !payload.time) {
+      showToast('요일이나 시간 중 하나는 넣어 주세요. 둘 다 비면 홈에 빈 줄로 나갑니다.');
+      return;
+    }
+    const old = btn.textContent;
+    btn.disabled = true; btn.textContent = '저장 중...';
+    try {
+      const res = await fetch('/api/timetable-write', {
+        method: t.id ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify(t.id ? Object.assign({ pageId: t.id }, payload) : payload),
+      });
+      const data = await res.json();
+      if (data.ok) { showToast('✅ 저장했습니다. 홈 화면을 새로고침하면 바로 보여요.'); await loadAdminTimetable(); }
+      else { showToast('저장 실패: ' + (data.error || '오류')); btn.disabled = false; btn.textContent = old; }
+    } catch (e) {
+      showToast('저장 실패: 네트워크 오류'); btn.disabled = false; btn.textContent = old;
+    }
+  }
+
+  async function deleteTt(i, btn) {
+    const t = ttRows[i];
+    if (!t || !t.id) return;
+    if (!confirm('「' + (t.name || '이름 없음') + '」 반을 시간표에서 지울까요?\n\n· 홈 화면에서는 즉시 사라집니다.\n· 노션 휴지통으로 들어가므로 한동안 복원은 가능합니다.\n· 학생 명단·출결의 반과는 무관합니다(홈 안내문만 지워집니다).\n\n잠깐 내려두실 거라면 삭제 대신 「홈에 공개」를 끄세요.')) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/timetable-write', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken },
+        body: JSON.stringify({ pageId: t.id }),
+      });
+      const data = await res.json();
+      if (data.ok) { showToast('삭제했습니다.'); await loadAdminTimetable(); }
+      else { showToast('삭제 실패: ' + (data.error || '오류')); btn.disabled = false; }
+    } catch (e) { showToast('삭제 실패: 네트워크 오류'); btn.disabled = false; }
   }
 
   // ── 공지사항 로드 ──
