@@ -28,9 +28,19 @@ function nh(env) {
   };
 }
 
+// 🔒 원장 전용 — 이중 잠금 (2026-09-18)
+//   관우T 지시: "조교계정이 홈 홍보문구 홈클립 이런걸 볼 수 있으면 안 되지".
+//   _middleware.js 의 STAFF_GET_BLOCK 이 '/api/timetable-write'를 막지만, 미들웨어 한 겹만 믿지 않는다.
+//   ⚠️ 미들웨어는 조교(ast_) 토큰을 **Bearer ADMIN_PASSWORD 로 번역해서** 내려보낸다.
+//      그래서 아래 token 비교만으로는 원장과 조교를 구분할 수 없다 — 역할은 헤더로 본다.
+//      X-Kw-Actor-Role / X-Staff-Phone 은 미들웨어가 요청이 들어오는 즉시 지우고 검증된 값만 다시
+//      붙이므로 외부에서 위조해 넣을 수 없다. audit-log.js·undo-upload.js 와 같은 방식이다.
 function auth(request, env) {
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '');
-  return token === env.ADMIN_PASSWORD;
+  if (!env.ADMIN_PASSWORD || token !== env.ADMIN_PASSWORD) return false;
+  if ((request.headers.get('X-Kw-Actor-Role') || '') === 'staff') return false;
+  if (request.headers.get('X-Staff-Phone')) return false;
+  return true;
 }
 
 // 노션 rich_text/title 은 조각이 여러 개로 쪼개질 수 있다 — [0] 만 읽으면 뒷부분이 조용히 잘린다.

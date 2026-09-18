@@ -63,6 +63,18 @@ const STAFF_GET_BLOCK = new Set([
   //    무엇을 열었는지는 그 특례 주석에 적혀 있다. 통째로 열린 게 아니다.
   // ▲▲▲ LIFELOG 끝 ▲▲▲
   // '/api/surveys'는 staffAllowed 특례로 처리(조교=퀴즈만). surveys.js가 X-Staff-Phone로 quiz=1 전용 강제.
+  // ▼▼▼ 2026-09-18 신설 — 홈 화면(클립·시간표) 편집 API ▼▼▼
+  // 🔴 관우T 지시: "조교계정이 홈 홍보문구 홈클립 이런걸 볼 수 있으면 안 되지".
+  //    ⚠️ 차단 사유가 위의 다른 줄들과 **다르다**. 개인정보가 새서가 아니라 **권한 범위**다 —
+  //    홈 화면 카피·릴스·반 편성은 관우T의 브랜드 영역이고 조교의 업무 범위가 아니다.
+  //    다음 세션이 "여긴 민감정보가 없는데 왜 막았나"로 지우지 말 것. 데이터 등급이 아니라 역할 경계다.
+  //    쓰기(POST·PATCH·DELETE)는 STAFF_WRITE_ALLOW에 없어 이미 403이고, 여기서 GET(목록)까지 막는다.
+  //    clips-write.js·timetable-write.js 안에서도 X-Kw-Actor-Role로 한 번 더 막는다(이중 잠금 — audit-log.js와 같은 방식).
+  //    ※ 공개용 '/api/clips'·'/api/timetable'은 그대로 둔다. 그건 홈페이지가 부르는 공개 API라
+  //      막으면 방문자에게 홈이 깨진다(조교 차단과 무관한 자리다).
+  '/api/clips-write',
+  '/api/timetable-write',
+  // ▲▲▲ 2026-09-18 신설 끝 ▲▲▲
 ]);
 const STAFF_WRITE_ALLOW = new Set([
   '/api/push-subscribe',   // 조교 본인 알림 구독/해제
